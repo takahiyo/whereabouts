@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>在席確認表</title>
+<title>在席確認表（最小構成）</title>
 <style>
   :root{
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
@@ -17,7 +17,6 @@
   button:hover{background:#f7f7f7}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* ボード */
   .board{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px}
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
@@ -28,9 +27,8 @@
   td.status{width:28%}
   td.time{width:22%}
   td.note{width:28%}
-  select,input[type="text"],select[name="time"]{width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);border-radius:4px;background:#fff;font-size:14px}
+  select,input[type="text"]{width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);border-radius:4px;background:#fff;font-size:14px}
 
-  /* ステータス色 */
   tr[data-status="在席"]{background:var(--present)}
   tr[data-status="外出"]{background:var(--away)}
   tr[data-status="休み"],tr[data-status="健康診断"],tr[data-status="コアドック"]{background:var(--off)}
@@ -38,55 +36,22 @@
   tr[data-status="在宅勤務"]{background:var(--remote)}
   tr[data-status="出張"],tr[data-status="研修"]{background:var(--away)}
 
-  /* 自動保存インジケーター */
-  .autosave-indicator{position:fixed;top:20px;right:20px;padding:8px 12px;border-radius:4px;font-size:12px;z-index:1000;transition:all .3s ease;opacity:0}
-  .autosave-indicator.saving{background:#ffeaa7;color:#d63031;opacity:1}
-  .autosave-indicator.saved{background:#00b894;color:#fff;opacity:1}
-  .autosave-indicator.syncing{background:#74b9ff;color:#fff;opacity:1}
-
-  /* 通知/同期表示 */
-  .notification{position:fixed;top:80px;right:20px;background:#0073bb;color:#fff;padding:12px 16px;border-radius:4px;z-index:1500;opacity:0;transform:translateX(100%);transition:all .3s ease;max-width:300px;word-wrap:break-word}
-  .notification.show{opacity:1;transform:translateX(0)}
-  .sync-status{position:fixed;bottom:20px;right:20px;padding:6px 10px;border-radius:4px;font-size:11px;z-index:1000;background:#2d3748;color:#fff;opacity:.7}
-  .sync-status.online{background:#38a169}
-  .sync-status.offline{background:#e53e3e}
-
-  /* QRコード */
-  .qr-modal{display:none;position:fixed;z-index:2000;inset:0;background:rgba(0,0,0,.5)}
-  .qr-modal-content{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:20px;border-radius:8px;text-align:center;max-width:90%}
-  .qr-close{position:absolute;top:10px;right:15px;font-size:24px;cursor:pointer}
-  #qrcode{margin:10px 0}
+  .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
+  .toast.show{opacity:1}
 
   @media(max-width:768px){.board{grid-template-columns:1fr;gap:12px}header{flex-direction:column;gap:12px}header .tools{margin-left:0;justify-content:center}body{margin:8px}button{font-size:14px;padding:.4rem .6rem}}
-  @media(max-width:480px){th,td{font-size:12px;padding:4px}.notification{right:10px;max-width:calc(100vw - 20px)}.autosave-indicator{right:10px}}
-  @media print{header,.tools,.autosave-indicator,.qr-modal,.notification,.sync-status{display:none}body{margin:0}.board{gap:10px}th,td{font-size:12px;padding:4px}}
+  @media print{header,.toast{display:none}body{margin:0}.board{gap:10px}th,td{font-size:12px;padding:4px}}
 </style>
 </head>
 <body>
   <header>
     <h1>在席確認表</h1>
     <div class="tools">
-      <button id="showQR">QRコード表示</button>
       <button id="printBtn">印刷</button>
     </div>
   </header>
 
-  <div id="autosaveIndicator" class="autosave-indicator"></div>
-  <div id="syncStatus" class="sync-status">オフライン</div>
-  <div id="notification" class="notification"></div>
-
-  <!-- QRコードモーダル -->
-  <div id="qrModal" class="qr-modal">
-    <div class="qr-modal-content">
-      <span class="qr-close" id="qrClose">&times;</span>
-      <h3>在席確認表へのアクセス</h3>
-      <div id="qrcode"></div>
-      <p>上のQRコードをスマートフォンで読み取ってアクセスできます</p>
-      <p><strong>URL:</strong> <span id="currentUrl"></span></p>
-      <button id="copyUrlBtn">URLをコピー</button>
-    </div>
-  </div>
-
+  <div id="toast" class="toast"></div>
   <div class="board" id="board"></div>
 
   <datalist id="note-suggestions">
@@ -96,64 +61,61 @@
   </datalist>
 
 <script>
-/* ====== 簡易QRライブラリ（create(text, level) の2引数） ====== */
-!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):(e=e||self).QRCode=t()}(this,function(){"use strict";function e(e){this.mode=r.MODE_8BIT_BYTE,this.data=e,this.parsedData=[];for(var t=0,o=this.data.length;t<o;t++){var n=this.data.charCodeAt(t);n<128?this.parsedData.push(n):n<2048?(this.parsedData.push(192|n>>6),this.parsedData.push(128|63&n)):n<55296||n>=57344?(this.parsedData.push(224|n>>12),this.parsedData.push(128|n>>6&63),this.parsedData.push(128|63&n)):(t++,n=65536+((1023&n)<<10)+(1023&this.data.charCodeAt(t)),this.parsedData.push(240|n>>18),this.parsedData.push(128|n>>12&63),this.parsedData.push(128|n>>6&63),this.parsedData.push(128|63&n))}this.parsedData=this.parsedData.slice()}e.prototype={getLength:function(){return this.parsedData.length},write:function(e){for(var t=0,o=this.parsedData.length;t<o;t++)e.put(this.parsedData[t],8)}};var t=e,o=function(e){for(var t=0,o=0,r=0;r<e.length;r++){var n=e.charCodeAt(r);128>n?t++:2048>n?t+=2:55296>n||57344<=n?t+=3:(r++,t+=4)}return o=t};function r(e){this.errorCorrectLevel=s.L,this.qrNumber=0,this.modules=null,this.moduleCount=0,this.dataCache=null,this.rsBlocks=null,void 0!=e&&(this.qrNumber=e.qrNumber,this.errorCorrectLevel=e.errorCorrectLevel),this.modules=null,this.addData(e.text),this.make()}r.prototype={qrNumber:0,errorCorrectLevel:s.L,modules:null,moduleCount:0,addData:function(e){this.dataCache=new t(e),this.make()},isDark:function(e,t){if(0>e||this.moduleCount<=e||0>t||this.moduleCount<=t)throw Error(e+","+t);return this.modules[e][t]},getModuleCount:function(){return this.moduleCount},make:function(){if(1>this.qrNumber){for(var e=1;40>e;e++){for(var t=l.getRSBlocks(e,this.errorCorrectLevel),r=new h,n=0;n<t.length;n++)r.put(t[n].dataCount,8);r.put(this.dataCache.parsedData.length,8);for(var i=0;i<this.dataCache.parsedData.length;i++)r.put(this.dataCache.parsedData[i],8);if(r.getLengthInBits()<=8*t[0].totalCount)break}this.qrNumber=e}this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(e,t){this.moduleCount=4*this.qrNumber+17,this.modules=Array(this.moduleCount);for(var o=0;o<this.moduleCount;o++){this.modules[o]=Array(this.moduleCount);for(var r=0;r<this.moduleCount;r++)this.modules[o][r]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(e,t),7<=this.qrNumber&&this.setupTypeNumber(e),null==this.dataCache&&(this.dataCache=new t("")),this.mapData(this.dataCache,t)},setupPositionProbePattern:function(e,t){for(var o=-1;7>=o;o++)if(!(-1>=e+o||this.moduleCount<=e+o))for(var r=-1;7>=r;r++)-1>=t+r||this.moduleCount<=t+r||((0<=o&&6>=o&&(0==r||6==r)||0<=r&&6>=r&&(0==o||6==o)||2<=o&&4>=o&&2<=r&&4>=r)?this.modules[e+o][t+r]=!0:this.modules[e+o][t+r]=!1)},getBestMaskPattern:function(){for(var e=0,t=0,o=0;8>o;o++){this.makeImpl(!0,o);var r=f.getLostPoint(this);(0==o||e>r)&&(e=r,t=o)}return t},setupTimingPattern:function(){for(var e=8;e<this.moduleCount-8;e++)null==this.modules[e][6]&&(this.modules[e][6]=0==e%2);for(var t=8;t<this.moduleCount-8;t++)null==this.modules[6][t]&&(this.modules[6][t]=0==t%2)},setupPositionAdjustPattern:function(){for(var e=f.getPatternPosition(this.qrNumber),t=0;t<e.length;t++)for(var o=0;o<e.length;o++){var r=e[t],n=e[o];if(null==this.modules[r][n])for(var i=-2;2>=i;i++)for(var s=-2;2>=s;s++)this.modules[r+i][n+s]=-2==i||2==i||-2==s||2==s||0==i&&0==s}},setupTypeNumber:function(e){for(var t=f.getBCHTypeNumber(this.qrNumber),o=0;18>o;o++){var r=!e&&1==(1&t>>o);this.modules[Math.floor(o/3)][o%3+this.moduleCount-8-3]=r}for(var o=0;18>o;o++){var r=!e&&1==(1&t>>o);this.modules[o%3+this.moduleCount-8-3][Math.floor(o/3)]=r}},setupTypeInfo:function(e,t){for(var o=this.errorCorrectLevel<<3|t,r=f.getBCHTypeInfo(o),n=0;15>n;n++){var i=!e&&1==(1&r>>n);6>n?this.modules[n][8]=i:8>n?this.modules[n+1][8]=i:this.modules[this.moduleCount-15+n][8]=i}for(var n=0;15>n;n++){var i=!e&&1==(1&r>>n);8>n?this.modules[8][this.moduleCount-n-1]=i:9>n?this.modules[8][15-n-1+1]=i:this.modules[8][15-n-1]=i}this.modules[this.moduleCount-8][8]=!e},mapData:function(e,t){for(var o=-1,r=this.moduleCount-1,n=7,i=0,s=this.moduleCount-1;s>0;s-=2)for(6==s&&s--;;){for(var a=0;2>a;a++)if(null==this.modules[r][s-a]){var u=!1;i<e.parsedData.length&&(u=1==(1&e.parsedData[i]>>n));var l=f.getMask(t,r,s-a);l&&(u=!u),this.modules[r][s-a]=u,n--,-1==n&&(i++,n=7)}if(r+=o,0>r||this.moduleCount<=r){r-=o,o=-o;break}}}};var n=r,i={L:1,M:0,Q:3,H:2},s=i,a={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},u={BUFFER_SIZE:256,buffer:Array(256),bufferPointer:0,get:function(e){var t=Math.floor(e/8);return 1==(1&this.buffer[t]>>7-e%8)},put:function(e,t){for(var o=0;o<t;o++)this.putBit(1==(1&e>>t-o-1))},getLengthInBits:function(){return this.bufferPointer},putBit:function(e){var t=Math.floor(this.bufferPointer/8);this.bufferPointer>=8*this.buffer.length&&(this.buffer=this.buffer.concat(Array(this.buffer.length))),this.buffer[t]|=(e?1:0)<<7-this.bufferPointer%8,this.bufferPointer++}},l=function(){var e=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],t=1335,o=7973,r=21522,n={},a=function(e){for(var t=0;0!=e;)t++,e>>>=1;return t};return n.getBCHTypeInfo=function(e){for(var o=e<<10;a(o)-a(t)>=0;)o^=t<<a(o)-a(t);return(e<<10|o)^r},n.getBCHTypeNumber=function(e){for(var t=e<<12;a(t)-a(o)>=0;)t^=o<<a(t)-a(o);return e<<12|t},n.getPatternPosition=function(t){return e[t-1]},n.getMask=function(e,t,o){switch(e){case 0:return 0==(t+o)%2;case 1:return 0==t%2;case 2:return 0==o%3;case 3:return 0==(t+o)%3;case 4:return 0==(Math.floor(t/2)+Math.floor(o/3))%2;case 5:return 0==t*o%2+t*o%3;case 6:return 0==(t*o%2+t*o%3)%2;case 7:return 0==(t*o%3+(t+o)%2)%2;default:throw Error("bad maskPattern:"+e)}},n.getErrorCorrectPolynomial=function(e){for(var t=c([1],0),o=0;o<e;o++)t=t.multiply(c([1,d.gexp(o)],0));return t},n.getLengthInBits=function(e,t){if(1<=t&&10>t)switch(e){case 1:return 10;case 2:return 9;case n:return 8;case 4:return 8;default:throw Error("mode:"+e)}else if(27>t)switch(e){case 1:return 12;case 2:return 11;case 4:return 16;case 8:return 10;default:throw Error("mode:"+e)}else{if(!(41>t))throw Error("type:"+t);switch(e){case 1:return 14;case 2:return 13;case 4:return 16;case 8:return 12;default:throw Error("mode:"+e)}}},n.getLostPoint=function(e){for(var t=e.getModuleCount(),o=0,r=0;r<t;r++)for(var n=0;n<t;n++){for(var i=0,s=e.isDark(r,n),a=-1;1>=a;a++)if(!(0>r+a||r+a>=t))for(var u=-1;1>=u;u++)0>n+u||n+u>=t||0==a&&0==u||s==e.isDark(r+a,n+u)&&i++;i>5&&(o+=3+i-5)}for(var r=0;r<t-1;r++)for(var n=0;n<t-1;n++){var l=0;e.isDark(r,n)&&l++,e.isDark(r+1,n)&&l++,e.isDark(r,n+1)&&l++,e.isDark(r+1,n+1)&&l++,0!=l&&4!=l||(o+=3)}for(var r=0;r<t;r++)for(var n=0;n<t-6;n++)e.isDark(r,n)&&!e.isDark(r,n+1)&&e.isDark(r,n+2)&&e.isDark(r,n+3)&&e.isDark(r,n+4)&&!e.isDark(r,n+5)&&e.isDark(r,n+6)&&(o+=40);for(var n=0;n<t;n++)for(var r=0;r<t-6;r++)e.isDark(r,n)&&!e.isDark(r+1,n)&&e.isDark(r+2,n)&&e.isDark(r+3,n)&&e.isDark(r+4,n)&&!e.isDark(r+5,n)&&e.isDark(r+6,n)&&(o+=40);for(var h=0,n=0;n<t;n++)for(var r=0;r<t;r++)e.isDark(r,n)&&h++;var f=Math.abs(100*h/t/t-50)/5;return o+=10*f,o},n}(),h=function(){var e=[],t=0,o={getBuffer:function(){return e},getAt:function(t){var o=Math.floor(t/8);return 1==(1&e[o]>>7-t%8)},put:function(e,t){for(var o=0;o<t;o++)this.putBit(1==(1&e>>t-o-1))},getLengthInBits:function(){return t},putBit:function(o){var r=Math.floor(t/8);e.length<=r&&e.push(0),o&&(e[r]|=(128>>>t%8)),t++}};return o},f=l,c=function(e,t){if(void 0==e.length)throw Error(e.length+"/"+t);var o=function(){for(var o=0;o<e.length&&0==e[o];)o++;for(var r=Array(e.length-o+t),n=0;n<e.length-o;n++)r[n]=e[n+o];return r}(),r={getAt:function(e){return o[e]},getLength:function(){return o.length},multiply:function(e){for(var t=Array(this.getLength()+e.getLength()-1),o=0;o<this.getLength();o++)for(var r=0;r<e.getLength();r++)t[o+r]^=d.gexp(d.glog(this.getAt(o))+d.glog(e.getAt(r)));return c(t,0)},mod:function(e){if(this.getLength()-e.getLength()<0)return this;for(var t=d.glog(this.getAt(0))-d.glog(e.getAt(0)),o=Array(this.getLength()),r=0;r<this.getLength();r++)o[r]=this.getAt(r);for(var r=0;r<e.getLength();r++)o[r]^=d.gexp(d.glog(e.getAt(r))+t);return c(o,0).mod(e)}};return r},d=function(){for(var e=Array(256),t=Array(256),o=0;8>o;o++)e[o]=1<<o;for(var o=8;256>o;o++)e[o]=e[o-4]^e[o-5]^e[o-6]^e[o-8];for(var o=0;255>o;o++)t[e[o]]=o;var r={glog:function(e){if(1>e)throw Error("glog("+e+")");return t[e]},gexp:function(t){for(;0>t;)t+=255;for(;t>=256;)t-=255;return e[t]}};return r}();
-return {create:function(text, level){var ec={L:1,M:0,Q:3,H:2}[level||'M'];var qr=new n({qrNumber:-1,errorCorrectLevel:ec,text:text});return qr;}}});
-
-/* ====== 定数/状態 ====== */
+/* ====== 定数 ====== */
 const board = document.getElementById('board');
-const autosaveIndicator = document.getElementById('autosaveIndicator');
-const notification = document.getElementById('notification');
-const syncStatus = document.getElementById('syncStatus');
-const storeKey = 'presence-board-v2';
-const syncKey = 'presence-board-sync-v2';
+const toast = document.getElementById('toast');
+const storeKey = 'presence-board-v2-min';
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
-let saveTimeout=null,lastSaveTime=0,isOnline=navigator.onLine;
 
-/* ====== 名簿（画像の並び） ====== */
+/* ====== 名簿（列の並びは画像準拠） ====== */
 const groups = [
-  ["村田","今泉","北村","大野","長谷川","横内"],
-  ["佐藤","井上","折原","金村","水野","坪井"],
-  ["清水","加藤","石垣","橋本","末永","田中光","大石","井山"],
-  ["飯島","能登","松浦","永峯","清","長森","山本"],
-  ["伊藤隆","小森","三浦","中村純","朝井","稲葉"],
-  ["吉田","阿部","伊藤裕","中村清","平良","若山","竹森","平八重"],
-  ["鈴木","中村亮","江場","三島","吉田","小川","伊藤尊"]
+  ["村田","今泉","北村","大野","長谷川","横内"],                 // 左上
+  ["佐藤","井上","折原","金村","水野","坪井"],                     // 左下
+  ["清水","加藤","石垣","橋本","末永","田中光","大石","井山"],     // 中上
+  ["飯島","能登","松浦","永峯","清","長森","山本"],                 // 中下
+  ["伊藤隆","小森","三浦","中村純","朝井","稲葉"],                 // 右上
+  ["吉田","阿部","伊藤裕","中村清","平良","若山","竹森","平八重"], // 右中
+  ["鈴木","中村亮","江場","三島","吉田","小川","伊藤尊"]           // 中央下
 ];
 
-/* ====== HTML生成 ====== */
+/* ====== 画面描画 ====== */
 function generateTimeOptions(){
   const opts=['<option value="">--</option>'];
-  for(let h=0;h<24;h++){for(let m=0;m<60;m+=30){const t=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');opts.push(`<option value="${t}">${t}</option>`);}}
+  for(let h=0;h<24;h++){for(let m=0;m<60;m+=30){
+    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    opts.push(`<option value="${t}">${t}</option>`);
+  }}
   return opts.join('');
 }
 function rowHtml(gIndex,rIndex,name){
   const key=`${gIndex}-${rIndex}`;
   return `
-    <tr id="row-${key}" data-key="${key}" data-status="在席">
-      <td class="name">${name}</td>
-      <td class="status">
-        <label class="sr-only" for="status-${key}">ステータス</label>
-        <select id="status-${key}" name="status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}</select>
-      </td>
-      <td class="time">
-        <label class="sr-only" for="time-${key}">戻り時間</label>
-        <select id="time-${key}" name="time">${generateTimeOptions()}</select>
-      </td>
-      <td class="note">
-        <label class="sr-only" for="note-${key}">備考</label>
-        <input id="note-${key}" name="note" type="text" list="note-suggestions" />
-      </td>
-    </tr>`;
+  <tr id="row-${key}" data-key="${key}" data-status="在席">
+    <td class="name">${name}</td>
+    <td class="status">
+      <label class="sr-only" for="status-${key}">ステータス</label>
+      <select id="status-${key}" name="status">
+        ${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}
+      </select>
+    </td>
+    <td class="time">
+      <label class="sr-only" for="time-${key}">戻り時間</label>
+      <select id="time-${key}" name="time">${generateTimeOptions()}</select>
+    </td>
+    <td class="note">
+      <label class="sr-only" for="note-${key}">備考</label>
+      <input id="note-${key}" name="note" type="text" list="note-suggestions" />
+    </td>
+  </tr>`;
 }
 function panelHtml(gIndex,names){
   return `
-    <section class="panel">
-      <table aria-label="在席表">
-        <thead><tr><th>氏名</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr></thead>
-        <tbody>${names.map((n,i)=>rowHtml(gIndex,i,n)).join("")}</tbody>
-      </table>
-    </section>`;
+  <section class="panel">
+    <table aria-label="在席表">
+      <thead><tr><th>氏名</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr></thead>
+      <tbody>${names.map((n,i)=>rowHtml(gIndex,i,n)).join("")}</tbody>
+    </table>
+  </section>`;
 }
 function render(){
   board.innerHTML = groups.map((g,i)=>panelHtml(i,g)).join('');
@@ -162,129 +124,39 @@ function render(){
   recalcRowColors();
 }
 
-/* ====== 同期/保存/通知 ====== */
-function updateSyncStatus(){
-  if(isOnline){syncStatus.textContent='オンライン';syncStatus.className='sync-status online';}
-  else{syncStatus.textContent='オフライン';syncStatus.className='sync-status offline';}
-}
-function broadcastChange(data){
-  if(!isOnline) return;
-  const syncData={data,timestamp:Date.now(),sessionId:getSessionId()};
-  try{
-    localStorage.setItem(syncKey,JSON.stringify(syncData));
-    showAutosaveIndicator('syncing','同期中...');
-    setTimeout(()=>{showAutosaveIndicator('saved','同期完了');},500);
-  }catch(e){console.warn('同期に失敗',e)}
-}
-function getSessionId(){
-  let id=sessionStorage.getItem('attendance-session-id');
-  if(!id){id=Date.now().toString(36)+Math.random().toString(36).slice(2);sessionStorage.setItem('attendance-session-id',id);}return id;
-}
-function listenForChanges(){
-  window.addEventListener('storage',e=>{
-    if(e.key===syncKey&&e.newValue){
-      try{
-        const syncData=JSON.parse(e.newValue);
-        if(syncData.sessionId!==getSessionId()){
-          applyRemoteChanges(syncData.data);
-          showNotification('他の端末から更新されました');
-          saveState(getCurrentState());
-        }
-      }catch(err){console.warn('同期データ解析失敗',err)}
-    }
+/* ====== 事件ハンドラ ====== */
+function attachHandlers(){
+  board.querySelectorAll("select,input").forEach(el=>{
+    el.addEventListener("change", ()=>{saveState();recalcRowColors();toggleTime(el)});
+    if(el.name==="status") toggleTime(el);
   });
-  window.addEventListener('online',()=>{isOnline=true;updateSyncStatus();syncWithServer()});
-  window.addEventListener('offline',()=>{isOnline=false;updateSyncStatus()});
 }
-function applyRemoteChanges(data){
-  Object.entries(data).forEach(([k,v])=>{
-    const s=document.getElementById(`status-${k}`), t=document.getElementById(`time-${k}`), n=document.getElementById(`note-${k}`);
-    if(s&&STATUSES.includes(v.status)) s.value=v.status;
-    if(t) t.value=v.time||'';
-    if(n) n.value=v.note||'';
-  });
-  recalcRowColors();
+function toggleTime(el){
+  const key = el.id.replace("status-","");
+  const timeSel = document.getElementById(`time-${key}`);
+  const needs = ["外出","出張","研修"].includes(el.value);
+  timeSel.disabled = !needs;
+  if(!needs) timeSel.value = "";
 }
-function syncWithServer(){ if(isOnline){const data=getCurrentState();broadcastChange(data);} }
-function getCurrentState(){
+
+/* ====== 保存 ====== */
+function getState(){
   const data={};
-  board.querySelectorAll('tbody tr').forEach(tr=>{
-    const key=tr.dataset.key;
-    data[key]={
-      status:tr.querySelector('select[name="status"]').value,
-      time:tr.querySelector('select[name="time"]').value,
-      note:tr.querySelector('input[name="note"]').value
+  board.querySelectorAll("tbody tr").forEach(tr=>{
+    const k=tr.dataset.key;
+    data[k]={
+      status: tr.querySelector('select[name="status"]').value,
+      time:   tr.querySelector('select[name="time"]').value,
+      note:   tr.querySelector('input[name="note"]').value
     };
   });
   return data;
 }
-function showAutosaveIndicator(status,message){
-  autosaveIndicator.className=`autosave-indicator ${status}`;
-  autosaveIndicator.textContent=message;
-  autosaveIndicator.style.opacity='1';
-  if(status==='saved'||status==='syncing'){setTimeout(()=>{autosaveIndicator.style.opacity='0';},2000)}
-}
-function debouncedSave(){
-  if(saveTimeout) clearTimeout(saveTimeout);
-  showAutosaveIndicator('saving','保存中...');
-  saveTimeout=setTimeout(()=>{
-    const data=getCurrentState();
-    saveState(data);
-    broadcastChange(data);
-    lastSaveTime=Date.now();
-    showAutosaveIndicator('saved','保存しました');
-  },1000);
-}
-function startAutoSave(){
-  setInterval(()=>{
-    const now=Date.now();
-    if(now-lastSaveTime>30000){
-      const data=getCurrentState();
-      saveState(data); broadcastChange(data);
-      lastSaveTime=now; showAutosaveIndicator('saved','自動保存しました');
-    }
-  },30000);
-}
-function showNotification(message){
-  notification.textContent=message;notification.classList.add('show');
-  setTimeout(()=>notification.classList.remove('show'),5000);
-}
-function checkReturnTimes(){
-  const d=new Date();const hh=String(d.getHours()).padStart(2,'0');const mm=String(d.getMinutes()).padStart(2,'0');const now=`${hh}:${mm}`;
-  board.querySelectorAll('select[name="time"]').forEach(sel=>{
-    if(sel.value===now){
-      const tr=sel.closest('tr');const name=tr.querySelector('.name').textContent;const st=tr.querySelector('select[name="status"]').value;
-      if(['外出','出張','研修'].includes(st)){
-        showNotification(`${name}さんの戻り予定時間です（${st}）`);
-        if('Notification'in window && Notification.permission==='granted')
-          new Notification('在席確認表',{body:`${name}さんの戻り予定時間です（${st}）`,icon:'favicon.ico'});
-      }
-    }
-  });
-}
-function startNotificationCheck(){ setInterval(checkReturnTimes,60000); }
-function requestNotificationPermission(){ if('Notification'in window && Notification.permission==='default'){ Notification.requestPermission(); } }
-
-/* ====== 保存 ====== */
-function attachHandlers(){
-  board.querySelectorAll('select,input').forEach(el=>{
-    el.addEventListener('change',()=>{debouncedSave();recalcRowColors();toggleTimeEnable(el)});
-    el.addEventListener('input',()=>{debouncedSave()});
-    if(el.name==='status') toggleTimeEnable(el);
-  });
-}
-function toggleTimeEnable(el){
-  if(el.name!=='status') return;
-  const key=el.id.replace('status-','');
-  const timeSel=document.getElementById(`time-${key}`);
-  const needs=["外出","出張","研修"].includes(el.value);
-  timeSel.disabled=!needs;
-  if(!needs) timeSel.value='';
-}
-function saveState(data=null){ if(!data) data=getCurrentState(); localStorage.setItem(storeKey,JSON.stringify(data)); }
+function saveState(){ localStorage.setItem(storeKey, JSON.stringify(getState())); show('保存しました'); }
 function loadState(){
-  const raw=localStorage.getItem(storeKey); if(!raw) return;
-  const data=JSON.parse(raw);
+  const raw = localStorage.getItem(storeKey);
+  if(!raw) return;
+  const data = JSON.parse(raw);
   Object.entries(data).forEach(([k,v])=>{
     const s=document.getElementById(`status-${k}`), t=document.getElementById(`time-${k}`), n=document.getElementById(`note-${k}`);
     if(s&&STATUSES.includes(v.status)) s.value=v.status;
@@ -292,47 +164,26 @@ function loadState(){
     if(n&&v.note) n.value=v.note;
   });
 }
-function recalcRowColors(){ board.querySelectorAll('tbody tr').forEach(tr=>{ tr.dataset.status=tr.querySelector('select[name="status"]').value; }); }
-
-/* ====== QRコード ====== */
-function generateQRCode(){
-  const currentUrl=location.href; document.getElementById('currentUrl').textContent=currentUrl;
-  const qrcode=document.getElementById('qrcode'); qrcode.innerHTML='';
-  try{
-    const qr=QRCode.create(currentUrl,'M');
-    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('width','200'); svg.setAttribute('height','200');
-    const N=qr.modules.length; const cell=200/N;
-    for(let r=0;r<N;r++){ for(let c=0;c<N;c++){ if(qr.modules[r][c]){ const rect=document.createElementNS('http://www.w3.org/2000/svg','rect'); rect.setAttribute('x',c*cell); rect.setAttribute('y',r*cell); rect.setAttribute('width',cell); rect.setAttribute('height',cell); rect.setAttribute('fill','#000'); svg.appendChild(rect);} } }
-    qrcode.appendChild(svg);
-  }catch(err){ console.error('QR生成エラー',err); qrcode.innerHTML='<p>QRコードの生成に失敗しました</p>'; }
-}
-function showQRModal(){ generateQRCode(); document.getElementById('qrModal').style.display='block'; }
-function closeQRModal(){ document.getElementById('qrModal').style.display='none'; }
-function copyUrl(){
-  const url=location.href;
-  navigator.clipboard.writeText(url).then(()=>showNotification('URLをコピーしました')).catch(()=>{
-    const ta=document.createElement('textarea'); ta.value=url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    showNotification('URLをコピーしました');
+function recalcRowColors(){
+  board.querySelectorAll("tbody tr").forEach(tr=>{
+    tr.dataset.status = tr.querySelector('select[name="status"]').value;
   });
 }
 
-/* ====== 初期化 ====== */
-function initializeApp(){
-  render(); updateSyncStatus(); listenForChanges(); startAutoSave(); startNotificationCheck(); requestNotificationPermission(); lastSaveTime=Date.now(); syncWithServer();
+/* ====== ユーティリティ ====== */
+function show(msg){
+  toast.textContent = msg; toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'), 1200);
 }
 
-/* ====== 起動時イベント ====== */
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('printBtn').addEventListener('click',()=>window.print());
-  document.getElementById('showQR').addEventListener('click',showQRModal);
-  document.getElementById('qrClose').addEventListener('click',closeQRModal);
-  document.getElementById('qrModal').addEventListener('click',e=>{ if(e.target.id==='qrModal') closeQRModal(); });
-  document.getElementById('copyUrlBtn').addEventListener('click',copyUrl);
-  initializeApp();
-});
+/* ====== 起動 ====== */
+document.getElementById('printBtn').addEventListener('click',()=>window.print());
+document.addEventListener('DOMContentLoaded', render);
 
-/* 離脱前に保存 */
-window.addEventListener('beforeunload',()=>{ const data=getCurrentState(); saveState(data); broadcastChange(data); });
+/* もしスクリプトエラーが起きたら画面に出す（デバッグ用） */
+window.addEventListener('error', e=>{
+  toast.style.background='#c53030'; toast.textContent = 'エラー: ' + e.message; toast.classList.add('show');
+});
 </script>
 </body>
 </html>
