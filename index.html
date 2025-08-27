@@ -25,9 +25,9 @@
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
   th{text-align:left}
 
-  /* 列幅（要望反映） */
+  /* 列幅（ご要望反映） */
   td.name{background:#fff;width:18%}
-  td.status{width:35%;min-width:10.5em}  /* コアドックも切れない */
+  td.status{width:35%;min-width:10.5em}  /* コアドックが切れない幅 */
   td.time{width:12%;min-width:6.2em}     /* セル自体も狭く */
   td.note{width:35%}
 
@@ -38,7 +38,7 @@
   }
   td.time select{width:100%} /* プルダウンはセル幅にフィット */
 
-  /* 備考：候補 + 自由入力（空の選択肢だけ） */
+  /* 備考：候補 + 自由入力（先頭は空の選択肢だけ） */
   .note .wrap{display:flex;gap:6px;align-items:center}
   .note .quick{flex:0 0 7.5em}
   .note .free{flex:1 1 auto}
@@ -55,13 +55,7 @@
   .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
   .toast.show{opacity:1}
 
-  /* QRモーダル */
-  .qr{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000}
-  .qr .content{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:20px;border-radius:8px;text-align:center;max-width:92vw}
-  .qr .close{position:absolute;top:8px;right:12px;font-size:22px;cursor:pointer}
-  #qrcode{margin:10px 0}
-
-  /* モバイル最適化 */
+  /* スマホ最適化 */
   @media(max-width:768px){
     .board{grid-template-columns:1fr;gap:12px}
     header{flex-direction:column;gap:12px}
@@ -70,14 +64,13 @@
     button,select,input[type="text"]{font-size:16px} /* iOSズーム防止 */
     th,td{padding:8px}
   }
-  @media print{header,.toast,.qr{display:none}body{margin:0}.board{gap:10px}th,td{font-size:12px;padding:4px}}
+  @media print{header,.toast{display:none}body{margin:0}.board{gap:10px}th,td{font-size:12px;padding:4px}}
 </style>
 </head>
 <body>
   <header>
-    <h1>在席確認表（モバイル・QR・同期対応）</h1>
+    <h1>在席確認表（同期対応）</h1>
     <div class="tools">
-      <button id="btnQR">QRコード表示</button>
       <button id="btnPrint">印刷</button>
     </div>
   </header>
@@ -87,38 +80,26 @@
   <!-- 盤面 -->
   <div id="board" class="board"></div>
 
-  <!-- QRモーダル -->
-  <div id="qrModal" class="qr" aria-hidden="true">
-    <div class="content">
-      <span class="close" id="qrClose" aria-label="閉じる">&times;</span>
-      <h3>スマートフォンで開く</h3>
-      <div id="qrcode"></div>
-      <p style="word-break:break-all"><strong>URL:</strong> <span id="currentUrl"></span></p>
-      <button id="copyUrl">URLをコピー</button>
-    </div>
-  </div>
-
 <script>
-/* ==== 軽量QR生成（QRCode.create(text,'M') を提供） ==== */
-/* !function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):(e=e||self).QRCode=t()}(this,function(){"use strict";function e(e){this.mode=r.MODE_8BIT_BYTE,this.data=e,this.parsedData=[];for(var t=0,o=this.data.length;t<o;t++){var n=this.data.charCodeAt(t);n<128?this.parsedData.push(n):n<2048?(this.parsedData.push(192|n>>6),this.parsedData.push(128|63&n)):n<55296||n>=57344?(this.parsedData.push(224|n>>12),this.parsedData.push(128|n>>6&63),this.parsedData.push(128|63&n)):(t++,n=65536+((1023&n)<<10)+(1023&this.data.charCodeAt(t)),this.parsedData.push(240|n>>18),this.parsedData.push(128|n>>12&63),this.parsedData.push(128|n>>6&63),this.parsedData.push(128|63&n))}this.parsedData=this.parsedData.slice()}e.prototype={getLength:function(){return this.parsedData.length},write:function(e){for(var t=0,o=this.parsedData.length;t<o;t++)e.put(this.parsedData[t],8)}};var t=e,o=function(e){for(var t=0,o=0,r=0;r<e.length;r++){var n=e.charCodeAt(r);128>n?t++:2048>n?t+=2:55296>n||57344<=n?t+=3:(r++,t+=4)}return o=t};function r(e){this.errorCorrectLevel=s.L,this.qrNumber=0,this.modules=null,this.moduleCount=0,this.dataCache=null,this.rsBlocks=null,void 0!=e&&(this.qrNumber=e.qrNumber,this.errorCorrectLevel=e.errorCorrectLevel),this.modules=null,this.addData(e.text),this.make()}r.prototype={qrNumber:0,errorCorrectLevel:s.L,modules:null,moduleCount:0,addData:function(e){this.dataCache=new t(e),this.make()},isDark:function(e,t){if(0>e||this.moduleCount<=e||0>t||this.moduleCount<=t)throw Error(e+","+t);return this.modules[e][t]},getModuleCount:function(){return this.moduleCount},make:function(){if(1>this.qrNumber){for(var e=1;40>e;e++){for(var t=l.getRSBlocks(e,this.errorCorrectLevel),r=new h,n=0;n<t.length;n++)r.put(t[n].dataCount,8);r.put(this.dataCache.parsedData.length,8);for(var i=0;i<this.dataCache.parsedData.length;i++)r.put(this.dataCache.parsedData[i],8);if(r.getLengthInBits()<=8*t[0].totalCount)break}this.qrNumber=e}this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(e,t){this.moduleCount=4*this.qrNumber+17,this.modules=Array(this.moduleCount);for(var o=0;o<this.moduleCount;o++){this.modules[o]=Array(this.moduleCount);for(var r=0;r<this.moduleCount;r++)this.modules[o][r]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(e,t),7<=this.qrNumber&&this.setupTypeNumber(e),null==this.dataCache&&(this.dataCache=new t("")),this.mapData(this.dataCache,t)},setupPositionProbePattern:function(e,t){for(var o=-1;7>=o;o++)if(!(-1>=e+o||this.moduleCount<=e+o))for(var r=-1;7>=r;r++)-1>=t+r||this.moduleCount<=t+r||((0<=o&&6>=o&&(0==r||6==r)||0<=r&&6>=r&&(0==o||6==o)||2<=o&&4>=o&&2<=r&&4>=r)?this.modules[e+o][t+r]=!0:this.modules[e+o][t+r]=!1)},getBestMaskPattern:function(){for(var e=0,t=0,o=0;8>o;o++){this.makeImpl(!0,o);var r=f.getLostPoint(this);(0==o||e>r)&&(e=r,t=o)}return t},setupTimingPattern:function(){for(var e=8;e<this.moduleCount-8;e++)null==this.modules[e][6]&&(this.modules[e][6]=0==e%2);for(var t=8;t<this.moduleCount-8;t++)null==this.modules[6][t]&&(this.modules[6][t]=0==t%2)},setupPositionAdjustPattern:function(){for(var e=f.getPatternPosition(this.qrNumber),t=0;t<e.length;t++)for(var o=0;o<e.length;o++){var r=e[t],n=e[o];if(null==this.modules[r][n])for(var i=-2;2>=i;i++)for(var s=-2;2>=s;s++)this.modules[r+i][n+s]=-2==i||2==i||-2==s||2==s||0==i&&0==s}},setupTypeNumber:function(e){for(var t=f.getBCHTypeNumber(this.qrNumber),o=0;18>o;o++){var r=!e&&1==(1&t>>o);this.modules[Math.floor(o/3)][o%3+this.moduleCount-8-3]=r}for(var o=0;18>o;o++){var r=!e&&1==(1&t>>o);this.modules[o%3+this.moduleCount-8-3][Math.floor(o/3)]=r}},setupTypeInfo:function(e,t){for(var o=this.errorCorrectLevel<<3|t,r=f.getBCHTypeInfo(o),n=0;15>n;n++){var i=!e&&1==(1&r>>n);6>n?this.modules[n][8]=i:8>n?this.modules[n+1][8]=i:this.modules[this.moduleCount-15+n][8]=i}for(var n=0;15>n;n++){var i=!e&&1==(1&r>>n);8>n?this.modules[8][this.moduleCount-n-1]=i:9>n?this.modules[8][15-n-1+1]=i:this.modules[8][15-n-1]=i}this.modules[this.moduleCount-8][8]=!e},mapData:function(e,t){for(var o=-1,r=this.moduleCount-1,n=7,i=0,s=this.moduleCount-1;s>0;s-=2)for(6==s&&s--;;){for(var a=0;2>a;a++)if(null==this.modules[r][s-a]){var u=!1;i<e.parsedData.length&&(u=1==(1&e.parsedData[i]>>n));var l=f.getMask(t,r,s-a);l&&(u=!u),this.modules[r][s-a]=u,n--,-1==n&&(i++,n=7)}if(r+=o,0>r||this.moduleCount<=r){r-=o,o=-o;break}}}};var n=r,i={L:1,M:0,Q:3,H:2},s=i,l=function(){var e=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],t=1335,o=7973,r=21522,n={},a=function(e){for(var t=0;0!=e;)t++,e>>>=1;return t};return n.getBCHTypeInfo=function(e){for(var o=e<<10;a(o)-a(t)>=0;)o^=t<<a(o)-a(t);return(e<<10|o)^r},n.getBCHTypeNumber=function(e){for(var t=e<<12;a(t)-a(o)>=0;)t^=o<<a(t)-a(o);return e<<12|t},n.getPatternPosition=function(t){return e[t-1]},n.getMask=function(e,t,o){switch(e){case 0:return 0==(t+o)%2;case 1:return 0==t%2;case 2:return 0==o%3;case 3:return 0==(t+o)%3;case 4:return 0==(Math.floor(t/2)+Math.floor(o/3))%2;case 5:return 0==t*o%2+t*o%3;case 6:return 0==(t*o%2+t*o%3)%2;case 7:return 0==(t*o%3+(t+o)%2)%2;default:throw Error("bad maskPattern:"+e)}},n.getErrorCorrectPolynomial=function(e){for(var t=c([1],0),o=0;o<e;o++)t=t.multiply(c([1,d.gexp(o)],0));return t},n.getLengthInBits=function(e,t){if(1<=t&&10>t)switch(e){case 1:return 10;case 2:return 9;case n:return 8;case 4:return 8;default:throw Error("mode:"+e)}else if(27>t)switch(e){case 1:return 12;case 2:return 11;case 4:return 16;case 8:return 10;default:throw Error("mode:"+e)}else{if(!(41>t))throw Error("type:"+t);switch(e){case 1:return 14;case 2:return 13;case 4:return 16;case 8:return 12;default:throw Error("mode:"+e)}}},n.getLostPoint=function(e){for(var t=e.getModuleCount(),o=0,r=0;r<t;r++)for(var n=0;n<t;n++){for(var i=0,s=e.isDark(r,n),a=-1;1>=a;a++)if(!(0>r+a||r+a>=t))for(var u=-1;1>=u;u++)0>n+u||n+u>=t||0==a&&0==u||s==e.isDark(r+a,n+u)&&i++;i>5&&(o+=3+i-5)}for(var r=0;r<t-1;r++)for(var n=0;n<t-1;n++){var l=0;e.isDark(r,n)&&l++,e.isDark(r+1,n)&&l++,e.isDark(r,n+1)&&l++,e.isDark(r+1,n+1)&&l++,0!=l&&4!=l||(o+=3)}for(var r=0;r<t;r++)for(var n=0;n<t-6;n++)e.isDark(r,n)&&!e.isDark(r,n+1)&&e.isDark(r,n+2)&&e.isDark(r,n+3)&&e.isDark(r,n+4)&&!e.isDark(r,n+5)&&e.isDark(r,n+6)&&(o+=40);for(var n=0;n<t;n++)for(var r=0;r<t-6;r++)e.isDark(r,n)&&!e.isDark(r+1,n)&&e.isDark(r+2,n)&&e.isDark(r+3,n)&&e.isDark(r+4,n)&&!e.isDark(r+5,n)&&e.isDark(r+6,n)&&(o+=40);for(var h=0,n=0;n<t;n++)for(var r=0;r<t;r++)e.isDark(r,n)&&h++;var f=Math.abs(100*h/t/t-50)/5;return o+=10*f,o},n}(),h=function(){var e=[],t=0,o={getBuffer:function(){return e},getAt:function(t){var o=Math.floor(t/8);return 1==(1&e[o]>>7-t%8)},put:function(e,t){for(var o=0;o<t;o++)this.putBit(1==(1&e>>t-o-1))},getLengthInBits:function(){return t},putBit:function(o){var r=Math.floor(t/8);e.length<=r&&e.push(0),o&&(e[r]|=(128>>>t%8)),t++}};return o},f=l,c=function(e,t){if(void 0==e.length)throw Error(e.length+"/"+t);var o=function(){for(var o=0;o<e.length&&0==e[o];)o++;for(var r=Array(e.length-o+t),n=0;n<e.length-o;n++)r[n]=e[n+o];return r}(),r={getAt:function(e){return o[e]},getLength:function(){return o.length},multiply:function(e){for(var t=Array(this.getLength()+e.getLength()-1),o=0;o<this.getLength();o++)for(var r=0;r<e.getLength();r++)t[o+r]^=d.gexp(d.glog(this.getAt(o))+d.glog(e.getAt(r)));return c(t,0)},mod:function(e){if(this.getLength()-e.getLength()<0)return this;for(var t=d.glog(this.getAt(0))-d.glog(e.getAt(0)),o=Array(this.getLength()),r=0;r<this.getLength();r++)o[r]=this.getAt(r);for(var r=0;r<e.getLength();r++)o[r]^=d.gexp(d.glog(e.getAt(r))+t);return c(o,0).mod(e)}};return r},d*
-*/
-  
-/* ========= 必須：同期先（GASのWebアプリURL） =========
-   ↓ デプロイURLを入れると端末間同期が有効になります（JSONP方式）。 */
-const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxiLsVCo-frW30Gj14rapvbIkvn3eM0drnphDx6cr2FElbyO2ukH-PBrvgZNK4txhIT/exec"; // 例: "https://script.google.com/macros/s/AKfycb.../exec"
-const REMOTE_KEY = "presence-board-default";  // 複数ボードを分けたい時は変える
-const REMOTE_POLL_MS = 8000;                  // 取得間隔
+/* ========= 同期設定（必須：トークンありJSONP/GAS） =========
+   1) GASをデプロイして URL を REMOTE_ENDPOINT に設定
+   2) GAS側の TOKEN と REMOTE_TOKEN を一致させる
+   3) REMOTE_KEY はボード識別子（同じ値で共有） */
+const REMOTE_ENDPOINT = "";                 // 例: "https://script.google.com/macros/s/AKfycb.../exec"
+const REMOTE_KEY      = "presence-board-default";
+const REMOTE_TOKEN    = "";                 // 例: "change_this_to_a_long_secret"
+const REMOTE_POLL_MS  = 8000;
 
-/* ========= 盤面データ ========= */
+/* ========= データ定義 ========= */
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const groups = [
-  ["村田","今泉","北村","大野","長谷川","横内"],                 // 左上
-  ["佐藤","井上","折原","金村","水野","坪井"],                     // 左下
-  ["清水","加藤","石垣","橋本","末永","田中光","大石","井山"],     // 中上
-  ["飯島","能登","松浦","永峯","清","長森","山本"],                 // 中下
-  ["伊藤隆","小森","三浦","中村純","朝井","稲葉"],                 // 右上
-  ["吉田","阿部","伊藤裕","中村清","平良","若山","竹森","平八重"], // 右中
-  ["鈴木","中村亮","江場","三島","吉田","小川","伊藤尊"]           // 中央下
+  ["村田","今泉","北村","大野","長谷川","横内"],
+  ["佐藤","井上","折原","金村","水野","坪井"],
+  ["清水","加藤","石垣","橋本","末永","田中光","大石","井山"],
+  ["飯島","能登","松浦","永峯","清","長森","山本"],
+  ["伊藤隆","小森","三浦","中村純","朝井","稲葉"],
+  ["吉田","阿部","伊藤裕","中村清","平良","若山","竹森","平八重"],
+  ["鈴木","中村亮","江場","三島","吉田","小川","伊藤尊"]
 ];
 const storeKey = "presence-board-v2";
 
@@ -175,7 +156,7 @@ function render(){
   recolor();
 }
 
-/* ========= 入出力 ========= */
+/* ========= 状態入出力 ========= */
 function getState(){
   const data={};
   board.querySelectorAll("tbody tr").forEach(tr=>{
@@ -210,13 +191,11 @@ function loadLocal(){
   applyState(JSON.parse(raw));
 }
 
-/* ========= 操作系 ========= */
+/* ========= 操作イベント ========= */
 function wireEvents(){
-  // 入力 → 保存 + 同期
   board.querySelectorAll("select,input").forEach(el=>{
     el.addEventListener("change", ()=>{ saveLocal(); pushRemoteThrottled(); });
   });
-  // 備考候補→入力欄
   board.querySelectorAll(".quick").forEach(sel=>{
     sel.addEventListener("change", ()=>{
       const key = sel.id.replace("noteq-","");
@@ -224,7 +203,6 @@ function wireEvents(){
       input.value = sel.value; saveLocal(); pushRemoteThrottled();
     });
   });
-  // 手打ち→候補同期
   board.querySelectorAll(".free").forEach(inp=>{
     inp.addEventListener("input", ()=>{
       const key = inp.id.replace("note-","");
@@ -234,12 +212,7 @@ function wireEvents(){
     });
   });
 
-  // QR・印刷
-  document.getElementById('btnQR').addEventListener('click', openQR);
   document.getElementById('btnPrint').addEventListener('click', ()=>window.print());
-  document.getElementById('qrClose').addEventListener('click', closeQR);
-  document.getElementById('qrModal').addEventListener('click', e=>{ if(e.target.id==='qrModal') closeQR(); });
-  document.getElementById('copyUrl').addEventListener('click', copyUrl);
 }
 
 /* ========= 見た目 ========= */
@@ -250,62 +223,38 @@ function recolor(){
 }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1000); }
 
-/* ========= QRコード（軽量実装） ========= */
-function openQR(){
-  const url=location.href;
-  document.getElementById('currentUrl').textContent=url;
-  const box=document.getElementById('qrcode'); box.innerHTML='';
-  const qr=QRCode.create(url,'M');
-  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('width','220'); svg.setAttribute('height','220');
-  const N=qr.modules.length, cell=220/N;
-  for(let r=0;r<N;r++){ for(let c=0;c<N;c++){ if(qr.modules[r][c]){
-    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-    rect.setAttribute('x',c*cell); rect.setAttribute('y',r*cell);
-    rect.setAttribute('width',cell); rect.setAttribute('height',cell);
-    rect.setAttribute('fill','#000'); svg.appendChild(rect);
-  }}}
-  box.appendChild(svg);
-  document.getElementById('qrModal').style.display='block';
-}
-function closeQR(){ document.getElementById('qrModal').style.display='none'; }
-function copyUrl(){
-  const url=location.href;
-  navigator.clipboard?.writeText(url).then(()=>toast('URLをコピーしました')).catch(()=>{
-    const ta=document.createElement('textarea'); ta.value=url; document.body.appendChild(ta);
-    ta.select(); document.execCommand('copy'); document.body.removeChild(ta); toast('URLをコピーしました');
-  });
-}
-
-/* ========= JSONP 同期（GAS） ========= */
-let lastPushed=0;
-function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>1200){ lastPushed=now; pushRemote(); } }
+/* ========= JSONPユーティリティ（CORS不要） ========= */
 function jsonp(url){
   return new Promise((resolve)=>{
     const cb='cb_'+Math.random().toString(36).slice(2);
-    window[cb]=(data)=>{ resolve(data); delete window[cb]; s.remove(); };
+    window[cb]=(data)=>{ resolve(data); try{ delete window[cb]; }catch(_){} s.remove(); };
     const s=document.createElement('script');
     s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
-    s.onerror=()=>{ resolve(null); delete window[cb]; s.remove(); };
+    s.onerror=()=>{ resolve(null); try{ delete window[cb]; }catch(_){} s.remove(); };
     document.body.appendChild(s);
   });
 }
+
+/* ========= 同期（トークン必須） ========= */
+let lastPushed=0;
+function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>1200){ lastPushed=now; pushRemote(); } }
+
 async function pullRemote(){
-  if(!REMOTE_ENDPOINT){ toast('同期先が未設定です'); return; }
-  const url = `${REMOTE_ENDPOINT}?action=get&key=${encodeURIComponent(REMOTE_KEY)}`;
-  const remote = await jsonp(url);         // 例: {updated:1234567890,data:{...}}
-  if(!remote || !remote.data) return;
-  applyState(remote.data);
-  localStorage.setItem(storeKey, JSON.stringify(remote.data));
+  if(!REMOTE_ENDPOINT || !REMOTE_TOKEN){ toast('同期先が未設定です'); return; }
+  const url = `${REMOTE_ENDPOINT}?action=get&key=${encodeURIComponent(REMOTE_KEY)}&token=${encodeURIComponent(REMOTE_TOKEN)}`;
+  const remote = await jsonp(url); // {updated:..., data:{...}} or {error:"unauthorized"}
+  if(!remote) return;
+  if(remote.error){ toast('同期エラー: 認証失敗'); return; }
+  if(remote.data){ applyState(remote.data); localStorage.setItem(storeKey, JSON.stringify(remote.data)); }
 }
 async function pushRemote(){
-  if(!REMOTE_ENDPOINT) return;
+  if(!REMOTE_ENDPOINT || !REMOTE_TOKEN) return;
   const payload = encodeURIComponent(JSON.stringify({updated:Date.now(), data:getState()}));
-  const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}`;
-  await jsonp(url); // 戻り値は使わない
+  const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(REMOTE_TOKEN)}`;
+  const res = await jsonp(url); if(res && res.error){ toast('同期エラー: 認証失敗'); }
 }
 function startRemoteSync(){
-  if(!REMOTE_ENDPOINT){ toast('同期先が未設定です'); return; }
+  if(!REMOTE_ENDPOINT || !REMOTE_TOKEN){ toast('同期先が未設定です'); }
   pullRemote(); setInterval(pullRemote, REMOTE_POLL_MS);
 }
 
@@ -315,7 +264,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   startRemoteSync();
 });
 
-/* デバッグ：JSエラーを画面表示 */
+/* デバッグ：JSエラーを画面表示（見落とし防止） */
 window.addEventListener('error', e=>{
   const t=document.getElementById('toast'); t.style.background='#c53030';
   t.textContent='エラー: '+e.message; t.classList.add('show');
@@ -323,7 +272,3 @@ window.addEventListener('error', e=>{
 </script>
 </body>
 </html>
-
-
-
-
