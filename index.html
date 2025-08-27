@@ -360,8 +360,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   render();
 
   // ログインUI
-  document.getElementById('btnLogin').addEventListener('click', ()=> login(pwInput.value));
-  pwInput.addEventListener('keypress', (e)=>{ if(e.key==='Enter') login(pwInput.value); });
+  window.__doLogin = () => login(pwInput.value);                // インラインfallbackが呼ぶ関数
+  document.getElementById('btnLogin').addEventListener('click', window.__doLogin);
+  pwInput.addEventListener('keypress', (e)=>{ if(e.key==='Enter') window.__doLogin(); });
+
 
   // 既にセッションがあればそれで開始
   const existing = sessionStorage.getItem(SESSION_KEY);
@@ -382,5 +384,6 @@ window.addEventListener('error', e=>{
 </script>
 </body>
 </html>
+
 
 
