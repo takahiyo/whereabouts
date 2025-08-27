@@ -81,7 +81,7 @@
       <h2>在席確認表</h2>
       <p>パスワードを入力してください</p>
       <input type="password" id="pw" placeholder="Password" />
-      <button id="btnLogin">ログイン</button>
+      <button id="btnLogin" onclick="window.__doLogin && window.__doLogin()">ログイン</button>
       <div id="loginMsg" style="color:#c53030;margin-top:8px"></div>
     </div>
   </div>
@@ -382,4 +382,5 @@ window.addEventListener('error', e=>{
 </script>
 </body>
 </html>
+
 
