@@ -78,12 +78,12 @@
   button{border:1px solid var(--line); background:#fff; padding:.45rem .7rem; border-radius:8px; cursor:pointer}
   button:hover{background:#f7f7f7}
   
-  /* レスポンシブ対応 */
+  /* レスポンシブ対応 - スマホで縦並び */
   .board{display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:18px;}
   
   /* スマホ対応 */
   @media (max-width: 768px) {
-    .board{grid-template-columns: 1fr; gap:12px;}
+    .board{grid-template-columns: 1fr; gap:12px;} /* 縦並び */
     header{flex-direction: column; gap: 12px;}
     header .tools{margin-left: 0; justify-content: center;}
     body{margin: 8px;}
@@ -96,11 +96,11 @@
   th,td{border:1px solid var(--line); padding:6px; font-size:14px}
   th{text-align:left}
   
-  /* 横幅調整 */
-  td.name{background:#fff; width:22%}
-  td.status{width:28%} /* 拡張 */
-  td.time{width:22%} /* 拡張 */
-  td.note{width:28%} /* 拡張 */
+  /* 横幅調整 - 最も長い選択肢でも表示されるように */
+  td.name{background:#fff; width:20%}
+  td.status{width:30%} /* 「健康診断」「コアドック」に対応 */
+  td.time{width:25%} /* 時間選択用に拡張 */
+  td.note{width:25%} /* 「直出/直帰」に対応 */
   
   select, input[type="text"]{
     width:100%; box-sizing:border-box; padding:.3rem .35rem;
@@ -113,7 +113,7 @@
     border:1px solid var(--line); border-radius:4px; background:#fff; font-size:14px;
   }
   
-  /* ステータス別の色分け */
+  /* ステータス別の色分け - 新しいステータスに対応 */
   tr[data-status="在席"]{background:var(--present)}
   tr[data-status="外出"]{background:var(--away)}
   tr[data-status="休み"], tr[data-status="健康診断"], tr[data-status="コアドック"]{background:var(--off)}
@@ -255,7 +255,7 @@
       <button id="showQR">QRコード表示</button>
       <button id="exportCsv">CSVエクスポート</button>
       <button id="clearAll">全消去</button>
-      <button onclick="window.print()">印刷</button>
+      <button id="printBtn">印刷</button>
       <button id="logoutBtn">ログアウト</button>
     </div>
   </header>
@@ -272,18 +272,18 @@
   <!-- QRコードモーダル -->
   <div id="qrModal" class="qr-modal">
     <div class="qr-modal-content">
-      <span class="qr-close" onclick="closeQRModal()">&times;</span>
+      <span class="qr-close" id="qrClose">&times;</span>
       <h3>在席確認表へのアクセス</h3>
       <div id="qrcode"></div>
       <p>上のQRコードをスマートフォンで読み取ってアクセスできます</p>
       <p><strong>URL:</strong> <span id="currentUrl"></span></p>
-      <button onclick="copyUrl()">URLをコピー</button>
+      <button id="copyUrlBtn">URLをコピー</button>
     </div>
   </div>
 
   <div class="board" id="board"></div>
 
-  <!-- 備考の候補（datalistでプルダウン可） -->
+  <!-- 備考の候補 - 新しい選択肢 -->
   <datalist id="note-suggestions">
     <option value="直出"></option>
     <option value="直帰"></option>
@@ -301,8 +301,6 @@ const LOGIN_KEY = 'attendance-login';
 function checkPassword() {
   const input = document.getElementById('passwordInput');
   const error = document.getElementById('loginError');
-  
-  console.log('checkPassword called, input value:', input.value); // デバッグ用
   
   if (input.value === PASSWORD) {
     sessionStorage.setItem(LOGIN_KEY, 'true');
@@ -351,6 +349,7 @@ const groups = [
 ];
 
 /* ====== UI生成 ====== */
+// 指定されたステータス内容
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const board = document.getElementById("board");
 const storeKey = "presence-board-v2";
@@ -365,7 +364,7 @@ let lastSaveTime = 0;
 let syncInterval = null;
 let isOnline = navigator.onLine;
 
-// 30分区切りの時間選択肢を生成
+// 30分区切りの時間選択肢を生成（0:00から23:30まで）
 function generateTimeOptions() {
   const options = ['<option value="">--</option>'];
   for (let hour = 0; hour < 24; hour++) {
@@ -765,7 +764,7 @@ function copyUrl() {
   });
 }
 
-/* ====== CSV出力 & 全消去 ====== */
+/* ====== イベントリスナーの設定 ====== */
 function setupEventListeners() {
   // ログイン関連
   const loginButton = document.getElementById('loginButton');
@@ -778,6 +777,7 @@ function setupEventListeners() {
   if (passwordInput) {
     passwordInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
+        e.preventDefault();
         checkPassword();
       }
     });
@@ -787,7 +787,10 @@ function setupEventListeners() {
   const showQRBtn = document.getElementById('showQR');
   const exportCsvBtn = document.getElementById('exportCsv');
   const clearAllBtn = document.getElementById('clearAll');
+  const printBtn = document.getElementById('printBtn');
   const logoutBtn = document.getElementById('logoutBtn');
+  const qrClose = document.getElementById('qrClose');
+  const copyUrlBtn = document.getElementById('copyUrlBtn');
   
   if (showQRBtn) {
     showQRBtn.addEventListener('click', showQRModal);
@@ -836,8 +839,22 @@ function setupEventListeners() {
     });
   }
   
+  if (printBtn) {
+    printBtn.addEventListener('click', () => {
+      window.print();
+    });
+  }
+  
   if (logoutBtn) {
     logoutBtn.addEventListener('click', logout);
+  }
+  
+  if (qrClose) {
+    qrClose.addEventListener('click', closeQRModal);
+  }
+  
+  if (copyUrlBtn) {
+    copyUrlBtn.addEventListener('click', copyUrl);
   }
   
   // モーダル外クリックで閉じる
@@ -852,28 +869,30 @@ function setupEventListeners() {
 }
 
 /* ====== キーボードショートカット ====== */
-document.addEventListener('keydown', (e) => {
-  // Ctrl+S で手動保存
-  if (e.ctrlKey && e.key === 's') {
-    e.preventDefault();
-    const data = getCurrentState();
-    saveState(data);
-    broadcastChange(data);
-    lastSaveTime = Date.now();
-    showNotification('手動保存しました');
-  }
-  
-  // Ctrl+Q でQRコード表示
-  if (e.ctrlKey && e.key === 'q') {
-    e.preventDefault();
-    showQRModal();
-  }
-  
-  // ESC でモーダルを閉じる
-  if (e.key === 'Escape') {
-    closeQRModal();
-  }
-});
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Ctrl+S で手動保存
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault();
+      const data = getCurrentState();
+      saveState(data);
+      broadcastChange(data);
+      lastSaveTime = Date.now();
+      showNotification('手動保存しました');
+    }
+    
+    // Ctrl+Q でQRコード表示
+    if (e.ctrlKey && e.key === 'q') {
+      e.preventDefault();
+      showQRModal();
+    }
+    
+    // ESC でモーダルを閉じる
+    if (e.key === 'Escape') {
+      closeQRModal();
+    }
+  });
+}
 
 /* ====== アプリケーション初期化 ====== */
 function initializeApp() {
@@ -908,9 +927,10 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 /* ====== ページ読み込み時の初期化 ====== */
-window.addEventListener('load', () => {
+document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners(); // イベントリスナーを最初に設定
-  checkLogin();
+  setupKeyboardShortcuts(); // キーボードショートカットを設定
+  checkLogin(); // ログイン確認
 });
 </script>
 </body>
