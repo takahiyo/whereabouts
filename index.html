@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>在席確認表</title>
+<style>
+  :root{
+    --line:#d9d9d9;
+    --head:#f1ece6;
+    --bg:#fafafa;
+    --present:#e8f6e8;
+    --away:#fff3e6;
+    --remote:#e8f0ff;
+    --off:#f7e8ee;
+  }
+  body{font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+       background: #fff; margin: 16px;}
+  header{display:flex; gap:8px; align-items:center; justify-content:center; margin-bottom:12px;}
+  header h1{font-size:14px; font-weight:600; color:#4a5568; margin:0; padding:.35rem .9rem;
+            background:#dff1ff; border-radius:999px;}
+  header .tools{margin-left:auto; display:flex; gap:8px;}
+  button{border:1px solid var(--line); background:#fff; padding:.45rem .7rem; border-radius:8px; cursor:pointer}
+  button:hover{background:#f7f7f7}
+  .board{display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:18px;}
+  .panel{border:1px solid var(--line); border-radius:6px; background:var(--bg); padding:8px}
+  table{width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed;}
+  thead th{position:sticky; top:0; background:var(--head); font-weight:700;}
+  th,td{border:1px solid var(--line); padding:6px; font-size:14px}
+  th{text-align:left}
+  td.name{background:#fff; width:24%}
+  td.status{width:20%}
+  td.time{width:24%}
+  td.note{width:32%}
+  select, input[type="time"], input[type="text"]{
+    width:100%; box-sizing:border-box; padding:.3rem .35rem;
+    border:1px solid var(--line); border-radius:4px; background:#fff; font-size:14px;
+  }
+  tr[data-status="在席"]{background:var(--present)}
+  tr[data-status="外出"], tr[data-status="会議"], tr[data-status="出張"]{background:var(--away)}
+  tr[data-status="テレワーク"]{background:var(--remote)}
+  tr[data-status="休暇"], tr[data-status="病欠"]{background:var(--off)}
+  @media print{
+    header, .tools{display:none}
+    body{margin:0}
+    .board{gap:10px}
+    th,td{font-size:12px; padding:4px}
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>在席確認表</h1>
+    <div class="tools">
+      <button id="exportCsv">CSVエクスポート</button>
+      <button id="clearAll">全消去</button>
+      <button onclick="window.print()">印刷</button>
+    </div>
+  </header>
+
+  <div class="board" id="board"></div>
+
+  <!-- 備考の候補（datalistでプルダウン可） -->
+  <datalist id="note-suggestions">
+    <option value="直行"></option>
+    <option value="直帰"></option>
+    <option value="客先"></option>
+    <option value="現調"></option>
+    <option value="打合せ"></option>
+    <option value="社内作業"></option>
+    <option value="本社"></option>
+    <option value="テレワーク"></option>
+    <option value="出張"></option>
+    <option value="休暇"></option>
+    <option value="病院"></option>
+    <option value="遅れ"></option>
+    <option value="早退"></option>
+  </datalist>
+
+<script>
+/* ====== 名簿（画像の並びを再現） ====== */
+const groups = [
+  // 左上
+  ["村田","今泉","北村","大野","長谷川","横内"],
+  // 左下
+  ["佐藤","井上","折原","金村","水野","坪井"],
+  // 中上
+  ["清水","加藤","石垣","橋本","末永","田中光","大石","井山"],
+  // 中下
+  ["飯島","能登","松浦","永峯","清","長森","山本"],
+  // 右上
+  ["伊藤隆","小森","三浦","中村純","朝井","稲葉"],
+  // 右中
+  ["吉田","阿部","伊藤裕","中村清","平良","若山","竹森","平八重"],
+  // 中央下
+  ["鈴木","中村亮","江場","三島","吉田","小川","伊藤尊"]
+];
+
+/* ====== UI生成 ====== */
+const STATUSES = ["在席","外出","会議","出張","テレワーク","休暇","病欠"];
+const board = document.getElementById("board");
+const storeKey = "presence-board-v1";
+
+function rowHtml(gIndex, rIndex, name){
+  const key = `${gIndex}-${rIndex}`;
+  return `
+    <tr id="row-${key}" data-key="${key}" data-status="在席">
+      <td class="name">${name}</td>
+      <td class="status">
+        <label class="sr-only" for="status-${key}">ステータス</label>
+        <select id="status-${key}" name="status">
+          ${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}
+        </select>
+      </td>
+      <td class="time">
+        <label class="sr-only" for="time-${key}">戻り時間</label>
+        <input id="time-${key}" name="time" type="time" step="900" />
+      </td>
+      <td class="note">
+        <label class="sr-only" for="note-${key}">備考</label>
+        <input id="note-${key}" name="note" type="text" list="note-suggestions" />
+      </td>
+    </tr>
+  `;
+}
+
+function panelHtml(gIndex, names){
+  return `
+    <section class="panel">
+      <table aria-label="在席表">
+        <thead>
+          <tr><th>氏名</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr>
+        </thead>
+        <tbody>
+          ${names.map((n, i)=>rowHtml(gIndex, i, n)).join("")}
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+function render(){
+  board.innerHTML = groups.map((g, i)=>panelHtml(i, g)).join("");
+  attachHandlers();
+  loadState();
+  recalcRowColors();
+}
+
+/* ====== 状態保存 ====== */
+function attachHandlers(){
+  board.querySelectorAll("select,input").forEach(el=>{
+    el.addEventListener("change", ()=>{
+      saveState();
+      recalcRowColors();
+      toggleTimeEnable(el);
+    });
+    if(el.name==="status"){ toggleTimeEnable(el); }
+  });
+}
+
+function toggleTimeEnable(el){
+  if(el.name!=="status") return;
+  const key = el.id.replace("status-","");
+  const time = document.getElementById(`time-${key}`);
+  const needsTime = ["外出","会議","出張"].includes(el.value);
+  time.disabled = !needsTime;
+  if(!needsTime) time.value = "";
+}
+
+function saveState(){
+  const data = {};
+  board.querySelectorAll("tbody tr").forEach(tr=>{
+    const key = tr.dataset.key;
+    const status = tr.querySelector('select[name="status"]').value;
+    const time = tr.querySelector('input[name="time"]').value;
+    const note = tr.querySelector('input[name="note"]').value;
+    data[key] = {status, time, note};
+  });
+  localStorage.setItem(storeKey, JSON.stringify(data));
+}
+
+function loadState(){
+  const raw = localStorage.getItem(storeKey);
+  if(!raw) return;
+  const data = JSON.parse(raw);
+  Object.entries(data).forEach(([key, v])=>{
+    const s = document.getElementById(`status-${key}`);
+    const t = document.getElementById(`time-${key}`);
+    const n = document.getElementById(`note-${key}`);
+    if(s && STATUSES.includes(v.status)) s.value = v.status;
+    if(t && v.time) t.value = v.time;
+    if(n && v.note) n.value = v.note;
+  });
+}
+
+function recalcRowColors(){
+  board.querySelectorAll("tbody tr").forEach(tr=>{
+    const status = tr.querySelector('select[name="status"]').value;
+    tr.dataset.status = status;
+  });
+}
+
+/* ====== CSV出力 & 全消去 ====== */
+document.getElementById("exportCsv").addEventListener("click", ()=>{
+  const rows = [["氏名","ステータス","戻り時間","備考"]];
+  board.querySelectorAll(".panel tbody tr").forEach(tr=>{
+    const name = tr.querySelector(".name").textContent.trim();
+    const status = tr.querySelector('select[name="status"]').value;
+    const time = tr.querySelector('input[name="time"]').value;
+    const note = tr.querySelector('input[name="note"]').value;
+    rows.push([name,status,time,note]);
+  });
+  const csv = rows.map(r=>r.map(x=>`"${(x||"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "在席確認.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById("clearAll").addEventListener("click", ()=>{
+  if(!confirm("全ての入力を消去します。よろしいですか？")) return;
+  localStorage.removeItem(storeKey);
+  board.querySelectorAll('select[name="status"]').forEach(s=>s.value="在席");
+  board.querySelectorAll('input[name="time"]').forEach(t=>{t.value=""; t.disabled=true;});
+  board.querySelectorAll('input[name="note"]').forEach(n=>n.value="");
+  recalcRowColors();
+});
+
+/* 初期化 */
+render();
+</script>
+</body>
+</html>
