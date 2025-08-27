@@ -25,10 +25,10 @@
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
   th{text-align:left}
 
-  /* 列幅（ご要望反映） */
+  /* 列幅 */
   td.name{background:#fff;width:18%}
-  td.status{width:35%;min-width:10.5em}  /* コアドックが切れない幅 */
-  td.time{width:12%;min-width:6.2em}     /* セル自体も狭く */
+  td.status{width:35%;min-width:10.5em}
+  td.time{width:12%;min-width:6.2em}
   td.note{width:35%}
 
   /* コントロール */
@@ -36,9 +36,9 @@
     width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);
     border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
   }
-  td.time select{width:100%} /* プルダウンはセル幅にフィット */
+  td.time select{width:100%}
 
-  /* 備考：候補 + 自由入力（先頭は空の選択肢だけ） */
+  /* 備考：候補 + 自由入力（先頭は空） */
   .note .wrap{display:flex;gap:6px;align-items:center}
   .note .quick{flex:0 0 7.5em}
   .note .free{flex:1 1 auto}
@@ -61,7 +61,7 @@
     header{flex-direction:column;gap:12px}
     header .tools{margin-left:0;justify-content:center}
     body{margin:8px}
-    button,select,input[type="text"]{font-size:16px} /* iOSズーム防止 */
+    button,select,input[type="text"]{font-size:16px}
     th,td{padding:8px}
   }
   @media print{header,.toast{display:none}body{margin:0}.board{gap:10px}th,td{font-size:12px;padding:4px}}
@@ -76,21 +76,16 @@
   </header>
 
   <div id="toast" class="toast"></div>
-
-  <!-- 盤面 -->
   <div id="board" class="board"></div>
 
 <script>
-/* ========= 同期設定（必須：トークンありJSONP/GAS） =========
-   1) GASをデプロイして URL を REMOTE_ENDPOINT に設定
-   2) GAS側の TOKEN と REMOTE_TOKEN を一致させる
-   3) REMOTE_KEY はボード識別子（同じ値で共有） */
-const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxNpuP-Yb8C39CBkh5Wcb4mYHNSf7XsDfzG_QN7BcdZL184R3dnsD06YI1O_ks0uccb/exec";                 // 例: "https://script.google.com/macros/s/AKfycb.../exec"
+/* ========= 同期設定（トークン必須JSONP/GAS） ========= */
+const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxNpuP-Yb8C39CBkh5Wcb4mYHNSf7XsDfzG_QN7BcdZL184R3dnsD06YI1O_ks0uccb/exec";
 const REMOTE_KEY      = "presence-board-default";
-const REMOTE_TOKEN    = "Eqxeh4Ygij6zAy5ceEVHZFSzHm7QcMYZa9WgtLMj";                 // 例: "change_this_to_a_long_secret"
+const REMOTE_TOKEN    = "Eqxeh4Ygij6zAy5ceEVHZFSzHm7QcMYZa9WgtLMj";
 const REMOTE_POLL_MS  = 8000;
 
-/* ========= データ定義 ========= */
+/* ========= データ ========= */
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const groups = [
   ["村田","今泉","北村","大野","長谷川","横内"],
@@ -105,13 +100,19 @@ const storeKey = "presence-board-v2";
 
 /* ========= レンダリング ========= */
 const board = document.getElementById('board');
+const toastEl = document.getElementById('toast');
+
 function timeOptions(){
-  const opts=['<option value=""></option>']; // 先頭は空（ラベル無し）
-  for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
-    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-    opts.push(`<option value="${t}">${t}</option>`);
-  }} return opts.join('');
+  const opts=['<option value=""></option>'];
+  for(let h=0;h<24;h++){
+    for(let m=0;m<60;m+=30){
+      const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      opts.push(`<option value="${t}">${t}</option>`);
+    }
+  }
+  return opts.join('');
 }
+
 function rowHtml(gIndex,rIndex,name){
   const key=`${gIndex}-${rIndex}`;
   return `
@@ -130,7 +131,7 @@ function rowHtml(gIndex,rIndex,name){
       <td class="note">
         <div class="wrap">
           <select id="noteq-${key}" class="quick" aria-label="備考（候補）">
-            <option value=""></option>   <!-- 空の選択肢だけ -->
+            <option value=""></option>
             <option value="直出">直出</option>
             <option value="直帰">直帰</option>
             <option value="直出/直帰">直出/直帰</option>
@@ -140,6 +141,7 @@ function rowHtml(gIndex,rIndex,name){
       </td>
     </tr>`;
 }
+
 function panelHtml(gIndex,names){
   return `
     <section class="panel">
@@ -149,6 +151,7 @@ function panelHtml(gIndex,names){
       </table>
     </section>`;
 }
+
 function render(){
   board.innerHTML = groups.map((g,i)=>panelHtml(i,g)).join('');
   wireEvents();
@@ -169,13 +172,27 @@ function getState(){
   });
   return data;
 }
+
+/* 送信用に省データ化（在席 & 空欄は送らない） */
+function getStateForPush(){
+  const full = getState();
+  const slim = {};
+  for(const [k,v] of Object.entries(full)){
+    if(v.status!=="在席" || v.time || (v.note && v.note.trim()!=="")){
+      slim[k]=v;
+    }
+  }
+  return slim;
+}
+
 function applyState(data){
+  if(!data) return;
   Object.entries(data).forEach(([k,v])=>{
     const s=document.getElementById(`status-${k}`);
     const t=document.getElementById(`time-${k}`);
     const n=document.getElementById(`note-${k}`);
     const q=document.getElementById(`noteq-${k}`);
-    if(s && STATUSES.includes(v.status)) s.value=v.status;
+    if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
     if(t) t.value = v.time || "";
     if(n) n.value = v.note || "";
     if(q){
@@ -185,10 +202,19 @@ function applyState(data){
   });
   recolor();
 }
-function saveLocal(){ localStorage.setItem(storeKey, JSON.stringify(getState())); toast('保存しました'); }
+
+function saveLocal(){
+  try{
+    localStorage.setItem(storeKey, JSON.stringify(getState()));
+    toast('保存しました');
+  }catch(_){}
+}
+
 function loadLocal(){
-  const raw = localStorage.getItem(storeKey); if(!raw) return;
-  applyState(JSON.parse(raw));
+  try{
+    const raw = localStorage.getItem(storeKey); if(!raw) return;
+    applyState(JSON.parse(raw));
+  }catch(_){}
 }
 
 /* ========= 操作イベント ========= */
@@ -221,16 +247,28 @@ function recolor(){
     tr.dataset.status = tr.querySelector('select[name="status"]').value;
   });
 }
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1000); }
 
-/* ========= JSONPユーティリティ（CORS不要） ========= */
+function toast(msg){
+  toastEl.textContent=msg; toastEl.classList.add('show');
+  setTimeout(()=>toastEl.classList.remove('show'),1000);
+}
+
+/* ========= JSONPユーティリティ ========= */
 function jsonp(url){
   return new Promise((resolve)=>{
     const cb='cb_'+Math.random().toString(36).slice(2);
-    window[cb]=(data)=>{ resolve(data); try{ delete window[cb]; }catch(_){} s.remove(); };
+    window[cb]=(data)=>{
+      resolve(data);
+      try{ delete window[cb]; }catch(_){}
+      if(s.remove){ s.remove(); } else if(s.parentNode){ s.parentNode.removeChild(s); }
+    };
     const s=document.createElement('script');
     s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
-    s.onerror=()=>{ resolve(null); try{ delete window[cb]; }catch(_){} s.remove(); };
+    s.onerror=()=>{
+      resolve(null);
+      try{ delete window[cb]; }catch(_){}
+      if(s.remove){ s.remove(); } else if(s.parentNode){ s.parentNode.removeChild(s); }
+    };
     document.body.appendChild(s);
   });
 }
@@ -245,17 +283,36 @@ async function pullRemote(){
   const remote = await jsonp(url); // {updated:..., data:{...}} or {error:"unauthorized"}
   if(!remote) return;
   if(remote.error){ toast('同期エラー: 認証失敗'); return; }
-  if(remote.data){ applyState(remote.data); localStorage.setItem(storeKey, JSON.stringify(remote.data)); }
+
+  // 受信データを適用。未送信（省略）行は既定値（在席/空）としてそのまま表示
+  if(remote.data){
+    applyState(remote.data);
+    try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data))); }catch(_){}
+  }
 }
+
 async function pushRemote(){
   if(!REMOTE_ENDPOINT || !REMOTE_TOKEN) return;
-  const payload = encodeURIComponent(JSON.stringify({updated:Date.now(), data:getState()}));
+  const payload = encodeURIComponent(JSON.stringify({updated:Date.now(), data:getStateForPush()}));
   const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(REMOTE_TOKEN)}`;
-  const res = await jsonp(url); if(res && res.error){ toast('同期エラー: 認証失敗'); }
+  const res = await jsonp(url);
+  if(res && res.error){ toast('同期エラー: 認証失敗'); }
 }
+
 function startRemoteSync(){
   if(!REMOTE_ENDPOINT || !REMOTE_TOKEN){ toast('同期先が未設定です'); }
-  pullRemote(); setInterval(pullRemote, REMOTE_POLL_MS);
+  // 初回＆フォーカス復帰で必ず取得（初期白紙防止）
+  pullRemote();
+  setInterval(pullRemote, REMOTE_POLL_MS);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullRemote(); });
+  window.addEventListener('focus', pullRemote);
+
+  // 同一端末の別タブからの更新を即時反映
+  window.addEventListener('storage', (e)=>{
+    if(e.key===storeKey && e.newValue){
+      try{ applyState(JSON.parse(e.newValue)); }catch(_){}
+    }
+  });
 }
 
 /* ========= 起動 ========= */
@@ -264,14 +321,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   startRemoteSync();
 });
 
-/* デバッグ：JSエラーを画面表示（見落とし防止） */
+/* デバッグ：JSエラーを画面表示 */
 window.addEventListener('error', e=>{
-  const t=document.getElementById('toast'); t.style.background='#c53030';
-  t.textContent='エラー: '+e.message; t.classList.add('show');
+  toastEl.style.background='#c53030';
+  toastEl.textContent='エラー: '+e.message; toastEl.classList.add('show');
 });
 </script>
 </body>
 </html>
-
-
-
