@@ -6,182 +6,60 @@
 <title>在席確認表</title>
 <style>
   :root{
-    --line:#d9d9d9;
-    --head:#f1ece6;
-    --bg:#fafafa;
-    --present:#e8f6e8;
-    --away:#fff3e6;
-    --remote:#e8f0ff;
-    --off:#f7e8ee;
-    --home:#ffe8f0;
+    --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
+    --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
   }
-  body{font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
-       background: #fff; margin: 16px;}
-  
-  header{display:flex; gap:8px; align-items:center; justify-content:center; margin-bottom:12px; flex-wrap: wrap;}
-  header h1{font-size:14px; font-weight:600; color:#4a5568; margin:0; padding:.35rem .9rem;
-            background:#dff1ff; border-radius:999px;}
-  header .tools{margin-left:auto; display:flex; gap:8px; flex-wrap: wrap;}
-  button{border:1px solid var(--line); background:#fff; padding:.45rem .7rem; border-radius:8px; cursor:pointer}
+  body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
+  header{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
+  header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
+  header .tools{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  button{border:1px solid var(--line);background:#fff;padding:.45rem .7rem;border-radius:8px;cursor:pointer}
   button:hover{background:#f7f7f7}
-  
-  /* レスポンシブ対応 - スマホで縦並び */
-  .board{display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:18px;}
-  
-  /* スマホ対応 */
-  @media (max-width: 768px) {
-    .board{grid-template-columns: 1fr; gap:12px;} /* 縦並び */
-    header{flex-direction: column; gap: 12px;}
-    header .tools{margin-left: 0; justify-content: center;}
-    body{margin: 8px;}
-    button{font-size: 14px; padding: .4rem .6rem;}
-  }
-  
-  .panel{border:1px solid var(--line); border-radius:6px; background:var(--bg); padding:8px}
-  table{width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed;}
-  thead th{position:sticky; top:0; background:var(--head); font-weight:700;}
-  th,td{border:1px solid var(--line); padding:6px; font-size:14px}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+  /* ボード */
+  .board{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+  .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px}
+  table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+  thead th{position:sticky;top:0;background:var(--head);font-weight:700}
+  th,td{border:1px solid var(--line);padding:6px;font-size:14px}
   th{text-align:left}
-  
-  /* 横幅調整 - 最も長い選択肢でも表示されるように */
-  td.name{background:#fff; width:20%}
-  td.status{width:30%} /* 「健康診断」「コアドック」に対応 */
-  td.time{width:25%} /* 時間選択用に拡張 */
-  td.note{width:25%} /* 「直出/直帰」に対応 */
-  
-  select, input[type="text"]{
-    width:100%; box-sizing:border-box; padding:.3rem .35rem;
-    border:1px solid var(--line); border-radius:4px; background:#fff; font-size:14px;
-  }
-  
-  /* 時間選択用のselect */
-  select[name="time"] {
-    width:100%; box-sizing:border-box; padding:.3rem .35rem;
-    border:1px solid var(--line); border-radius:4px; background:#fff; font-size:14px;
-  }
-  
-  /* ステータス別の色分け - 新しいステータスに対応 */
+  td.name{background:#fff;width:22%}
+  td.status{width:28%}
+  td.time{width:22%}
+  td.note{width:28%}
+  select,input[type="text"],select[name="time"]{width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);border-radius:4px;background:#fff;font-size:14px}
+
+  /* ステータス色 */
   tr[data-status="在席"]{background:var(--present)}
   tr[data-status="外出"]{background:var(--away)}
-  tr[data-status="休み"], tr[data-status="健康診断"], tr[data-status="コアドック"]{background:var(--off)}
+  tr[data-status="休み"],tr[data-status="健康診断"],tr[data-status="コアドック"]{background:var(--off)}
   tr[data-status="帰宅"]{background:var(--home)}
   tr[data-status="在宅勤務"]{background:var(--remote)}
-  tr[data-status="出張"], tr[data-status="研修"]{background:var(--away)}
-  
+  tr[data-status="出張"],tr[data-status="研修"]{background:var(--away)}
+
   /* 自動保存インジケーター */
-  .autosave-indicator {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-    z-index: 1000;
-    transition: all 0.3s ease;
-    opacity: 0;
-  }
-  .autosave-indicator.saving {
-    background: #ffeaa7;
-    color: #d63031;
-    opacity: 1;
-  }
-  .autosave-indicator.saved {
-    background: #00b894;
-    color: white;
-    opacity: 1;
-  }
-  .autosave-indicator.syncing {
-    background: #74b9ff;
-    color: white;
-    opacity: 1;
-  }
-  
-  /* QRコード関連 */
-  .qr-modal {
-    display: none;
-    position: fixed;
-    z-index: 2000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-  }
-  .qr-modal-content {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    text-align: center;
-    max-width: 90%;
-  }
-  .qr-close {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 24px;
-    cursor: pointer;
-  }
-  #qrcode {
-    margin: 10px 0;
-  }
-  
-  /* 通知関連 */
-  .notification {
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    background: #0073bb;
-    color: white;
-    padding: 12px 16px;
-    border-radius: 4px;
-    z-index: 1500;
-    opacity: 0;
-    transform: translateX(100%);
-    transition: all 0.3s ease;
-    max-width: 300px;
-    word-wrap: break-word;
-  }
-  .notification.show {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  
-  /* 同期状態表示 */
-  .sync-status {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 6px 10px;
-    border-radius: 4px;
-    font-size: 11px;
-    z-index: 1000;
-    background: #2d3748;
-    color: white;
-    opacity: 0.7;
-  }
-  .sync-status.online {
-    background: #38a169;
-  }
-  .sync-status.offline {
-    background: #e53e3e;
-  }
-  
-  @media print{
-    header, .tools, .autosave-indicator, .qr-modal, .notification, .sync-status{display:none}
-    body{margin:0}
-    .board{gap:10px}
-    th,td{font-size:12px; padding:4px}
-  }
-  
-  @media (max-width: 480px) {
-    th,td{font-size:12px; padding:4px}
-    .notification{right: 10px; max-width: calc(100vw - 20px);}
-    .autosave-indicator{right: 10px;}
-  }
+  .autosave-indicator{position:fixed;top:20px;right:20px;padding:8px 12px;border-radius:4px;font-size:12px;z-index:1000;transition:all .3s ease;opacity:0}
+  .autosave-indicator.saving{background:#ffeaa7;color:#d63031;opacity:1}
+  .autosave-indicator.saved{background:#00b894;color:#fff;opacity:1}
+  .autosave-indicator.syncing{background:#74b9ff;color:#fff;opacity:1}
+
+  /* 通知/同期表示 */
+  .notification{position:fixed;top:80px;right:20px;background:#0073bb;color:#fff;padding:12px 16px;border-radius:4px;z-index:1500;opacity:0;transform:translateX(100%);transition:all .3s ease;max-width:300px;word-wrap:break-word}
+  .notification.show{opacity:1;transform:translateX(0)}
+  .sync-status{position:fixed;bottom:20px;right:20px;padding:6px 10px;border-radius:4px;font-size:11px;z-index:1000;background:#2d3748;color:#fff;opacity:.7}
+  .sync-status.online{background:#38a169}
+  .sync-status.offline{background:#e53e3e}
+
+  /* QRコード */
+  .qr-modal{display:none;position:fixed;z-index:2000;inset:0;background:rgba(0,0,0,.5)}
+  .qr-modal-content{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;padding:20px;border-radius:8px;text-align:center;max-width:90%}
+  .qr-close{position:absolute;top:10px;right:15px;font-size:24px;cursor:pointer}
+  #qrcode{margin:10px 0}
+
+  @media(max-width:768px){.board{grid-template-columns:1fr;gap:12px}header{flex-direction:column;gap:12px}header .tools{margin-left:0;justify-content:center}body{margin:8px}button{font-size:14px;padding:.4rem .6rem}}
+  @media(max-width:480px){th,td{font-size:12px;padding:4px}.notification{right:10px;max-width:calc(100vw - 20px)}.autosave-indicator{right:10px}}
+  @media print{header,.tools,.autosave-indicator,.qr-modal,.notification,.sync-status{display:none}body{margin:0}.board{gap:10px}th,td{font-size:12px;padding:4px}}
 </style>
 </head>
 <body>
@@ -189,18 +67,12 @@
     <h1>在席確認表</h1>
     <div class="tools">
       <button id="showQR">QRコード表示</button>
-      <button id="clearAll">全消去</button>
       <button id="printBtn">印刷</button>
     </div>
   </header>
 
-  <!-- 自動保存インジケーター -->
   <div id="autosaveIndicator" class="autosave-indicator"></div>
-
-  <!-- 同期状態表示 -->
   <div id="syncStatus" class="sync-status">オフライン</div>
-
-  <!-- 通知エリア -->
   <div id="notification" class="notification"></div>
 
   <!-- QRコードモーダル -->
@@ -217,7 +89,6 @@
 
   <div class="board" id="board"></div>
 
-  <!-- 備考の候補 - 新しい選択肢 -->
   <datalist id="note-suggestions">
     <option value="直出"></option>
     <option value="直帰"></option>
@@ -225,566 +96,243 @@
   </datalist>
 
 <script>
-/* ====== QRコード生成ライブラリ（軽量版） ====== */
-!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):(e=e||self).QRCode=t()}(this,function(){"use strict";function e(e){this.mode=r.MODE_8BIT_BYTE,this.data=e,this.parsedData=[];for(var t=0,o=this.data.length;t<o;t++){var n=this.data.charCodeAt(t);n<128?this.parsedData.push(n):n<2048?(this.parsedData.push(192|n>>6),this.parsedData.push(128|63&n)):n<55296||n>=57344?(this.parsedData.push(224|n>>12),this.parsedData.push(128|n>>6&63),this.parsedData.push(128|63&n)):(t++,n=65536+((1023&n)<<10)+(1023&this.data.charCodeAt(t)),this.parsedData.push(240|n>>18),this.parsedData.push(128|n>>12&63),this.parsedData.push(128|n>>6&63),this.parsedData.push(128|63&n))}this.parsedData=this.parsedData.slice()}e.prototype={getLength:function(){return this.parsedData.length},write:function(e){for(var t=0,o=this.parsedData.length;t<o;t++)e.put(this.parsedData[t],8)}};var t=e,o=function(e){for(var t=0,o=0,r=0;r<e.length;r++){var n=e.charCodeAt(r);128>n?t++:2048>n?t+=2:55296>n||57344<=n?t+=3:(r++,t+=4)}return o=t};function r(e){this.errorCorrectLevel=s.L,this.qrNumber=0,this.modules=null,this.moduleCount=0,this.dataCache=null,this.rsBlocks=null,void 0!=e&&(this.qrNumber=e.qrNumber,this.errorCorrectLevel=e.errorCorrectLevel),this.modules=null,this.addData(e.text),this.make()}r.prototype={qrNumber:0,errorCorrectLevel:s.L,modules:null,moduleCount:0,addData:function(e){this.dataCache=new t(e),this.make()},isDark:function(e,t){if(0>e||this.moduleCount<=e||0>t||this.moduleCount<=t)throw Error(e+","+t);return this.modules[e][t]},getModuleCount:function(){return this.moduleCount},make:function(){if(1>this.qrNumber){for(var e=1;40>e;e++){for(var t=l.getRSBlocks(e,this.errorCorrectLevel),r=new h,n=0;n<t.length;n++)r.put(t[n].dataCount,8);r.put(this.dataCache.parsedData.length,8);for(var i=0;i<this.dataCache.parsedData.length;i++)r.put(this.dataCache.parsedData[i],8);if(r.getLengthInBits()<=8*t[0].totalCount)break}this.qrNumber=e}this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(e,t){this.moduleCount=4*this.qrNumber+17,this.modules=Array(this.moduleCount);for(var o=0;o<this.moduleCount;o++){this.modules[o]=Array(this.moduleCount);for(var r=0;r<this.moduleCount;r++)this.modules[o][r]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(e,t),7<=this.qrNumber&&this.setupTypeNumber(e),null==this.dataCache&&(this.dataCache=new t("")),this.mapData(this.dataCache,t)},setupPositionProbePattern:function(e,t){for(var o=-1;7>=o;o++)if(!(-1>=e+o||this.moduleCount<=e+o))for(var r=-1;7>=r;r++)-1>=t+r||this.moduleCount<=t+r||((0<=o&&6>=o&&(0==r||6==r)||0<=r&&6>=r&&(0==o||6==o)||2<=o&&4>=o&&2<=r&&4>=r)?this.modules[e+o][t+r]=!0:this.modules[e+o][t+r]=!1)},getBestMaskPattern:function(){for(var e=0,t=0,o=0;8>o;o++){this.makeImpl(!0,o);var r=f.getLostPoint(this);(0==o||e>r)&&(e=r,t=o)}return t},setupTimingPattern:function(){for(var e=8;e<this.moduleCount-8;e++)null==this.modules[e][6]&&(this.modules[e][6]=0==e%2);for(var t=8;t<this.moduleCount-8;t++)null==this.modules[6][t]&&(this.modules[6][t]=0==t%2)},setupPositionAdjustPattern:function(){for(var e=f.getPatternPosition(this.qrNumber),t=0;t<e.length;t++)for(var o=0;o<e.length;o++){var r=e[t],n=e[o];if(null==this.modules[r][n])for(var i=-2;2>=i;i++)for(var s=-2;2>=s;s++)this.modules[r+i][n+s]=-2==i||2==i||-2==s||2==s||0==i&&0==s}},setupTypeNumber:function(e){for(var t=f.getBCHTypeNumber(this.qrNumber),o=0;18>o;o++){var r=!e&&1==(1&t>>o);this.modules[Math.floor(o/3)][o%3+this.moduleCount-8-3]=r}for(var o=0;18>o;o++){var r=!e&&1==(1&t>>o);this.modules[o%3+this.moduleCount-8-3][Math.floor(o/3)]=r}},setupTypeInfo:function(e,t){for(var o=this.errorCorrectLevel<<3|t,r=f.getBCHTypeInfo(o),n=0;15>n;n++){var i=!e&&1==(1&r>>n);6>n?this.modules[n][8]=i:8>n?this.modules[n+1][8]=i:this.modules[this.moduleCount-15+n][8]=i}for(var n=0;15>n;n++){var i=!e&&1==(1&r>>n);8>n?this.modules[8][this.moduleCount-n-1]=i:9>n?this.modules[8][15-n-1+1]=i:this.modules[8][15-n-1]=i}this.modules[this.moduleCount-8][8]=!e},mapData:function(e,t){for(var o=-1,r=this.moduleCount-1,n=7,i=0,s=this.moduleCount-1;s>0;s-=2)for(6==s&&s--;;){for(var a=0;2>a;a++)if(null==this.modules[r][s-a]){var u=!1;i<e.parsedData.length&&(u=1==(1&e.parsedData[i]>>n));var l=f.getMask(t,r,s-a);l&&(u=!u),this.modules[r][s-a]=u,n--,-1==n&&(i++,n=7)}if(r+=o,0>r||this.moduleCount<=r){r-=o,o=-o;break}}}};var n=r,i={L:1,M:0,Q:3,H:2},s=i,a={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},u={BUFFER_SIZE:256,buffer:Array(256),bufferPointer:0,get:function(e){var t=Math.floor(e/8);return 1==(1&this.buffer[t]>>7-e%8)},put:function(e,t){for(var o=0;o<t;o++)this.putBit(1==(1&e>>t-o-1))},getLengthInBits:function(){return this.bufferPointer},putBit:function(e){var t=Math.floor(this.bufferPointer/8);this.bufferPointer>=8*this.buffer.length&&(this.buffer=this.buffer.concat(Array(this.buffer.length))),this.buffer[t]|=(e?1:0)<<7-this.bufferPointer%8,this.bufferPointer++}},l=function(){var e=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],t=1335,o=7973,r=21522,n={},a=function(e){for(var t=0;0!=e;)t++,e>>>=1;return t};return n.getBCHTypeInfo=function(e){for(var o=e<<10;a(o)-a(t)>=0;)o^=t<<a(o)-a(t);return(e<<10|o)^r},n.getBCHTypeNumber=function(e){for(var t=e<<12;a(t)-a(o)>=0;)t^=o<<a(t)-a(o);return e<<12|t},n.getPatternPosition=function(t){return e[t-1]},n.getMask=function(e,t,o){switch(e){case 0:return 0==(t+o)%2;case 1:return 0==t%2;case 2:return 0==o%3;case 3:return 0==(t+o)%3;case 4:return 0==(Math.floor(t/2)+Math.floor(o/3))%2;case 5:return 0==t*o%2+t*o%3;case 6:return 0==(t*o%2+t*o%3)%2;case 7:return 0==(t*o%3+(t+o)%2)%2;default:throw Error("bad maskPattern:"+e)}},n.getErrorCorrectPolynomial=function(e){for(var t=c([1],0),o=0;o<e;o++)t=t.multiply(c([1,d.gexp(o)],0));return t},n.getLengthInBits=function(e,t){if(1<=t&&10>t)switch(e){case 1:return 10;case 2:return 9;case n:return 8;case 4:return 8;default:throw Error("mode:"+e)}else if(27>t)switch(e){case 1:return 12;case 2:return 11;case 4:return 16;case 8:return 10;default:throw Error("mode:"+e)}else{if(!(41>t))throw Error("type:"+t);switch(e){case 1:return 14;case 2:return 13;case 4:return 16;case 8:return 12;default:throw Error("mode:"+e)}}},n.getLostPoint=function(e){for(var t=e.getModuleCount(),o=0,r=0;r<t;r++)for(var n=0;n<t;n++){for(var i=0,s=e.isDark(r,n),a=-1;1>=a;a++)if(!(0>r+a||r+a>=t))for(var u=-1;1>=u;u++)0>n+u||n+u>=t||0==a&&0==u||s==e.isDark(r+a,n+u)&&i++;i>5&&(o+=3+i-5)}for(var r=0;r<t-1;r++)for(var n=0;n<t-1;n++){var l=0;e.isDark(r,n)&&l++,e.isDark(r+1,n)&&l++,e.isDark(r,n+1)&&l++,e.isDark(r+1,n+1)&&l++,0!=l&&4!=l||(o+=3)}for(var r=0;r<t;r++)for(var n=0;n<t-6;n++)e.isDark(r,n)&&!e.isDark(r,n+1)&&e.isDark(r,n+2)&&e.isDark(r,n+3)&&e.isDark(r,n+4)&&!e.isDark(r,n+5)&&e.isDark(r,n+6)&&(o+=40);for(var n=0;n<t;n++)for(var r=0;r<t-6;r++)e.isDark(r,n)&&!e.isDark(r+1,n)&&e.isDark(r+2,n)&&e.isDark(r+3,n)&&e.isDark(r+4,n)&&!e.isDark(r+5,n)&&e.isDark(r+6,n)&&(o+=40);for(var h=0,n=0;n<t;n++)for(var r=0;r<t;r++)e.isDark(r,n)&&h++;var f=Math.abs(100*h/t/t-50)/5;return o+=10*f,o},n}(),h=function(){var e=[],t=0,o={getBuffer:function(){return e},getAt:function(t){var o=Math.floor(t/8);return 1==(1&e[o]>>7-t%8)},put:function(e,t){for(var o=0;o<t;o++)this.putBit(1==(1&e>>t-o-1))},getLengthInBits:function(){return t},putBit:function(o){var r=Math.floor(t/8);e.length<=r&&e.push(0),o&&(e[r]|=128>>>t%8),t++}};return o},f=l,c=function(e,t){if(void 0==e.length)throw Error(e.length+"/"+t);var o=function(){for(var o=0;o<e.length&&0==e[o];)o++;for(var r=Array(e.length-o+t),n=0;n<e.length-o;n++)r[n]=e[n+o];return r}(),r={getAt:function(e){return o[e]},getLength:function(){return o.length},multiply:function(e){for(var t=Array(this.getLength()+e.getLength()-1),o=0;o<this.getLength();o++)for(var r=0;r<e.getLength();r++)t[o+r]^=d.gexp(d.glog(this.getAt(o))+d.glog(e.getAt(r)));return c(t,0)},mod:function(e){if(this.getLength()-e.getLength()<0)return this;for(var t=d.glog(this.getAt(0))-d.glog(e.getAt(0)),o=Array(this.getLength()),r=0;r<this.getLength();r++)o[r]=this.getAt(r);for(var r=0;r<e.getLength();r++)o[r]^=d.gexp(d.glog(e.getAt(r))+t);return c(o,0).mod(e)}};return r},d=function(){for(var e=Array(256),t=Array(256),o=0;8>o;o++)e[o]=1<<o;for(var o=8;256>o;o++)e[o]=e[o-4]^e[o-5]^e[o-6]^e[o-8];for(var o=0;255>o;o++)t[e[o]]=o;var r={glog:function(e){if(1>e)throw Error("glog("+e+")");return t[e]},gexp:function(t){for(;0>t;)t+=255;for(;t>=256;)t-=255;return e[t]}};return r}(),g=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[4,43,19],[4,43,15],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],m=function(e,t){var o=function(e,t){var r=function(){return function(e,t){var o=g[(e-1)*4+t-1];if(void 0==o)throw Error("bad rs block @ typeNumber:"+e+"/errorCorrectLevel:"+t);for(var r=o.length/3,n=[],i=0;i<r;i++)for(var s=o[3*i+0],a=o[3*i+1],u=o[3*i+2],l=0;l<s;l++)n.push({totalCount:a,dataCount:u});return n}(e,t)}(),n=r.length,i=0;for(var s=0;s<n;s++)i+=r[s].dataCount;var a=new h;for(var s=0;s<n;s++){var u=r[s];a.put(u.dataCount,8)}a.put(i,8);for(var s=0;s<n;s++){var u=r[s];a.put(u.parsedData[s],8)}if(a.getLengthInBits()>8*i)throw Error("code length overflow. ("+a.getLengthInBits()+">"+8*i+")");for(a.getLengthInBits()+4<=8*i&&a.put(0,4);a.getLengthInBits()%8!=0;)a.putBit(!1);for(;;){if(a.getLengthInBits()>=8*i||a.put(236,8),a.getLengthInBits()>=8*i)break;a.put(17,8)}return function(e,t){for(var o=0,n=0,i=0,s=Array(t.length),a=Array(t.length),u=0;u<t.length;u++){var h=t[u].dataCount,g=t[u].totalCount-h;n=Math.max(n,h),i=Math.max(i,g),s[u]=Array(h);for(var m=0;m<s[u].length;m++)s[u][m]=255&e.getAt(m+o);o+=h;var p=f.getErrorCorrectPolynomial(g),v=c(s[u],p.getLength()-1),w=v.mod(p);a[u]=Array(p.getLength()-1);for(var m=0;m<a[u].length;m++){var y=m+w.getLength()-a[u].length;a[u][m]=y>=0?w.getAt(y):0}}for(var A=0,m=0;m<t.length;m++)A+=t[m].totalCount;for(var b=Array(A),L=0,m=0;m<n;m++)for(var u=0;u<t.length;u++)m<s[u].length&&(b[L]=s[u][m],L++);for(var m=0;m<i;m++)for(var u=0;u<t.length;u++)m<a[u].length&&(b[L]=a[u][m],L++);return b}(a,r)};return o},p=m,v={create:function(e,t){var o=function(){var o=new n(-1),r=null;return{qr:o,isSupportDarkPrint:r,text:e,level:t,modules:null,moduleCount:0,get:function(e,t){if(this.modules){var o=Math.floor(e/this.modules.length),r=Math.floor(t/this.modules.length);return o>=0&&o<this.modules.length&&r>=0&&r<this.modules.length&&this.modules[o][r]}return!1},addBlank:function(e){this.isSupportDarkPrint=e},make:function(){if(this.getRawLength(e)<0){console.warn("Code length overflow. ");return}this.qr=new n(-1),this.qr.addData(e),this.qr.errorCorrectLevel=i[t],this.qr.make(),this.modules=this.qr.modules,this.moduleCount=this.qr.moduleCount},getRawLength:function(e){var t=o(e);return t?t:0}}}();return o.make(),o}};return v});
+/* ====== 簡易QRライブラリ（create(text, level) の2引数） ====== */
+!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):(e=e||self).QRCode=t()}(this,function(){"use strict";function e(e){this.mode=r.MODE_8BIT_BYTE,this.data=e,this.parsedData=[];for(var t=0,o=this.data.length;t<o;t++){var n=this.data.charCodeAt(t);n<128?this.parsedData.push(n):n<2048?(this.parsedData.push(192|n>>6),this.parsedData.push(128|63&n)):n<55296||n>=57344?(this.parsedData.push(224|n>>12),this.parsedData.push(128|n>>6&63),this.parsedData.push(128|63&n)):(t++,n=65536+((1023&n)<<10)+(1023&this.data.charCodeAt(t)),this.parsedData.push(240|n>>18),this.parsedData.push(128|n>>12&63),this.parsedData.push(128|n>>6&63),this.parsedData.push(128|63&n))}this.parsedData=this.parsedData.slice()}e.prototype={getLength:function(){return this.parsedData.length},write:function(e){for(var t=0,o=this.parsedData.length;t<o;t++)e.put(this.parsedData[t],8)}};var t=e,o=function(e){for(var t=0,o=0,r=0;r<e.length;r++){var n=e.charCodeAt(r);128>n?t++:2048>n?t+=2:55296>n||57344<=n?t+=3:(r++,t+=4)}return o=t};function r(e){this.errorCorrectLevel=s.L,this.qrNumber=0,this.modules=null,this.moduleCount=0,this.dataCache=null,this.rsBlocks=null,void 0!=e&&(this.qrNumber=e.qrNumber,this.errorCorrectLevel=e.errorCorrectLevel),this.modules=null,this.addData(e.text),this.make()}r.prototype={qrNumber:0,errorCorrectLevel:s.L,modules:null,moduleCount:0,addData:function(e){this.dataCache=new t(e),this.make()},isDark:function(e,t){if(0>e||this.moduleCount<=e||0>t||this.moduleCount<=t)throw Error(e+","+t);return this.modules[e][t]},getModuleCount:function(){return this.moduleCount},make:function(){if(1>this.qrNumber){for(var e=1;40>e;e++){for(var t=l.getRSBlocks(e,this.errorCorrectLevel),r=new h,n=0;n<t.length;n++)r.put(t[n].dataCount,8);r.put(this.dataCache.parsedData.length,8);for(var i=0;i<this.dataCache.parsedData.length;i++)r.put(this.dataCache.parsedData[i],8);if(r.getLengthInBits()<=8*t[0].totalCount)break}this.qrNumber=e}this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(e,t){this.moduleCount=4*this.qrNumber+17,this.modules=Array(this.moduleCount);for(var o=0;o<this.moduleCount;o++){this.modules[o]=Array(this.moduleCount);for(var r=0;r<this.moduleCount;r++)this.modules[o][r]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(e,t),7<=this.qrNumber&&this.setupTypeNumber(e),null==this.dataCache&&(this.dataCache=new t("")),this.mapData(this.dataCache,t)},setupPositionProbePattern:function(e,t){for(var o=-1;7>=o;o++)if(!(-1>=e+o||this.moduleCount<=e+o))for(var r=-1;7>=r;r++)-1>=t+r||this.moduleCount<=t+r||((0<=o&&6>=o&&(0==r||6==r)||0<=r&&6>=r&&(0==o||6==o)||2<=o&&4>=o&&2<=r&&4>=r)?this.modules[e+o][t+r]=!0:this.modules[e+o][t+r]=!1)},getBestMaskPattern:function(){for(var e=0,t=0,o=0;8>o;o++){this.makeImpl(!0,o);var r=f.getLostPoint(this);(0==o||e>r)&&(e=r,t=o)}return t},setupTimingPattern:function(){for(var e=8;e<this.moduleCount-8;e++)null==this.modules[e][6]&&(this.modules[e][6]=0==e%2);for(var t=8;t<this.moduleCount-8;t++)null==this.modules[6][t]&&(this.modules[6][t]=0==t%2)},setupPositionAdjustPattern:function(){for(var e=f.getPatternPosition(this.qrNumber),t=0;t<e.length;t++)for(var o=0;o<e.length;o++){var r=e[t],n=e[o];if(null==this.modules[r][n])for(var i=-2;2>=i;i++)for(var s=-2;2>=s;s++)this.modules[r+i][n+s]=-2==i||2==i||-2==s||2==s||0==i&&0==s}},setupTypeNumber:function(e){for(var t=f.getBCHTypeNumber(this.qrNumber),o=0;18>o;o++){var r=!e&&1==(1&t>>o);this.modules[Math.floor(o/3)][o%3+this.moduleCount-8-3]=r}for(var o=0;18>o;o++){var r=!e&&1==(1&t>>o);this.modules[o%3+this.moduleCount-8-3][Math.floor(o/3)]=r}},setupTypeInfo:function(e,t){for(var o=this.errorCorrectLevel<<3|t,r=f.getBCHTypeInfo(o),n=0;15>n;n++){var i=!e&&1==(1&r>>n);6>n?this.modules[n][8]=i:8>n?this.modules[n+1][8]=i:this.modules[this.moduleCount-15+n][8]=i}for(var n=0;15>n;n++){var i=!e&&1==(1&r>>n);8>n?this.modules[8][this.moduleCount-n-1]=i:9>n?this.modules[8][15-n-1+1]=i:this.modules[8][15-n-1]=i}this.modules[this.moduleCount-8][8]=!e},mapData:function(e,t){for(var o=-1,r=this.moduleCount-1,n=7,i=0,s=this.moduleCount-1;s>0;s-=2)for(6==s&&s--;;){for(var a=0;2>a;a++)if(null==this.modules[r][s-a]){var u=!1;i<e.parsedData.length&&(u=1==(1&e.parsedData[i]>>n));var l=f.getMask(t,r,s-a);l&&(u=!u),this.modules[r][s-a]=u,n--,-1==n&&(i++,n=7)}if(r+=o,0>r||this.moduleCount<=r){r-=o,o=-o;break}}}};var n=r,i={L:1,M:0,Q:3,H:2},s=i,a={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},u={BUFFER_SIZE:256,buffer:Array(256),bufferPointer:0,get:function(e){var t=Math.floor(e/8);return 1==(1&this.buffer[t]>>7-e%8)},put:function(e,t){for(var o=0;o<t;o++)this.putBit(1==(1&e>>t-o-1))},getLengthInBits:function(){return this.bufferPointer},putBit:function(e){var t=Math.floor(this.bufferPointer/8);this.bufferPointer>=8*this.buffer.length&&(this.buffer=this.buffer.concat(Array(this.buffer.length))),this.buffer[t]|=(e?1:0)<<7-this.bufferPointer%8,this.bufferPointer++}},l=function(){var e=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],t=1335,o=7973,r=21522,n={},a=function(e){for(var t=0;0!=e;)t++,e>>>=1;return t};return n.getBCHTypeInfo=function(e){for(var o=e<<10;a(o)-a(t)>=0;)o^=t<<a(o)-a(t);return(e<<10|o)^r},n.getBCHTypeNumber=function(e){for(var t=e<<12;a(t)-a(o)>=0;)t^=o<<a(t)-a(o);return e<<12|t},n.getPatternPosition=function(t){return e[t-1]},n.getMask=function(e,t,o){switch(e){case 0:return 0==(t+o)%2;case 1:return 0==t%2;case 2:return 0==o%3;case 3:return 0==(t+o)%3;case 4:return 0==(Math.floor(t/2)+Math.floor(o/3))%2;case 5:return 0==t*o%2+t*o%3;case 6:return 0==(t*o%2+t*o%3)%2;case 7:return 0==(t*o%3+(t+o)%2)%2;default:throw Error("bad maskPattern:"+e)}},n.getErrorCorrectPolynomial=function(e){for(var t=c([1],0),o=0;o<e;o++)t=t.multiply(c([1,d.gexp(o)],0));return t},n.getLengthInBits=function(e,t){if(1<=t&&10>t)switch(e){case 1:return 10;case 2:return 9;case n:return 8;case 4:return 8;default:throw Error("mode:"+e)}else if(27>t)switch(e){case 1:return 12;case 2:return 11;case 4:return 16;case 8:return 10;default:throw Error("mode:"+e)}else{if(!(41>t))throw Error("type:"+t);switch(e){case 1:return 14;case 2:return 13;case 4:return 16;case 8:return 12;default:throw Error("mode:"+e)}}},n.getLostPoint=function(e){for(var t=e.getModuleCount(),o=0,r=0;r<t;r++)for(var n=0;n<t;n++){for(var i=0,s=e.isDark(r,n),a=-1;1>=a;a++)if(!(0>r+a||r+a>=t))for(var u=-1;1>=u;u++)0>n+u||n+u>=t||0==a&&0==u||s==e.isDark(r+a,n+u)&&i++;i>5&&(o+=3+i-5)}for(var r=0;r<t-1;r++)for(var n=0;n<t-1;n++){var l=0;e.isDark(r,n)&&l++,e.isDark(r+1,n)&&l++,e.isDark(r,n+1)&&l++,e.isDark(r+1,n+1)&&l++,0!=l&&4!=l||(o+=3)}for(var r=0;r<t;r++)for(var n=0;n<t-6;n++)e.isDark(r,n)&&!e.isDark(r,n+1)&&e.isDark(r,n+2)&&e.isDark(r,n+3)&&e.isDark(r,n+4)&&!e.isDark(r,n+5)&&e.isDark(r,n+6)&&(o+=40);for(var n=0;n<t;n++)for(var r=0;r<t-6;r++)e.isDark(r,n)&&!e.isDark(r+1,n)&&e.isDark(r+2,n)&&e.isDark(r+3,n)&&e.isDark(r+4,n)&&!e.isDark(r+5,n)&&e.isDark(r+6,n)&&(o+=40);for(var h=0,n=0;n<t;n++)for(var r=0;r<t;r++)e.isDark(r,n)&&h++;var f=Math.abs(100*h/t/t-50)/5;return o+=10*f,o},n}(),h=function(){var e=[],t=0,o={getBuffer:function(){return e},getAt:function(t){var o=Math.floor(t/8);return 1==(1&e[o]>>7-t%8)},put:function(e,t){for(var o=0;o<t;o++)this.putBit(1==(1&e>>t-o-1))},getLengthInBits:function(){return t},putBit:function(o){var r=Math.floor(t/8);e.length<=r&&e.push(0),o&&(e[r]|=(128>>>t%8)),t++}};return o},f=l,c=function(e,t){if(void 0==e.length)throw Error(e.length+"/"+t);var o=function(){for(var o=0;o<e.length&&0==e[o];)o++;for(var r=Array(e.length-o+t),n=0;n<e.length-o;n++)r[n]=e[n+o];return r}(),r={getAt:function(e){return o[e]},getLength:function(){return o.length},multiply:function(e){for(var t=Array(this.getLength()+e.getLength()-1),o=0;o<this.getLength();o++)for(var r=0;r<e.getLength();r++)t[o+r]^=d.gexp(d.glog(this.getAt(o))+d.glog(e.getAt(r)));return c(t,0)},mod:function(e){if(this.getLength()-e.getLength()<0)return this;for(var t=d.glog(this.getAt(0))-d.glog(e.getAt(0)),o=Array(this.getLength()),r=0;r<this.getLength();r++)o[r]=this.getAt(r);for(var r=0;r<e.getLength();r++)o[r]^=d.gexp(d.glog(e.getAt(r))+t);return c(o,0).mod(e)}};return r},d=function(){for(var e=Array(256),t=Array(256),o=0;8>o;o++)e[o]=1<<o;for(var o=8;256>o;o++)e[o]=e[o-4]^e[o-5]^e[o-6]^e[o-8];for(var o=0;255>o;o++)t[e[o]]=o;var r={glog:function(e){if(1>e)throw Error("glog("+e+")");return t[e]},gexp:function(t){for(;0>t;)t+=255;for(;t>=256;)t-=255;return e[t]}};return r}();
+return {create:function(text, level){var ec={L:1,M:0,Q:3,H:2}[level||'M'];var qr=new n({qrNumber:-1,errorCorrectLevel:ec,text:text});return qr;}}});
 
-/* ====== 名簿（画像の並びを再現） ====== */
+/* ====== 定数/状態 ====== */
+const board = document.getElementById('board');
+const autosaveIndicator = document.getElementById('autosaveIndicator');
+const notification = document.getElementById('notification');
+const syncStatus = document.getElementById('syncStatus');
+const storeKey = 'presence-board-v2';
+const syncKey = 'presence-board-sync-v2';
+const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
+let saveTimeout=null,lastSaveTime=0,isOnline=navigator.onLine;
+
+/* ====== 名簿（画像の並び） ====== */
 const groups = [
-  // 左上
   ["村田","今泉","北村","大野","長谷川","横内"],
-  // 左下
   ["佐藤","井上","折原","金村","水野","坪井"],
-  // 中上
   ["清水","加藤","石垣","橋本","末永","田中光","大石","井山"],
-  // 中下
   ["飯島","能登","松浦","永峯","清","長森","山本"],
-  // 右上
   ["伊藤隆","小森","三浦","中村純","朝井","稲葉"],
-  // 右中
   ["吉田","阿部","伊藤裕","中村清","平良","若山","竹森","平八重"],
-  // 中央下
   ["鈴木","中村亮","江場","三島","吉田","小川","伊藤尊"]
 ];
 
-/* ====== UI生成 ====== */
-// 指定されたステータス内容
-const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
-const board = document.getElementById("board");
-const storeKey = "presence-board-v2";
-const syncKey = "presence-board-sync-v2";
-const autosaveIndicator = document.getElementById("autosaveIndicator");
-const notification = document.getElementById("notification");
-const syncStatus = document.getElementById("syncStatus");
-
-// 自動保存の状態管理
-let saveTimeout = null;
-let lastSaveTime = 0;
-let isOnline = navigator.onLine;
-
-// 30分区切りの時間選択肢を生成（0:00から23:30まで）
-function generateTimeOptions() {
-  const options = ['<option value="">--</option>'];
-  for (let hour = 0; hour < 24; hour++) {
-    for (let min = 0; min < 60; min += 30) {
-      const timeStr = String(hour).padStart(2, '0') + ':' + String(min).padStart(2, '0');
-      options.push(`<option value="${timeStr}">${timeStr}</option>`);
-    }
-  }
-  return options.join('');
+/* ====== HTML生成 ====== */
+function generateTimeOptions(){
+  const opts=['<option value="">--</option>'];
+  for(let h=0;h<24;h++){for(let m=0;m<60;m+=30){const t=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');opts.push(`<option value="${t}">${t}</option>`);}}
+  return opts.join('');
 }
-
-function rowHtml(gIndex, rIndex, name){
-  const key = `${gIndex}-${rIndex}`;
+function rowHtml(gIndex,rIndex,name){
+  const key=`${gIndex}-${rIndex}`;
   return `
     <tr id="row-${key}" data-key="${key}" data-status="在席">
       <td class="name">${name}</td>
       <td class="status">
         <label class="sr-only" for="status-${key}">ステータス</label>
-        <select id="status-${key}" name="status">
-          ${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}
-        </select>
+        <select id="status-${key}" name="status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}</select>
       </td>
       <td class="time">
         <label class="sr-only" for="time-${key}">戻り時間</label>
-        <select id="time-${key}" name="time">
-          ${generateTimeOptions()}
-        </select>
+        <select id="time-${key}" name="time">${generateTimeOptions()}</select>
       </td>
       <td class="note">
         <label class="sr-only" for="note-${key}">備考</label>
         <input id="note-${key}" name="note" type="text" list="note-suggestions" />
       </td>
-    </tr>
-  `;
+    </tr>`;
 }
-
-function panelHtml(gIndex, names){
+function panelHtml(gIndex,names){
   return `
     <section class="panel">
       <table aria-label="在席表">
-        <thead>
-          <tr><th>氏名</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr>
-        </thead>
-        <tbody>
-          ${names.map((n, i)=>rowHtml(gIndex, i, n)).join("")}
-        </tbody>
+        <thead><tr><th>氏名</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr></thead>
+        <tbody>${names.map((n,i)=>rowHtml(gIndex,i,n)).join("")}</tbody>
       </table>
-    </section>
-  `;
+    </section>`;
 }
-
 function render(){
-  board.innerHTML = groups.map((g, i)=>panelHtml(i, g)).join("");
+  board.innerHTML = groups.map((g,i)=>panelHtml(i,g)).join('');
   attachHandlers();
   loadState();
   recalcRowColors();
 }
 
-/* ====== リアルタイム同期機能 ====== */
-function updateSyncStatus() {
-  const status = syncStatus;
-  if (isOnline) {
-    status.textContent = 'オンライン';
-    status.className = 'sync-status online';
-  } else {
-    status.textContent = 'オフライン';
-    status.className = 'sync-status offline';
-  }
+/* ====== 同期/保存/通知 ====== */
+function updateSyncStatus(){
+  if(isOnline){syncStatus.textContent='オンライン';syncStatus.className='sync-status online';}
+  else{syncStatus.textContent='オフライン';syncStatus.className='sync-status offline';}
 }
-
-function broadcastChange(data) {
-  if (!isOnline) return;
-  
-  // 同期データを保存（他のタブ/ウィンドウ用）
-  const syncData = {
-    data: data,
-    timestamp: Date.now(),
-    sessionId: getSessionId()
-  };
-  
-  try {
-    localStorage.setItem(syncKey, JSON.stringify(syncData));
-    showAutosaveIndicator('syncing', '同期中...');
-    
-    // 同期完了のシミュレーション
-    setTimeout(() => {
-      showAutosaveIndicator('saved', '同期完了');
-    }, 500);
-  } catch (e) {
-    console.warn('同期に失敗しました:', e);
-  }
+function broadcastChange(data){
+  if(!isOnline) return;
+  const syncData={data,timestamp:Date.now(),sessionId:getSessionId()};
+  try{
+    localStorage.setItem(syncKey,JSON.stringify(syncData));
+    showAutosaveIndicator('syncing','同期中...');
+    setTimeout(()=>{showAutosaveIndicator('saved','同期完了');},500);
+  }catch(e){console.warn('同期に失敗',e)}
 }
-
-function getSessionId() {
-  let sessionId = sessionStorage.getItem('attendance-session-id');
-  if (!sessionId) {
-    sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-    sessionStorage.setItem('attendance-session-id', sessionId);
-  }
-  return sessionId;
+function getSessionId(){
+  let id=sessionStorage.getItem('attendance-session-id');
+  if(!id){id=Date.now().toString(36)+Math.random().toString(36).slice(2);sessionStorage.setItem('attendance-session-id',id);}return id;
 }
-
-function listenForChanges() {
-  // 他のタブ/ウィンドウからの変更を監視
-  window.addEventListener('storage', (e) => {
-    if (e.key === syncKey && e.newValue) {
-      try {
-        const syncData = JSON.parse(e.newValue);
-        // 自分のセッションからの変更は無視
-        if (syncData.sessionId !== getSessionId()) {
+function listenForChanges(){
+  window.addEventListener('storage',e=>{
+    if(e.key===syncKey&&e.newValue){
+      try{
+        const syncData=JSON.parse(e.newValue);
+        if(syncData.sessionId!==getSessionId()){
           applyRemoteChanges(syncData.data);
           showNotification('他の端末から更新されました');
+          saveState(getCurrentState());
         }
-      } catch (error) {
-        console.warn('同期データの解析に失敗:', error);
-      }
+      }catch(err){console.warn('同期データ解析失敗',err)}
     }
   });
-  
-  // オンライン/オフライン状態の監視
-  window.addEventListener('online', () => {
-    isOnline = true;
-    updateSyncStatus();
-    syncWithServer();
-  });
-  
-  window.addEventListener('offline', () => {
-    isOnline = false;
-    updateSyncStatus();
-  });
+  window.addEventListener('online',()=>{isOnline=true;updateSyncStatus();syncWithServer()});
+  window.addEventListener('offline',()=>{isOnline=false;updateSyncStatus()});
 }
-
-function applyRemoteChanges(data) {
-  // リモートからの変更を適用（イベント発火を避けるため直接値を設定）
-  Object.entries(data).forEach(([key, v]) => {
-    const statusEl = document.getElementById(`status-${key}`);
-    const timeEl = document.getElementById(`time-${key}`);
-    const noteEl = document.getElementById(`note-${key}`);
-    
-    if (statusEl && STATUSES.includes(v.status)) {
-      statusEl.value = v.status;
-    }
-    if (timeEl && v.time) {
-      timeEl.value = v.time;
-    }
-    if (noteEl) {
-      noteEl.value = v.note || '';
-    }
+function applyRemoteChanges(data){
+  Object.entries(data).forEach(([k,v])=>{
+    const s=document.getElementById(`status-${k}`), t=document.getElementById(`time-${k}`), n=document.getElementById(`note-${k}`);
+    if(s&&STATUSES.includes(v.status)) s.value=v.status;
+    if(t) t.value=v.time||'';
+    if(n) n.value=v.note||'';
   });
-  
   recalcRowColors();
 }
-
-function syncWithServer() {
-  // サーバーとの同期（実際の実装では API を呼び出し）
-  if (isOnline) {
-    const localData = getCurrentState();
-    broadcastChange(localData);
-  }
-}
-
-function getCurrentState() {
-  const data = {};
-  board.querySelectorAll("tbody tr").forEach(tr => {
-    const key = tr.dataset.key;
-    const status = tr.querySelector('select[name="status"]').value;
-    const time = tr.querySelector('select[name="time"]').value;
-    const note = tr.querySelector('input[name="note"]').value;
-    data[key] = {status, time, note};
+function syncWithServer(){ if(isOnline){const data=getCurrentState();broadcastChange(data);} }
+function getCurrentState(){
+  const data={};
+  board.querySelectorAll('tbody tr').forEach(tr=>{
+    const key=tr.dataset.key;
+    data[key]={
+      status:tr.querySelector('select[name="status"]').value,
+      time:tr.querySelector('select[name="time"]').value,
+      note:tr.querySelector('input[name="note"]').value
+    };
   });
   return data;
 }
-
-/* ====== 改善された自動保存機能 ====== */
-function showAutosaveIndicator(status, message) {
-  autosaveIndicator.className = `autosave-indicator ${status}`;
-  autosaveIndicator.textContent = message;
-  
-  if (status === 'saved' || status === 'syncing') {
-    setTimeout(() => {
-      autosaveIndicator.style.opacity = '0';
-    }, 2000);
-  }
+function showAutosaveIndicator(status,message){
+  autosaveIndicator.className=`autosave-indicator ${status}`;
+  autosaveIndicator.textContent=message;
+  autosaveIndicator.style.opacity='1';
+  if(status==='saved'||status==='syncing'){setTimeout(()=>{autosaveIndicator.style.opacity='0';},2000)}
 }
-
-function debouncedSave() {
-  // 既存のタイマーをクリア
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-  }
-  
-  // 保存中表示
-  showAutosaveIndicator('saving', '保存中...');
-  
-  // 1秒後に保存実行
-  saveTimeout = setTimeout(() => {
-    const data = getCurrentState();
+function debouncedSave(){
+  if(saveTimeout) clearTimeout(saveTimeout);
+  showAutosaveIndicator('saving','保存中...');
+  saveTimeout=setTimeout(()=>{
+    const data=getCurrentState();
     saveState(data);
-    broadcastChange(data); // リアルタイム同期
-    lastSaveTime = Date.now();
-    showAutosaveIndicator('saved', '保存しました');
-  }, 1000);
+    broadcastChange(data);
+    lastSaveTime=Date.now();
+    showAutosaveIndicator('saved','保存しました');
+  },1000);
 }
-
-// 定期的な自動保存（30秒ごと）
-function startAutoSave() {
-  setInterval(() => {
-    const now = Date.now();
-    // 最後の保存から30秒以上経過している場合のみ保存
-    if (now - lastSaveTime > 30000) {
-      const data = getCurrentState();
-      saveState(data);
-      broadcastChange(data);
-      lastSaveTime = now;
-      showAutosaveIndicator('saved', '自動保存しました');
+function startAutoSave(){
+  setInterval(()=>{
+    const now=Date.now();
+    if(now-lastSaveTime>30000){
+      const data=getCurrentState();
+      saveState(data); broadcastChange(data);
+      lastSaveTime=now; showAutosaveIndicator('saved','自動保存しました');
     }
-  }, 30000);
+  },30000);
 }
-
-/* ====== 通知機能 ====== */
-function showNotification(message) {
-  notification.textContent = message;
-  notification.classList.add('show');
-  
-  setTimeout(() => {
-    notification.classList.remove('show');
-  }, 5000);
+function showNotification(message){
+  notification.textContent=message;notification.classList.add('show');
+  setTimeout(()=>notification.classList.remove('show'),5000);
 }
-
-function checkReturnTimes() {
-  const now = new Date();
-  const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
-                     now.getMinutes().toString().padStart(2, '0');
-  
-  board.querySelectorAll('select[name="time"]').forEach(timeSelect => {
-    if (timeSelect.value && timeSelect.value === currentTime) {
-      const row = timeSelect.closest('tr');
-      const name = row.querySelector('.name').textContent;
-      const status = row.querySelector('select[name="status"]').value;
-      
-      if (['外出', '出張', '研修'].includes(status)) {
-        showNotification(`${name}さんの戻り予定時間です（${status}）`);
-        
-        // ブラウザ通知（許可されている場合）
-        if (Notification.permission === 'granted') {
-          new Notification('在席確認表', {
-            body: `${name}さんの戻り予定時間です（${status}）`,
-            icon: '/favicon.ico'
-          });
-        }
+function checkReturnTimes(){
+  const d=new Date();const hh=String(d.getHours()).padStart(2,'0');const mm=String(d.getMinutes()).padStart(2,'0');const now=`${hh}:${mm}`;
+  board.querySelectorAll('select[name="time"]').forEach(sel=>{
+    if(sel.value===now){
+      const tr=sel.closest('tr');const name=tr.querySelector('.name').textContent;const st=tr.querySelector('select[name="status"]').value;
+      if(['外出','出張','研修'].includes(st)){
+        showNotification(`${name}さんの戻り予定時間です（${st}）`);
+        if('Notification'in window && Notification.permission==='granted')
+          new Notification('在席確認表',{body:`${name}さんの戻り予定時間です（${st}）`,icon:'favicon.ico'});
       }
     }
   });
 }
+function startNotificationCheck(){ setInterval(checkReturnTimes,60000); }
+function requestNotificationPermission(){ if('Notification'in window && Notification.permission==='default'){ Notification.requestPermission(); } }
 
-// 1分ごとに戻り時間をチェック
-function startNotificationCheck() {
-  setInterval(checkReturnTimes, 60000);
-}
-
-// 通知許可をリクエスト
-function requestNotificationPermission() {
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
-}
-
-/* ====== 状態保存 ====== */
+/* ====== 保存 ====== */
 function attachHandlers(){
-  board.querySelectorAll("select,input").forEach(el=>{
-    el.addEventListener("change", ()=>{
-      debouncedSave(); // 改善された自動保存を使用
-      recalcRowColors();
-      toggleTimeEnable(el);
-    });
-    
-    // リアルタイム入力にも対応
-    el.addEventListener("input", ()=>{
-      debouncedSave();
-    });
-    
-    if(el.name==="status"){ 
-      toggleTimeEnable(el); 
-    }
+  board.querySelectorAll('select,input').forEach(el=>{
+    el.addEventListener('change',()=>{debouncedSave();recalcRowColors();toggleTimeEnable(el)});
+    el.addEventListener('input',()=>{debouncedSave()});
+    if(el.name==='status') toggleTimeEnable(el);
   });
 }
-
 function toggleTimeEnable(el){
-  if(el.name!=="status") return;
-  const key = el.id.replace("status-","");
-  const timeSelect = document.getElementById(`time-${key}`);
-  const needsTime = ["外出","出張","研修"].includes(el.value);
-  timeSelect.disabled = !needsTime;
-  if(!needsTime) timeSelect.value = "";
+  if(el.name!=='status') return;
+  const key=el.id.replace('status-','');
+  const timeSel=document.getElementById(`time-${key}`);
+  const needs=["外出","出張","研修"].includes(el.value);
+  timeSel.disabled=!needs;
+  if(!needs) timeSel.value='';
 }
-
-function saveState(data = null){
-  if (!data) {
-    data = getCurrentState();
-  }
-  localStorage.setItem(storeKey, JSON.stringify(data));
-}
-
+function saveState(data=null){ if(!data) data=getCurrentState(); localStorage.setItem(storeKey,JSON.stringify(data)); }
 function loadState(){
-  const raw = localStorage.getItem(storeKey);
-  if(!raw) return;
-  const data = JSON.parse(raw);
-  Object.entries(data).forEach(([key, v])=>{
-    const s = document.getElementById(`status-${key}`);
-    const t = document.getElementById(`time-${key}`);
-    const n = document.getElementById(`note-${key}`);
-    if(s && STATUSES.includes(v.status)) s.value = v.status;
-    if(t && v.time) t.value = v.time;
-    if(n && v.note) n.value = v.note;
+  const raw=localStorage.getItem(storeKey); if(!raw) return;
+  const data=JSON.parse(raw);
+  Object.entries(data).forEach(([k,v])=>{
+    const s=document.getElementById(`status-${k}`), t=document.getElementById(`time-${k}`), n=document.getElementById(`note-${k}`);
+    if(s&&STATUSES.includes(v.status)) s.value=v.status;
+    if(t&&v.time) t.value=v.time;
+    if(n&&v.note) n.value=v.note;
   });
 }
+function recalcRowColors(){ board.querySelectorAll('tbody tr').forEach(tr=>{ tr.dataset.status=tr.querySelector('select[name="status"]').value; }); }
 
-function recalcRowColors(){
-  board.querySelectorAll("tbody tr").forEach(tr=>{
-    const status = tr.querySelector('select[name="status"]').value;
-    tr.dataset.status = status;
-  });
-}
-
-/* ====== QRコード生成機能 ====== */
-function generateQRCode() {
-  const currentUrl = window.location.href;
-  document.getElementById('currentUrl').textContent = currentUrl;
-  
-  const qrcode = document.getElementById('qrcode');
-  qrcode.innerHTML = ''; // 既存のQRコードをクリア
-  
-  try {
-    const qr = QRCode.create(currentUrl, { 
-      errorCorrectionLevel: 'M',
-      type: 'svg',
-      width: 200,
-      margin: 2,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF'
-      }
-    });
-    
-    // SVG要素を作成
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '200');
-    svg.setAttribute('height', '200');
-    svg.setAttribute('viewBox', '0 0 200 200');
-    
-    const moduleCount = qr.modules.length;
-    const cellSize = 200 / moduleCount;
-    
-    for (let row = 0; row < moduleCount; row++) {
-      for (let col = 0; col < moduleCount; col++) {
-        if (qr.modules[row][col]) {
-          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-          rect.setAttribute('x', col * cellSize);
-          rect.setAttribute('y', row * cellSize);
-          rect.setAttribute('width', cellSize);
-          rect.setAttribute('height', cellSize);
-          rect.setAttribute('fill', '#000000');
-          svg.appendChild(rect);
-        }
-      }
-    }
-    
+/* ====== QRコード ====== */
+function generateQRCode(){
+  const currentUrl=location.href; document.getElementById('currentUrl').textContent=currentUrl;
+  const qrcode=document.getElementById('qrcode'); qrcode.innerHTML='';
+  try{
+    const qr=QRCode.create(currentUrl,'M');
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('width','200'); svg.setAttribute('height','200');
+    const N=qr.modules.length; const cell=200/N;
+    for(let r=0;r<N;r++){ for(let c=0;c<N;c++){ if(qr.modules[r][c]){ const rect=document.createElementNS('http://www.w3.org/2000/svg','rect'); rect.setAttribute('x',c*cell); rect.setAttribute('y',r*cell); rect.setAttribute('width',cell); rect.setAttribute('height',cell); rect.setAttribute('fill','#000'); svg.appendChild(rect);} } }
     qrcode.appendChild(svg);
-  } catch (error) {
-    console.error('QRコード生成エラー:', error);
-    qrcode.innerHTML = '<p>QRコードの生成に失敗しました</p>';
-  }
+  }catch(err){ console.error('QR生成エラー',err); qrcode.innerHTML='<p>QRコードの生成に失敗しました</p>'; }
 }
-
-function showQRModal() {
-  generateQRCode();
-  document.getElementById('qrModal').style.display = 'block';
-}
-
-function closeQRModal() {
-  document.getElementById('qrModal').style.display = 'none';
-}
-
-function copyUrl() {
-  const url = window.location.href;
-  navigator.clipboard.writeText(url).then(() => {
-    showNotification('URLをクリップボードにコピーしました');
-  }).catch(() => {
-    // フォールバック方法
-    const textArea = document.createElement('textarea');
-    textArea.value = url;
-    document.body.appendChild(textArea);
-    textArea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textArea);
-    showNotification('URLをクリップボードにコピーしました');
+function showQRModal(){ generateQRCode(); document.getElementById('qrModal').style.display='block'; }
+function closeQRModal(){ document.getElementById('qrModal').style.display='none'; }
+function copyUrl(){
+  const url=location.href;
+  navigator.clipboard.writeText(url).then(()=>showNotification('URLをコピーしました')).catch(()=>{
+    const ta=document.createElement('textarea'); ta.value=url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    showNotification('URLをコピーしました');
   });
 }
 
-/* ====== イベントリスナーの設定 ====== */
-function setupEventListeners() {
-  // ボタンのイベントリスナー
-  const showQRBtn = document.getElementById('showQR');
-  const clearAllBtn = document.getElementById('clearAll');
-  const printBtn = document.getElementById('printBtn');
-  const qrClose = document.getElementById('qrClose');
-  const copyUrlBtn = document.getElementById('copyUrlBtn');
-  
-  if (showQRBtn) {
-    showQRBtn.addEventListener('click', showQRModal);
-  }
-  
-  if (clearAllBtn) {
-    clearAllBtn.addEventListener('click', ()=>{
-      if(!confirm("全ての入力を消去します。よろしいですか？")) return;
-      
-      const clearedData = {};
-      board.querySelectorAll("tbody tr").forEach(tr => {
-        const key = tr.dataset.key;
-        clearedData[key] = {status: '在席', time: '', note: ''};
-      });
-      
-      localStorage.removeItem(storeKey);
-      board.querySelectorAll('select[name="status"]').forEach(s=>s.value="在席");
-      board.querySelectorAll('select[name="time"]').forEach(t=>{t.value=""; t.disabled=true;});
-      board.querySelectorAll('input[name="note"]').forEach(n=>n.value="");
-      recalcRowColors();
-      
-      // 全消去も他の端末に同期
-      broadcastChange(clearedData);
-      showNotification('全ての入力を消去しました');
-    });
-  }
-  
-  if (printBtn) {
-    printBtn.addEventListener('click', () => {
-      window.print();
-    });
-  }
-  
-  if (qrClose) {
-    qrClose.addEventListener('click', closeQRModal);
-  }
-  
-  if (copyUrlBtn) {
-    copyUrlBtn.addEventListener('click', copyUrl);
-  }
-  
-  // モーダル外クリックで閉じる
-  const qrModal = document.getElementById('qrModal');
-  if (qrModal) {
-    qrModal.addEventListener('click', (e) => {
-      if (e.target.id === 'qrModal') {
-        closeQRModal();
-      }
-    });
-  }
+/* ====== 初期化 ====== */
+function initializeApp(){
+  render(); updateSyncStatus(); listenForChanges(); startAutoSave(); startNotificationCheck(); requestNotificationPermission(); lastSaveTime=Date.now(); syncWithServer();
 }
 
-/* ====== キーボードショートカット ====== */
-function setupKeyboardShortcuts() {
-  document.addEventListener('keydown', (e) => {
-    // Ctrl+S で手動保存
-    if (e.ctrlKey && e.key === 's') {
-      e.preventDefault();
-      const data = getCurrentState();
-      saveState(data);
-      broadcastChange(data);
-      lastSaveTime = Date.now();
-      showNotification('手動保存しました');
-    }
-    
-    // Ctrl+Q でQRコード表示
-    if (e.ctrlKey && e.key === 'q') {
-      e.preventDefault();
-      showQRModal();
-    }
-    
-    // ESC でモーダルを閉じる
-    if (e.key === 'Escape') {
-      closeQRModal();
-    }
-  });
-}
-
-/* ====== アプリケーション初期化 ====== */
-function initializeApp() {
-  render();
-  updateSyncStatus();
-  listenForChanges();
-  startAutoSave();
-  startNotificationCheck();
-  requestNotificationPermission();
-  lastSaveTime = Date.now();
-  
-  // 初回通知許可をリクエスト
-  setTimeout(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().then(permission => {
-        if (permission === 'granted') {
-          showNotification('通知機能が有効になりました');
-        }
-      });
-    }
-  }, 3000);
-  
-  // 初回同期
-  syncWithServer();
-}
-
-// ページ離脱時の保存確認
-window.addEventListener('beforeunload', (e) => {
-  const data = getCurrentState();
-  saveState(data);
-  broadcastChange(data);
+/* ====== 起動時イベント ====== */
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('printBtn').addEventListener('click',()=>window.print());
+  document.getElementById('showQR').addEventListener('click',showQRModal);
+  document.getElementById('qrClose').addEventListener('click',closeQRModal);
+  document.getElementById('qrModal').addEventListener('click',e=>{ if(e.target.id==='qrModal') closeQRModal(); });
+  document.getElementById('copyUrlBtn').addEventListener('click',copyUrl);
+  initializeApp();
 });
 
-/* ====== ページ読み込み時の初期化 ====== */
-document.addEventListener('DOMContentLoaded', () => {
-  setupEventListeners(); // イベントリスナーを最初に設定
-  setupKeyboardShortcuts(); // キーボードショートカットを設定
-  initializeApp(); // アプリケーション初期化
-});
+/* 離脱前に保存 */
+window.addEventListener('beforeunload',()=>{ const data=getCurrentState(); saveState(data); broadcastChange(data); });
 </script>
 </body>
 </html>
