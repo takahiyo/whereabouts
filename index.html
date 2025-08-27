@@ -64,6 +64,16 @@
     button,select,input[type="text"]{font-size:16px}
     th,td{padding:8px}
   }
+  @media print{header,.toast{display:none}body{margin:0}.board{gap:10px}th,td{font-size:12px;padding:4px}}
+</style>
+</head>
+<body>
+  <header>
+    <h1>在席確認表（同期対応）</h1>
+  </header>
+
+  <div id="toast" class="toast"></div>
+  <div id="board" class="board"></div>
 
 <script>
 /* ========= 同期設定（トークン必須JSONP/GAS） ========= */
