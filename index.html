@@ -7,20 +7,43 @@
 <style>
   /* ============================
    *  幅・サイズの集中定義（ここだけ触ればOK）
+   *  係数は「前回=100%」からの倍率。安全最小幅を併用。
    * ============================ */
+
+  /* 前回（基準値）: 氏名120 / 内線80 / ステ360～380 / 時間120 / 備考320(px) */
   :root{
-    /* ▼列ごとの絶対幅(px) */
-    --w-name:   120px;  /* 氏名列の幅 */
-    --w-ext:     80px;  /* 内線列の幅（半角4桁想定） */
-    --w-status: 380px;  /* ステータス列の幅（「コアドック」も余裕） */
-    --w-time:   120px;  /* 戻り時間列の幅（00:00～23:30） */
-    --w-note:   320px;  /* 備考列の幅（候補＋自由入力） */
+    /* ▼倍率（ご指定）：氏名50% / 内線33% / ステータス75% / 戻り時間45% */
+    --scale-name:   0.50;   /* 氏名 */
+    --scale-ext:    0.33;   /* 内線 */
+    --scale-status: 0.75;   /* ステータス */
+    --scale-time:   0.45;   /* 戻り時間 */
 
-    /* ▼1枚の表（パネル）の最小幅：上の合計に余白を足した値にしておく */
-    /*   120+80+380+120+320=1,020 → 余白見込みで 1,060 に */
-    --panel-min: 1060px;
+    /* ▼基準幅(px) */
+    --base-name:   120;
+    --base-ext:     80;
+    --base-status: 380;  /* 「コアドック」を見越して前回380基準 */
+    --base-time:   120;
+    --base-note:   320;  /* 備考：ご指定「現状まで含めた幅」= 基準を踏襲し若干上げ可 */
 
-    /* ▼パネル間のすき間(px) */
+    /* ▼安全最小幅(px)（表示崩れ防止のクランプ下限） */
+    --min-name:   90;    /* 氏名は2〜3文字＋余白が入る目安 */
+    --min-ext:    64;    /* 半角4桁＋パディング */
+    --min-status: 260;   /* ステータス文言が切れない目安 */
+    --min-time:   100;   /* 00:00が中央で収まる最小値 */
+    --min-note:   260;   /* 備考入力が実用になる最小値 */
+
+    /* ▼計算結果（px）= round(max(基準*倍率, 最小)) */
+    --w-name:   calc(max(var(--base-name)*var(--scale-name),   var(--min-name)));
+    --w-ext:    calc(max(var(--base-ext)*var(--scale-ext),     var(--min-ext)));
+    --w-status: calc(max(var(--base-status)*var(--scale-status),var(--min-status)));
+    --w-time:   calc(max(var(--base-time)*var(--scale-time),   var(--min-time)));
+    --w-note:   calc(max(var(--base-note),                     var(--min-note))); /* ご要望に合わせ基準を優先 */
+
+    /* ▼1枚の表（パネル）の最小幅：列合計＋余白を見込む */
+    /*   JSなしで計算するため固定マージン(≈+60)を加味しておく */
+    --panel-min: calc(var(--w-name) + var(--w-ext) + var(--w-status) + var(--w-time) + var(--w-note) + 60px);
+
+    /* ▼パネル間のすき間 */
     --gap: 20px;
 
     /* ▼色 */
@@ -31,13 +54,21 @@
   /* スマホ時は絶対値を上書き（融通はここで確保） */
   @media (max-width: 768px){
     :root{
-      --w-name:    100px;
-      --w-ext:      70px;
-      --w-status:  300px;
-      --w-time:    110px;
-      --w-note:    260px;
-      --panel-min: 860px;   /* 列合計に合わせて調整 */
-      --gap:       12px;
+      /* スマホ用に各列を少しだけ広めに確保（タップしやすさ優先） */
+      --min-name:   90;
+      --min-ext:    64;
+      --min-status: 280;
+      --min-time:   110;
+      --min-note:   240;
+
+      --w-name:   var(--min-name);
+      --w-ext:    var(--min-ext);
+      --w-status: var(--min-status);
+      --w-time:   var(--min-time);
+      --w-note:   var(--min-note);
+
+      --panel-min: calc(var(--w-name) + var(--w-ext) + var(--w-status) + var(--w-time) + var(--w-note) + 40px);
+      --gap: 12px;
     }
   }
 
@@ -72,11 +103,6 @@
   td.status select{ padding-right:.8em; }
   /* 戻り時間は中央寄せ＆等幅数字 */
   td.time select{ text-align-last:center; font-variant-numeric:tabular-nums; }
-
-  /* 備考（候補＋自由入力） */
-  .note .wrap{ display:flex; gap:4px; align-items:center; width:100%; box-sizing:border-box; }
-  .note .quick{ flex:0 0 6em; min-width:0; font-size:13px; padding:.25rem .3rem; }
-  .note .free { flex:1 1 auto; min-width:0; }
 
   /* ステータス色 */
   tr[data-status="在席"]{background:var(--present)}
@@ -130,7 +156,6 @@
 <script>
 /* ============================================================
  *  同期設定（JSONP / GASトークン認証）
- *  - パスワードはGAS側で管理（このHTMLには書かない）
  * ============================================================ */
 const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbzCTZCD1WpG9IpqhTavsOby_ZCLdhJeadCy-qPBlWlQhUv0HVLq6Ut7VbCKSfQdvPEi/exec";
 const REMOTE_KEY      = "presence-board-default";
@@ -138,7 +163,7 @@ const REMOTE_POLL_MS  = 30000;                // 定期取得：30秒
 const SESSION_KEY     = "presence-session-token";
 
 /* ============================================================
- *  名簿・グループ（初期表示）※将来はAPI化も可能
+ *  名簿・グループ（初期表示）
  * ============================================================ */
 const GROUPS = [
   { title:"", members:["村田","今泉","北村","大野","長谷川","横内"] },
@@ -194,15 +219,8 @@ function rowHtml(gIndex,rIndex,name){
         <select id="time-${key}" name="time">${timeOptions()}</select>
       </td>
       <td class="note">
-        <div class="wrap">
-          <select id="noteq-${key}" class="quick" aria-label="備考（候補）">
-            <option value=""></option>
-            <option value="直出">直出</option>
-            <option value="直帰">直帰</option>
-            <option value="直出/直帰">直出/直帰</option>
-          </select>
-          <input id="note-${key}" class="free" name="note" type="text" placeholder="備考" />
-        </div>
+        <!-- B方式：1入力 + datalist候補 -->
+        <input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" />
       </td>
     </tr>`;
 }
@@ -214,11 +232,11 @@ function panelHtml(gIndex, group){
       <table aria-label="在席表">
         <!-- 列幅は絶対値(px)：CSS変数から取得 -->
         <colgroup>
-          <col style="width: var(--w-name)">
-          <col style="width: var(--w-ext)">
-          <col style="width: var(--w-status)">
-          <col style="width: var(--w-time)">
-          <col style="width: var(--w-note)">
+          <col style="width: calc(var(--w-name)*1px)">
+          <col style="width: calc(var(--w-ext)*1px)">
+          <col style="width: calc(var(--w-status)*1px)">
+          <col style="width: calc(var(--w-time)*1px)">
+          <col style="width: calc(var(--w-note)*1px)">
         </colgroup>
         <thead>
           <tr><th>氏名</th><th>内線</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr>
@@ -247,7 +265,7 @@ function getState(){
       ext:    tr.querySelector('input[name="ext"]').value.trim(),
       status: tr.querySelector('select[name="status"]').value,
       time:   tr.querySelector('select[name="time"]').value,
-      note:   tr.querySelector('.free').value
+      note:   tr.querySelector('input[name="note"]').value
     };
   });
   return data;
@@ -269,16 +287,11 @@ function applyState(data){
     const s=document.getElementById(`status-${k}`);
     const t=document.getElementById(`time-${k}`);
     const n=document.getElementById(`note-${k}`);
-    const q=document.getElementById(`noteq-${k}`);
     if(e) e.value = v.ext || "";
     if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
     if(t) t.value = v.time || "";
     if(n) n.value = v.note || "";
-    if(q){
-      const values=[...q.options].map(o=>o.value);
-      q.value = values.includes(n.value) ? n.value : "";
-    }
-    // ステータスに応じて時間の有効/無効
+
     if(s && t) toggleTimeEnable(s);
   });
   recolor();
@@ -294,40 +307,18 @@ function wireEvents(){
   // 変更→保存→同期
   board.querySelectorAll("select,input").forEach(el=>{
     el.addEventListener("change", ()=>{
-      // ステータスが在席/休み/帰宅/在宅勤務なら戻り時間＆備考を自動クリア
       if(el.name==="status"){
         const key = el.id.replace("status-","");
         const time = document.getElementById(`time-${key}`);
         const note = document.getElementById(`note-${key}`);
-        const noteq= document.getElementById(`noteq-${key}`);
         if(CLEAR_ON.has(el.value)){
           if(time){ time.value=""; }
           if(note){ note.value=""; }
-          if(noteq){ noteq.value=""; }
         }
         toggleTimeEnable(el);
       }
       saveLocal(); pushRemoteThrottled();
       recolor();
-    });
-  });
-
-  // 備考の候補→自由入力へ反映
-  board.querySelectorAll(".quick").forEach(sel=>{
-    sel.addEventListener("change", ()=>{
-      const key = sel.id.replace("noteq-","");
-      const input = document.getElementById(`note-${key}`);
-      input.value = sel.value; saveLocal(); pushRemoteThrottled();
-    });
-  });
-
-  // 自由入力→候補へ同期（完全一致なら選択状態に）
-  board.querySelectorAll(".free").forEach(inp=>{
-    inp.addEventListener("input", ()=>{
-      const key = inp.id.replace("note-","");
-      const sel = document.getElementById(`noteq-${key}`);
-      const values=[...sel.options].map(o=>o.value);
-      sel.value = values.includes(inp.value) ? inp.value : "";
     });
   });
 }
@@ -465,7 +456,7 @@ function startRemoteSync(forcePull=false){
   window.addEventListener('focus', pullRemote);
 
   // 同一端末の別タブ反映
-  window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){} } });
+  window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){ } } });
 }
 
 /* ============================================================
@@ -494,5 +485,13 @@ window.addEventListener('error', e=>{
   toastEl.textContent='エラー: '+e.message; toastEl.classList.add('show');
 });
 </script>
+
+<!-- 備考候補（B方式：datalist一体型） -->
+<datalist id="noteOptions">
+  <option value="直出"></option>
+  <option value="直帰"></option>
+  <option value="直出/直帰"></option>
+</datalist>
+
 </body>
 </html>
