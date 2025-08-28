@@ -7,9 +7,7 @@
 <style>
   /* =========================================
    * 幅・サイズの集中定義（ここだけ触ればOK）
-   * 基準幅は px、倍率は数値。最終的な列幅は px の長さで確定。
-   * ご指定倍率：氏名50% / 内線33% / ステータス75% / 戻り時間45%
-   * 備考は現状のテキストボックスまで含めた幅（基準を維持）
+   * 既存レイアウトを基準px×倍率で固定幅化（table-layout:fixed）
    * ========================================= */
   :root{
     /* 基準幅（前回レイアウトの目安） */
@@ -17,7 +15,7 @@
     --base-ext:     80px;  /* 内線（半角4桁＋パディング） */
     --base-status: 380px;  /* ステータス（「コアドック」等が切れない想定） */
     --base-time:   120px;  /* 戻り時間（“00:00”が収まる） */
-    --base-note:   320px;  /* 備考（テキスト＋datalist候補に十分） */
+    --base-note:   320px;  /* 備考（既存幅を維持） */
 
     /* 倍率（ご指定） */
     --scale-name:   0.50;
@@ -32,12 +30,12 @@
     --min-time:   100px;
     --min-note:   260px;
 
-    /* 実効幅（= max(基準×倍率, 最小)） → すべて px の長さ値 */
+    /* 実効幅 */
     --w-name:   max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
     --w-ext:    max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
     --w-status: max(calc(var(--base-status) * var(--scale-status)), var(--min-status));
     --w-time:   max(calc(var(--base-time)   * var(--scale-time)),   var(--min-time));
-    --w-note:   max(var(--base-note), var(--min-note)); /* ご要望：現状幅を維持 */
+    --w-note:   max(var(--base-note), var(--min-note)); /* 備考は現状幅を維持 */
 
     /* パネル（＝1表）の最小幅：列幅合計 + 余白(スクロール/枠等) */
     --panel-min: calc(var(--w-name) + var(--w-ext) + var(--w-status) + var(--w-time) + var(--w-note) + 60px);
@@ -59,7 +57,6 @@
       --min-time:   110px;
       --min-note:   240px;
 
-      /* 実効幅を最小幅に合わせ直し（=さらに読みやすく） */
       --w-name:   var(--min-name);
       --w-ext:    var(--min-ext);
       --w-status: var(--min-status);
@@ -69,6 +66,10 @@
       --panel-min: calc(var(--w-name) + var(--w-ext) + var(--w-status) + var(--w-time) + var(--w-note) + 40px);
       --gap: 12px;
     }
+    /* iOSズーム防止：フォームを16pxに */
+    select, input{ font-size:16px; }
+    /* 指定：モバイルは12.5em */
+    td.status{ min-width:12.5em; }
   }
 
   /* 体裁 */
@@ -105,8 +106,11 @@
     width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);
     border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
   }
-  /* ステータスの“右の白抜き”を詰める */
-  td.status select{ padding-right:.8em; }
+  /* ステータス右の白抜き対策（仕様値） */
+  td.status select{ padding-right:2.6em; }
+  /* ステータス列の最小幅（仕様） */
+  td.status{ min-width:13em; }
+
   /* 戻り時間は中央寄せ＆等幅数字 */
   td.time select{ text-align-last:center; font-variant-numeric:tabular-nums; }
 
@@ -135,7 +139,7 @@
     th,td{font-size:12px;padding:4px}
   }
 
-  /* “謎の楕円（ハンドル）”対策（もし出ても非表示） */
+  /* 拡張のハンドル抑止 */
   .board [draggable], .board [role="separator"]{ display:none !important; }
 </style>
 </head>
@@ -151,11 +155,11 @@
       <p>パスワードを入力してください</p>
       <input type="password" id="pw" placeholder="Password" />
       <button id="btnLogin" onclick="window.__doLogin && window.__doLogin()">ログイン</button>
-      <div id="loginMsg" style="color:#c53030;margin-top:8px"></div>
+      <div id="loginMsg" style="color:#c53030;margin-top:8px" aria-live="polite"></div>
     </div>
   </div>
 
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <!-- ログイン後に初めて描画 -->
   <div id="board" class="board" style="display:none"></div>
 
@@ -167,6 +171,10 @@ const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbzCTZCD1WpG9Ipq
 const REMOTE_KEY      = "presence-board-default";
 const REMOTE_POLL_MS  = 30000;                // 定期取得：30秒
 const SESSION_KEY     = "presence-session-token";
+
+/* トークン更新：TTLの80%時点でrenew */
+const TOKEN_DEFAULT_TTL = 3600000; // 60分（GAS側がexpを返さない場合の保険）
+let tokenRenewTimer = null;
 
 /* ============================================================
  *  名簿・グループ（初期表示）
@@ -212,7 +220,7 @@ function rowHtml(gIndex,rIndex,name){
       <td class="name">${name}</td>
       <td class="ext">
         <label class="sr-only" for="ext-${key}">内線</label>
-        <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="内線" />
+        <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" />
       </td>
       <td class="status">
         <label class="sr-only" for="status-${key}">ステータス</label>
@@ -225,7 +233,7 @@ function rowHtml(gIndex,rIndex,name){
         <select id="time-${key}" name="time">${timeOptions()}</select>
       </td>
       <td class="note">
-        <!-- B方式：1入力 + datalist候補 -->
+        <!-- 備考：B方式（datalist） -->
         <input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" />
       </td>
     </tr>`;
@@ -375,7 +383,7 @@ function jsonp(url, timeout=12000){
 }
 
 /* ============================================================
- *  認証 & 同期
+ *  認証 & 同期（renew実装あり）
  * ============================================================ */
 let SESSION_TOKEN = "";
 let lastPushed=0;
@@ -393,6 +401,7 @@ async function login(pw){
     hideLogin();
     render();                     // ログイン成功後に初描画
     toast('ログインしました');
+    scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
     startRemoteSync(true);
   }else{
     loginMsg.textContent = "サーバ応答が不正です（login実装/デプロイ要確認）";
@@ -447,6 +456,25 @@ function startRemoteSync(forcePull=false){
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){ } } });
 }
 
+/* ---- トークン更新（TTLの80%でrenew） ---- */
+function scheduleRenew(expMs){
+  if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; }
+  const delay = Math.max(10000, Math.floor(expMs * 0.8)); // 最短10秒の安全弁
+  tokenRenewTimer = setTimeout(renewToken, delay);
+}
+
+async function renewToken(){
+  if(!SESSION_TOKEN) return;
+  const res = await jsonp(`${REMOTE_ENDPOINT}?action=renew&token=${encodeURIComponent(SESSION_TOKEN)}`);
+  if(res && res.ok){
+    const next = Number(res.exp) || TOKEN_DEFAULT_TTL;
+    scheduleRenew(next);
+  }else{
+    sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
+    showLogin("セッションが切れました。再ログインしてください。");
+  }
+}
+
 /* ============================================================
  *  起動
  * ============================================================ */
@@ -461,7 +489,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     SESSION_TOKEN = existing;
     hideLogin();
     render();
-    startRemoteSync(true);
+    // 既存セッションは即時renewしてTTLを取り直す（失敗時はログインへ）
+    (async ()=>{
+      const ok = await jsonp(`${REMOTE_ENDPOINT}?action=renew&token=${encodeURIComponent(SESSION_TOKEN)}`);
+      if(ok && ok.ok){
+        scheduleRenew(Number(ok.exp)||TOKEN_DEFAULT_TTL);
+        startRemoteSync(true);
+      }else{
+        sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
+        showLogin();
+      }
+    })();
   }else{
     showLogin();
   }
@@ -480,6 +518,5 @@ window.addEventListener('error', e=>{
   <option value="直帰"></option>
   <option value="直出/直帰"></option>
 </datalist>
-
 </body>
 </html>
