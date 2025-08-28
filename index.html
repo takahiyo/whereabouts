@@ -49,7 +49,7 @@
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
   /* ===== レイアウト：列数はJSで repeat(var(--cols)) に設定 ===== */
-  .wrap{margin: 0 auto;}
+  .wrap{width:100%; margin: 0 auto;} /* ← 幅計測の安定化 */
   .board{
     display:grid; gap:var(--gap);
     grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
@@ -120,7 +120,7 @@ const TOKEN_DEFAULT_TTL = 3600000;  // 60分
 let tokenRenewTimer = null;
 
 /* 列数決定のしきい値（JSで確実に 3→2→1 切替） */
-const PANEL_MIN_PX = 820;  // 1パネルの目安最小幅（状況に応じて調整可）
+const PANEL_MIN_PX = 760;  // ← 820から下げ、3列の閾値を約2320pxへ
 const GAP_PX = 20;         // --gap と揃える
 const MAX_COLS = 3;
 
@@ -164,8 +164,13 @@ const storeKey = "presence-board-v3";
 
 /* ====== 列数制御（確実に 3/2/1 列） ====== */
 let ro = null;
+function getContainerWidth(){
+  const el = board.parentElement || document.body;
+  const r = el.getBoundingClientRect();
+  return Math.max(0, Math.round(r.width)); // ← clientWidthより安定
+}
 function updateCols(){
-  const containerW = (board.parentElement && board.parentElement.clientWidth) || window.innerWidth;
+  const containerW = getContainerWidth();
   let n = Math.floor((containerW + GAP_PX) / (PANEL_MIN_PX + GAP_PX));
   if(!Number.isFinite(n) || n<1) n=1;
   if(n>MAX_COLS) n=MAX_COLS;
@@ -444,7 +449,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const dataP = fastFetchDataOnce().catch(()=>null);
 
     await cfgP; render(); loadLocal();
-
     const data = await dataP; if(data && data.data) applyState(data.data);
 
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
@@ -492,4 +496,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
