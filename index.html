@@ -10,7 +10,7 @@
     /* ========= 列幅の基本設定 ========= */
     --base-name:   120px;
     --base-ext:     80px;
-    --base-status: 180px;
+    --base-status: 380px;
     --base-time:   120px;
     --base-note:   320px;
 
@@ -21,7 +21,7 @@
 
     --min-name:   120px;
     --min-ext:     60px;
-    --min-status: 130px;  /* 少し小さめにして列が増えやすく */
+    --min-status: 130px;
     --min-time:    80px;
     --min-note:   120px;
 
@@ -31,11 +31,11 @@
     --w-time:    max(calc(var(--base-time)   * var(--scale-time)),   var(--min-time));
     --w-note:    max(var(--base-note), var(--min-note));
 
-    /* ▼ 固定幅を使いたい場合のみ有効化（例：200px） */
+    /* 固定したい時だけ有効化（例：--status-fixed: 200px;） */
     /* --status-fixed: 200px; */
     --status-effective: var(--status-fixed, var(--w-status));
 
-    /* 1パネルの「必要最小幅」（JSフォールバックもこの値で計算） */
+    /* 参考用（JSは固定閾値で列数を決定するため、この値には依存しません） */
     --panel-min: calc(var(--w-name)+var(--w-ext)+var(--status-effective)+var(--w-time)+var(--w-note)+60px);
 
     --gap: 20px;
@@ -48,17 +48,17 @@
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* ===== レイアウト：CSSではauto-fit、JSでフォールバック制御 ===== */
-  .wrap{max-width: calc(3 * var(--panel-min) + 2 * var(--gap)); margin: 0 auto;}
+  /* ===== レイアウト：列数はJSで repeat(var(--cols)) に設定 ===== */
+  .wrap{margin: 0 auto;}
   .board{
     display:grid; gap:var(--gap);
-    grid-template-columns: repeat(auto-fit, minmax(var(--panel-min), 1fr));
+    grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
   }
 
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto}
   .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
-  thead th{position:sticky;top:0;background:var(--head);font-weight:700}
+  thead th{position:sticky;top:0;background:#f2efe9;font-weight:700}
   th,td{border:1px solid var(--line);padding:6px;font-size:14px} th{text-align:left}
 
   /* ▼ 列幅（ステータスは固定指定があれば強制） */
@@ -119,6 +119,11 @@ const SESSION_KEY     = "presence-session-token";
 const TOKEN_DEFAULT_TTL = 3600000;  // 60分
 let tokenRenewTimer = null;
 
+/* 列数決定のしきい値（JSで確実に 3→2→1 切替） */
+const PANEL_MIN_PX = 820;  // 1パネルの目安最小幅（状況に応じて調整可）
+const GAP_PX = 20;         // --gap と揃える
+const MAX_COLS = 3;
+
 /* ================== 名簿（サーバ取得・人IDキー運用） ================== */
 let GROUPS = [];
 let CONFIG_UPDATED = 0;
@@ -157,36 +162,21 @@ const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","�
 const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);
 const storeKey = "presence-board-v3";
 
-/* ====== CSS→JS フォールバックで 3/2/1 列を確実化 ====== */
-const MAX_COLS = 3;
-let panelMinPx = null, gapPx = null, ro = null;
-function cssPx(expr){
-  const probe = document.createElement('div');
-  probe.style.position='absolute'; probe.style.visibility='hidden'; probe.style.width = expr;
-  document.body.appendChild(probe);
-  const w = probe.getBoundingClientRect().width;
-  probe.remove();
-  return Math.max(0, Math.round(w));
-}
-function ensureMetrics(){
-  const rootStyle = getComputedStyle(document.documentElement);
-  if(panelMinPx==null){ panelMinPx = cssPx(rootStyle.getPropertyValue('--panel-min') || '900px'); }
-  if(gapPx==null){ gapPx = parseFloat(rootStyle.getPropertyValue('--gap')) || 20; }
-}
-function setGridColumns(){
-  ensureMetrics();
-  const containerW = board.parentElement?.clientWidth || window.innerWidth;
-  let n = Math.floor((containerW + gapPx) / (panelMinPx + gapPx));
+/* ====== 列数制御（確実に 3/2/1 列） ====== */
+let ro = null;
+function updateCols(){
+  const containerW = (board.parentElement && board.parentElement.clientWidth) || window.innerWidth;
+  let n = Math.floor((containerW + GAP_PX) / (PANEL_MIN_PX + GAP_PX));
   if(!Number.isFinite(n) || n<1) n=1;
-  n = Math.min(n, MAX_COLS);
-  // JSで強制指定（CSSのauto-fitより優先）
-  board.style.gridTemplateColumns = (n===1) ? 'minmax(var(--panel-min), 1fr)' : `repeat(${n}, minmax(var(--panel-min), 1fr))`;
+  if(n>MAX_COLS) n=MAX_COLS;
+  board.style.setProperty('--cols', n);
 }
 function startGridObserver(){
   if(ro) ro.disconnect();
-  ro = new ResizeObserver(()=> setGridColumns());
+  ro = new ResizeObserver(()=> updateCols());
   ro.observe(board.parentElement || document.body);
-  window.addEventListener('resize', setGridColumns, {passive:true});
+  window.addEventListener('resize', updateCols, {passive:true});
+  updateCols(); // 初期設定
 }
 
 /* ====== UI作成 ====== */
@@ -234,9 +224,7 @@ function render(){
   wireEvents();
   loadLocal();     // まずローカルを即時反映
   recolor();
-  // 幅制御を起動
-  startGridObserver();
-  setGridColumns();
+  startGridObserver(); // 列数制御を開始
 }
 
 /* ===== 状態 I/O ===== */
@@ -391,8 +379,7 @@ async function pushRowDelta(key){
     loginEl.style.display='flex';
     return;
   }
-  // 反映確認（軽量pull）
-  await pullRemote();
+  await pullRemote(); // 軽量pullで反映確認
 }
 
 function startRemoteSync(forcePull=false){
@@ -457,6 +444,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const dataP = fastFetchDataOnce().catch(()=>null);
 
     await cfgP; render(); loadLocal();
+
     const data = await dataP; if(data && data.data) applyState(data.data);
 
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
@@ -504,4 +492,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
