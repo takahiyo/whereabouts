@@ -10,7 +10,7 @@
     /* ========= 列幅の基本設定 ========= */
     --base-name:   120px;
     --base-ext:     80px;
-    --base-status: 180px;
+    --base-status: 380px;
     --base-time:   120px;
     --base-note:   320px;
 
@@ -21,9 +21,9 @@
 
     --min-name:    90px;
     --min-ext:     64px;
-    --min-status: 100px;  /* ← ここが下限。狭めたい時は小さく */
+    --min-status: 260px;  /* 狭めたい時は小さく */
     --min-time:   100px;
-    --min-note:   200px;
+    --min-note:   260px;
 
     --w-name:    max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
     --w-ext:     max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
@@ -115,10 +115,10 @@
 /* ================== 同期設定 ================== */
 const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
 const REMOTE_KEY      = "presence-board-default";
-const REMOTE_POLL_MS  = 8000;       // 在席データpull（8秒）
-const CONFIG_POLL_MS  = 120000;     // 名簿チェック（2分）
+const REMOTE_POLL_MS  = 8000;
+const CONFIG_POLL_MS  = 120000;
 const SESSION_KEY     = "presence-session-token";
-const TOKEN_DEFAULT_TTL = 3600000;  // 60分
+const TOKEN_DEFAULT_TTL = 3600000;
 let tokenRenewTimer = null;
 
 /* ================== 名簿（サーバ取得・人IDキー運用） ================== */
@@ -127,7 +127,7 @@ let CONFIG_UPDATED = 0;
 
 function makeLocalId(s){
   const seed = (s||"").normalize('NFKC').replace(/\s+/g,'');
-  let h = 0; for(let i=0;i<seed.length;i++){ h = (h*31 + seed.charCodeAt(i)) >>> 0; }
+  let h = 0; for(let i=0;i<seed.length;i++){ h = (h*31 + s.charCodeAt(i)) >>> 0; }
   return "P" + (h.toString(16) + "00000000").slice(0,8);
 }
 
@@ -155,7 +155,7 @@ const toastEl= document.getElementById('toast');
 const dbgEl  = document.getElementById('dbg');
 const dbgText= document.getElementById('dbgText');
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
-const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);
+const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]); // ← ステータス変更時のみクリアに使用
 const storeKey = "presence-board-v3";
 
 /* ====== 動的列数（最大3列） ====== */
@@ -266,7 +266,7 @@ function applyState(data){
       if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
       if(t) t.value = v.time || "";
       if(n) n.value = v.note || "";
-      if(s && t) toggleTimeEnable(s);
+      if(s && t) toggleTimeEnable(s, t); // ← クリアしない
       hit++;
     }else{
       miss++;
@@ -281,42 +281,40 @@ function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(!raw) re
 
 /* ===== イベント ===== */
 function wireEvents(){
-  // 差分送信（各行ごと）
   function pushDeltaByEl(el){
     const tr = el.closest('tr');
     if(!tr) return;
-    const key = tr.dataset.key;
-    pushRowDelta(key);
+    pushRowDelta(tr.dataset.key);
   }
 
   board.querySelectorAll("select,input").forEach(el=>{
     el.addEventListener("change", ()=>{
       if(el.name==="status"){
-        const key = el.id.replace("status-",""), time = document.getElementById(`time-${key}`), note=document.getElementById(`note-${key}`);
+        const key = el.id.replace("status-",""),
+              time = document.getElementById(`time-${key}`),
+              note = document.getElementById(`note-${key}`);
+        // ★ ステータス変更時だけクリアする（在席等に戻した時）
         if(CLEAR_ON.has(el.value)){ if(time) time.value=""; if(note) note.value=""; }
-        toggleTimeEnable(el);
+        // ★ 有効/無効の切替のみ（内容は消さない）
+        if(time) toggleTimeEnable(el, time);
       }
       saveLocal();
-      pushDeltaByEl(el);   // ← 変更行だけ送る
+      pushDeltaByEl(el);   // 行の差分送信
       recolor();
     });
   });
 
   board.querySelectorAll('input[type="text"]').forEach(el=>{
-    el.addEventListener('input', ()=>{
-      saveLocal();
-      pushDeltaByEl(el);   // ← 入力中も差分送信（短文なのでOK）
-    });
+    el.addEventListener('input', ()=>{ saveLocal(); pushDeltaByEl(el); });
   });
 
   document.getElementById('btnPush').addEventListener('click', ()=>pushRemoteFull(true));
   document.getElementById('btnPull').addEventListener('click', ()=>pullRemote(true));
 }
 
-function toggleTimeEnable(statusEl){
-  const key = statusEl.id.replace("status-",""), timeEl = document.getElementById(`time-${key}`);
+function toggleTimeEnable(statusEl, timeEl){
   const needsTime = ["外出","出張","研修"].includes(statusEl.value);
-  if(timeEl){ timeEl.disabled = !needsTime; if(!needsTime) timeEl.value = ""; }
+  if(timeEl){ timeEl.disabled = !needsTime; /* 値は消さない */ }
 }
 function recolor(){
   board.querySelectorAll("tbody tr").forEach(tr=>{
@@ -417,7 +415,7 @@ async function pullRemote(force=false){
   if(force) toast('取得しました');
 }
 
-/* ===== 差分送信（JSONPのURL短縮） ===== */
+/* ===== 差分送信 ===== */
 async function pushRowDelta(key){
   if(!requireTokenOrLogin()) return;
   const payloadObj = {updated:Date.now(), data:{ [key]: getRowState(key) }};
@@ -426,12 +424,10 @@ async function pushRowDelta(key){
   const res = await jsonp(url);
   lastPushAt = Date.now(); updateDbg();
   if(res && res.error){
-    // 認証切れなど
     sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
     document.getElementById('login').style.display='flex';
     return;
   }
-  // 反映確認
   await pullRemote(false);
 }
 
@@ -457,7 +453,6 @@ function startRemoteSync(forcePull=false){
   setTimeout(start, jitter);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullRemote(true); });
   window.addEventListener('focus', ()=>pullRemote(true));
-  // 同一PC内の別タブ反映
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){ } } });
 }
 
@@ -499,7 +494,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
         startRemoteSync(true);
         startConfigWatch();
       }else{
-        sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; document.getElementById('login').style.display='flex';
+        sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
+        document.getElementById('login').style.display='flex';
       }
     })();
   }else{
@@ -521,6 +517,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
-
-
