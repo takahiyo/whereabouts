@@ -24,8 +24,8 @@
 
   /* 列幅 */
   td.name{background:#fff;width:18%}
-  td.status{width:40%;min-width:11.5em}
-  td.time{width:12%;min-width:6.2em}
+  td.status{width:36%;min-width:12em;}
+  td.time{width:11%;min-width:6em;}
   td.note{width:35%}
 
   /* コントロール */
@@ -34,6 +34,9 @@
     border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
   }
   td.time select{width:100%}
+  td.status select{
+  padding-right: 2.4em;
+}
 
   /* 備考：候補 + 自由入力（先頭は空） */
   .note .wrap{display:flex;gap:6px;align-items:center}
@@ -65,7 +68,8 @@
     body{margin:8px}
     select,input[type="text"]{font-size:16px}
     th,td{padding:8px}
-  }
+    td.status{ min-width: 12.5em; }  /* スマホ時の下限を少し増やす */
+}
 
   @media print{header,.toast,.login{display:none}body{margin:0}.board{gap:10px}th,td{font-size:12px;padding:4px}}
 </style>
@@ -368,6 +372,7 @@ window.addEventListener('error', e=>{
 </script>
 </body>
 </html>
+
 
 
 
