@@ -38,7 +38,7 @@
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* ===== レイアウト（JSで最大4列に調整） ===== */
+  /* ===== レイアウト（JSで最大3列に調整） ===== */
   .board{ display:grid; gap:var(--gap); grid-template-columns: minmax(0,1fr); }
 
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto}
@@ -140,11 +140,10 @@ const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","�
 const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);
 const storeKey = "presence-board-v3";
 
-/* ====== 動的列数（最大4列） ====== */
-const MAX_COLS = 4;
+/* ====== 動的列数（最大3列） ====== */
+const MAX_COLS = 3;
 let panelMinPx = null, gapPx = null;
 function resolveCssPx(expr){
-  // expr（例: "calc(…)" や "20px"）を実測でpx化
   const probe = document.createElement('div');
   probe.style.position='absolute'; probe.style.visibility='hidden'; probe.style.width = expr;
   document.body.appendChild(probe);
@@ -158,7 +157,6 @@ function ensureMetrics(){
 }
 function setGridColumns(){
   ensureMetrics();
-  // boardの内側幅で列数を決定
   const containerW = board.clientWidth || window.innerWidth;
   let n = Math.floor((containerW + gapPx) / (panelMinPx + gapPx));
   if(!Number.isFinite(n) || n<1) n=1;
@@ -213,7 +211,7 @@ function render(){
   wireEvents();
   loadLocal();
   recolor();
-  setGridColumns(); // ★レンダ後に列数確定
+  setGridColumns(); // ★レンダ後に列数確定（最大3列）
 }
 
 /* ===== 状態 I/O ===== */
@@ -228,7 +226,6 @@ function getState(){
   });
   return data;
 }
-/* 要件3: 書き戻り防止のため "全状態" を送信 */
 function getStateForPush(){ return getState(); }
 
 function applyState(data){
@@ -391,7 +388,6 @@ async function pushRemote(force=false){
     document.getElementById('login').style.display='flex';
     return;
   }
-  // 送信直後に確認取得→他端末にも素早く反映
   await pullRemote(false);
   if(force) toast('送信→反映しました');
 }
@@ -403,7 +399,6 @@ function startRemoteSync(forcePull=false){
   setTimeout(start, jitter);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullRemote(true); });
   window.addEventListener('focus', ()=>pullRemote(true));
-  // 同一PC内の別タブ・別ブラウザプロファイル間反映
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){ } } });
 }
 
