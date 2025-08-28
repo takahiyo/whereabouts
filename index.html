@@ -7,10 +7,10 @@
 
 <style>
   :root{
-    /* ========= 列幅の基本設定（必要なら調整） ========= */
+    /* ========= 列幅の基本設定 ========= */
     --base-name:   120px;
     --base-ext:     80px;
-    --base-status: 380px;
+    --base-status: 180px;
     --base-time:   120px;
     --base-note:   320px;
 
@@ -21,9 +21,9 @@
 
     --min-name:    90px;
     --min-ext:     64px;
-    --min-status: 200px;  /* ← 以前より下げて2〜3列に乗りやすく */
+    --min-status: 100px;  /* 少し小さめにして列が増えやすく */
     --min-time:   100px;
-    --min-note:   200px;  /* ← 以前より下げて2〜3列に乗りやすく */
+    --min-note:   220px;
 
     --w-name:    max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
     --w-ext:     max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
@@ -31,26 +31,16 @@
     --w-time:    max(calc(var(--base-time)   * var(--scale-time)),   var(--min-time));
     --w-note:    max(var(--base-note), var(--min-note));
 
-    /* ▼ ステータス列を固定値で強制する場合だけ有効化（例：200px） */
+    /* ▼ 固定幅を使いたい場合のみ有効化（例：200px） */
     /* --status-fixed: 200px; */
     --status-effective: var(--status-fixed, var(--w-status));
 
-    /* レイアウトの列切り替え用 閾値（コンテンツ実幅から少し差し引いて列を増やしやすく） */
-    --panel-min-raw: calc(var(--w-name) + var(--w-ext) + var(--status-effective) + var(--w-time) + var(--w-note) + 60px);
-    --shrink-allowance: 160px;      /* ここを大きくすると列が増えやすい */
-    --grid-min: clamp(520px, calc(var(--panel-min-raw) - var(--shrink-allowance)), 760px);
+    /* 1パネルの「必要最小幅」（JSフォールバックもこの値で計算） */
+    --panel-min: calc(var(--w-name)+var(--w-ext)+var(--status-effective)+var(--w-time)+var(--w-note)+60px);
 
     --gap: 20px;
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
-  }
-
-  /* ビューポートが狭い時は列幅スケールをさらに絞る（自動で2→1列へ落ちやすく） */
-  @media (max-width: 1300px){
-    :root{ --scale-status: 0.70; --scale-time: 0.40; }
-  }
-  @media (max-width: 1100px){
-    :root{ --scale-status: 0.65; --scale-time: 0.38; --min-note: 180px; }
   }
 
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
@@ -58,10 +48,12 @@
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* ===== レイアウト（CSSだけで3→2→1列に自動調整） ===== */
-  .wrap{max-width: calc(3 * var(--grid-min) + 2 * var(--gap)); margin: 0 auto;}
-  .board{ display:grid; gap:var(--gap);
-          grid-template-columns: repeat(auto-fit, minmax(var(--grid-min), 1fr)); }
+  /* ===== レイアウト：CSSではauto-fit、JSでフォールバック制御 ===== */
+  .wrap{max-width: calc(3 * var(--panel-min) + 2 * var(--gap)); margin: 0 auto;}
+  .board{
+    display:grid; gap:var(--gap);
+    grid-template-columns: repeat(auto-fit, minmax(var(--panel-min), 1fr));
+  }
 
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto}
   .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
@@ -156,14 +148,46 @@ function normalizeConfigClient(cfg){
   return [];
 }
 
-const board  = document.getElementById('board');
-const toastEl= document.getElementById('toast');
-const loginEl= document.getElementById('login');
-const loginMsg = document.getElementById('loginMsg');
+const board   = document.getElementById('board');
+const toastEl = document.getElementById('toast');
+const loginEl = document.getElementById('login');
+const loginMsg= document.getElementById('loginMsg');
 
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);
 const storeKey = "presence-board-v3";
+
+/* ====== CSS→JS フォールバックで 3/2/1 列を確実化 ====== */
+const MAX_COLS = 3;
+let panelMinPx = null, gapPx = null, ro = null;
+function cssPx(expr){
+  const probe = document.createElement('div');
+  probe.style.position='absolute'; probe.style.visibility='hidden'; probe.style.width = expr;
+  document.body.appendChild(probe);
+  const w = probe.getBoundingClientRect().width;
+  probe.remove();
+  return Math.max(0, Math.round(w));
+}
+function ensureMetrics(){
+  const rootStyle = getComputedStyle(document.documentElement);
+  if(panelMinPx==null){ panelMinPx = cssPx(rootStyle.getPropertyValue('--panel-min') || '900px'); }
+  if(gapPx==null){ gapPx = parseFloat(rootStyle.getPropertyValue('--gap')) || 20; }
+}
+function setGridColumns(){
+  ensureMetrics();
+  const containerW = board.parentElement?.clientWidth || window.innerWidth;
+  let n = Math.floor((containerW + gapPx) / (panelMinPx + gapPx));
+  if(!Number.isFinite(n) || n<1) n=1;
+  n = Math.min(n, MAX_COLS);
+  // JSで強制指定（CSSのauto-fitより優先）
+  board.style.gridTemplateColumns = (n===1) ? 'minmax(var(--panel-min), 1fr)' : `repeat(${n}, minmax(var(--panel-min), 1fr))`;
+}
+function startGridObserver(){
+  if(ro) ro.disconnect();
+  ro = new ResizeObserver(()=> setGridColumns());
+  ro.observe(board.parentElement || document.body);
+  window.addEventListener('resize', setGridColumns, {passive:true});
+}
 
 /* ====== UI作成 ====== */
 function timeOptions(){
@@ -208,8 +232,11 @@ function render(){
   board.innerHTML = GROUPS.map(g=>panelHtml(g)).join('');
   board.style.display = '';
   wireEvents();
-  loadLocal();     // まずはローカルを即時反映
+  loadLocal();     // まずローカルを即時反映
   recolor();
+  // 幅制御を起動
+  startGridObserver();
+  setGridColumns();
 }
 
 /* ===== 状態 I/O ===== */
@@ -411,7 +438,6 @@ async function renewToken(){
 }
 
 /* ================== 起動（最速描画） ================== */
-const SESSION_KEY     = "presence-session-token";
 const pwInput  = document.getElementById('pw');
 document.addEventListener('DOMContentLoaded', ()=>{
   window.__doLogin = async () => {
@@ -426,7 +452,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     SESSION_TOKEN = res.token; sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
     loginEl.style.display='none'; loginMsg.textContent="";
 
-    // 設定取得とデータ取得を並列で開始 → 設定到着次第レンダ → ローカル即適用 → サーバデータ到着で上書き
+    // 設定とデータを並列取得 → 設定到着で即描画 → ローカル適用 → サーバ到着で上書き
     const cfgP  = tryLoadGroupsFromServer(true).catch(()=>{});
     const dataP = fastFetchDataOnce().catch(()=>null);
 
