@@ -7,39 +7,28 @@
 
 <style>
   :root{
-    /* ===== 列幅（1か所集約） ===== */
-    --base-name:   120px;  /* 氏名 基準幅 */
-    --base-ext:     80px;  /* 内線 基準幅 */
-    --base-status: 380px;  /* ステータス 基準幅 */
-    --base-time:   120px;  /* 戻り時間 基準幅 */
-    --base-note:   320px;  /* 備考 基準幅（テキストボックス含む） */
+    /* ========== 幅スキーム（ご要望比率を変数化） ========== */
+    --base-name:   120px;  /* 氏名 現在=100% → scale=0.50 指定 */
+    --base-ext:     80px;  /* 内線 100% → 0.33 */
+    --base-status: 380px;  /* ステータス 100% → 0.75 */
+    --base-time:   120px;  /* 戻り時間 100% → 0.45 */
+    --base-note:   320px;  /* 備考は入力欄全体を想定 */
+    --scale-name:  0.50;
+    --scale-ext:   0.33;
+    --scale-status:0.75;
+    --scale-time:  0.45;
 
-    /* 現在=100%に対する倍率（ご要望値） */
-    --scale-name:   0.50;  /* 氏名 50% */
-    --scale-ext:    0.33;  /* 内線 33% */
-    --scale-status: 0.75;  /* ステータス 75% */
-    --scale-time:   0.45;  /* 戻り時間 45% */
-
-    /* 下限 */
-    --min-name:   90px;
-    --min-ext:    64px;
-    --min-status: 260px;
-    --min-time:   100px;
-    --min-note:   260px;
-
-    /* 実効幅 */
+    --min-name: 90px; --min-ext: 64px; --min-status: 260px; --min-time: 100px; --min-note: 260px;
     --w-name:   max(calc(var(--base-name)*var(--scale-name)),var(--min-name));
     --w-ext:    max(calc(var(--base-ext)*var(--scale-ext)),var(--min-ext));
     --w-status: max(calc(var(--base-status)*var(--scale-status)),var(--min-status));
     --w-time:   max(calc(var(--base-time)*var(--scale-time)),var(--min-time));
     --w-note:   max(var(--base-note),var(--min-note));
 
-    /* 1パネルの最小幅（余白+60px目安） */
+    /* 1パネルの最低必要幅（列決定の基準値） */
     --panel-min: calc(var(--w-name)+var(--w-ext)+var(--w-status)+var(--w-time)+var(--w-note)+60px);
 
     --gap: 20px;
-
-    /* 色 */
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
   }
@@ -49,43 +38,32 @@
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* ===== 最大3列まで自動で横並び ===== */
-  .board{ display:grid; gap:var(--gap); }
-  @media (min-width: 1601px){ .board{ grid-template-columns: repeat(3, minmax(var(--panel-min), 1fr)); } }
-  @media (min-width: 901px) and (max-width: 1600px){ .board{ grid-template-columns: repeat(2, minmax(var(--panel-min), 1fr)); } }
-  @media (max-width: 900px){ .board{ grid-template-columns: minmax(0, 1fr); } }
+  /* ===== レイアウト（JSで最大4列に調整） ===== */
+  .board{ display:grid; gap:var(--gap); grid-template-columns: minmax(0,1fr); }
 
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto}
   .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
-
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
   thead th{position:sticky;top:0;background:var(--head);font-weight:700}
   th,td{border:1px solid var(--line);padding:6px;font-size:14px} th{text-align:left}
   col.col-name{width:var(--w-name)} col.col-ext{width:var(--w-ext)} col.col-status{width:var(--w-status)}
   col.col-time{width:var(--w-time)} col.col-note{width:var(--w-note)}
-
   select,input[type="text"]{width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto}
   td.status select{padding-right:2.6em} td.status{min-width:max(var(--w-status),13em)}
   td.time select{text-align-last:center;font-variant-numeric:tabular-nums}
-
-  /* 行の色（ステータス反映） */
-  tr[data-status="在席"]{background:var(--present)}
-  tr[data-status="外出"], tr[data-status="出張"], tr[data-status="研修"]{background:var(--away)}
+  tr[data-status="在席"]{background:var(--present)} tr[data-status="外出"]{background:var(--away)}
   tr[data-status="休み"],tr[data-status="健康診断"],tr[data-status="コアドック"]{background:var(--off)}
-  tr[data-status="帰宅"]{background:var(--home)}
-  tr[data-status="在宅勤務"]{background:var(--remote)}
-
+  tr[data-status="帰宅"]{background:var(--home)} tr[data-status="在宅勤務"]{background:var(--remote)}
+  tr[data-status="出張"],tr[data-status="研修"]{background:var(--away)}
   .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
   .toast.show{opacity:1}
-
   .login{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2000}
   .login .card{background:#fff;border-radius:8px;padding:20px;min-width:300px;max-width:90vw;text-align:center}
   .login .card h2{margin:.2rem 0 1rem} .login .card input{margin:.4rem 0}
-
   @media print{header,.toast,.login,#dbg{display:none} body{margin:0}.board{gap:10px} th,td{font-size:12px;padding:4px}}
   .board [draggable],[role="separator"]{display:none!important}
 
-  /* デバッグパネル（右下） */
+  /* デバッグパネル */
   #dbg{position:fixed;right:12px;bottom:12px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:9998;display:none}
   #dbg button{margin-left:6px}
 </style>
@@ -117,12 +95,13 @@
 
 <script>
 /* ================== 同期設定 ================== */
-const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbyo0WA5o1YLM7H0EyHpWNzUqxNdyDnqDnNS_vskPazJyuEHGGqOzt61zhukyI7l7zhf/exec";
+const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
 const REMOTE_KEY      = "presence-board-default";
-const REMOTE_POLL_MS  = 5000;       // pull間隔
-const CONFIG_POLL_MS  = 120000;     // 名簿チェック
+const REMOTE_POLL_MS  = 8000;       // 在席データpull（8秒）
+const CONFIG_POLL_MS  = 120000;     // 名簿チェック（2分）
 const SESSION_KEY     = "presence-session-token";
 const TOKEN_DEFAULT_TTL = 3600000;  // 60分
+let tokenRenewTimer = null;
 
 /* ================== 名簿（サーバ取得・人IDキー運用） ================== */
 let GROUPS = [];
@@ -136,18 +115,19 @@ function makeLocalId(s){
 
 function normalizeConfigClient(cfg){
   if(cfg && Array.isArray(cfg.groups)){
-    const used = new Set();
     return cfg.groups.map(g=>({
       title: typeof g.title==="string" ? g.title : "",
       members: Array.isArray(g.members) ? g.members.map(m=>{
         const name = String((m && m.name) || "");
         const ext  = (m && m.ext) ? String(m.ext) : "";
         let id     = (m && m.id) ? String(m.id) : "";
-        if(!/^[A-Za-z0-9_-]+$/.test(id) || used.has(id)){ id = makeLocalId(name+ext); }
-        used.add(id);
+        if(!/^[A-Za-z0-9_-]+$/.test(id)){ id = makeLocalId(name+ext); }
         return { name, ext, id };
       }) : []
     }));
+  }
+  if(Array.isArray(cfg) && cfg.length && Array.isArray(cfg[0])){
+    return cfg.map(arr=>({ title:"", members: arr.map(n=>({name:String(n||""), id:makeLocalId(String(n||""))})) }));
   }
   return [];
 }
@@ -156,23 +136,46 @@ const board  = document.getElementById('board');
 const toastEl= document.getElementById('toast');
 const dbgEl  = document.getElementById('dbg');
 const dbgText= document.getElementById('dbgText');
-
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
-const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]); // これらへ変更時は時間/備考をクリア
-
+const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);
 const storeKey = "presence-board-v3";
 
-/* 30分刻みの戻り時間リスト */
+/* ====== 動的列数（最大4列） ====== */
+const MAX_COLS = 4;
+let panelMinPx = null, gapPx = null;
+function resolveCssPx(expr){
+  // expr（例: "calc(…)" や "20px"）を実測でpx化
+  const probe = document.createElement('div');
+  probe.style.position='absolute'; probe.style.visibility='hidden'; probe.style.width = expr;
+  document.body.appendChild(probe);
+  const w = probe.getBoundingClientRect().width;
+  probe.remove();
+  return Math.max(0, Math.round(w));
+}
+function ensureMetrics(){
+  if(panelMinPx==null){ panelMinPx = resolveCssPx(getComputedStyle(document.documentElement).getPropertyValue('--panel-min')); }
+  if(gapPx==null){ gapPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gap')) || 20; }
+}
+function setGridColumns(){
+  ensureMetrics();
+  // boardの内側幅で列数を決定
+  const containerW = board.clientWidth || window.innerWidth;
+  let n = Math.floor((containerW + gapPx) / (panelMinPx + gapPx));
+  if(!Number.isFinite(n) || n<1) n=1;
+  n = Math.min(n, MAX_COLS);
+  board.style.gridTemplateColumns = (n===1) ? 'minmax(0,1fr)' : `repeat(${n}, minmax(${panelMinPx}px, 1fr))`;
+}
+let resizeTimer=null;
+window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(setGridColumns, 120); });
+
 function timeOptions(){
   const opts=['<option value=""></option>'];
   for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
-    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-    opts.push(`<option value="${t}">${t}</option>`);
+    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; opts.push(`<option value="${t}">${t}</option>`);
   } }
   return opts.join('');
 }
 
-/* 行HTML（ext初期値を data-default-ext に保持） */
 function rowHtml(member){
   const name= member.name || "";
   const ext = (member.ext && /^[0-9]{1,4}$/.test(String(member.ext))) ? String(member.ext) : "";
@@ -181,7 +184,7 @@ function rowHtml(member){
     <tr id="row-${key}" data-key="${key}" data-status="在席">
       <td class="name">${name}</td>
       <td class="ext"><label class="sr-only" for="ext-${key}">内線</label>
-        <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" value="${ext}" data-default-ext="${ext}" />
+        <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" value="${ext}" />
       </td>
       <td class="status"><label class="sr-only" for="status-${key}">ステータス</label>
         <select id="status-${key}" name="status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}</select>
@@ -192,7 +195,6 @@ function rowHtml(member){
       <td class="note"><input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" /></td>
     </tr>`;
 }
-
 function panelHtml(group){
   return `
     <section class="panel">
@@ -204,8 +206,6 @@ function panelHtml(group){
       </table>
     </section>`;
 }
-
-/* 描画 → イベント付与 → ローカル復元 → 色反映 */
 function render(){
   board.innerHTML = GROUPS.map(g=>panelHtml(g)).join('');
   board.style.display = '';
@@ -213,6 +213,7 @@ function render(){
   wireEvents();
   loadLocal();
   recolor();
+  setGridColumns(); // ★レンダ後に列数確定
 }
 
 /* ===== 状態 I/O ===== */
@@ -220,54 +221,28 @@ function getState(){
   const data={};
   board.querySelectorAll("tbody tr").forEach(tr=>{
     const k=tr.dataset.key;
-    data[k]={
-      ext:  tr.querySelector('input[name="ext"]').value.trim(),
-      status: tr.querySelector('select[name="status"]').value,
-      time: tr.querySelector('select[name="time"]').value,
-      note: tr.querySelector('input[name="note"]').value
-    };
+    data[k]={ ext:tr.querySelector('input[name="ext"]').value.trim(),
+              status:tr.querySelector('select[name="status"]').value,
+              time:tr.querySelector('select[name="time"]').value,
+              note:tr.querySelector('input[name="note"]').value };
   });
   return data;
 }
+/* 要件3: 書き戻り防止のため "全状態" を送信 */
+function getStateForPush(){ return getState(); }
 
-/* ★ 常にフル送信（既定値も含める） */
-function getStateForPush(){
-  return getState();
-}
-
-/* 既定状態へ一括リセット（在席/時間空/備考空、extは初期ext） */
-function resetAllToDefault(){
-  board.querySelectorAll("tbody tr").forEach(tr=>{
-    const key = tr.dataset.key;
-    const e=document.getElementById(`ext-${key}`);
-    const s=document.getElementById(`status-${key}`);
-    const t=document.getElementById(`time-${key}`);
-    const n=document.getElementById(`note-${key}`);
-    if(e){ e.value = e.dataset.defaultExt || ""; }
-    if(s){ s.value = "在席"; }
-    if(t){ t.value = ""; t.disabled = true; }
-    if(n){ n.value = ""; }
-    tr.dataset.status = "在席";
-  });
-}
-
-/* サーバ状態を適用：まず既定に戻してから受信値で上書き */
 function applyState(data){
   if(!data) return;
-  resetAllToDefault();
-
   let hit=0, miss=0;
   Object.entries(data).forEach(([k,v])=>{
-    const e=document.getElementById(`ext-${k}`),
-          s=document.getElementById(`status-${k}`),
-          t=document.getElementById(`time-${k}`),
-          n=document.getElementById(`note-${k}`);
+    const e=document.getElementById(`ext-${k}`), s=document.getElementById(`status-${k}`),
+          t=document.getElementById(`time-${k}`), n=document.getElementById(`note-${k}`);
     if(e||s||t||n){
-      if(e && typeof v.ext==="string"){ e.value = v.ext; }
-      if(s && v.status && STATUSES.includes(v.status)){ s.value = v.status; }
-      if(t){ t.value = v.time || ""; }
-      if(n){ n.value = (v.note ?? ""); }
-      if(s){ toggleTimeEnable(s); }
+      if(e && typeof v.ext==="string") e.value = v.ext;
+      if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
+      if(t) t.value = v.time || "";
+      if(n) n.value = v.note || "";
+      if(s && t) toggleTimeEnable(s);
       hit++;
     }else{
       miss++;
@@ -276,7 +251,6 @@ function applyState(data){
   recolor();
   dbgText.textContent = `${dbgText.textContent.split(' | ')[0] || ''} | serverKeys:${Object.keys(data).length} (hit:${hit}/miss:${miss})`;
 }
-
 function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(_){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(!raw) return; applyState(JSON.parse(raw)); }catch(_){} }
 
@@ -285,18 +259,15 @@ function wireEvents(){
   board.querySelectorAll("select,input").forEach(el=>{
     el.addEventListener("change", ()=>{
       if(el.name==="status"){
-        const key = el.id.replace("status-","");
-        const timeEl = document.getElementById(`time-${key}`);
-        const noteEl = document.getElementById(`note-${key}`);
-        if(CLEAR_ON.has(el.value)){ if(timeEl) timeEl.value=""; if(noteEl) noteEl.value=""; }
+        const key = el.id.replace("status-",""), time = document.getElementById(`time-${key}`), note=document.getElementById(`note-${key}`);
+        if(CLEAR_ON.has(el.value)){ if(time) time.value=""; if(note) note.value=""; }
         toggleTimeEnable(el);
       }
       saveLocal();
-      if (el.name === 'status') { pushRemote(true); } else { pushRemoteThrottled(); }
+      pushRemote(); // ステータス/他も即送信（全状態）
       recolor();
     });
   });
-
   board.querySelectorAll('input[type="text"]').forEach(el=>{
     el.addEventListener('input', ()=>{ saveLocal(); pushRemoteThrottled(); });
   });
@@ -304,20 +275,16 @@ function wireEvents(){
   document.getElementById('btnPush').addEventListener('click', ()=>pushRemote(true));
   document.getElementById('btnPull').addEventListener('click', ()=>pullRemote(true));
 }
-
 function toggleTimeEnable(statusEl){
-  const key = statusEl.id.replace("status-","");
-  const timeEl = document.getElementById(`time-${key}`);
+  const key = statusEl.id.replace("status-",""), timeEl = document.getElementById(`time-${key}`);
   const needsTime = ["外出","出張","研修"].includes(statusEl.value);
   if(timeEl){ timeEl.disabled = !needsTime; if(!needsTime) timeEl.value = ""; }
 }
-
 function recolor(){
   board.querySelectorAll("tbody tr").forEach(tr=>{
     tr.dataset.status = tr.querySelector('select[name="status"]').value;
   });
 }
-
 function toast(msg){ const t=toastEl; t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1000); }
 
 /* ===== JSONP ===== */
@@ -338,9 +305,6 @@ function jsonp(url, timeout=12000){
 /* ================== 認証 & 同期 ================== */
 let SESSION_TOKEN = "";
 let lastPushed=0, lastPushAt=0, lastPullAt=0;
-let lastRemoteUpdated = 0; // ★サーバの最新版タイムスタンプ
-let bc = null;
-
 function updateDbg(){
   const lp = lastPushAt? new Date(lastPushAt).toLocaleTimeString() : '-';
   const lg = lastPullAt? new Date(lastPullAt).toLocaleTimeString() : '-';
@@ -358,7 +322,6 @@ async function tryLoadGroupsFromServer(nocache=false){
   CONFIG_UPDATED = (typeof cfg.updated === 'number') ? cfg.updated : 0;
 }
 
-/* 名簿の差分監視（更新されたら再描画→直前状態を再適用） */
 let configWatchTimer = null;
 function startConfigWatch(){
   if(configWatchTimer) clearInterval(configWatchTimer);
@@ -396,7 +359,6 @@ async function login(pw){
     loginMsg.textContent = "サーバ応答が不正です";
   }
 }
-
 function requireTokenOrLogin(){ SESSION_TOKEN = sessionStorage.getItem(SESSION_KEY) || ""; if(!SESSION_TOKEN){ document.getElementById('login').style.display='flex'; return false; } return true; }
 
 async function pullRemote(force=false){
@@ -409,12 +371,9 @@ async function pullRemote(force=false){
     document.getElementById('login').style.display='flex';
     return;
   }
-  if(typeof remote.updated === 'number' && remote.updated < lastRemoteUpdated){
-    // 古いデータは無視（在席に戻ってしまう事故を防止）
-  }else{
-    if(remote.data) applyState(remote.data);
-    if(typeof remote.updated === 'number') lastRemoteUpdated = remote.updated;
-    try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data || {}))); }catch(_){}
+  if(remote.data){
+    applyState(remote.data);
+    try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data))); }catch(_){}
   }
   lastPullAt = Date.now(); updateDbg();
   if(force) toast('取得しました');
@@ -422,8 +381,7 @@ async function pullRemote(force=false){
 
 async function pushRemote(force=false){
   if(!requireTokenOrLogin()) return;
-  const updated = Date.now();
-  const body = {updated, data:getStateForPush()};
+  const body = {updated:Date.now(), data:getStateForPush(), full:true}; // ★フル送信
   const payload = encodeURIComponent(JSON.stringify(body));
   const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const res = await jsonp(url);
@@ -433,29 +391,23 @@ async function pushRemote(force=false){
     document.getElementById('login').style.display='flex';
     return;
   }
-  lastRemoteUpdated = updated;           // ★自分が最新
-  if (bc) { try{ bc.postMessage('pull'); }catch(_){ } }
-  await pullRemote(false);               // 直後に反映確認
+  // 送信直後に確認取得→他端末にも素早く反映
+  await pullRemote(false);
   if(force) toast('送信→反映しました');
 }
-function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>700){ lastPushed=now; pushRemote(); } }
+function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>800){ lastPushed=now; pushRemote(); } }
 
 function startRemoteSync(forcePull=false){
-  const start = ()=>{ if(forcePull) pullRemote(true); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*800)); };
+  const start = ()=>{ if(forcePull) pullRemote(true); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
   const jitter = Math.floor(Math.random()*REMOTE_POLL_MS);
   setTimeout(start, jitter);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullRemote(true); });
   window.addEventListener('focus', ()=>pullRemote(true));
-
-  /* 同一端末の別タブへ即時反映（localStorageイベント） */
+  // 同一PC内の別タブ・別ブラウザプロファイル間反映
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){ } } });
-
-  /* BroadcastChannel（対応ブラウザ間で即時通知） */
-  try{ bc = new BroadcastChannel('presence-sync'); bc.onmessage = (ev)=>{ if(ev && ev.data==='pull'){ pullRemote(true); } }; }catch(_){}
 }
 
-/* トークン更新 */
-let tokenRenewTimer = null;
+/* ---- トークン更新 ---- */
 function scheduleRenew(expMs){
   if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; }
   const delay = Math.max(10000, Math.floor(expMs * 0.8));
