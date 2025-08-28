@@ -9,10 +9,9 @@
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
 
-    /* レイアウト制御（←ここで一覧の“詰まり具合”を調整できます） */
-    --col-min: 420px;   /* 各表(パネル)の最小幅：360→420に拡大 */
-    --gap: 18px;        /* 表間の間隔 */
-    --max-cols: 3;      /* PCでの最大列数（自動で 3→2→1） */
+    /* ここで“表の広さ”を決める：最小幅を大きくすると各パネルが広がる */
+    --col-min: 480px;   /* 各パネルの最小幅（自動で列数が増減）*/
+    --gap: 20px;        /* パネル間の余白 */
   }
 
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
@@ -20,12 +19,7 @@
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* ===== 盤面：最大3列。ラッパで幅を絞って中央寄せ ===== */
-  .board-wrap{
-    max-width: calc(var(--max-cols) * var(--col-min) + (var(--max-cols) - 1) * var(--gap));
-    width: 100%;
-    margin: 0 auto;
-  }
+  /* ===== パネルグリッド（最大列数の上限は設けない） ===== */
   .board{
     display:grid;
     grid-template-columns: repeat(auto-fit, minmax(var(--col-min), 1fr));
@@ -33,7 +27,7 @@
   }
 
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px}
-  .panel .title{font-weight:700;color:#6b7280;background:#f7f7f7;border:1px solid var(--line);
+  .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);
                 border-radius:4px;padding:6px 8px;margin:0 0 6px 0; min-height:1.8em}
 
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
@@ -41,22 +35,22 @@
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
   th{text-align:left}
 
-  /* 列幅（合計100%：16 + 9 + 41 + 10 + 24） */
-  td.name   { background:#fff; width:16% }
-  td.ext    { width: 9% }
-  td.status { width:41%; min-width:14.5em }     /* ステータスを広めに確保（コアドックも余裕） */
-  td.time   { width:10%; min-width:5.6em }      /* 戻り時間は細め・見やすく */
-  td.note   { width:24% }
+  /* 列幅（合計100%）：氏名15 / 内線10 / ステータス43 / 戻り時間10 / 備考22 */
+  td.name   { background:#fff; width:15% }
+  td.ext    { width:10% }
+  td.status { width:43%; min-width:15.2em }   /* ステータスをさらに広めに */
+  td.time   { width:10%; min-width:5.6em }    /* 戻り時間は細め */
+  td.note   { width:22% }
 
   /* 入力UI */
   select,input[type="text"]{
     width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);
     border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
   }
-  /* 戻り時間：数字を中央寄せ＆等幅で視認性UP */
+  /* ステータスの右側余白を最小化（文字が広く見える） */
+  td.status select{ padding-right:.8em; }
+  /* 戻り時間は中央寄せ＆等幅数字で視認性UP */
   td.time select{ text-align-last:center; font-variant-numeric:tabular-nums; }
-  /* ステータス：ドロップダウン矢印分の余白を最小化（文字を広く見せる） */
-  td.status select{ padding-right:.9em; }
 
   /* 備考：候補 + 自由入力（先頭は空） */
   .note .wrap{display:flex;gap:6px;align-items:center}
@@ -81,10 +75,9 @@
   .login .card h2{margin:.2rem 0 1rem}
   .login .card input{margin:.4rem 0}
 
-  /* スマホ：1列表示 */
-  @media(max-width:768px){
-    .board-wrap{ max-width:none }
-    .board{ grid-template-columns: 1fr; gap:12px }
+  /* スマホ：自動で1列（min を下げる） */
+  @media (max-width: 768px){
+    :root{ --col-min: 360px; --gap: 12px; }
     header{ flex-direction:column; gap:12px }
     body{ margin:8px }
     select,input[type="text"]{ font-size:16px } /* iOSズーム防止 */
@@ -121,9 +114,7 @@
   <div id="toast" class="toast"></div>
 
   <!-- ★ ログイン後に描画＆表示する -->
-  <div class="board-wrap">
-    <div id="board" class="board" style="display:none"></div>
-  </div>
+  <div id="board" class="board" style="display:none"></div>
 
 <script>
 /* ====== 設定 ====== */
@@ -198,7 +189,7 @@ let GROUPS = [];   // [{title:'', members:[{name, ext?}, ...]}, ...]
 async function loadConfig(){
   const res = await jsonp(`${REMOTE_ENDPOINT}?action=getConfig&key=${encodeURIComponent(CONFIG_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}`);
   if(!res){ throw new Error('設定取得エラー'); }
-  if(Array.isArray(res)){
+  if(Array.isArray(res)){ // 旧API互換（配列のみ）
     GROUPS = res.map(g=>({ title:'', members: g.map(n=>({name:n})) }));
   }else if(res && Array.isArray(res.groups)){
     GROUPS = res.groups.map(g=>({
@@ -242,8 +233,10 @@ function rowHtml(gIndex, mIndex, member){
       <td class="note">
         <div class="wrap">
           <select id="noteq-${key}" class="quick" aria-label="備考（候補）">
-            <option value=""></option><option value="直出">直出</option>
-            <option value="直帰">直帰</option><option value="直出/直帰">直出/直帰</option>
+            <option value=""></option>
+            <option value="直出">直出</option>
+            <option value="直帰">直帰</option>
+            <option value="直出/直帰">直出/直帰</option>
           </select>
           <input id="note-${key}" class="free" name="note" type="text" placeholder="備考" />
         </div>
@@ -405,7 +398,7 @@ function startRemoteSync(){
 
 /* ====== 起動 ====== */
 async function bootAfterLogin(){
-  await loadConfig();     // 名簿・グループ（タイトル・内線初期値）をAPIから取得
+  await loadConfig();     // 名簿・グループ（タイトル・内線初期値）
   render();               // 初描画
   startRemoteSync();
 }
