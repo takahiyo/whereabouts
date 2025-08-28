@@ -7,40 +7,38 @@
 <style>
   /* =========================================
    * 幅・サイズの集中定義（ここだけ触ればOK）
-   * 既存レイアウトを基準px×倍率で固定幅化（table-layout:fixed）
    * ========================================= */
   :root{
-    /* 基準幅（前回レイアウトの目安） */
+    /* 基準幅（px） */
     --base-name:   120px;  /* 氏名 */
-    --base-ext:     80px;  /* 内線（半角4桁＋パディング） */
-    --base-status: 180px;  /* ステータス（「コアドック」等が切れない想定） */
-    --base-time:   100px;  /* 戻り時間（“00:00”が収まる） */
-    --base-note:   160px;  /* 備考（既存幅を維持） */
+    --base-ext:     80px;  /* 内線 */
+    --base-status: 380px;  /* ステータス */
+    --base-time:   120px;  /* 戻り時間 */
+    --base-note:   320px;  /* 備考 */
 
-    /* 倍率（ご指定） */
+    /* 倍率 */
     --scale-name:   0.50;
     --scale-ext:    0.33;
     --scale-status: 0.75;
     --scale-time:   0.45;
 
-    /* 安全最小幅（極端な縮みを防止） */
+    /* 安全最小幅 */
     --min-name:    90px;
     --min-ext:     64px;
-    --min-status: 180px;
+    --min-status: 260px;
     --min-time:   100px;
-    --min-note:   160px;
+    --min-note:   260px;
 
-    /* 実効幅 */
+    /* 実効幅（最終列幅） */
     --w-name:   max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
     --w-ext:    max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
     --w-status: max(calc(var(--base-status) * var(--scale-status)), var(--min-status));
     --w-time:   max(calc(var(--base-time)   * var(--scale-time)),   var(--min-time));
-    --w-note:   max(var(--base-note), var(--min-note)); /* 備考は現状幅を維持 */
+    --w-note:   max(var(--base-note), var(--min-note));
 
-    /* パネル（＝1表）の最小幅：列幅合計 + 余白(スクロール/枠等) */
+    /* パネル最小幅：列合計 + 余白 */
     --panel-min: calc(var(--w-name) + var(--w-ext) + var(--w-status) + var(--w-time) + var(--w-note) + 60px);
 
-    /* パネル間の間隔 */
     --gap: 20px;
 
     /* 色 */
@@ -48,7 +46,6 @@
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
   }
 
-  /* スマホ時は最小幅を上書き（タップ性を確保） */
   @media (max-width: 768px){
     :root{
       --min-name:   90px;
@@ -66,19 +63,15 @@
       --panel-min: calc(var(--w-name) + var(--w-ext) + var(--w-status) + var(--w-time) + var(--w-note) + 40px);
       --gap: 12px;
     }
-    /* iOSズーム防止：フォームを16pxに */
+    /* iOSズーム防止 */
     select, input{ font-size:16px; }
-    /* 指定：モバイルは12.5em */
-    td.status{ min-width:12.5em; }
   }
 
-  /* 体裁 */
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
   header{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* 自動段組み：画面幅に応じて 1→2→3... 列 */
   .board{
     display:grid;
     grid-template-columns: repeat(auto-fit, minmax(var(--panel-min), 1fr));
@@ -94,7 +87,7 @@
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
   th{text-align:left}
 
-  /* 列幅（絶対値：px） */
+  /* 列幅 */
   col.col-name   { width: var(--w-name); }
   col.col-ext    { width: var(--w-ext); }
   col.col-status { width: var(--w-status); }
@@ -106,12 +99,12 @@
     width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);
     border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
   }
-  /* ステータス右の白抜き対策（仕様値） */
+  /* ▼重なり対策（仕様値） */
   td.status select{ padding-right:2.6em; }
-  /* ステータス列の最小幅（仕様） */
-  td.status{ min-width:13em; }
+  /* ステータス列の最小幅（列変数と13emの大きい方） */
+  td.status{ min-width: max(var(--w-status), 13em); }
 
-  /* 戻り時間は中央寄せ＆等幅数字 */
+  /* 戻り時間：中央寄せ＆タブラー数字 */
   td.time select{ text-align-last:center; font-variant-numeric:tabular-nums; }
 
   /* ステータス色 */
@@ -122,11 +115,9 @@
   tr[data-status="在宅勤務"]{background:var(--remote)}
   tr[data-status="出張"],tr[data-status="研修"]{background:var(--away)}
 
-  /* トースト */
   .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
   .toast.show{opacity:1}
 
-  /* ログイン（成功するまで表は描画しない） */
   .login{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2000}
   .login .card{background:#fff;border-radius:8px;padding:20px;min-width:300px;max-width:90vw;text-align:center}
   .login .card h2{margin:.2rem 0 1rem}
@@ -177,23 +168,34 @@ const TOKEN_DEFAULT_TTL = 3600000; // 60分（GAS側がexpを返さない場合�
 let tokenRenewTimer = null;
 
 /* ============================================================
- *  名簿・グループ（初期表示）
+ *  名簿・グループ（GASから取得）
  * ============================================================ */
-const GROUPS = [
-  { title:"", members:["村田","今泉","北村","大野","長谷川","横内"] },
-  { title:"", members:["佐藤","井上","折原","金村","水野","坪井"] },
-  { title:"", members:["清水","加藤","石垣","橋本","末永","田中光","大石","井山"] },
-  { title:"", members:["飯島","能登","松浦","永峯","清","長森","山本"] },
-  { title:"", members:["伊藤隆","小森","三浦","中村純","朝井","稲葉"] },
-  { title:"", members:["吉田","阿部","伊藤裕","中村清","平良","若山","竹森","平八重"] },
-  { title:"", members:["鈴木","中村亮","江場","三島","吉田","小川","伊藤尊"] }
-];
+let GROUPS = [];  // ← サーバの presence-config をロードして埋める
+
+/* 旧/新形式をクライアント側で正規化 */
+function normalizeConfigClient(cfg){
+  // 旧形式: [ ["村田","今泉"], ["佐藤", ...] ]
+  if(Array.isArray(cfg) && cfg.length && Array.isArray(cfg[0])){
+    return cfg.map(arr=>({ title:"", members: arr.map(n=>({name:String(n||"")})) }));
+  }
+  // v2形式
+  if(cfg && Array.isArray(cfg.groups)){
+    return cfg.groups.map(g=>({
+      title: typeof g.title==="string" ? g.title : "",
+      members: Array.isArray(g.members) ? g.members.map(m=>({
+        name: String((m && m.name) || ""),
+        ext:  (m && m.ext) ? String(m.ext) : ""
+      })) : []
+    }));
+  }
+  return [];
+}
 
 /* ============================================================
  *  定数
  * ============================================================ */
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
-const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);   // これを選んだら戻り時間＆備考クリア
+const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);   // 選択で戻り/備考をクリア
 const storeKey = "presence-board-v2";
 
 /* ============================================================
@@ -213,14 +215,19 @@ function timeOptions(){
   return opts.join('');
 }
 
-function rowHtml(gIndex,rIndex,name){
-  const key=`${gIndex}-${rIndex}`;
+function rowHtml(gIndex, rIndex, member){
+  const m   = (typeof member === 'string') ? {name: member} : (member || {});
+  const name= m.name || "";
+  const ext = (m.ext && /^[0-9]{1,4}$/.test(String(m.ext))) ? String(m.ext) : "";
+  const key = `${gIndex}-${rIndex}`;
   return `
     <tr id="row-${key}" data-key="${key}" data-status="在席">
       <td class="name">${name}</td>
       <td class="ext">
         <label class="sr-only" for="ext-${key}">内線</label>
-        <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" />
+        <input id="ext-${key}" name="ext" type="text" maxlength="4"
+               inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線"
+               value="${ext}" />
       </td>
       <td class="status">
         <label class="sr-only" for="status-${key}">ステータス</label>
@@ -233,7 +240,6 @@ function rowHtml(gIndex,rIndex,name){
         <select id="time-${key}" name="time">${timeOptions()}</select>
       </td>
       <td class="note">
-        <!-- 備考：B方式（datalist） -->
         <input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" />
       </td>
     </tr>`;
@@ -254,7 +260,7 @@ function panelHtml(gIndex, group){
         <thead>
           <tr><th>氏名</th><th>内線</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr>
         </thead>
-        <tbody>${group.members.map((n,i)=>rowHtml(gIndex,i,n)).join("")}</tbody>
+        <tbody>${group.members.map((m,i)=>rowHtml(gIndex,i,m)).join("")}</tbody>
       </table>
     </section>`;
 }
@@ -263,7 +269,7 @@ function render(){
   board.innerHTML = GROUPS.map((g,i)=>panelHtml(i,g)).join('');
   board.style.display = '';   // ログイン後に表示
   wireEvents();
-  loadLocal();
+  loadLocal();  // 端末ローカルの前回値を適用
   recolor();
 }
 
@@ -284,7 +290,7 @@ function getState(){
   return data;
 }
 
-/* 送信用はデフォルト(在席/空欄)を除外して軽量化 */
+/* 送信用：既定(在席/空欄)は送らない */
 function getStateForPush(){
   const full=getState(), slim={};
   for(const [k,v] of Object.entries(full)){
@@ -300,11 +306,10 @@ function applyState(data){
     const s=document.getElementById(`status-${k}`);
     const t=document.getElementById(`time-${k}`);
     const n=document.getElementById(`note-${k}`);
-    if(e) e.value = v.ext || "";
+    if(e && typeof v.ext==="string") e.value = v.ext;
     if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
     if(t) t.value = v.time || "";
     if(n) n.value = v.note || "";
-
     if(s && t) toggleTimeEnable(s);
   });
   recolor();
@@ -388,6 +393,15 @@ function jsonp(url, timeout=12000){
 let SESSION_TOKEN = "";
 let lastPushed=0;
 
+async function tryLoadGroupsFromServer(){
+  const url = `${REMOTE_ENDPOINT}?action=getConfig&key=${encodeURIComponent('presence-config')}&token=${encodeURIComponent(SESSION_TOKEN)}`;
+  const cfg = await jsonp(url);
+  if(!cfg || cfg.error){ throw new Error('config_load_failed'); }
+  const groups = normalizeConfigClient(cfg);
+  if(!groups.length){ throw new Error('config_empty'); }
+  GROUPS = groups;
+}
+
 async function login(pw){
   if(!REMOTE_ENDPOINT){ loginMsg.textContent="同期先が未設定です（REMOTE_ENDPOINT）"; return; }
   if(!pw || !pw.trim()){ loginMsg.textContent="パスワードを入力してください"; return; }
@@ -399,8 +413,15 @@ async function login(pw){
     SESSION_TOKEN = res.token;
     sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
     hideLogin();
-    render();                     // ログイン成功後に初描画
     toast('ログインしました');
+    // サーバ設定を取得してから描画
+    try{
+      await tryLoadGroupsFromServer();
+    }catch(_){
+      // 取得失敗時は空で描画（のちに再試行）
+      toast('設定の取得に失敗しました');
+    }
+    render();
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
     startRemoteSync(true);
   }else{
@@ -416,6 +437,12 @@ function requireTokenOrLogin(){
 
 async function pullRemote(){
   if(!requireTokenOrLogin()) return;
+
+  // 初回/復帰時にconfigが未ロードなら取りに行く
+  if(!GROUPS.length){
+    try{ await tryLoadGroupsFromServer(); render(); }catch(_){}
+  }
+
   const url = `${REMOTE_ENDPOINT}?action=get&key=${encodeURIComponent(REMOTE_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const remote = await jsonp(url);
   if(!remote) return;
@@ -444,12 +471,17 @@ async function pushRemote(){
 function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>1200){ lastPushed=now; pushRemote(); } }
 
 function startRemoteSync(forcePull=false){
-  // 初回ランダム遅延＋以後も微ジッタで同時アクセス負荷を平準化
   const start = ()=>{ if(forcePull) pullRemote(); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
   const jitter = Math.floor(Math.random()*REMOTE_POLL_MS);
   setTimeout(start, jitter);
 
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullRemote(); });
+  document.addEventListener('visibilitychange', async ()=>{
+    if(!document.hidden){
+      // 復帰時に設定が空なら再取得
+      if(!GROUPS.length){ try{ await tryLoadGroupsFromServer(); render(); }catch(_){} }
+      pullRemote();
+    }
+  });
   window.addEventListener('focus', pullRemote);
 
   // 同一端末の別タブ反映
@@ -479,7 +511,6 @@ async function renewToken(){
  *  起動
  * ============================================================ */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // ログインUIだけ先に有効化（表は描画しない）
   window.__doLogin = () => login(pwInput.value);
   document.getElementById('btnLogin').addEventListener('click', window.__doLogin);
   pwInput.addEventListener('keypress', (e)=>{ if(e.key==='Enter') window.__doLogin(); });
@@ -488,12 +519,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(existing){
     SESSION_TOKEN = existing;
     hideLogin();
-    render();
-    // 既存セッションは即時renewしてTTLを取り直す（失敗時はログインへ）
+    // 既存セッションなら設定の先取り取得→描画→同期
     (async ()=>{
       const ok = await jsonp(`${REMOTE_ENDPOINT}?action=renew&token=${encodeURIComponent(SESSION_TOKEN)}`);
       if(ok && ok.ok){
         scheduleRenew(Number(ok.exp)||TOKEN_DEFAULT_TTL);
+        try{ await tryLoadGroupsFromServer(); }catch(_){}
+        render();
         startRemoteSync(true);
       }else{
         sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
@@ -520,5 +552,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
-
