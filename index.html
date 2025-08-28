@@ -9,10 +9,10 @@
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
 
-    /* レイアウト制御 */
-    --col-min: 360px;   /* 各表(パネル)の最小幅 */
+    /* レイアウト制御（←ここで一覧の“詰まり具合”を調整できます） */
+    --col-min: 420px;   /* 各表(パネル)の最小幅：360→420に拡大 */
     --gap: 18px;        /* 表間の間隔 */
-    --max-cols: 3;      /* PCでの最大列数 */
+    --max-cols: 3;      /* PCでの最大列数（自動で 3→2→1） */
   }
 
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
@@ -22,7 +22,6 @@
 
   /* ===== 盤面：最大3列。ラッパで幅を絞って中央寄せ ===== */
   .board-wrap{
-    /* 3列ぶんの最大幅 = 3*col-min + 2*gap */
     max-width: calc(var(--max-cols) * var(--col-min) + (var(--max-cols) - 1) * var(--gap));
     width: 100%;
     margin: 0 auto;
@@ -42,22 +41,22 @@
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
   th{text-align:left}
 
-  /* 列幅（合計100%：14 + 7 + 35 + 8 + 36） */
-  td.name   { background:#fff; width:14% }
-  td.ext    { width: 7% }
-  td.status { width:35%; min-width:13em }       /* ステータス：文字幅を確保 */
-  td.time   { width: 8%;  min-width:5.2em }     /* 戻り時間：さらに狭める */
-  td.note   { width:36% }
+  /* 列幅（合計100%：16 + 9 + 41 + 10 + 24） */
+  td.name   { background:#fff; width:16% }
+  td.ext    { width: 9% }
+  td.status { width:41%; min-width:14.5em }     /* ステータスを広めに確保（コアドックも余裕） */
+  td.time   { width:10%; min-width:5.6em }      /* 戻り時間は細め・見やすく */
+  td.note   { width:24% }
 
   /* 入力UI */
   select,input[type="text"]{
     width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);
     border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
   }
-  /* 戻り時間：数字を中央寄せ＆等幅 */
+  /* 戻り時間：数字を中央寄せ＆等幅で視認性UP */
   td.time select{ text-align-last:center; font-variant-numeric:tabular-nums; }
-  /* ステータス：矢印のための余白を最小化（文字を広く見せる） */
-  td.status select{ padding-right:1.0em; }
+  /* ステータス：ドロップダウン矢印分の余白を最小化（文字を広く見せる） */
+  td.status select{ padding-right:.9em; }
 
   /* 備考：候補 + 自由入力（先頭は空） */
   .note .wrap{display:flex;gap:6px;align-items:center}
