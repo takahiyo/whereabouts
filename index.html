@@ -158,7 +158,7 @@
 /* ============================================================
  *  同期設定（JSONP / GASトークン認証）
  * ============================================================ */
-const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxcHEGZb_CiSS2sMlrJRiZlJ0Rs5muLkfpTAS9lH2_bQWIWmNR2k3ixzpC9tr6kHh5_/exec";
+const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbwcEbg6FSltONbCzhCWmevRhUMJTPm8SSbOwBHpJXZJ75Uv5kekOW7bH4a1XRIw3Grg/exec";
 const REMOTE_KEY      = "presence-board-default";
 const REMOTE_POLL_MS  = 30000;                // 定期取得：30秒
 const SESSION_KEY     = "presence-session-token";
@@ -168,9 +168,13 @@ const TOKEN_DEFAULT_TTL = 3600000; // 60分（GAS側がexpを返さない場合�
 let tokenRenewTimer = null;
 
 /* ============================================================
- *  名簿・グループ（GASから取得）
+ *  名簿・グループ（GASから取得）＋自動更新検知
  * ============================================================ */
-let GROUPS = [];  // ← サーバの presence-config をロードして埋める
+let GROUPS = [];             // サーバの presence-config をロードして埋める
+const CONFIG_POLL_MS = 120000;          // 名簿チェック間隔：2分（適宜調整）
+const storeKeyBase   = "presence-board-v2"; // ローカル保存キーの接頭
+let   storeKey       = storeKeyBase;        // 名簿版ごとに差し替える
+let   currentConfigId = "";                 // cfg.updated or hash
 
 /* 旧/新形式をクライアント側で正規化 */
 function normalizeConfigClient(cfg){
@@ -191,12 +195,19 @@ function normalizeConfigClient(cfg){
   return [];
 }
 
+/* 名簿ID（更新印）: updatedがあればそれ、無ければハッシュ */
+function calcCfgId(cfg){
+  if(cfg && typeof cfg.updated === "number") return String(cfg.updated);
+  const s = JSON.stringify(cfg||{});
+  let h = 5381; for(let i=0;i<s.length;i++){ h = ((h<<5)+h) ^ s.charCodeAt(i); }
+  return String(h>>>0);
+}
+
 /* ============================================================
  *  定数
  * ============================================================ */
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);   // 選択で戻り/備考をクリア
-const storeKey = "presence-board-v2";
 
 /* ============================================================
  *  レンダリング
@@ -269,7 +280,7 @@ function render(){
   board.innerHTML = GROUPS.map((g,i)=>panelHtml(i,g)).join('');
   board.style.display = '';   // ログイン後に表示
   wireEvents();
-  loadLocal();  // 端末ローカルの前回値を適用
+  loadLocal();  // 端末ローカルの前回値を適用（名簿版ごとに独立）
   recolor();
 }
 
@@ -289,6 +300,10 @@ function getState(){
   });
   return data;
 }
+
+/* ローカル保存 */
+function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); toast('保存しました'); }catch(_){} }
+function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(!raw) return; applyState(JSON.parse(raw)); }catch(_){} }
 
 /* 送信用：既定(在席/空欄)は送らない */
 function getStateForPush(){
@@ -314,9 +329,6 @@ function applyState(data){
   });
   recolor();
 }
-
-function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); toast('保存しました'); }catch(_){} }
-function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(!raw) return; applyState(JSON.parse(raw)); }catch(_){} }
 
 /* ============================================================
  *  イベント
@@ -393,13 +405,19 @@ function jsonp(url, timeout=12000){
 let SESSION_TOKEN = "";
 let lastPushed=0;
 
+/* 名簿ロード（変更有無を返す） */
 async function tryLoadGroupsFromServer(){
   const url = `${REMOTE_ENDPOINT}?action=getConfig&key=${encodeURIComponent('presence-config')}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const cfg = await jsonp(url);
   if(!cfg || cfg.error){ throw new Error('config_load_failed'); }
   const groups = normalizeConfigClient(cfg);
   if(!groups.length){ throw new Error('config_empty'); }
+  const newId = calcCfgId(cfg);
+  const changed = (newId !== currentConfigId);
+  currentConfigId = newId;
+  storeKey = `${storeKeyBase}::${currentConfigId}`;  // 名簿版ごとに分離
   GROUPS = groups;
+  return changed;
 }
 
 async function login(pw){
@@ -418,12 +436,12 @@ async function login(pw){
     try{
       await tryLoadGroupsFromServer();
     }catch(_){
-      // 取得失敗時は空で描画（のちに再試行）
       toast('設定の取得に失敗しました');
     }
     render();
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
     startRemoteSync(true);
+    startConfigWatch();                     // ★名簿自動監視開始
   }else{
     loginMsg.textContent = "サーバ応答が不正です（login実装/デプロイ要確認）";
   }
@@ -477,7 +495,6 @@ function startRemoteSync(forcePull=false){
 
   document.addEventListener('visibilitychange', async ()=>{
     if(!document.hidden){
-      // 復帰時に設定が空なら再取得
       if(!GROUPS.length){ try{ await tryLoadGroupsFromServer(); render(); }catch(_){} }
       pullRemote();
     }
@@ -486,6 +503,23 @@ function startRemoteSync(forcePull=false){
 
   // 同一端末の別タブ反映
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){ } } });
+}
+
+/* ---- 名簿ウォッチ（cfg.updatedが変わったら再描画） ---- */
+function startConfigWatch(){
+  const tick = async ()=>{
+    if(!SESSION_TOKEN) return;
+    try{
+      const changed = await tryLoadGroupsFromServer();
+      if(changed){
+        render();
+        toast('名簿が更新されました');
+        pullRemote(); // 在席データも最新へ
+      }
+    }catch(_){/* 無視 */ }
+  };
+  setTimeout(tick, Math.floor(Math.random()*5000));
+  setInterval(tick, CONFIG_POLL_MS + Math.floor(Math.random()*3000));
 }
 
 /* ---- トークン更新（TTLの80%でrenew） ---- */
@@ -527,6 +561,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         try{ await tryLoadGroupsFromServer(); }catch(_){}
         render();
         startRemoteSync(true);
+        startConfigWatch();           // ★既存セッションでも監視開始
       }else{
         sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
         showLogin();
@@ -552,6 +587,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
-
-
