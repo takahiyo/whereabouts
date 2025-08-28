@@ -5,72 +5,78 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>在席確認表</title>
 <style>
+  /* ============================
+   *  幅・サイズの集中定義（ここだけ触ればOK）
+   * ============================ */
   :root{
+    /* ▼列ごとの絶対幅(px) */
+    --w-name:   120px;  /* 氏名列の幅 */
+    --w-ext:     80px;  /* 内線列の幅（半角4桁想定） */
+    --w-status: 380px;  /* ステータス列の幅（「コアドック」も余裕） */
+    --w-time:   120px;  /* 戻り時間列の幅（00:00～23:30） */
+    --w-note:   320px;  /* 備考列の幅（候補＋自由入力） */
+
+    /* ▼1枚の表（パネル）の最小幅：上の合計に余白を足した値にしておく */
+    /*   120+80+380+120+320=1,020 → 余白見込みで 1,060 に */
+    --panel-min: 1060px;
+
+    /* ▼パネル間のすき間(px) */
+    --gap: 20px;
+
+    /* ▼色 */
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
-
-    /* ★ パネル最小幅をより拡大（横のゆとりを確保） */
-    --col-min: 750px;  /* 640px → 750px に拡大 */
-    --gap: 20px;
   }
 
+  /* スマホ時は絶対値を上書き（融通はここで確保） */
+  @media (max-width: 768px){
+    :root{
+      --w-name:    100px;
+      --w-ext:      70px;
+      --w-status:  300px;
+      --w-time:    110px;
+      --w-note:    260px;
+      --panel-min: 860px;   /* 列合計に合わせて調整 */
+      --gap:       12px;
+    }
+  }
+
+  /* ========== 体裁 ========== */
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
   header{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* ===== 自動カラム数（制限なし） ===== */
+  /* 自動段組み：広い画面で3→狭いと2→スマホで1 */
   .board{
     display:grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--col-min), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(var(--panel-min), 1fr));
     gap: var(--gap);
   }
 
-  .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px; overflow:visible}
+  .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto}
   .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);
-                border-radius:4px;padding:6px 8px;margin:0 0 6px 0; min-height:1.8em}
+                border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
 
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
   thead th{position:sticky;top:0;background:var(--head);font-weight:700}
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
   th{text-align:left}
 
-  /* ===== 列幅配分（合計100%） =====
-     氏名 12% / 内線 10% / ステータス 40% / 戻り時間 15% / 備考 23% */
-  td.name   { background:#fff; width:12% }
-  td.ext    { width:10%; min-width:6.5em }         /* 少し拡大 */
-  td.status { width:40%; min-width:18em }          /* さらに拡大 */
-  td.time   { width:15%; min-width:8em }           /* 大幅拡大 */
-  td.note   { width:23% }                          /* 少し拡大 */
-
   /* 入力UI */
   select,input[type="text"]{
     width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);
     border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
   }
-  /* ステータスの見かけ幅を広く（右余白を小さく） */
+  /* ステータスを見やすく（右の余白を詰める） */
   td.status select{ padding-right:.8em; }
-  /* 戻り時間は中央寄せ＋等幅数字 */
+  /* 戻り時間は中央寄せ＆等幅数字 */
   td.time select{ text-align-last:center; font-variant-numeric:tabular-nums; }
 
-  /* 備考：候補 + 自由入力（先頭は空）- はみ出し対策 */
-  .note .wrap{
-    display:flex;
-    gap:4px;                 /* 6px → 4px に縮小 */
-    align-items:center;
-    width:100%;
-    box-sizing:border-box;
-  }
-  .note .quick{
-    flex:0 0 6.5em;          /* 7.5em → 6.5em に縮小 */
-    min-width:0;             /* 縮小を許可 */
-    font-size:13px;          /* 備考プルダウンを少し小さく */
-    padding:.25rem .3rem;
-  }
-  .note .free{
-    flex:1 1 auto;
-    min-width:0;             /* 縮小を許可 */
-  }
+  /* 備考（候補＋自由入力） */
+  .note .wrap{ display:flex; gap:4px; align-items:center; width:100%; box-sizing:border-box; }
+  .note .quick{ flex:0 0 6em; min-width:0; font-size:13px; padding:.25rem .3rem; }
+  .note .free { flex:1 1 auto; min-width:0; }
 
   /* ステータス色 */
   tr[data-status="在席"]{background:var(--present)}
@@ -90,20 +96,6 @@
   .login .card h2{margin:.2rem 0 1rem}
   .login .card input{margin:.4rem 0}
 
-  /* スマホ：1列化（min を下げる） */
-  @media (max-width: 768px){
-    :root{ --col-min: 400px; --gap: 12px; }  /* 360px → 400px に拡大 */
-    header{ flex-direction:column; gap:12px }
-    body{ margin:8px }
-    select,input[type="text"]{ font-size:16px }
-    th,td{ padding:8px }
-    td.status{ min-width:15em }  /* 13.5em → 15em に拡大 */
-    td.time{ min-width:7em }     /* 追加：スマホでの戻り時間幅 */
-    /* スマホでの備考調整 */
-    .note .quick{ flex:0 0 5.5em; font-size:12px; }
-  }
-
-  /* 印刷 */
   @media print{
     header,.toast,.login{display:none}
     body{margin:0}
@@ -111,23 +103,16 @@
     th,td{font-size:12px;padding:4px}
   }
 
-  /* "謎の楕円"対策（拡張ハンドルを隠す） */
+  /* “謎の楕円（ハンドル）”対策 */
   .board [draggable], .board [role="separator"]{ display:none !important; }
-
-  /* テーブル全体のオーバーフロー対策 */
-  .panel table { min-width:100%; max-width:100%; }
-
-  /* セル内コンテンツのオーバーフロー対策 */
-  td { overflow: hidden; white-space: nowrap; }
-
-  /* 備考セルだけは折り返しを許可 */
-  td.note { white-space: normal; word-wrap: break-word; }
 </style>
 </head>
 <body>
-  <header><h1>在席確認表（同期対応）</h1></header>
+  <header>
+    <h1>在席確認表（同期対応）</h1>
+  </header>
 
-  <!-- ログイン -->
+  <!-- ログイン（成功までは表を生成しない） -->
   <div id="login" class="login" style="display:none">
     <div class="card">
       <h2>在席確認表</h2>
@@ -139,111 +124,64 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <!-- ログイン完了まで非表示 -->
+  <!-- ログイン後に初めて描画 -->
   <div id="board" class="board" style="display:none"></div>
 
 <script>
-/* ========= 同期設定 ========= */
-const REMOTE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzCTZCD1WpG9IpqhTavsOby_ZCLdhJeadCy-qPBlWlQhUv0HVLq6Ut7VbCKSfQdvPEi/exec';
-const DATA_KEY   = 'presence-board-default';
-const CONFIG_KEY = 'presence-config';
-const POLL_MS    = 30000;
-const SESSION_KEY= 'presence-session-token';
+/* ============================================================
+ *  同期設定（JSONP / GASトークン認証）
+ *  - パスワードはGAS側で管理（このHTMLには書かない）
+ * ============================================================ */
+const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbzCTZCD1WpG9IpqhTavsOby_ZCLdhJeadCy-qPBlWlQhUv0HVLq6Ut7VbCKSfQdvPEi/exec";
+const REMOTE_KEY      = "presence-board-default";
+const REMOTE_POLL_MS  = 30000;                // 定期取得：30秒
+const SESSION_KEY     = "presence-session-token";
 
-/* ========= マスタ ========= */
+/* ============================================================
+ *  名簿・グループ（初期表示）※将来はAPI化も可能
+ * ============================================================ */
+const GROUPS = [
+  { title:"", members:["村田","今泉","北村","大野","長谷川","横内"] },
+  { title:"", members:["佐藤","井上","折原","金村","水野","坪井"] },
+  { title:"", members:["清水","加藤","石垣","橋本","末永","田中光","大石","井山"] },
+  { title:"", members:["飯島","能登","松浦","永峯","清","長森","山本"] },
+  { title:"", members:["伊藤隆","小森","三浦","中村純","朝井","稲葉"] },
+  { title:"", members:["吉田","阿部","伊藤裕","中村清","平良","若山","竹森","平八重"] },
+  { title:"", members:["鈴木","中村亮","江場","三島","吉田","小川","伊藤尊"] }
+];
+
+/* ============================================================
+ *  定数
+ * ============================================================ */
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
-const STATUS_CLEAR = new Set(["在席","休み","帰宅","在宅勤務"]);
+const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);   // これを選んだら戻り時間＆備考を自動クリア
+const storeKey = "presence-board-v2";
 
-/* ========= 要素 ========= */
-const boardEl = document.getElementById('board');
-const toastEl = document.getElementById('toast');
-const loginEl = document.getElementById('login');
-const pwInput  = document.getElementById('pw');
-const loginMsg = document.getElementById('loginMsg');
+/* ============================================================
+ *  レンダリング
+ * ============================================================ */
+const board  = document.getElementById('board');
+const toastEl= document.getElementById('toast');
 
-function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),1000); }
-function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-
-/* ========= JSONP ========= */
-function jsonp(url, timeout=12000){
-  return new Promise((resolve)=>{
-    const cb = 'cb_'+Math.random().toString(36).slice(2);
-    let done=false;
-    const cleanup=(s)=>{ try{ delete window[cb]; }catch(_){} if(s){ if(s.remove){s.remove();} else if(s.parentNode){s.parentNode.removeChild(s);} } };
-    const timer=setTimeout(()=>{ if(!done){ done=true; cleanup(script); resolve(null); } }, timeout);
-    window[cb]=(data)=>{ if(done) return; done=true; clearTimeout(timer); cleanup(script); resolve(data); };
-    const script=document.createElement('script');
-    script.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb + '&_=' + Date.now();
-    script.onerror=()=>{ if(!done){ done=true; clearTimeout(timer); cleanup(script); resolve(null); } };
-    document.body.appendChild(script);
-  });
-}
-
-/* ========= ログイン ========= */
-let SESSION_TOKEN = '';
-function showLogin(msg=""){ loginEl.style.display='flex'; loginMsg.textContent = msg || ""; setTimeout(()=>pwInput?.focus(),50); }
-function hideLogin(){ loginEl.style.display='none'; loginMsg.textContent=""; pwInput.value=""; }
-async function login(pw){
-  if(!pw || !pw.trim()){ loginMsg.textContent="パスワードを入力してください"; return; }
-  loginMsg.textContent = "認証中…";
-  const res = await jsonp(`${REMOTE_ENDPOINT}?action=login&password=${encodeURIComponent(pw)}`);
-  if(res && res.token){
-    SESSION_TOKEN = res.token;
-    sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
-    hideLogin();
-    toast('ログインしました');
-    if(res.exp) scheduleRenew(res.exp);
-    await bootAfterLogin();
-  }else{
-    loginMsg.textContent = "パスワードが違います";
-  }
-}
-function scheduleRenew(ttlMs){
-  clearTimeout(scheduleRenew._t);
-  const ms = Math.max(60000, Math.floor(ttlMs*0.8));
-  scheduleRenew._t = setTimeout(async ()=>{
-    const r = await jsonp(`${REMOTE_ENDPOINT}?action=renew&token=${encodeURIComponent(SESSION_TOKEN)}`);
-    if(!(r && r.ok)){ sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; showLogin("セッションが切れました。再ログインしてください。"); }
-    else scheduleRenew(r.exp || 3600000);
-  }, ms);
-}
-function requireToken(){ SESSION_TOKEN = sessionStorage.getItem(SESSION_KEY) || ""; return !!SESSION_TOKEN; }
-
-/* ========= 設定（グループ＋名簿＋内線） ========= */
-let GROUPS = [];
-async function loadConfig(){
-  const res = await jsonp(`${REMOTE_ENDPOINT}?action=getConfig&key=${encodeURIComponent(CONFIG_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}`);
-  if(!res){ throw new Error('設定取得エラー'); }
-  if(Array.isArray(res)){
-    GROUPS = res.map(g=>({ title:'', members: g.map(n=>({name:n})) }));
-  }else if(res && Array.isArray(res.groups)){
-    GROUPS = res.groups.map(g=>({
-      title: typeof g.title==='string' ? g.title : '',
-      members: Array.isArray(g.members) ? g.members.map(m=>({ name:m.name, ext: m.ext||'' })) : []
-    }));
-  }else{
-    GROUPS = [];
-  }
-}
-
-/* ========= 盤面生成 ========= */
 function timeOptions(){
   const opts=['<option value=""></option>'];
-  for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
-    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-    opts.push(`<option value="${t}">${t}</option>`);
-  }} return opts.join('');
+  for(let h=0;h<24;h++){
+    for(let m=0;m<60;m+=30){
+      const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      opts.push(`<option value="${t}">${t}</option>`);
+    }
+  }
+  return opts.join('');
 }
-function rowHtml(gIndex, mIndex, member){
-  const key=`${gIndex}-${mIndex}`;
-  const nm = escapeHtml(member.name||'');
-  const ex = escapeHtml(member.ext||'');
+
+function rowHtml(gIndex,rIndex,name){
+  const key=`${gIndex}-${rIndex}`;
   return `
     <tr id="row-${key}" data-key="${key}" data-status="在席">
-      <td class="name">${nm}</td>
+      <td class="name">${name}</td>
       <td class="ext">
         <label class="sr-only" for="ext-${key}">内線</label>
-        <input id="ext-${key}" name="ext" type="text" inputmode="numeric" pattern="^[0-9]{0,4}$" maxlength="4" value="${ex}" placeholder="内線" />
+        <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="内線" />
       </td>
       <td class="status">
         <label class="sr-only" for="status-${key}">ステータス</label>
@@ -268,94 +206,123 @@ function rowHtml(gIndex, mIndex, member){
       </td>
     </tr>`;
 }
+
 function panelHtml(gIndex, group){
-  const title = escapeHtml(group.title||'');
-  const rows  = (group.members||[]).map((m,i)=>rowHtml(gIndex,i,m)).join('');
   return `
     <section class="panel">
-      <div class="title">${title}</div>
+      <h3 class="title">${group.title ?? ""}</h3>
       <table aria-label="在席表">
-        <thead><tr><th>氏名</th><th>内線</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr></thead>
-        <tbody>${rows}</tbody>
+        <!-- 列幅は絶対値(px)：CSS変数から取得 -->
+        <colgroup>
+          <col style="width: var(--w-name)">
+          <col style="width: var(--w-ext)">
+          <col style="width: var(--w-status)">
+          <col style="width: var(--w-time)">
+          <col style="width: var(--w-note)">
+        </colgroup>
+        <thead>
+          <tr><th>氏名</th><th>内線</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr>
+        </thead>
+        <tbody>${group.members.map((n,i)=>rowHtml(gIndex,i,n)).join("")}</tbody>
       </table>
     </section>`;
 }
+
 function render(){
-  boardEl.innerHTML = GROUPS.map((g,i)=>panelHtml(i,g)).join('');
-  boardEl.style.display = '';
+  board.innerHTML = GROUPS.map((g,i)=>panelHtml(i,g)).join('');
+  board.style.display = '';   // ログイン後に表示
   wireEvents();
   loadLocal();
   recolor();
 }
 
-/* ========= 状態 入出力 ========= */
-const storeKey = 'presence-board-v2';
+/* ============================================================
+ *  状態 I/O
+ * ============================================================ */
 function getState(){
   const data={};
-  boardEl.querySelectorAll('tbody tr').forEach(tr=>{
-    const k = tr.dataset.key;
-    data[k] = {
+  board.querySelectorAll("tbody tr").forEach(tr=>{
+    const k=tr.dataset.key;
+    data[k]={
+      ext:    tr.querySelector('input[name="ext"]').value.trim(),
       status: tr.querySelector('select[name="status"]').value,
       time:   tr.querySelector('select[name="time"]').value,
-      note:   tr.querySelector('.free').value,
-      ext:    tr.querySelector('input[name="ext"]').value
+      note:   tr.querySelector('.free').value
     };
   });
   return data;
 }
+
+/* 送信用はデフォルト(在席/空欄)を除外して軽量化 */
 function getStateForPush(){
   const full=getState(), slim={};
   for(const [k,v] of Object.entries(full)){
-    const def = (v.status==="在席" && !v.time && !v.note && !v.ext);
-    if(!def) slim[k]=v;
+    if(v.ext || v.status!=="在席" || v.time || (v.note && v.note.trim()!=="")) slim[k]=v;
   }
   return slim;
 }
-function applyState(map){
-  if(!map) return;
-  Object.entries(map).forEach(([k,v])=>{
+
+function applyState(data){
+  if(!data) return;
+  Object.entries(data).forEach(([k,v])=>{
+    const e=document.getElementById(`ext-${k}`);
     const s=document.getElementById(`status-${k}`);
     const t=document.getElementById(`time-${k}`);
     const n=document.getElementById(`note-${k}`);
     const q=document.getElementById(`noteq-${k}`);
-    const e=document.getElementById(`ext-${k}`);
+    if(e) e.value = v.ext || "";
     if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
     if(t) t.value = v.time || "";
     if(n) n.value = v.note || "";
-    if(e && typeof v.ext==='string') e.value = v.ext;
     if(q){
       const values=[...q.options].map(o=>o.value);
       q.value = values.includes(n.value) ? n.value : "";
     }
-    if(s) toggleRowByStatus(k, s.value, {silent:true});
+    // ステータスに応じて時間の有効/無効
+    if(s && t) toggleTimeEnable(s);
   });
   recolor();
 }
-function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); toast('保存しました'); }catch(_){} }
-function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) applyState(JSON.parse(raw)); }catch(_){} }
 
-/* ========= イベント ========= */
+function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); toast('保存しました'); }catch(_){} }
+function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(!raw) return; applyState(JSON.parse(raw)); }catch(_){} }
+
+/* ============================================================
+ *  イベント
+ * ============================================================ */
 function wireEvents(){
-  boardEl.querySelectorAll("select,input").forEach(el=>{
-    el.addEventListener("change", ()=>{ saveLocal(); pushRemoteThrottled(); });
-  });
-  boardEl.querySelectorAll('select[name="status"]').forEach(sel=>{
-    sel.addEventListener('change', ()=>{
-      const key = sel.id.replace('status-','');
-      toggleRowByStatus(key, sel.value);
+  // 変更→保存→同期
+  board.querySelectorAll("select,input").forEach(el=>{
+    el.addEventListener("change", ()=>{
+      // ステータスが在席/休み/帰宅/在宅勤務なら戻り時間＆備考を自動クリア
+      if(el.name==="status"){
+        const key = el.id.replace("status-","");
+        const time = document.getElementById(`time-${key}`);
+        const note = document.getElementById(`note-${key}`);
+        const noteq= document.getElementById(`noteq-${key}`);
+        if(CLEAR_ON.has(el.value)){
+          if(time){ time.value=""; }
+          if(note){ note.value=""; }
+          if(noteq){ noteq.value=""; }
+        }
+        toggleTimeEnable(el);
+      }
       saveLocal(); pushRemoteThrottled();
+      recolor();
     });
-    const key = sel.id.replace('status-','');
-    toggleRowByStatus(key, sel.value, {silent:true});
   });
-  boardEl.querySelectorAll(".quick").forEach(sel=>{
+
+  // 備考の候補→自由入力へ反映
+  board.querySelectorAll(".quick").forEach(sel=>{
     sel.addEventListener("change", ()=>{
       const key = sel.id.replace("noteq-","");
       const input = document.getElementById(`note-${key}`);
       input.value = sel.value; saveLocal(); pushRemoteThrottled();
     });
   });
-  boardEl.querySelectorAll(".free").forEach(inp=>{
+
+  // 自由入力→候補へ同期（完全一致なら選択状態に）
+  board.querySelectorAll(".free").forEach(inp=>{
     inp.addEventListener("input", ()=>{
       const key = inp.id.replace("note-","");
       const sel = document.getElementById(`noteq-${key}`);
@@ -364,79 +331,164 @@ function wireEvents(){
     });
   });
 }
-function toggleRowByStatus(key, status, opt={}){
-  const timeSel = document.getElementById(`time-${key}`);
-  const noteIn  = document.getElementById(`note-${key}`);
-  const noteSel = document.getElementById(`noteq-${key}`);
-  const row     = document.getElementById(`row-${key}`);
-  if(STATUS_CLEAR.has(status)){
-    timeSel.disabled = true;
-    if(!opt.silent){ timeSel.value=""; noteIn.value=""; noteSel.value=""; }
-  }else{
-    timeSel.disabled = false;
+
+function toggleTimeEnable(statusEl){
+  const key = statusEl.id.replace("status-","");
+  const timeEl = document.getElementById(`time-${key}`);
+  const needsTime = ["外出","出張","研修"].includes(statusEl.value);
+  if(timeEl){
+    timeEl.disabled = !needsTime;
+    if(!needsTime) timeEl.value = "";
   }
-  if(row){ row.dataset.status = status; }
 }
+
 function recolor(){
-  boardEl.querySelectorAll("tbody tr").forEach(tr=>{
+  board.querySelectorAll("tbody tr").forEach(tr=>{
     tr.dataset.status = tr.querySelector('select[name="status"]').value;
   });
 }
 
-/* ========= 同期 ========= */
+function toast(msg){
+  const t=toastEl; t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1000);
+}
+
+/* ============================================================
+ *  ログインUI
+ * ============================================================ */
+const loginEl  = document.getElementById('login');
+const pwInput  = document.getElementById('pw');
+const loginMsg = document.getElementById('loginMsg');
+function showLogin(msg=""){ loginEl.style.display='flex'; loginMsg.textContent = msg || ""; setTimeout(()=>pwInput?.focus(),50); }
+function hideLogin(){ loginEl.style.display='none'; loginMsg.textContent=""; pwInput.value=""; }
+
+/* ============================================================
+ *  JSONP（キャッシュ回避+タイムアウト）
+ * ============================================================ */
+function jsonp(url, timeout=12000){
+  return new Promise((resolve)=>{
+    const cb = 'cb_'+Math.random().toString(36).slice(2);
+    let done=false;
+    const cleanup=(s)=>{ try{ delete window[cb]; }catch(_){} if(s){ if(s.remove){s.remove();} else if(s.parentNode){s.parentNode.removeChild(s);} } };
+    const timer=setTimeout(()=>{ if(!done){ done=true; cleanup(script); resolve(null); } }, timeout);
+    window[cb]=(data)=>{ if(done) return; done=true; clearTimeout(timer); cleanup(script); resolve(data); };
+    const script=document.createElement('script');
+    script.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb + '&_=' + Date.now();
+    script.onerror=()=>{ if(!done){ done=true; clearTimeout(timer); cleanup(script); resolve(null); } };
+    document.body.appendChild(script);
+  });
+}
+
+/* ============================================================
+ *  認証 & 同期
+ * ============================================================ */
+let SESSION_TOKEN = "";
 let lastPushed=0;
+let renewTimer=null;
+
+async function login(pw){
+  if(!REMOTE_ENDPOINT){ loginMsg.textContent="同期先が未設定です（REMOTE_ENDPOINT）"; return; }
+  if(!pw || !pw.trim()){ loginMsg.textContent="パスワードを入力してください"; return; }
+  loginMsg.textContent = "認証中…";
+  const res = await jsonp(`${REMOTE_ENDPOINT}?action=login&password=${encodeURIComponent(pw)}`);
+  if(res === null){ loginMsg.textContent = "通信エラー（GASの公開設定/URLを確認）"; return; }
+  if(res && res.error === 'unauthorized'){ loginMsg.textContent = "パスワードが違います"; return; }
+  if(res && res.token){
+    SESSION_TOKEN = res.token;
+    sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
+    hideLogin();
+    render();                     // ログイン成功後に初描画
+    toast('ログインしました');
+    if(res.exp) scheduleRenew(res.exp);
+    startRemoteSync(true);
+  }else{
+    loginMsg.textContent = "サーバ応答が不正です（login実装/デプロイ要確認）";
+  }
+}
+
+function scheduleRenew(ttlMs){
+  clearTimeout(renewTimer);
+  const ms = Math.max(60000, Math.floor(ttlMs*0.8));
+  renewTimer = setTimeout(renewToken, ms);
+}
+async function renewToken(){
+  if(!SESSION_TOKEN) return;
+  const res = await jsonp(`${REMOTE_ENDPOINT}?action=renew&token=${encodeURIComponent(SESSION_TOKEN)}`);
+  if(res && res.ok){ scheduleRenew(res.exp || 3600000); }
+  else{
+    sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
+    showLogin("セッションが切れました。再ログインしてください。");
+  }
+}
+
+function requireTokenOrLogin(){
+  SESSION_TOKEN = sessionStorage.getItem(SESSION_KEY) || "";
+  if(!SESSION_TOKEN){ showLogin(); return false; }
+  return true;
+}
+
 async function pullRemote(){
-  const url = `${REMOTE_ENDPOINT}?action=get&key=${encodeURIComponent(DATA_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}`;
-  const res = await jsonp(url);
-  if(!res) return;
-  if(res.error){
+  if(!requireTokenOrLogin()) return;
+  const url = `${REMOTE_ENDPOINT}?action=get&key=${encodeURIComponent(REMOTE_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}`;
+  const remote = await jsonp(url);
+  if(!remote) return;
+  if(remote.error){
     sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
     showLogin("セッションが切れました。再ログインしてください。");
     return;
   }
-  if(res.data){
-    applyState(res.data);
-    try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), res.data))); }catch(_){}
+  if(remote.data){
+    applyState(remote.data);
+    try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data))); }catch(_){}
   }
 }
+
 async function pushRemote(){
+  if(!requireTokenOrLogin()) return;
   const payload = encodeURIComponent(JSON.stringify({updated:Date.now(), data:getStateForPush()}));
-  const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(DATA_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
+  const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const res = await jsonp(url);
   if(res && res.error){
     sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
     showLogin("セッションが切れました。再ログインしてください。");
   }
 }
+
 function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>1200){ lastPushed=now; pushRemote(); } }
-function startRemoteSync(){
-  const start = ()=>{ pullRemote(); setInterval(()=>pullRemote(), POLL_MS + Math.floor(Math.random()*1000)); };
-  setTimeout(start, Math.floor(Math.random()*POLL_MS));
+
+function startRemoteSync(forcePull=false){
+  // 初回ランダム遅延＋以後も微ジッタを入れてスパイク回避
+  const start = ()=>{ if(forcePull) pullRemote(); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
+  const jitter = Math.floor(Math.random()*REMOTE_POLL_MS);
+  setTimeout(start, jitter);
+
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullRemote(); });
   window.addEventListener('focus', pullRemote);
-  window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){}} });
+
+  // 同一端末の別タブ反映
+  window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){} } });
 }
 
-/* ========= 起動 ========= */
-async function bootAfterLogin(){
-  await loadConfig();
-  render();
-  startRemoteSync();
-}
+/* ============================================================
+ *  起動
+ * ============================================================ */
 document.addEventListener('DOMContentLoaded', ()=>{
+  // ログインUIだけ先に有効化（表は描画しない）
   window.__doLogin = () => login(pwInput.value);
   document.getElementById('btnLogin').addEventListener('click', window.__doLogin);
   pwInput.addEventListener('keypress', (e)=>{ if(e.key==='Enter') window.__doLogin(); });
 
-  if(requireToken()){
+  const existing = sessionStorage.getItem(SESSION_KEY);
+  if(existing){
+    SESSION_TOKEN = existing;
     hideLogin();
-    bootAfterLogin();
+    render();
+    startRemoteSync(true);
   }else{
     showLogin();
   }
 });
 
-/* エラー可視化 */
+/* JSエラーを画面表示（見落とし防止） */
 window.addEventListener('error', e=>{
   toastEl.style.background='#c53030';
   toastEl.textContent='エラー: '+e.message; toastEl.classList.add('show');
