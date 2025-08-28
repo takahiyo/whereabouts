@@ -8,10 +8,11 @@
   :root{
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
-    /* 盤面レイアウト */
-    --board-col-min: 360px;     /* 各表の最小幅 */
-    --board-gap: 18px;          /* 表間の間隔 */
-    --board-max-cols: 3;        /* PC時の最大列数 */
+
+    /* レイアウト制御 */
+    --col-min: 360px;   /* 各表(パネル)の最小幅 */
+    --gap: 18px;        /* 表間の間隔 */
+    --max-cols: 3;      /* PCでの最大列数 */
   }
 
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
@@ -19,17 +20,23 @@
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* 盤面（最大3列に制限して中央寄せ） */
-  .board{
-    display:grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--board-col-min), 1fr));
-    gap: var(--board-gap);
-    max-width: calc(var(--board-max-cols) * var(--board-col-min) + (var(--board-max-cols) - 1) * var(--board-gap));
+  /* ===== 盤面：最大3列。ラッパで幅を絞って中央寄せ ===== */
+  .board-wrap{
+    /* 3列ぶんの最大幅 = 3*col-min + 2*gap */
+    max-width: calc(var(--max-cols) * var(--col-min) + (var(--max-cols) - 1) * var(--gap));
+    width: 100%;
     margin: 0 auto;
   }
+  .board{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(var(--col-min), 1fr));
+    gap: var(--gap);
+  }
+
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px}
   .panel .title{font-weight:700;color:#6b7280;background:#f7f7f7;border:1px solid var(--line);
                 border-radius:4px;padding:6px 8px;margin:0 0 6px 0; min-height:1.8em}
+
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
   thead th{position:sticky;top:0;background:var(--head);font-weight:700}
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
@@ -38,22 +45,19 @@
   /* 列幅（合計100%：14 + 7 + 35 + 8 + 36） */
   td.name   { background:#fff; width:14% }
   td.ext    { width: 7% }
-  td.status { width:35%; min-width:13em }
-  td.time   { width: 8%;  min-width:5.2em }
+  td.status { width:35%; min-width:13em }       /* ステータス：文字幅を確保 */
+  td.time   { width: 8%;  min-width:5.2em }     /* 戻り時間：さらに狭める */
   td.note   { width:36% }
 
-  /* コントロール */
+  /* 入力UI */
   select,input[type="text"]{
     width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);
     border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
   }
-  /* 時刻は数字を中央寄せ＆等幅 */
-  td.time select{
-    text-align-last:center;
-    font-variant-numeric:tabular-nums;
-  }
-  /* ステータス：矢印分の余白を最小化（文字が見えるように） */
-  td.status select{ padding-right:1.2em; }
+  /* 戻り時間：数字を中央寄せ＆等幅 */
+  td.time select{ text-align-last:center; font-variant-numeric:tabular-nums; }
+  /* ステータス：矢印のための余白を最小化（文字を広く見せる） */
+  td.status select{ padding-right:1.0em; }
 
   /* 備考：候補 + 自由入力（先頭は空） */
   .note .wrap{display:flex;gap:6px;align-items:center}
@@ -72,7 +76,7 @@
   .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
   .toast.show{opacity:1}
 
-  /* ログインオーバーレイ（ログイン前は表を描画しない） */
+  /* ログイン（ログイン前は表を描画しない） */
   .login{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2000}
   .login .card{background:#fff;border-radius:8px;padding:20px;min-width:300px;max-width:90vw;text-align:center}
   .login .card h2{margin:.2rem 0 1rem}
@@ -80,7 +84,8 @@
 
   /* スマホ：1列表示 */
   @media(max-width:768px){
-    .board{ grid-template-columns: 1fr; gap:12px; max-width:none }
+    .board-wrap{ max-width:none }
+    .board{ grid-template-columns: 1fr; gap:12px }
     header{ flex-direction:column; gap:12px }
     body{ margin:8px }
     select,input[type="text"]{ font-size:16px } /* iOSズーム防止 */
@@ -92,7 +97,7 @@
   @media print{
     header,.toast,.login{display:none}
     body{margin:0}
-    .board{gap:10px; max-width:none}
+    .board{gap:10px}
     th,td{font-size:12px;padding:4px}
   }
 
@@ -115,12 +120,15 @@
   </div>
 
   <div id="toast" class="toast"></div>
-  <!-- ★ ログイン＆設定取得後に描画／表示 -->
-  <div id="board" class="board" style="display:none"></div>
+
+  <!-- ★ ログイン後に描画＆表示する -->
+  <div class="board-wrap">
+    <div id="board" class="board" style="display:none"></div>
+  </div>
 
 <script>
 /* ====== 設定 ====== */
-const REMOTE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzCTZCD1WpG9IpqhTavsOby_ZCLdhJeadCy-qPBlWlQhUv0HVLq6Ut7VbCKSfQdvPEi/exec';   // 例: https://script.google.com/macros/s/.../exec
+const REMOTE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzCTZCD1WpG9IpqhTavsOby_ZCLdhJeadCy-qPBlWlQhUv0HVLq6Ut7VbCKSfQdvPEi/exec';
 const DATA_KEY        = 'presence-board-default';
 const CONFIG_KEY      = 'presence-config';
 const POLL_MS         = 30000;    // 30秒
@@ -422,4 +430,3 @@ window.addEventListener('error', e=>{
 </script>
 </body>
 </html>
-
