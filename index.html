@@ -7,7 +7,7 @@
 
 <style>
   :root{
-    /* ========= 列幅の基本設定 ========= */
+    /* ========= 列幅の基本設定（必要なら調整） ========= */
     --base-name:   120px;
     --base-ext:     80px;
     --base-status: 380px;
@@ -21,9 +21,9 @@
 
     --min-name:    90px;
     --min-ext:     64px;
-    --min-status: 260px;  /* 狭めたい時は小さく */
+    --min-status: 200px;  /* ← 以前より下げて2〜3列に乗りやすく */
     --min-time:   100px;
-    --min-note:   260px;
+    --min-note:   200px;  /* ← 以前より下げて2〜3列に乗りやすく */
 
     --w-name:    max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
     --w-ext:     max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
@@ -35,12 +35,22 @@
     /* --status-fixed: 200px; */
     --status-effective: var(--status-fixed, var(--w-status));
 
-    /* 1パネルの最低必要幅（列決定の基準値） */
-    --panel-min: calc(var(--w-name)+var(--w-ext)+var(--status-effective)+var(--w-time)+var(--w-note)+60px);
+    /* レイアウトの列切り替え用 閾値（コンテンツ実幅から少し差し引いて列を増やしやすく） */
+    --panel-min-raw: calc(var(--w-name) + var(--w-ext) + var(--status-effective) + var(--w-time) + var(--w-note) + 60px);
+    --shrink-allowance: 160px;      /* ここを大きくすると列が増えやすい */
+    --grid-min: clamp(520px, calc(var(--panel-min-raw) - var(--shrink-allowance)), 760px);
 
     --gap: 20px;
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
+  }
+
+  /* ビューポートが狭い時は列幅スケールをさらに絞る（自動で2→1列へ落ちやすく） */
+  @media (max-width: 1300px){
+    :root{ --scale-status: 0.70; --scale-time: 0.40; }
+  }
+  @media (max-width: 1100px){
+    :root{ --scale-status: 0.65; --scale-time: 0.38; --min-note: 180px; }
   }
 
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
@@ -49,9 +59,9 @@
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
   /* ===== レイアウト（CSSだけで3→2→1列に自動調整） ===== */
-  .wrap{max-width: calc(3 * var(--panel-min) + 2 * var(--gap)); margin: 0 auto;}
+  .wrap{max-width: calc(3 * var(--grid-min) + 2 * var(--gap)); margin: 0 auto;}
   .board{ display:grid; gap:var(--gap);
-          grid-template-columns: repeat(auto-fit, minmax(var(--panel-min), 1fr)); }
+          grid-template-columns: repeat(auto-fit, minmax(var(--grid-min), 1fr)); }
 
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto}
   .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
@@ -78,9 +88,11 @@
 
   .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
   .toast.show{opacity:1}
+
   .login{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2000}
   .login .card{background:#fff;border-radius:8px;padding:20px;min-width:300px;max-width:90vw;text-align:center}
   .login .card h2{margin:.2rem 0 1rem} .login .card input{margin:.4rem 0}
+
   @media print{header,.toast,.login{display:none} body{margin:0}.board{gap:10px} th,td{font-size:12px;padding:4px}}
 </style>
 </head>
@@ -107,7 +119,6 @@
 
 <script>
 /* ================== 同期設定 ================== */
-/* ※実運用は GAS の Webアプリ URL（https://script.google.com/macros/s/.../exec）を指定してください。 */
 const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
 const REMOTE_KEY      = "presence-board-default";
 const REMOTE_POLL_MS  = 8000;       // 在席データpull（8秒）
@@ -197,7 +208,7 @@ function render(){
   board.innerHTML = GROUPS.map(g=>panelHtml(g)).join('');
   board.style.display = '';
   wireEvents();
-  loadLocal();     // ★ まずはローカルを即時反映
+  loadLocal();     // まずはローカルを即時反映
   recolor();
 }
 
@@ -249,7 +260,7 @@ function debounceRowPush(key, delay=900){
   noteTimers.set(key, id);
 }
 function wireEvents(){
-  // セレクト（即送信）
+  // ステータス（即送信）
   board.querySelectorAll("select[name='status']").forEach(sel=>{
     sel.addEventListener("change", ()=>{
       const key = sel.id.replace("status-","");
@@ -262,6 +273,7 @@ function wireEvents(){
       recolor();
     });
   });
+  // 戻り時間（即送信）
   board.querySelectorAll("select[name='time']").forEach(sel=>{
     sel.addEventListener("change", ()=>{
       const key = sel.id.replace("time-","");
@@ -269,7 +281,6 @@ function wireEvents(){
       pushRowDelta(key);
     });
   });
-
   // 内線（changeで送信）
   board.querySelectorAll("input[name='ext']").forEach(inp=>{
     inp.addEventListener('change', ()=>{
@@ -278,7 +289,6 @@ function wireEvents(){
       pushRowDelta(key);
     });
   });
-
   // 備考（IME中は送らない／入力はデバウンス／確定で即送信）
   board.querySelectorAll("input[name='note']").forEach(inp=>{
     const key = inp.id.replace("note-","");
@@ -335,7 +345,7 @@ async function fastFetchDataOnce(){
   return await jsonp(url);
 }
 
-async function pullRemote(force=false){
+async function pullRemote(){
   if(!SESSION_TOKEN) return;
   const remote = await fastFetchDataOnce();
   if(!remote) return;
@@ -355,11 +365,11 @@ async function pushRowDelta(key){
     return;
   }
   // 反映確認（軽量pull）
-  await pullRemote(false);
+  await pullRemote();
 }
 
 function startRemoteSync(forcePull=false){
-  const start = ()=>{ if(forcePull) pullRemote(true); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
+  const start = ()=>{ if(forcePull) pullRemote(); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
   const jitter = Math.floor(Math.random()*REMOTE_POLL_MS);
   setTimeout(start, jitter);
 }
@@ -401,6 +411,7 @@ async function renewToken(){
 }
 
 /* ================== 起動（最速描画） ================== */
+const SESSION_KEY     = "presence-session-token";
 const pwInput  = document.getElementById('pw');
 document.addEventListener('DOMContentLoaded', ()=>{
   window.__doLogin = async () => {
@@ -412,19 +423,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(res && res.error === 'unauthorized'){ loginMsg.textContent = "パスワードが違います"; return; }
     if(!(res && res.token)){ loginMsg.textContent = "サーバ応答が不正です"; return; }
 
-    // 認証OK
     SESSION_TOKEN = res.token; sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
     loginEl.style.display='none'; loginMsg.textContent="";
 
-    // ★ 設定取得とデータ取得を並列で開始 → 設定到着次第レンダ → 到着済みのデータを即適用
+    // 設定取得とデータ取得を並列で開始 → 設定到着次第レンダ → ローカル即適用 → サーバデータ到着で上書き
     const cfgP  = tryLoadGroupsFromServer(true).catch(()=>{});
     const dataP = fastFetchDataOnce().catch(()=>null);
 
-    await cfgP;     // まず名簿を待って…
-    render();       // 即描画
-    loadLocal();    // ローカルを先に適用して体感を最速に
-    const data = await dataP;
-    if(data && data.data) applyState(data.data);  // サーバデータ到着次第上書き
+    await cfgP; render(); loadLocal();
+    const data = await dataP; if(data && data.data) applyState(data.data);
 
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
     startRemoteSync(true);
@@ -441,7 +448,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const ok = await jsonp(`${REMOTE_ENDPOINT}?action=renew&token=${encodeURIComponent(SESSION_TOKEN)}`);
       if(ok && ok.ok){
         scheduleRenew(Number(ok.exp)||TOKEN_DEFAULT_TTL);
-        // 並列で高速ブート
         const cfgP  = tryLoadGroupsFromServer(true).catch(()=>{});
         const dataP = fastFetchDataOnce().catch(()=>null);
         await cfgP; render(); loadLocal();
@@ -472,4 +478,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
