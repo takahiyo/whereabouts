@@ -7,109 +7,53 @@
 
 <style>
   :root{
-    --base-name:   120px;
-    --base-ext:     80px;
-    --base-status: 380px;
-    --base-time:   120px;
-    --base-note:   320px;
-
-    --scale-name:   0.50;
-    --scale-ext:    0.33;
-    --scale-status: 0.75;
-    --scale-time:   0.45;
-
-    --min-name:    90px;
-    --min-ext:     64px;
-    --min-status: 260px;
-    --min-time:   100px;
-    --min-note:   260px;
-
-    --w-name:   max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
-    --w-ext:    max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
-    --w-status: max(calc(var(--base-status) * var(--scale-status)), var(--min-status));
-    --w-time:   max(calc(var(--base-time)   * var(--scale-time)),   var(--min-time));
-    --w-note:   max(var(--base-note), var(--min-note));
-
-    --panel-min: calc(var(--w-name) + var(--w-ext) + var(--w-status) + var(--w-time) + var(--w-note) + 60px);
+    --base-name:   120px; --base-ext: 80px; --base-status: 380px; --base-time: 120px; --base-note: 320px;
+    --scale-name: 0.50; --scale-ext: 0.33; --scale-status: 0.75; --scale-time: 0.45;
+    --min-name: 90px; --min-ext: 64px; --min-status: 260px; --min-time: 100px; --min-note: 260px;
+    --w-name:   max(calc(var(--base-name)*var(--scale-name)),var(--min-name));
+    --w-ext:    max(calc(var(--base-ext)*var(--scale-ext)),var(--min-ext));
+    --w-status: max(calc(var(--base-status)*var(--scale-status)),var(--min-status));
+    --w-time:   max(calc(var(--base-time)*var(--scale-time)),var(--min-time));
+    --w-note:   max(var(--base-note),var(--min-note));
+    --panel-min: calc(var(--w-name)+var(--w-ext)+var(--w-status)+var(--w-time)+var(--w-note)+60px);
     --gap: 20px;
-
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
   }
-
   @media (max-width: 768px){
-    :root{
-      --min-name:   90px;
-      --min-ext:    64px;
-      --min-status: 280px;
-      --min-time:   110px;
-      --min-note:   240px;
-
-      --w-name:   var(--min-name);
-      --w-ext:    var(--min-ext);
-      --w-status: var(--min-status);
-      --w-time:   var(--min-time);
-      --w-note:   var(--min-note);
-
-      --panel-min: calc(var(--w-name) + var(--w-ext) + var(--w-status) + var(--w-time) + var(--w-note) + 40px);
-      --gap: 12px;
-    }
-    select, input{ font-size:16px; }
+    :root{ --w-name:90px; --w-ext:64px; --w-status:280px; --w-time:110px; --w-note:240px;
+      --panel-min: calc(var(--w-name)+var(--w-ext)+var(--w-status)+var(--w-time)+var(--w-note)+40px); --gap:12px; }
+    select,input{font-size:16px;}
   }
-
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
   header{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-
-  .board{ display:grid; grid-template-columns: repeat(auto-fit, minmax(var(--panel-min), 1fr)); gap: var(--gap); }
+  .board{display:grid;grid-template-columns:repeat(auto-fit,minmax(var(--panel-min),1fr));gap:var(--gap)}
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto}
-  .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);
-                border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
-
+  .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
   thead th{position:sticky;top:0;background:var(--head);font-weight:700}
-  th,td{border:1px solid var(--line);padding:6px;font-size:14px}
-  th{text-align:left}
-
-  col.col-name   { width: var(--w-name); }
-  col.col-ext    { width: var(--w-ext); }
-  col.col-status { width: var(--w-status); }
-  col.col-time   { width: var(--w-time); }
-  col.col-note   { width: var(--w-note); }
-
-  select,input[type="text"]{
-    width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);
-    border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
-  }
-  td.status select{ padding-right:2.6em; }
-  td.status{ min-width: max(var(--w-status), 13em); }
-
-  td.time select{ text-align-last:center; font-variant-numeric:tabular-nums; }
-
-  tr[data-status="在席"]{background:var(--present)}
-  tr[data-status="外出"]{background:var(--away)}
+  th,td{border:1px solid var(--line);padding:6px;font-size:14px} th{text-align:left}
+  col.col-name{width:var(--w-name)} col.col-ext{width:var(--w-ext)} col.col-status{width:var(--w-status)}
+  col.col-time{width:var(--w-time)} col.col-note{width:var(--w-note)}
+  select,input[type="text"]{width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto}
+  td.status select{padding-right:2.6em} td.status{min-width:max(var(--w-status),13em)}
+  td.time select{text-align-last:center;font-variant-numeric:tabular-nums}
+  tr[data-status="在席"]{background:var(--present)} tr[data-status="外出"]{background:var(--away)}
   tr[data-status="休み"],tr[data-status="健康診断"],tr[data-status="コアドック"]{background:var(--off)}
-  tr[data-status="帰宅"]{background:var(--home)}
-  tr[data-status="在宅勤務"]{background:var(--remote)}
+  tr[data-status="帰宅"]{background:var(--home)} tr[data-status="在宅勤務"]{background:var(--remote)}
   tr[data-status="出張"],tr[data-status="研修"]{background:var(--away)}
-
   .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
   .toast.show{opacity:1}
-
   .login{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2000}
   .login .card{background:#fff;border-radius:8px;padding:20px;min-width:300px;max-width:90vw;text-align:center}
-  .login .card h2{margin:.2rem 0 1rem}
-  .login .card input{margin:.4rem 0}
-
-  @media print{
-    header,.toast,.login{display:none}
-    body{margin:0}
-    .board{gap:10px}
-    th,td{font-size:12px;padding:4px}
-  }
-
-  .board [draggable], .board [role="separator"]{ display:none !important; }
+  .login .card h2{margin:.2rem 0 1rem} .login .card input{margin:.4rem 0}
+  @media print{header,.toast,.login,#dbg{display:none} body{margin:0}.board{gap:10px} th,td{font-size:12px;padding:4px}}
+  .board [draggable],[role="separator"]{display:none!important}
+  /* デバッグパネル */
+  #dbg{position:fixed;right:12px;bottom:12px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:9998}
+  #dbg button{margin-left:6px}
 </style>
 </head>
 
@@ -130,9 +74,16 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="board" class="board" style="display:none"></div>
 
+  <!-- デバッグ最小UI -->
+  <div id="dbg" style="display:none">
+    <span id="dbgText">同期待ち…</span>
+    <button id="btnPush">強制送信</button>
+    <button id="btnPull">強制取得</button>
+  </div>
+
 <script>
 /* ================== 同期設定（JSONP / GAS 認証） ================== */
-const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbzGjjZDD3JDtn7ugPjZqeWSWf9Q3nthHd2ywjJBK_NVJYWwVf0U581P_fLMsiPcsvW9/exec";
+const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbwXg9qRmqgYHttCzEUC_ZMsxHyoPyPuEzcnoHg1cilndQ10wUOEZ9vcwapiuAjTrPZr/exec";
 const REMOTE_KEY      = "presence-board-default";
 const REMOTE_POLL_MS  = 30000;      // 在席データpull
 const CONFIG_POLL_MS  = 120000;     // 名簿チェック
@@ -163,7 +114,7 @@ function normalizeConfigClient(cfg){
       }) : []
     }));
   }
-  if(Array.isArray(cfg) && cfg.length && Array.isArray(cfg[0])){ // 旧形式フォールバック
+  if(Array.isArray(cfg) && cfg.length && Array.isArray(cfg[0])){
     return cfg.map(arr=>({ title:"", members: arr.map(n=>({name:String(n||""), id:makeLocalId(String(n||""))})) }));
   }
   return [];
@@ -171,18 +122,17 @@ function normalizeConfigClient(cfg){
 
 const board  = document.getElementById('board');
 const toastEl= document.getElementById('toast');
+const dbgEl  = document.getElementById('dbg');
+const dbgText= document.getElementById('dbgText');
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);
-const storeKey = "presence-board-v3"; // 人IDキー用のローカル保存
+const storeKey = "presence-board-v3";
 
 function timeOptions(){
   const opts=['<option value=""></option>'];
-  for(let h=0;h<24;h++){
-    for(let m=0;m<60;m+=30){
-      const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-      opts.push(`<option value="${t}">${t}</option>`);
-    }
-  }
+  for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
+    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; opts.push(`<option value="${t}">${t}</option>`);
+  } }
   return opts.join('');
 }
 
@@ -193,44 +143,33 @@ function rowHtml(member){
   return `
     <tr id="row-${key}" data-key="${key}" data-status="在席">
       <td class="name">${name}</td>
-      <td class="ext">
-        <label class="sr-only" for="ext-${key}">内線</label>
-        <input id="ext-${key}" name="ext" type="text" maxlength="4"
-               inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" value="${ext}" />
+      <td class="ext"><label class="sr-only" for="ext-${key}">内線</label>
+        <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" value="${ext}" />
       </td>
-      <td class="status">
-        <label class="sr-only" for="status-${key}">ステータス</label>
-        <select id="status-${key}" name="status">
-          ${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}
-        </select>
+      <td class="status"><label class="sr-only" for="status-${key}">ステータス</label>
+        <select id="status-${key}" name="status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}</select>
       </td>
-      <td class="time">
-        <label class="sr-only" for="time-${key}">戻り時間</label>
+      <td class="time"><label class="sr-only" for="time-${key}">戻り時間</label>
         <select id="time-${key}" name="time">${timeOptions()}</select>
       </td>
-      <td class="note">
-        <input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" />
-      </td>
+      <td class="note"><input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" /></td>
     </tr>`;
 }
-
 function panelHtml(group){
   return `
     <section class="panel">
       <h3 class="title">${group.title ?? ""}</h3>
       <table aria-label="在席表">
-        <colgroup>
-          <col class="col-name"><col class="col-ext"><col class="col-status"><col class="col-time"><col class="col-note">
-        </colgroup>
+        <colgroup><col class="col-name"><col class="col-ext"><col class="col-status"><col class="col-time"><col class="col-note"></colgroup>
         <thead><tr><th>氏名</th><th>内線</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr></thead>
         <tbody>${group.members.map(m=>rowHtml(m)).join("")}</tbody>
       </table>
     </section>`;
 }
-
 function render(){
   board.innerHTML = GROUPS.map(g=>panelHtml(g)).join('');
   board.style.display = '';
+  dbgEl.style.display = 'block';
   wireEvents();
   loadLocal();
   recolor();
@@ -241,28 +180,26 @@ function getState(){
   const data={};
   board.querySelectorAll("tbody tr").forEach(tr=>{
     const k=tr.dataset.key;
-    data[k]={
-      ext:    tr.querySelector('input[name="ext"]').value.trim(),
-      status: tr.querySelector('select[name="status"]').value,
-      time:   tr.querySelector('select[name="time"]').value,
-      note:   tr.querySelector('input[name="note"]').value
-    };
+    data[k]={ ext:tr.querySelector('input[name="ext"]').value.trim(),
+              status:tr.querySelector('select[name="status"]').value,
+              time:tr.querySelector('select[name="time"]').value,
+              note:tr.querySelector('input[name="note"]').value };
   });
   return data;
 }
-
-/* ★修正A：常に全行送信して確実に同期 */
+/* 軽量送信用（既定値は送らない） */
 function getStateForPush(){
-  return getState();
+  const full=getState(), slim={};
+  for(const [k,v] of Object.entries(full)){
+    if(v.ext || v.status!=="在席" || v.time || (v.note && v.note.trim()!=="")) slim[k]=v;
+  }
+  return slim;
 }
-
 function applyState(data){
   if(!data) return;
   Object.entries(data).forEach(([k,v])=>{
-    const e=document.getElementById(`ext-${k}`);
-    const s=document.getElementById(`status-${k}`);
-    const t=document.getElementById(`time-${k}`);
-    const n=document.getElementById(`note-${k}`);
+    const e=document.getElementById(`ext-${k}`), s=document.getElementById(`status-${k}`),
+          t=document.getElementById(`time-${k}`), n=document.getElementById(`note-${k}`);
     if(e && typeof v.ext==="string") e.value = v.ext;
     if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
     if(t) t.value = v.time || "";
@@ -271,54 +208,41 @@ function applyState(data){
   });
   recolor();
 }
-
-function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); toast('保存しました'); }catch(_){} }
+function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(_){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(!raw) return; applyState(JSON.parse(raw)); }catch(_){} }
 
 /* ===== イベント ===== */
 function wireEvents(){
-  // change で保存と送信
   board.querySelectorAll("select,input").forEach(el=>{
     el.addEventListener("change", ()=>{
       if(el.name==="status"){
-        const key = el.id.replace("status-","");
-        const time = document.getElementById(`time-${key}`);
-        const note = document.getElementById(`note-${key}`);
-        if(CLEAR_ON.has(el.value)){
-          if(time){ time.value=""; }
-          if(note){ note.value=""; }
-        }
+        const key = el.id.replace("status-",""), time = document.getElementById(`time-${key}`), note=document.getElementById(`note-${key}`);
+        if(CLEAR_ON.has(el.value)){ if(time) time.value=""; if(note) note.value=""; }
         toggleTimeEnable(el);
       }
       saveLocal();
-      /* ★修正C：ステータス変更は即送信／その他はスロットル送信 */
       if (el.name === 'status') { pushRemote(); } else { pushRemoteThrottled(); }
       recolor();
     });
   });
-
-  /* ★修正B：テキスト入力はタイプ中（input）でも送る */
   board.querySelectorAll('input[type="text"]').forEach(el=>{
     el.addEventListener('input', ()=>{ saveLocal(); pushRemoteThrottled(); });
   });
-}
 
+  document.getElementById('btnPush').addEventListener('click', ()=>pushRemote(true));
+  document.getElementById('btnPull').addEventListener('click', ()=>pullRemote(true));
+}
 function toggleTimeEnable(statusEl){
-  const key = statusEl.id.replace("status-","");
-  const timeEl = document.getElementById(`time-${key}`);
+  const key = statusEl.id.replace("status-",""), timeEl = document.getElementById(`time-${key}`);
   const needsTime = ["外出","出張","研修"].includes(statusEl.value);
   if(timeEl){ timeEl.disabled = !needsTime; if(!needsTime) timeEl.value = ""; }
 }
-
 function recolor(){
   board.querySelectorAll("tbody tr").forEach(tr=>{
     tr.dataset.status = tr.querySelector('select[name="status"]').value;
   });
 }
-
-function toast(msg){
-  const t=toastEl; t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1000);
-}
+function toast(msg){ const t=toastEl; t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1000); }
 
 /* ===== JSONP ===== */
 function jsonp(url, timeout=12000){
@@ -349,6 +273,9 @@ async function tryLoadGroupsFromServer(nocache=false){
   CONFIG_UPDATED = (typeof cfg.updated === 'number') ? cfg.updated : 0;
 }
 
+let lastPushAt=0,lastPullAt=0;
+function updateDbg(){ dbgText.textContent = `lastPush:${lastPushAt||'-'} / lastPull:${lastPullAt||'-'}`; }
+
 let configWatchTimer = null;
 function startConfigWatch(){
   if(configWatchTimer) clearInterval(configWatchTimer);
@@ -361,7 +288,7 @@ function startConfigWatch(){
         GROUPS = normalizeConfigClient(cfg);
         CONFIG_UPDATED = cfg.updated;
         render();
-        applyState(prev); // id一致は維持
+        applyState(prev);
         toast('名簿を更新しました');
       }
     }catch(_){}
@@ -375,10 +302,8 @@ async function login(pw){
   if(res === null){ loginMsg.textContent = "通信エラー（GAS公開/URLを確認）"; return; }
   if(res && res.error === 'unauthorized'){ loginMsg.textContent = "パスワードが違います"; return; }
   if(res && res.token){
-    SESSION_TOKEN = res.token;
-    sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
-    hideLogin();
-    toast('ログインしました');
+    SESSION_TOKEN = res.token; sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
+    hideLogin(); toast('ログインしました');
     try{ await tryLoadGroupsFromServer(true); }catch(_){ toast('設定の取得に失敗しました'); }
     render();
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
@@ -388,16 +313,12 @@ async function login(pw){
     loginMsg.textContent = "サーバ応答が不正です";
   }
 }
+function requireTokenOrLogin(){ SESSION_TOKEN = sessionStorage.getItem(SESSION_KEY) || ""; if(!SESSION_TOKEN){ showLogin(); return false; } return true; }
 
-function requireTokenOrLogin(){
-  SESSION_TOKEN = sessionStorage.getItem(SESSION_KEY) || "";
-  if(!SESSION_TOKEN){ showLogin(); return false; }
-  return true;
-}
-
-async function pullRemote(){
+async function pullRemote(force=false){
   if(!requireTokenOrLogin()) return;
-  const url = `${REMOTE_ENDPOINT}?action=get&key=${encodeURIComponent(REMOTE_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}`;
+  // ★常にnocache=1で最新を取得
+  const url = `${REMOTE_ENDPOINT}?action=get&key=${encodeURIComponent(REMOTE_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}&nocache=1`;
   const remote = await jsonp(url);
   if(!remote) return;
   if(remote.error){
@@ -409,32 +330,30 @@ async function pullRemote(){
     applyState(remote.data);
     try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data))); }catch(_){}
   }
+  lastPullAt = new Date().toLocaleTimeString(); updateDbg();
+  if(force) toast('取得しました');
 }
 
-async function pushRemote(){
+async function pushRemote(force=false){
   if(!requireTokenOrLogin()) return;
-  const payload = encodeURIComponent(JSON.stringify({updated:Date.now(), data:getStateForPush()}));
+  const body = {updated:Date.now(), data:getStateForPush()};
+  const payload = encodeURIComponent(JSON.stringify(body));
   const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const res = await jsonp(url);
+  lastPushAt = new Date().toLocaleTimeString(); updateDbg();
   if(res && res.error){
     sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
     showLogin("セッションが切れました。再ログインしてください。");
-  }
+  }else if(force){ toast('送信しました'); }
 }
-
 function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>1200){ lastPushed=now; pushRemote(); } }
 
 function startRemoteSync(forcePull=false){
-  const start = ()=>{ if(forcePull) pullRemote(); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
+  const start = ()=>{ if(forcePull) pullRemote(true); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
   const jitter = Math.floor(Math.random()*REMOTE_POLL_MS);
   setTimeout(start, jitter);
-
-  document.addEventListener('visibilitychange', async ()=>{
-    if(!document.hidden){ pullRemote(); }
-  });
-  window.addEventListener('focus', pullRemote);
-
-  // 同一端末の別タブ反映
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullRemote(true); });
+  window.addEventListener('focus', ()=>pullRemote(true));
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){ } } });
 }
 
@@ -470,8 +389,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   const existing = sessionStorage.getItem(SESSION_KEY);
   if(existing){
-    SESSION_TOKEN = existing;
-    hideLogin();
+    SESSION_TOKEN = existing; hideLogin();
     (async ()=>{
       const ok = await jsonp(`${REMOTE_ENDPOINT}?action=renew&token=${encodeURIComponent(SESSION_TOKEN)}`);
       if(ok && ok.ok){
@@ -481,8 +399,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         startRemoteSync(true);
         startConfigWatch();
       }else{
-        sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
-        showLogin();
+        sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; showLogin();
       }
     })();
   }else{
@@ -504,4 +421,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
