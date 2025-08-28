@@ -7,32 +7,34 @@
 
 <style>
   :root{
-    /* ===== 列幅：ベース値と倍率・最小幅（1か所集約） ===== */
+    /* ===== 列幅（1か所集約） ===== */
     --base-name:   120px;  /* 氏名 基準幅 */
     --base-ext:     80px;  /* 内線 基準幅 */
     --base-status: 380px;  /* ステータス 基準幅 */
     --base-time:   120px;  /* 戻り時間 基準幅 */
     --base-note:   320px;  /* 備考 基準幅（テキストボックス含む） */
 
-    --scale-name:  0.50;   /* 現在=100%に対する倍率（氏名は50%） */
-    --scale-ext:   0.33;   /* 内線 33% */
-    --scale-status:0.75;   /* ステータス 75% */
-    --scale-time:  0.45;   /* 戻り時間 45% */
+    /* 現在=100%に対する倍率（ご要望値） */
+    --scale-name:   0.50;  /* 氏名 50% */
+    --scale-ext:    0.33;  /* 内線 33% */
+    --scale-status: 0.75;  /* ステータス 75% */
+    --scale-time:   0.45;  /* 戻り時間 45% */
 
-    --min-name:    90px;   /* 各列の最小幅（下限） */
-    --min-ext:     64px;
+    /* 下限 */
+    --min-name:   90px;
+    --min-ext:    64px;
     --min-status: 260px;
     --min-time:   100px;
     --min-note:   260px;
 
-    /* 実効幅（ベース×倍率 と 最小値 の大きい方） */
+    /* 実効幅 */
     --w-name:   max(calc(var(--base-name)*var(--scale-name)),var(--min-name));
     --w-ext:    max(calc(var(--base-ext)*var(--scale-ext)),var(--min-ext));
     --w-status: max(calc(var(--base-status)*var(--scale-status)),var(--min-status));
     --w-time:   max(calc(var(--base-time)*var(--scale-time)),var(--min-time));
     --w-note:   max(var(--base-note),var(--min-note));
 
-    /* パネルが「折り返さずに収まる」最小幅（ヘッダ等の余白込み +60px目安） */
+    /* 1パネルの最小幅（余白+60px目安） */
     --panel-min: calc(var(--w-name)+var(--w-ext)+var(--w-status)+var(--w-time)+var(--w-note)+60px);
 
     --gap: 20px;
@@ -49,31 +51,24 @@
 
   /* ===== 最大3列まで自動で横並び ===== */
   .board{ display:grid; gap:var(--gap); }
-  /* 広い：3列 */
-  @media (min-width: 1601px){
-    .board{ grid-template-columns: repeat(3, minmax(var(--panel-min), 1fr)); }
-  }
-  /* 中くらい：2列 */
-  @media (min-width: 901px) and (max-width: 1600px){
-    .board{ grid-template-columns: repeat(2, minmax(var(--panel-min), 1fr)); }
-  }
-  /* 狭い：1列 */
-  @media (max-width: 900px){
-    .board{ grid-template-columns: minmax(0, 1fr); }
-  }
+  @media (min-width: 1601px){ .board{ grid-template-columns: repeat(3, minmax(var(--panel-min), 1fr)); } }
+  @media (min-width: 901px) and (max-width: 1600px){ .board{ grid-template-columns: repeat(2, minmax(var(--panel-min), 1fr)); } }
+  @media (max-width: 900px){ .board{ grid-template-columns: minmax(0, 1fr); } }
 
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto}
   .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
+
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
   thead th{position:sticky;top:0;background:var(--head);font-weight:700}
   th,td{border:1px solid var(--line);padding:6px;font-size:14px} th{text-align:left}
   col.col-name{width:var(--w-name)} col.col-ext{width:var(--w-ext)} col.col-status{width:var(--w-status)}
   col.col-time{width:var(--w-time)} col.col-note{width:var(--w-note)}
+
   select,input[type="text"]{width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto}
   td.status select{padding-right:2.6em} td.status{min-width:max(var(--w-status),13em)}
   td.time select{text-align-last:center;font-variant-numeric:tabular-nums}
 
-  /* 行の色（ステータスで反映） */
+  /* 行の色（ステータス反映） */
   tr[data-status="在席"]{background:var(--present)}
   tr[data-status="外出"], tr[data-status="出張"], tr[data-status="研修"]{background:var(--away)}
   tr[data-status="休み"],tr[data-status="健康診断"],tr[data-status="コアドック"]{background:var(--off)}
@@ -124,39 +119,35 @@
 /* ================== 同期設定 ================== */
 const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbyo0WA5o1YLM7H0EyHpWNzUqxNdyDnqDnNS_vskPazJyuEHGGqOzt61zhukyI7l7zhf/exec";
 const REMOTE_KEY      = "presence-board-default";
-const REMOTE_POLL_MS  = 5000;       // ★在席データpull：5秒間隔に短縮（可能な限りリアルタイム）
+const REMOTE_POLL_MS  = 5000;       // pull間隔
 const CONFIG_POLL_MS  = 120000;     // 名簿チェック
 const SESSION_KEY     = "presence-session-token";
 const TOKEN_DEFAULT_TTL = 3600000;  // 60分
-let tokenRenewTimer = null;
 
 /* ================== 名簿（サーバ取得・人IDキー運用） ================== */
 let GROUPS = [];
 let CONFIG_UPDATED = 0;
 
-/* 同一人物の安定ID生成（日本語名でもOK） */
 function makeLocalId(s){
   const seed = (s||"").normalize('NFKC').replace(/\s+/g,'');
   let h = 0; for(let i=0;i<seed.length;i++){ h = (h*31 + seed.charCodeAt(i)) >>> 0; }
   return "P" + (h.toString(16) + "00000000").slice(0,8);
 }
 
-/* GASの名簿をクライアント用に正規化（id必須化） */
 function normalizeConfigClient(cfg){
   if(cfg && Array.isArray(cfg.groups)){
+    const used = new Set();
     return cfg.groups.map(g=>({
       title: typeof g.title==="string" ? g.title : "",
       members: Array.isArray(g.members) ? g.members.map(m=>{
         const name = String((m && m.name) || "");
         const ext  = (m && m.ext) ? String(m.ext) : "";
         let id     = (m && m.id) ? String(m.id) : "";
-        if(!/^[A-Za-z0-9_-]+$/.test(id)){ id = makeLocalId(name+ext); }
+        if(!/^[A-Za-z0-9_-]+$/.test(id) || used.has(id)){ id = makeLocalId(name+ext); }
+        used.add(id);
         return { name, ext, id };
       }) : []
     }));
-  }
-  if(Array.isArray(cfg) && cfg.length && Array.isArray(cfg[0])){
-    return cfg.map(arr=>({ title:"", members: arr.map(n=>({name:String(n||""), id:makeLocalId(String(n||""))})) }));
   }
   return [];
 }
@@ -167,8 +158,7 @@ const dbgEl  = document.getElementById('dbg');
 const dbgText= document.getElementById('dbgText');
 
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
-/* これらに変更したときは戻り時間/備考を自動クリア */
-const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);
+const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]); // これらへ変更時は時間/備考をクリア
 
 const storeKey = "presence-board-v3";
 
@@ -176,12 +166,13 @@ const storeKey = "presence-board-v3";
 function timeOptions(){
   const opts=['<option value=""></option>'];
   for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
-    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; opts.push(`<option value="${t}">${t}</option>`);
+    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    opts.push(`<option value="${t}">${t}</option>`);
   } }
   return opts.join('');
 }
 
-/* 行HTML（初期extは data-default-ext に保持 → 既定リセット時に利用） */
+/* 行HTML（ext初期値を data-default-ext に保持） */
 function rowHtml(member){
   const name= member.name || "";
   const ext = (member.ext && /^[0-9]{1,4}$/.test(String(member.ext))) ? String(member.ext) : "";
@@ -239,12 +230,12 @@ function getState(){
   return data;
 }
 
-/* ★ 重要：常にフル送信して、欠落による不整合を防止 */
+/* ★ 常にフル送信（既定値も含める） */
 function getStateForPush(){
   return getState();
 }
 
-/* 既定状態へ一括リセット（在席/時間空/備考空、extは初期extへ） */
+/* 既定状態へ一括リセット（在席/時間空/備考空、extは初期ext） */
 function resetAllToDefault(){
   board.querySelectorAll("tbody tr").forEach(tr=>{
     const key = tr.dataset.key;
@@ -260,7 +251,7 @@ function resetAllToDefault(){
   });
 }
 
-/* サーバ状態を適用：まず全行を既定に戻してから、受信値で上書き */
+/* サーバ状態を適用：まず既定に戻してから受信値で上書き */
 function applyState(data){
   if(!data) return;
   resetAllToDefault();
@@ -301,13 +292,11 @@ function wireEvents(){
         toggleTimeEnable(el);
       }
       saveLocal();
-      /* ステータスは即時、その他はスロットル送信 */
       if (el.name === 'status') { pushRemote(true); } else { pushRemoteThrottled(); }
       recolor();
     });
   });
 
-  /* 入力途中でもある程度追随 */
   board.querySelectorAll('input[type="text"]').forEach(el=>{
     el.addEventListener('input', ()=>{ saveLocal(); pushRemoteThrottled(); });
   });
@@ -349,6 +338,9 @@ function jsonp(url, timeout=12000){
 /* ================== 認証 & 同期 ================== */
 let SESSION_TOKEN = "";
 let lastPushed=0, lastPushAt=0, lastPullAt=0;
+let lastRemoteUpdated = 0; // ★サーバの最新版タイムスタンプ
+let bc = null;
+
 function updateDbg(){
   const lp = lastPushAt? new Date(lastPushAt).toLocaleTimeString() : '-';
   const lg = lastPullAt? new Date(lastPullAt).toLocaleTimeString() : '-';
@@ -404,6 +396,7 @@ async function login(pw){
     loginMsg.textContent = "サーバ応答が不正です";
   }
 }
+
 function requireTokenOrLogin(){ SESSION_TOKEN = sessionStorage.getItem(SESSION_KEY) || ""; if(!SESSION_TOKEN){ document.getElementById('login').style.display='flex'; return false; } return true; }
 
 async function pullRemote(force=false){
@@ -416,9 +409,12 @@ async function pullRemote(force=false){
     document.getElementById('login').style.display='flex';
     return;
   }
-  if(remote.data){
-    applyState(remote.data);
-    try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data))); }catch(_){}
+  if(typeof remote.updated === 'number' && remote.updated < lastRemoteUpdated){
+    // 古いデータは無視（在席に戻ってしまう事故を防止）
+  }else{
+    if(remote.data) applyState(remote.data);
+    if(typeof remote.updated === 'number') lastRemoteUpdated = remote.updated;
+    try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data || {}))); }catch(_){}
   }
   lastPullAt = Date.now(); updateDbg();
   if(force) toast('取得しました');
@@ -426,7 +422,8 @@ async function pullRemote(force=false){
 
 async function pushRemote(force=false){
   if(!requireTokenOrLogin()) return;
-  const body = {updated:Date.now(), data:getStateForPush()};
+  const updated = Date.now();
+  const body = {updated, data:getStateForPush()};
   const payload = encodeURIComponent(JSON.stringify(body));
   const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const res = await jsonp(url);
@@ -436,8 +433,9 @@ async function pushRemote(force=false){
     document.getElementById('login').style.display='flex';
     return;
   }
-  /* 送信後に即取得で他端末との差分を最小化 */
-  await pullRemote(false);
+  lastRemoteUpdated = updated;           // ★自分が最新
+  if (bc) { try{ bc.postMessage('pull'); }catch(_){ } }
+  await pullRemote(false);               // 直後に反映確認
   if(force) toast('送信→反映しました');
 }
 function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>700){ lastPushed=now; pushRemote(); } }
@@ -452,15 +450,12 @@ function startRemoteSync(forcePull=false){
   /* 同一端末の別タブへ即時反映（localStorageイベント） */
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){ } } });
 
-  /* 追加：BroadcastChannel（対応ブラウザ間の即時通知） */
-  try{
-    const bc = new BroadcastChannel('presence-sync');
-    bc.onmessage = (ev)=>{ if(ev && ev.data==='pull'){ pullRemote(true); } };
-    window.__bc = bc;
-  }catch(_){}
+  /* BroadcastChannel（対応ブラウザ間で即時通知） */
+  try{ bc = new BroadcastChannel('presence-sync'); bc.onmessage = (ev)=>{ if(ev && ev.data==='pull'){ pullRemote(true); } }; }catch(_){}
 }
 
 /* トークン更新 */
+let tokenRenewTimer = null;
 function scheduleRenew(expMs){
   if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; }
   const delay = Math.max(10000, Math.floor(expMs * 0.8));
