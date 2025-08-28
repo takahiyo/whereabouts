@@ -9,8 +9,8 @@
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
 
-    /* ★ パネル最小幅を拡大（横のゆとりを確保） */
-    --col-min: 640px;
+    /* ★ パネル最小幅をより拡大（横のゆとりを確保） */
+    --col-min: 750px;  /* 640px → 750px に拡大 */
     --gap: 20px;
   }
 
@@ -22,7 +22,7 @@
   /* ===== 自動カラム数（制限なし） ===== */
   .board{
     display:grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--col-min), 1fr)));
+    grid-template-columns: repeat(auto-fit, minmax(var(--col-min), 1fr));
     gap: var(--gap);
   }
 
@@ -36,12 +36,12 @@
   th{text-align:left}
 
   /* ===== 列幅配分（合計100%） =====
-     氏名 11% / 内線 9% / ステータス 47% / 戻り時間 11% / 備考 22% */
-  td.name   { background:#fff; width:11% }
-  td.ext    { width:9%;  min-width:6.2em }         /* 4桁＋余裕 */
-  td.status { width:47%; min-width:16.5em }        /* さらに広く */
-  td.time   { width:11%; min-width:6.8em }         /* 少し広く */
-  td.note   { width:22% }                          /* ご要望どおり据え置き */
+     氏名 12% / 内線 10% / ステータス 40% / 戻り時間 15% / 備考 23% */
+  td.name   { background:#fff; width:12% }
+  td.ext    { width:10%; min-width:6.5em }         /* 少し拡大 */
+  td.status { width:40%; min-width:18em }          /* さらに拡大 */
+  td.time   { width:15%; min-width:8em }           /* 大幅拡大 */
+  td.note   { width:23% }                          /* 少し拡大 */
 
   /* 入力UI */
   select,input[type="text"]{
@@ -53,10 +53,24 @@
   /* 戻り時間は中央寄せ＋等幅数字 */
   td.time select{ text-align-last:center; font-variant-numeric:tabular-nums; }
 
-  /* 備考：候補 + 自由入力（先頭は空） */
-  .note .wrap{display:flex;gap:6px;align-items:center}
-  .note .quick{flex:0 0 7.5em}
-  .note .free{flex:1 1 auto}
+  /* 備考：候補 + 自由入力（先頭は空）- はみ出し対策 */
+  .note .wrap{
+    display:flex;
+    gap:4px;                 /* 6px → 4px に縮小 */
+    align-items:center;
+    width:100%;
+    box-sizing:border-box;
+  }
+  .note .quick{
+    flex:0 0 6.5em;          /* 7.5em → 6.5em に縮小 */
+    min-width:0;             /* 縮小を許可 */
+    font-size:13px;          /* 備考プルダウンを少し小さく */
+    padding:.25rem .3rem;
+  }
+  .note .free{
+    flex:1 1 auto;
+    min-width:0;             /* 縮小を許可 */
+  }
 
   /* ステータス色 */
   tr[data-status="在席"]{background:var(--present)}
@@ -78,12 +92,15 @@
 
   /* スマホ：1列化（min を下げる） */
   @media (max-width: 768px){
-    :root{ --col-min: 360px; --gap: 12px; }
+    :root{ --col-min: 400px; --gap: 12px; }  /* 360px → 400px に拡大 */
     header{ flex-direction:column; gap:12px }
     body{ margin:8px }
     select,input[type="text"]{ font-size:16px }
     th,td{ padding:8px }
-    td.status{ min-width:13.5em } /* 端末幅が狭いときの下限 */
+    td.status{ min-width:15em }  /* 13.5em → 15em に拡大 */
+    td.time{ min-width:7em }     /* 追加：スマホでの戻り時間幅 */
+    /* スマホでの備考調整 */
+    .note .quick{ flex:0 0 5.5em; font-size:12px; }
   }
 
   /* 印刷 */
@@ -94,8 +111,17 @@
     th,td{font-size:12px;padding:4px}
   }
 
-  /* “謎の楕円”対策（拡張ハンドルを隠す） */
+  /* "謎の楕円"対策（拡張ハンドルを隠す） */
   .board [draggable], .board [role="separator"]{ display:none !important; }
+
+  /* テーブル全体のオーバーフロー対策 */
+  .panel table { min-width:100%; max-width:100%; }
+
+  /* セル内コンテンツのオーバーフロー対策 */
+  td { overflow: hidden; white-space: nowrap; }
+
+  /* 備考セルだけは折り返しを許可 */
+  td.note { white-space: normal; word-wrap: break-word; }
 </style>
 </head>
 <body>
@@ -113,21 +139,22 @@
   </div>
 
   <div id="toast" class="toast"></div>
+  <!-- ログイン完了まで非表示 -->
   <div id="board" class="board" style="display:none"></div>
 
 <script>
-/* ====== 設定 ====== */
+/* ========= 同期設定 ========= */
 const REMOTE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzCTZCD1WpG9IpqhTavsOby_ZCLdhJeadCy-qPBlWlQhUv0HVLq6Ut7VbCKSfQdvPEi/exec';
-const DATA_KEY        = 'presence-board-default';
-const CONFIG_KEY      = 'presence-config';
-const POLL_MS         = 30000;
-const SESSION_KEY     = 'presence-session-token';
+const DATA_KEY   = 'presence-board-default';
+const CONFIG_KEY = 'presence-config';
+const POLL_MS    = 30000;
+const SESSION_KEY= 'presence-session-token';
 
-/* ====== マスタ ====== */
+/* ========= マスタ ========= */
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const STATUS_CLEAR = new Set(["在席","休み","帰宅","在宅勤務"]);
 
-/* ====== 要素 ====== */
+/* ========= 要素 ========= */
 const boardEl = document.getElementById('board');
 const toastEl = document.getElementById('toast');
 const loginEl = document.getElementById('login');
@@ -137,7 +164,7 @@ const loginMsg = document.getElementById('loginMsg');
 function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),1000); }
 function escapeHtml(s){ return (s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 
-/* JSONP */
+/* ========= JSONP ========= */
 function jsonp(url, timeout=12000){
   return new Promise((resolve)=>{
     const cb = 'cb_'+Math.random().toString(36).slice(2);
@@ -152,11 +179,12 @@ function jsonp(url, timeout=12000){
   });
 }
 
-/* ====== ログイン ====== */
+/* ========= ログイン ========= */
 let SESSION_TOKEN = '';
 function showLogin(msg=""){ loginEl.style.display='flex'; loginMsg.textContent = msg || ""; setTimeout(()=>pwInput?.focus(),50); }
 function hideLogin(){ loginEl.style.display='none'; loginMsg.textContent=""; pwInput.value=""; }
 async function login(pw){
+  if(!pw || !pw.trim()){ loginMsg.textContent="パスワードを入力してください"; return; }
   loginMsg.textContent = "認証中…";
   const res = await jsonp(`${REMOTE_ENDPOINT}?action=login&password=${encodeURIComponent(pw)}`);
   if(res && res.token){
@@ -181,7 +209,7 @@ function scheduleRenew(ttlMs){
 }
 function requireToken(){ SESSION_TOKEN = sessionStorage.getItem(SESSION_KEY) || ""; return !!SESSION_TOKEN; }
 
-/* ====== 設定（グループ＋名簿＋内線） ====== */
+/* ========= 設定（グループ＋名簿＋内線） ========= */
 let GROUPS = [];
 async function loadConfig(){
   const res = await jsonp(`${REMOTE_ENDPOINT}?action=getConfig&key=${encodeURIComponent(CONFIG_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}`);
@@ -198,7 +226,7 @@ async function loadConfig(){
   }
 }
 
-/* ====== 盤面生成 ====== */
+/* ========= 盤面生成 ========= */
 function timeOptions(){
   const opts=['<option value=""></option>'];
   for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
@@ -260,7 +288,7 @@ function render(){
   recolor();
 }
 
-/* ====== 状態 入出力 ====== */
+/* ========= 状態 入出力 ========= */
 const storeKey = 'presence-board-v2';
 function getState(){
   const data={};
@@ -306,7 +334,7 @@ function applyState(map){
 function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); toast('保存しました'); }catch(_){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) applyState(JSON.parse(raw)); }catch(_){} }
 
-/* ====== イベント ====== */
+/* ========= イベント ========= */
 function wireEvents(){
   boardEl.querySelectorAll("select,input").forEach(el=>{
     el.addEventListener("change", ()=>{ saveLocal(); pushRemoteThrottled(); });
@@ -355,7 +383,7 @@ function recolor(){
   });
 }
 
-/* ====== 同期 ====== */
+/* ========= 同期 ========= */
 let lastPushed=0;
 async function pullRemote(){
   const url = `${REMOTE_ENDPOINT}?action=get&key=${encodeURIComponent(DATA_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}`;
@@ -389,7 +417,7 @@ function startRemoteSync(){
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){}} });
 }
 
-/* ====== 起動 ====== */
+/* ========= 起動 ========= */
 async function bootAfterLogin(){
   await loadConfig();
   render();
@@ -407,6 +435,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     showLogin();
   }
 });
+
+/* エラー可視化 */
 window.addEventListener('error', e=>{
   toastEl.style.background='#c53030';
   toastEl.textContent='エラー: '+e.message; toastEl.classList.add('show');
