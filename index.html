@@ -8,14 +8,25 @@
   :root{
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
+    /* 盤面レイアウト */
+    --board-col-min: 360px;     /* 各表の最小幅 */
+    --board-gap: 18px;          /* 表間の間隔 */
+    --board-max-cols: 3;        /* PC時の最大列数 */
   }
+
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
   header{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
   header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-  /* 盤面 */
-  .board{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:18px}
+  /* 盤面（最大3列に制限して中央寄せ） */
+  .board{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(var(--board-col-min), 1fr));
+    gap: var(--board-gap);
+    max-width: calc(var(--board-max-cols) * var(--board-col-min) + (var(--board-max-cols) - 1) * var(--board-gap));
+    margin: 0 auto;
+  }
   .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px}
   .panel .title{font-weight:700;color:#6b7280;background:#f7f7f7;border:1px solid var(--line);
                 border-radius:4px;padding:6px 8px;margin:0 0 6px 0; min-height:1.8em}
@@ -24,25 +35,25 @@
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
   th{text-align:left}
 
-  /* 列幅（合計100%：14 + 7 + 35 + 9 + 35） */
+  /* 列幅（合計100%：14 + 7 + 35 + 8 + 36） */
   td.name   { background:#fff; width:14% }
   td.ext    { width: 7% }
-  td.status { width:35%; min-width:13em; }
-  td.time   { width: 9%; min-width:5.6em; }
-  td.note   { width:35% }
+  td.status { width:35%; min-width:13em }
+  td.time   { width: 8%;  min-width:5.2em }
+  td.note   { width:36% }
 
   /* コントロール */
   select,input[type="text"]{
     width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);
     border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto
   }
+  /* 時刻は数字を中央寄せ＆等幅 */
   td.time select{
-    width:100%;
     text-align-last:center;
     font-variant-numeric:tabular-nums;
   }
-  /* ▼重なり対策 */
-  td.status select{ padding-right:2.6em; }
+  /* ステータス：矢印分の余白を最小化（文字が見えるように） */
+  td.status select{ padding-right:1.2em; }
 
   /* 備考：候補 + 自由入力（先頭は空） */
   .note .wrap{display:flex;gap:6px;align-items:center}
@@ -67,19 +78,25 @@
   .login .card h2{margin:.2rem 0 1rem}
   .login .card input{margin:.4rem 0}
 
-  /* スマホ最適化 */
+  /* スマホ：1列表示 */
   @media(max-width:768px){
-    .board{grid-template-columns:1fr;gap:12px}
-    header{flex-direction:column;gap:12px}
-    body{margin:8px}
-    select,input[type="text"]{font-size:16px} /* iOSズーム防止 */
-    th,td{padding:8px}
+    .board{ grid-template-columns: 1fr; gap:12px; max-width:none }
+    header{ flex-direction:column; gap:12px }
+    body{ margin:8px }
+    select,input[type="text"]{ font-size:16px } /* iOSズーム防止 */
+    th,td{ padding:8px }
     td.status{ min-width:12.5em }
   }
 
-  @media print{header,.toast,.login{display:none}body{margin:0}.board{gap:10px}th,td{font-size:12px;padding:4px}}
+  /* 印刷 */
+  @media print{
+    header,.toast,.login{display:none}
+    body{margin:0}
+    .board{gap:10px; max-width:none}
+    th,td{font-size:12px;padding:4px}
+  }
 
-  /*（任意）一部拡張が挿入するハンドルを不可視化 */
+  /* “謎の楕円”対策（拡張が挿入するハンドルを隠す） */
   .board [draggable], .board [role="separator"]{ display:none !important; }
 </style>
 </head>
@@ -103,7 +120,7 @@
 
 <script>
 /* ====== 設定 ====== */
-const REMOTE_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz0tN98485jNcqCL71nbrZl0s39LRBCNUyrItcCLy6Z4N-tCX4xfGfjtfvvU4wFw4wz/exec';   // 例: https://script.google.com/macros/s/.../exec
+const REMOTE_ENDPOINT = '<<GAS_WEB_APP_URL>>';   // 例: https://script.google.com/macros/s/.../exec
 const DATA_KEY        = 'presence-board-default';
 const CONFIG_KEY      = 'presence-config';
 const POLL_MS         = 30000;    // 30秒
@@ -174,7 +191,6 @@ let GROUPS = [];   // [{title:'', members:[{name, ext?}, ...]}, ...]
 async function loadConfig(){
   const res = await jsonp(`${REMOTE_ENDPOINT}?action=getConfig&key=${encodeURIComponent(CONFIG_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}`);
   if(!res){ throw new Error('設定取得エラー'); }
-  // 後方互換：配列の配列(old) → v2形式に変換
   if(Array.isArray(res)){
     GROUPS = res.map(g=>({ title:'', members: g.map(n=>({name:n})) }));
   }else if(res && Array.isArray(res.groups)){
@@ -286,7 +302,6 @@ function applyState(map){
       const values=[...q.options].map(o=>o.value);
       q.value = values.includes(n.value) ? n.value : "";
     }
-    // ステータスに応じてUI制御
     if(s) toggleRowByStatus(k, s.value, {silent:true});
   });
   recolor();
@@ -296,11 +311,9 @@ function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) app
 
 /* ====== イベント ====== */
 function wireEvents(){
-  // 共通
   boardEl.querySelectorAll("select,input").forEach(el=>{
     el.addEventListener("change", ()=>{ saveLocal(); pushRemoteThrottled(); });
   });
-
   // ステータス→time/note自動制御
   boardEl.querySelectorAll('select[name="status"]').forEach(sel=>{
     sel.addEventListener('change', ()=>{
@@ -308,11 +321,9 @@ function wireEvents(){
       toggleRowByStatus(key, sel.value);
       saveLocal(); pushRemoteThrottled();
     });
-    // 初期状態（在席）に合わせる
     const key = sel.id.replace('status-','');
     toggleRowByStatus(key, sel.value, {silent:true});
   });
-
   // 備考 候補⇄自由入力の同期
   boardEl.querySelectorAll(".quick").forEach(sel=>{
     sel.addEventListener("change", ()=>{
@@ -330,14 +341,12 @@ function wireEvents(){
     });
   });
 }
-
 /* ステータスに応じて time/備考を制御 */
 function toggleRowByStatus(key, status, opt={}){
   const timeSel = document.getElementById(`time-${key}`);
   const noteIn  = document.getElementById(`note-${key}`);
   const noteSel = document.getElementById(`noteq-${key}`);
   const row     = document.getElementById(`row-${key}`);
-
   if(STATUS_CLEAR.has(status)){
     timeSel.disabled = true;
     if(!opt.silent){ timeSel.value=""; noteIn.value=""; noteSel.value=""; }
@@ -346,7 +355,6 @@ function toggleRowByStatus(key, status, opt={}){
   }
   if(row){ row.dataset.status = status; }
 }
-
 /* 見た目 */
 function recolor(){
   boardEl.querySelectorAll("tbody tr").forEach(tr=>{
@@ -380,32 +388,25 @@ async function pushRemote(){
   }
 }
 function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>1200){ lastPushed=now; pushRemote(); } }
-
 function startRemoteSync(){
-  // 初回ランダム遅延＋以後もジッタ
   const start = ()=>{ pullRemote(); setInterval(()=>pullRemote(), POLL_MS + Math.floor(Math.random()*1000)); };
   setTimeout(start, Math.floor(Math.random()*POLL_MS));
-
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullRemote(); });
   window.addEventListener('focus', pullRemote);
-  // 同一端末別タブ反映
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){} } });
 }
 
 /* ====== 起動 ====== */
 async function bootAfterLogin(){
-  await loadConfig();     // ← 名簿・グループ（タイトル・内線初期値）をAPIから取得
-  render();               // ← ここで初めて表を描画・表示
+  await loadConfig();     // 名簿・グループ（タイトル・内線初期値）をAPIから取得
+  render();               // 初描画
   startRemoteSync();
 }
-
 document.addEventListener('DOMContentLoaded', ()=>{
-  // ログインUI
   window.__doLogin = () => login(pwInput.value);
   document.getElementById('btnLogin').addEventListener('click', window.__doLogin);
   pwInput.addEventListener('keypress', (e)=>{ if(e.key==='Enter') window.__doLogin(); });
 
-  // 既存セッションならそのまま開始
   if(requireToken()){
     hideLogin();
     bootAfterLogin();
@@ -413,7 +414,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     showLogin();
   }
 });
-
 /* JSエラーを画面表示 */
 window.addEventListener('error', e=>{
   toastEl.style.background='#c53030';
@@ -422,4 +422,3 @@ window.addEventListener('error', e=>{
 </script>
 </body>
 </html>
-
