@@ -7,26 +7,36 @@
 
 <style>
   :root{
-    /* ========== 幅スキーム（ご要望比率を変数化） ========== */
-    --base-name:   120px;  /* 氏名 現在=100% → scale=0.50 指定 */
-    --base-ext:     80px;  /* 内線 100% → 0.33 */
-    --base-status: 200px;  /* ステータス 100% → 0.75 */
-    --base-time:   120px;  /* 戻り時間 100% → 0.45 */
-    --base-note:   320px;  /* 備考は入力欄全体を想定 */
-    --scale-name:  0.50;
-    --scale-ext:   0.33;
-    --scale-status:0.75;
-    --scale-time:  0.45;
+    /* ========= 列幅の基本設定 ========= */
+    --base-name:   120px;
+    --base-ext:     80px;
+    --base-status: 380px;
+    --base-time:   120px;
+    --base-note:   320px;
 
-    --min-name: 90px; --min-ext: 64px; --min-status: 160px; --min-time: 100px; --min-note: 260px;
-    --w-name:   max(calc(var(--base-name)*var(--scale-name)),var(--min-name));
-    --w-ext:    max(calc(var(--base-ext)*var(--scale-ext)),var(--min-ext));
-    --w-status: max(calc(var(--base-status)*var(--scale-status)),var(--min-status));
-    --w-time:   max(calc(var(--base-time)*var(--scale-time)),var(--min-time));
-    --w-note:   max(var(--base-note),var(--min-note));
+    --scale-name:    0.50;
+    --scale-ext:     0.33;
+    --scale-status:  0.75;
+    --scale-time:    0.45;
+
+    --min-name:    90px;
+    --min-ext:     64px;
+    --min-status: 260px;  /* ← ここが下限。狭めたい時は小さく */
+    --min-time:   100px;
+    --min-note:   260px;
+
+    --w-name:    max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
+    --w-ext:     max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
+    --w-status:  max(calc(var(--base-status) * var(--scale-status)), var(--min-status));
+    --w-time:    max(calc(var(--base-time)   * var(--scale-time)),   var(--min-time));
+    --w-note:    max(var(--base-note), var(--min-note));
+
+    /* ▼ ステータス列を固定値で強制する場合だけ有効化（例：200px） */
+    /* --status-fixed: 200px; */
+    --status-effective: var(--status-fixed, var(--w-status));
 
     /* 1パネルの最低必要幅（列決定の基準値） */
-    --panel-min: calc(var(--w-name)+var(--w-ext)+var(--w-status)+var(--w-time)+var(--w-note)+60px);
+    --panel-min: calc(var(--w-name)+var(--w-ext)+var(--status-effective)+var(--w-time)+var(--w-note)+60px);
 
     --gap: 20px;
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
@@ -46,22 +56,30 @@
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
   thead th{position:sticky;top:0;background:var(--head);font-weight:700}
   th,td{border:1px solid var(--line);padding:6px;font-size:14px} th{text-align:left}
-  col.col-name{width:var(--w-name)} col.col-ext{width:var(--w-ext)} col.col-status{width:var(--w-status)}
-  col.col-time{width:var(--w-time)} col.col-note{width:var(--w-note)}
+
+  /* ▼ 列幅（ステータスは固定指定があれば強制） */
+  col.col-name{width:var(--w-name)}
+  col.col-ext{width:var(--w-ext)}
+  col.col-status{width:var(--status-effective)}
+  col.col-time{width:var(--w-time)}
+  col.col-note{width:var(--w-note)}
+
   select,input[type="text"]{width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto}
-  td.status select{padding-right:2.6em} td.status{min-width:max(var(--w-status),13em)}
+  td.status{min-width: var(--status-effective)}
+  td.status select{padding-right:2.6em}
   td.time select{text-align-last:center;font-variant-numeric:tabular-nums}
+
   tr[data-status="在席"]{background:var(--present)} tr[data-status="外出"]{background:var(--away)}
   tr[data-status="休み"],tr[data-status="健康診断"],tr[data-status="コアドック"]{background:var(--off)}
   tr[data-status="帰宅"]{background:var(--home)} tr[data-status="在宅勤務"]{background:var(--remote)}
   tr[data-status="出張"],tr[data-status="研修"]{background:var(--away)}
+
   .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
   .toast.show{opacity:1}
   .login{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2000}
   .login .card{background:#fff;border-radius:8px;padding:20px;min-width:300px;max-width:90vw;text-align:center}
   .login .card h2{margin:.2rem 0 1rem} .login .card input{margin:.4rem 0}
   @media print{header,.toast,.login,#dbg{display:none} body{margin:0}.board{gap:10px} th,td{font-size:12px;padding:4px}}
-  .board [draggable],[role="separator"]{display:none!important}
 
   /* デバッグパネル */
   #dbg{position:fixed;right:12px;bottom:12px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:9998;display:none}
@@ -89,13 +107,13 @@
   <!-- デバッグ最小UI -->
   <div id="dbg">
     <span id="dbgText">同期待ち…</span>
-    <button id="btnPush">強制送信</button>
+    <button id="btnPush">全体送信</button>
     <button id="btnPull">強制取得</button>
   </div>
 
 <script>
 /* ================== 同期設定 ================== */
-const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
+const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbyo0WA5o1YLM7H0EyHpWNzUqxNdyDnqDnNS_vskPazJyuEHGGqOzt61zhukyI7l7zhf/exec";
 const REMOTE_KEY      = "presence-board-default";
 const REMOTE_POLL_MS  = 8000;       // 在席データpull（8秒）
 const CONFIG_POLL_MS  = 120000;     // 名簿チェック（2分）
@@ -211,7 +229,7 @@ function render(){
   wireEvents();
   loadLocal();
   recolor();
-  setGridColumns(); // ★レンダ後に列数確定（最大3列）
+  setGridColumns();
 }
 
 /* ===== 状態 I/O ===== */
@@ -219,14 +237,23 @@ function getState(){
   const data={};
   board.querySelectorAll("tbody tr").forEach(tr=>{
     const k=tr.dataset.key;
-    data[k]={ ext:tr.querySelector('input[name="ext"]').value.trim(),
-              status:tr.querySelector('select[name="status"]').value,
-              time:tr.querySelector('select[name="time"]').value,
-              note:tr.querySelector('input[name="note"]').value };
+    data[k]=getRowStateByTr(tr);
   });
   return data;
 }
-function getStateForPush(){ return getState(); }
+function getRowState(id){
+  const tr = document.getElementById(`row-${id}`);
+  return getRowStateByTr(tr);
+}
+function getRowStateByTr(tr){
+  if(!tr) return {ext:"",status:"在席",time:"",note:""};
+  return {
+    ext:   tr.querySelector('input[name="ext"]').value.trim(),
+    status:tr.querySelector('select[name="status"]').value,
+    time:  tr.querySelector('select[name="time"]').value,
+    note:  tr.querySelector('input[name="note"]').value
+  };
+}
 
 function applyState(data){
   if(!data) return;
@@ -246,13 +273,22 @@ function applyState(data){
     }
   });
   recolor();
-  dbgText.textContent = `${dbgText.textContent.split(' | ')[0] || ''} | serverKeys:${Object.keys(data).length} (hit:${hit}/miss:${miss})`;
+  dbgText.textContent = `lastPush:${lastPushAt?new Date(lastPushAt).toLocaleTimeString():'-'} / lastPull:${lastPullAt?new Date(lastPullAt).toLocaleTimeString():'-'} | serverKeys:${Object.keys(data).length} (hit:${hit}/miss:${miss})`;
 }
+
 function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(_){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(!raw) return; applyState(JSON.parse(raw)); }catch(_){} }
 
 /* ===== イベント ===== */
 function wireEvents(){
+  // 差分送信（各行ごと）
+  function pushDeltaByEl(el){
+    const tr = el.closest('tr');
+    if(!tr) return;
+    const key = tr.dataset.key;
+    pushRowDelta(key);
+  }
+
   board.querySelectorAll("select,input").forEach(el=>{
     el.addEventListener("change", ()=>{
       if(el.name==="status"){
@@ -261,17 +297,22 @@ function wireEvents(){
         toggleTimeEnable(el);
       }
       saveLocal();
-      pushRemote(); // ステータス/他も即送信（全状態）
+      pushDeltaByEl(el);   // ← 変更行だけ送る
       recolor();
     });
   });
+
   board.querySelectorAll('input[type="text"]').forEach(el=>{
-    el.addEventListener('input', ()=>{ saveLocal(); pushRemoteThrottled(); });
+    el.addEventListener('input', ()=>{
+      saveLocal();
+      pushDeltaByEl(el);   // ← 入力中も差分送信（短文なのでOK）
+    });
   });
 
-  document.getElementById('btnPush').addEventListener('click', ()=>pushRemote(true));
+  document.getElementById('btnPush').addEventListener('click', ()=>pushRemoteFull(true));
   document.getElementById('btnPull').addEventListener('click', ()=>pullRemote(true));
 }
+
 function toggleTimeEnable(statusEl){
   const key = statusEl.id.replace("status-",""), timeEl = document.getElementById(`time-${key}`);
   const needsTime = ["外出","出張","研修"].includes(statusEl.value);
@@ -282,7 +323,7 @@ function recolor(){
     tr.dataset.status = tr.querySelector('select[name="status"]').value;
   });
 }
-function toast(msg){ const t=toastEl; t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1000); }
+function toast(msg){ const t=toastEl; t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1200); }
 
 /* ===== JSONP ===== */
 function jsonp(url, timeout=12000){
@@ -376,9 +417,27 @@ async function pullRemote(force=false){
   if(force) toast('取得しました');
 }
 
-async function pushRemote(force=false){
+/* ===== 差分送信（JSONPのURL短縮） ===== */
+async function pushRowDelta(key){
   if(!requireTokenOrLogin()) return;
-  const body = {updated:Date.now(), data:getStateForPush(), full:true}; // ★フル送信
+  const payloadObj = {updated:Date.now(), data:{ [key]: getRowState(key) }};
+  const payload = encodeURIComponent(JSON.stringify(payloadObj));
+  const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
+  const res = await jsonp(url);
+  lastPushAt = Date.now(); updateDbg();
+  if(res && res.error){
+    // 認証切れなど
+    sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
+    document.getElementById('login').style.display='flex';
+    return;
+  }
+  // 反映確認
+  await pullRemote(false);
+}
+
+async function pushRemoteFull(force=false){
+  if(!requireTokenOrLogin()) return;
+  const body = {updated:Date.now(), data:getState(), full:true};
   const payload = encodeURIComponent(JSON.stringify(body));
   const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const res = await jsonp(url);
@@ -389,9 +448,8 @@ async function pushRemote(force=false){
     return;
   }
   await pullRemote(false);
-  if(force) toast('送信→反映しました');
+  if(force) toast('全体送信→反映しました');
 }
-function pushRemoteThrottled(){ const now=Date.now(); if(now-lastPushed>800){ lastPushed=now; pushRemote(); } }
 
 function startRemoteSync(forcePull=false){
   const start = ()=>{ if(forcePull) pullRemote(true); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
@@ -399,6 +457,7 @@ function startRemoteSync(forcePull=false){
   setTimeout(start, jitter);
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) pullRemote(true); });
   window.addEventListener('focus', ()=>pullRemote(true));
+  // 同一PC内の別タブ反映
   window.addEventListener('storage', (e)=>{ if(e.key===storeKey && e.newValue){ try{ applyState(JSON.parse(e.newValue)); }catch(_){ } } });
 }
 
@@ -462,5 +521,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
-
