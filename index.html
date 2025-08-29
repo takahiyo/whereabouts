@@ -42,22 +42,24 @@
   html{ scroll-behavior:smooth; }
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
 
-  /* 固定ヘッダ（タイトル=ジャンプボタン／管理ボタン） */
+  /* 固定ヘッダ（タイトル=ジャンプボタン／管理ボタン／ログオフ） */
   header{
     position: sticky; top: 0; z-index: 1500;
     display:flex; gap:8px; align-items:center; justify-content:center;
     margin-bottom:12px; flex-wrap:wrap; background:#fff;
     padding:6px 0; box-shadow: 0 1px 0 rgba(0,0,0,.06);
   }
-  header .title-btn, header .admin-btn{
+  header .title-btn, header .admin-btn, header .logout-btn{
     font-size:14px; font-weight:600; color:#1f2937;
     padding:.35rem .9rem; background:#dff1ff; border-radius:999px;
     border:1px solid #bfe4ff; cursor:pointer; line-height:1.2;
   }
   header .admin-btn{ background:#e7f8e7; border-color:#b7e6b7; display:none; }
+  header .logout-btn{ background:#fee2e2; border-color:#fecaca; display:none; }
   header .title-btn:hover{ background:#cfe9ff; }
   header .admin-btn:hover{ background:#d5f2d5; }
-  header .title-btn:focus, header .admin-btn:focus{ outline:3px solid #93c5fd; outline-offset:2px; }
+  header .logout-btn:hover{ background:#fde8e8; }
+  header .title-btn:focus, header .admin-btn:focus, header .logout-btn:focus{ outline:3px solid #93c5fd; outline-offset:2px; }
 
   /* グループメニュー（ドロップダウン） */
   .grp-menu{
@@ -205,6 +207,7 @@
       在席確認表
     </button>
     <button id="adminBtn" class="admin-btn" title="管理">管理</button>
+    <button id="logoutBtn" class="logout-btn" title="ログオフ">ログオフ</button>
   </header>
 
   <!-- グループメニュー -->
@@ -340,6 +343,7 @@ const menuTitle= document.getElementById('groupMenuTitle');
 const titleBtn = document.getElementById('titleBtn');
 
 const adminBtn = document.getElementById('adminBtn');
+const logoutBtn= document.getElementById('logoutBtn');
 const adminModal = document.getElementById('adminModal');
 const adminClose = document.getElementById('adminClose');
 
@@ -369,7 +373,12 @@ const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","�
 const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);
 const storeKey = "presence-board-v3";
 
+/* タイマー・オブザーバ管理 */
 let ro = null;
+let remotePullTimer = null;
+let remoteStartTimer = null;
+let configWatchTimer = null;
+
 function getContainerWidth(){
   const el = board.parentElement || document.body;
   const r = el.getBoundingClientRect();
@@ -479,7 +488,7 @@ function buildGroupMenu(){
   if(menuTitle){ menuTitle.textContent = 'グループにジャンプ'; }
 
   const items = [];
-  items.push(`<li><button class="grp-item" role="menuitem" data-target="top">全体（合計：${total}名）</button></li>`);
+  items.push(`<li><button class="grp-item" role="menuitem" data-target="top">全体（合計：${total}名）</button></li>`;
   GROUPS.forEach((g,i)=>{
     const title = fallbackGroupTitle(g,i);
     const sub = (g && g.members && g.members.length) ? `（${g.members.length}名）` : '（0名）';
@@ -625,6 +634,28 @@ let SESSION_TOKEN = "";
 let CURRENT_OFFICE_NAME = "";
 let CURRENT_ROLE = "user";
 
+/* ログアウト（手動／強制用） */
+function logout(){
+  try{
+    if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; }
+    if(configWatchTimer){ clearInterval(configWatchTimer); configWatchTimer=null; }
+    if(remoteStartTimer){ clearTimeout(remoteStartTimer); remoteStartTimer=null; }
+    if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer=null; }
+    if(ro){ try{ ro.disconnect(); }catch(_){} }
+  }catch(_){}  
+
+  SESSION_TOKEN = "";
+  sessionStorage.removeItem(SESSION_KEY);
+
+  CURRENT_OFFICE_NAME = "";
+  CURRENT_ROLE = "user";
+  titleBtn.textContent = '在席確認表';
+  showAdmin(false);
+  ensureAuthUI();
+
+  loginEl.style.display='flex';
+}
+
 async function tryLoadGroupsFromServer(nocache=false){
   const url = `${REMOTE_ENDPOINT}?action=getConfig&token=${encodeURIComponent(SESSION_TOKEN)}${nocache?'&nocache=1':''}`;
   const cfg = await jsonp(url);
@@ -641,8 +672,8 @@ async function fastFetchDataOnce(){
 async function pullRemote(){
   if(!SESSION_TOKEN) return;
   const remote = await fastFetchDataOnce();
-  if(!remote) return;
-  if(remote.error){ sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; loginEl.style.display='flex'; return; }
+  if(!remote){ return; }
+  if(remote.error){ logout(); return; }
   if(remote.data){ applyState(remote.data); try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data))); }catch(e){} }
 }
 async function pushRowDelta(key){
@@ -651,15 +682,17 @@ async function pushRowDelta(key){
   const payload = encodeURIComponent(JSON.stringify(payloadObj));
   const url = `${REMOTE_ENDPOINT}?action=set&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const res = await jsonp(url);
-  if(res && res.error){ sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; loginEl.style.display='flex'; return; }
+  if(res && res.error){ logout(); return; }
   await pullRemote();
 }
 function startRemoteSync(forcePull=false){
-  const start = ()=>{ if(forcePull) pullRemote(); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
+  if(remoteStartTimer){ clearTimeout(remoteStartTimer); remoteStartTimer=null; }
+  if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer=null; }
+  const start = ()=>{ if(forcePull) pullRemote(); remotePullTimer = setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
   const jitter = Math.floor(Math.random()*REMOTE_POLL_MS);
-  setTimeout(start, jitter);
+  remoteStartTimer = setTimeout(start, jitter);
 }
-let configWatchTimer = null;
+
 function startConfigWatch(){
   if(configWatchTimer) clearInterval(configWatchTimer);
   configWatchTimer = setInterval(async ()=>{
@@ -688,8 +721,7 @@ async function renewToken(){
     const next = Number(res.exp) || TOKEN_DEFAULT_TTL;
     scheduleRenew(next);
   }else{
-    sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
-    loginEl.style.display='flex';
+    logout();
   }
 }
 
@@ -708,12 +740,11 @@ async function adminSetConfigFor(office, cfgObj){
   return await jsonp(`${REMOTE_ENDPOINT}?action=setConfigFor&office=${encodeURIComponent(office)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`);
 }
 async function adminSetForChunked(office, dataObjFull){
-  // 1回で送れるサイズに制限があるため分割：最初のみ full=true
   const entries = Object.entries(dataObjFull || {});
   if(entries.length===0){
     return await jsonp(`${REMOTE_ENDPOINT}?action=setFor&office=${encodeURIComponent(office)}&data=${encodeURIComponent(JSON.stringify({updated:Date.now(), data:{}, full:true}))}&token=${encodeURIComponent(SESSION_TOKEN)}`);
   }
-  const chunkSize = 100; // 目安
+  const chunkSize = 100;
   let first = true, ok=true;
   for(let i=0;i<entries.length;i+=chunkSize){
     const chunk = Object.fromEntries(entries.slice(i, i+chunkSize));
@@ -789,7 +820,8 @@ function parseCSV(text){
       else field+=c;
     }
   }
-  if(field!=='' || row.length){ pushField(); pushRow(); }
+  if(field!=='') pushField();
+  if(row.length) pushRow();
   return out;
 }
 
@@ -801,8 +833,9 @@ function toast(msg, ok=true){
   setTimeout(()=>toastEl.classList.remove('show'), 1600);
 }
 function showAdmin(yes){ adminModal.classList.toggle('show', !!yes); }
-function ensureAdminUI(){
-  adminBtn.style.display = (CURRENT_ROLE === 'admin') ? '' : 'none';
+function ensureAuthUI(){
+  adminBtn.style.display = (SESSION_TOKEN && CURRENT_ROLE === 'admin') ? '' : 'none';
+  logoutBtn.style.display = (SESSION_TOKEN) ? '' : 'none';
 }
 
 async function populateAdminOffices(selected){
@@ -939,13 +972,14 @@ btnSetPw.addEventListener('click', async ()=>{
   else toast('更新に失敗', false);
 });
 
-/* 管理モーダル開閉 */
+/* 管理モーダル開閉 + ログオフ */
 adminBtn.addEventListener('click', async ()=>{
   await populateAdminOffices();
   showAdmin(true);
 });
 adminClose.addEventListener('click', ()=> showAdmin(false));
 refreshOfficesBtn.addEventListener('click', ()=> populateAdminOffices(adminOfficeSel.value));
+logoutBtn.addEventListener('click', ()=> logout());
 
 /* ===== 起動 ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
@@ -963,9 +997,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     CURRENT_OFFICE_NAME = res.officeName || "";
     CURRENT_ROLE = res.role || "user";
     titleBtn.textContent = (CURRENT_OFFICE_NAME? `${CURRENT_OFFICE_NAME}　在席確認表` : '在席確認表');
-    ensureAdminUI();
-
     loginEl.style.display='none'; loginMsg.textContent="";
+
+    ensureAuthUI();
 
     const cfgP  = tryLoadGroupsFromServer(true).catch(()=>{});
     const dataP = fastFetchDataOnce().catch(()=>null);
@@ -994,12 +1028,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
         const data = await dataP; if(data && data.data) applyState(data.data);
         startRemoteSync(true);
         startConfigWatch();
+        ensureAuthUI();
       }else{
-        sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; loginEl.style.display='flex';
+        logout();
       }
     })();
   }else{
     loginEl.style.display='flex';
+    ensureAuthUI();
   }
 });
 
@@ -1020,5 +1056,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
-
