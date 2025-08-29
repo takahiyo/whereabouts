@@ -54,8 +54,8 @@
     padding:.35rem .9rem; background:#dff1ff; border-radius:999px;
     border:1px solid #bfe4ff; cursor:pointer; line-height:1.2;
   }
-  header .admin-btn{ background:#e7f8e7; border-color:#b7e6b7; display:none; } /* JSで表示切替 */
-  header .logout-btn{ background:#fee2e2; border-color:#fecaca; display:none; } /* JSで表示切替 */
+  header .admin-btn{ background:#e7f8e7; border-color:#b7e6b7; display:none; }
+  header .logout-btn{ background:#fee2e2; border-color:#fecaca; display:none; }
   header .title-btn:hover{ background:#cfe9ff; }
   header .admin-btn:hover{ background:#d5f2d5; }
   header .logout-btn:hover{ background:#fde8e8; }
@@ -96,7 +96,7 @@
   .admin-row input, .admin-row select{ padding:.35rem .45rem; border:1px solid var(--line); border-radius:6px; min-width:120px; }
   .admin-row button{ padding:.35rem .6rem; border-radius:8px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; }
   .admin-row button:hover{ background:#eef2f7; }
-  .admin-note{ font-size:12px; color:#6b7280; overflow-wrap:anywhere; word-break:break-word; white-space:normal; } /* ← 長文を折返し */
+  .admin-note{ font-size:12px; color:#6b7280; overflow-wrap:anywhere; word-break:break-word; white-space:normal; } /* 長文折返し */
 
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
@@ -647,7 +647,7 @@ function ensureAuthUI(){
   logoutBtn.style.display = SESSION_TOKEN ? 'inline-block' : 'none';
 }
 
-/* ログアウト（手動／強制用） */
+/* ログアウト（非表示に戻す対応版） */
 function logout(){
   try{
     if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; }
@@ -657,6 +657,16 @@ function logout(){
     if(ro){ try{ ro.disconnect(); }catch(_){} }
   }catch(_){}  
 
+  // 画面要素を即座に隠す＆消す
+  closeMenu();
+  showAdmin(false);
+  board.style.display = 'none';
+  if (board.replaceChildren) board.replaceChildren();
+  else board.innerHTML = '';
+  menuList.innerHTML = '';
+  window.scrollTo(0, 0);
+
+  // セッション情報のリセット
   SESSION_TOKEN = "";
   sessionStorage.removeItem(SESSION_KEY);
 
@@ -664,9 +674,9 @@ function logout(){
   CURRENT_OFFICE_ID = "";
   CURRENT_ROLE = "user";
   titleBtn.textContent = '在席確認表';
-  showAdmin(false);
   ensureAuthUI();
 
+  // ログイン画面を前面表示
   loginEl.style.display='flex';
 }
 
@@ -1088,4 +1098,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
