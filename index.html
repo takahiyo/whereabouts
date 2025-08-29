@@ -8,22 +8,22 @@
 <style>
   /* ===== レイアウトと列幅の基準（表示に必要な最小幅だけ定義） ===== */
   :root{
-    --base-name:   150px;  /* 氏名 基準 */
-    --base-ext:     80px;  /* 内線 基準 */
-    --base-status: 180px;  /* ステータス 基準 */
-    --base-time:   130px;  /* 戻り時間 基準 */
-    --base-note:   200px;  /* 備考 基準 */
+    --base-name:   120px;  /* 氏名 基準 */
+    --base-ext:     70px;  /* 内線 基準 */
+    --base-status: 170px;  /* ステータス 基準 */
+    --base-time:    60px;  /* 戻り時間 基準 */
+    --base-note:   210px;  /* 備考 基準 */
 
     --scale-name:   0.50;  /* 基準からの縮尺 */
     --scale-ext:    0.33;
     --scale-status: 0.75;
     --scale-time:   0.45;
 
-    --min-name:   120px;   /* 列の下限 */
-    --min-ext:     60px;
-    --min-status: 130px;
-    --min-time:    80px;
-    --min-note:   120px;
+    --min-name:    85px;   /* 列の下限 */
+    --min-ext:     35px;
+    --min-status:  85px;
+    --min-time:    45px;
+    --min-note:   70px;
 
     --w-name:   max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
     --w-ext:    max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
@@ -473,5 +473,6 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
+
 
 
