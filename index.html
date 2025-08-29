@@ -99,6 +99,7 @@
     colgroup, thead{ display:none; }
     table{ table-layout:auto; }
     tbody{ display:block; }
+
     /* 行をカードに */
     tbody tr{
       display:flex;
@@ -109,6 +110,7 @@
       padding:10px;
       margin:10px 0;
     }
+
     /* セルはラベル付きの項目として積む */
     tbody td{
       border:none;
@@ -120,6 +122,7 @@
       min-width:160px;
       background:transparent;
     }
+
     /* ラベル表示（氏名以外） */
     tbody td::before{
       content: attr(data-label);
@@ -128,6 +131,7 @@
       min-width:5.5em;
       flex:0 0 auto;
     }
+
     /* 氏名はタイトル扱い（1段目フル幅） */
     tbody td.name{
       order:0;
@@ -139,13 +143,14 @@
     }
     tbody td.name::before{ content:""; display:none; }
 
-    /* 1段目：ステータス→戻り時間（横並びになりやすい幅） */
-    tbody td.status{ order:1; }
-    tbody td.time  { order:2; }
-
-    /* 2段目：内線→備考 */
-    tbody td.ext  { order:3; }
-    tbody td.note { order:4; flex:1 1 100%; }
+    /* ★ 並び順を変更：
+       1段目 = 内線 → 戻り時間
+       2段目 = ステータス
+       3段目 = 備考（フル幅） */
+    tbody td.ext    { order:1; }
+    tbody td.time   { order:2; }
+    tbody td.status { order:3; }
+    tbody td.note   { order:4; flex:1 1 100%; }
 
     /* フォームの幅は常に100% */
     select, input[type="text"]{ width:100%; }
@@ -180,20 +185,19 @@
 /* ===== 接続設定（GAS Webアプリ） ===== */
 const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
 const REMOTE_KEY      = "presence-board-default";
-const REMOTE_POLL_MS  = 2000;        // ★ 反映短縮（8秒→2秒）
+const REMOTE_POLL_MS  = 2000;        // 反映短縮
 const CONFIG_POLL_MS  = 120000;      // 名簿（構成）更新チェック
 const SESSION_KEY     = "presence-session-token";
 const TOKEN_DEFAULT_TTL = 3600000;   // トークン既定寿命（ms）
 
-/* ===== レイアウト（列数 3→2→1 の自動調整） =====
-   1パネルあたりの必要目安幅（px）と隙間幅から列数を算出し、--cols に反映する。 */
+/* ===== レイアウト（列数 3→2→1 の自動調整） ===== */
 const PANEL_MIN_PX = 760;
 const GAP_PX = 20;
 const MAX_COLS = 3;
 
 /* ===== 名簿とUI要素 ===== */
-let GROUPS = [];              // [{title, members:[{name, ext, id}]}]
-let CONFIG_UPDATED = 0;       // サーバ側の設定更新時刻
+let GROUPS = [];
+let CONFIG_UPDATED = 0;
 let tokenRenewTimer = null;
 
 const board   = document.getElementById('board');
@@ -228,9 +232,7 @@ function startGridObserver(){
   updateCols();
 }
 
-/* ===== 名簿（構成）をクライアント整形 =====
-   - サーバからの groups:{title, members:[{name, ext?, id?}]} を前提
-   - id が未指定なら name+ext から安定IDを生成 */
+/* ===== 名簿（構成）をクライアント整形 ===== */
 function makeLocalId(s){
   const seed = (s||"").normalize('NFKC').replace(/\s+/g,'');
   let h = 0; for(let i=0;i<seed.length;i++){ h = (h*31 + seed.charCodeAt(i)) >>> 0; }
@@ -250,7 +252,7 @@ function normalizeConfigClient(cfg){
   }));
 }
 
-/* ===== テーブル UI生成（スマホ用カードビュー対応：data-label 付与） ===== */
+/* ===== テーブル UI生成（スマホ用カードビュー：data-label 付与） ===== */
 function timeOptions(){
   const opts=['<option value=""></option>'];
   for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
@@ -270,13 +272,13 @@ function rowHtml(member){
         <label class="sr-only" for="ext-${key}">内線</label>
         <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" value="${ext}" />
       </td>
-      <td class="status" data-label="ステータス">
-        <label class="sr-only" for="status-${key}">ステータス</label>
-        <select id="status-${key}" name="status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}</select>
-      </td>
       <td class="time"   data-label="戻り時間">
         <label class="sr-only" for="time-${key}">戻り時間</label>
         <select id="time-${key}" name="time">${timeOptions()}</select>
+      </td>
+      <td class="status" data-label="ステータス">
+        <label class="sr-only" for="status-${key}">ステータス</label>
+        <select id="status-${key}" name="status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}</select>
       </td>
       <td class="note"   data-label="備考">
         <input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" />
@@ -300,7 +302,7 @@ function render(){
   board.innerHTML = GROUPS.map(g=>panelHtml(g)).join('');
   board.style.display = '';
   wireEvents();
-  loadLocal();     // ローカル保存を即時反映（体感を速く）
+  loadLocal();
   recolor();
   startGridObserver();
 }
@@ -332,18 +334,14 @@ function applyState(data){
     if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
     if(t) t.value = v.time || "";
     if(n) n.value = v.note || "";
-    if(s && t) toggleTimeEnable(s, t); // ステータスに応じて時間入力の可否のみ切替
+    if(s && t) toggleTimeEnable(s, t);
   });
   recolor();
 }
 function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(e){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) applyState(JSON.parse(raw)); }catch(e){} }
 
-/* ===== 行内イベント（同期：即時 or デバウンス） =====
-   - ステータス: 変更即時送信（在席系へ戻したら時間/備考をクリア）
-   - 戻り時間: 変更即時送信
-   - 内線: フィールド確定時に送信（change）
-   - 備考: IME合成中は待機、入力は900msデバウンス、確定時は即時送信 */
+/* ===== 行内イベント ===== */
 const noteTimers = new Map();
 function debounceRowPush(key, delay=900){
   if(noteTimers.has(key)) clearTimeout(noteTimers.get(key));
@@ -384,7 +382,7 @@ function recolor(){
   });
 }
 
-/* ===== JSONP（GAS側のdoGetをcallbackでラップして受信） ===== */
+/* ===== JSONP ===== */
 function jsonp(url, timeout=12000){
   return new Promise((resolve)=>{
     const cb = 'cb_'+Math.random().toString(36).slice(2);
@@ -399,7 +397,7 @@ function jsonp(url, timeout=12000){
   });
 }
 
-/* ===== サーバ通信：ログイン・名簿取得・データ取得/更新・トークン更新 ===== */
+/* ===== サーバ通信 ===== */
 let SESSION_TOKEN = "";
 
 async function tryLoadGroupsFromServer(nocache=false){
@@ -429,7 +427,7 @@ async function pushRowDelta(key){
   const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const res = await jsonp(url);
   if(res && res.error){ sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; loginEl.style.display='flex'; return; }
-  await pullRemote(); // 反映確認（軽量pull）
+  await pullRemote(); // 反映確認
 }
 function startRemoteSync(forcePull=false){
   const start = ()=>{ if(forcePull) pullRemote(); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
@@ -470,7 +468,7 @@ async function renewToken(){
   }
 }
 
-/* ===== 起動：最速描画 ===== */
+/* ===== 起動 ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   window.__doLogin = async () => {
     const pw = pwInput.value;
@@ -487,8 +485,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const cfgP  = tryLoadGroupsFromServer(true).catch(()=>{});
     const dataP = fastFetchDataOnce().catch(()=>null);
 
-    await cfgP; render(); loadLocal();                 // 先に描画して即表示
-    const data = await dataP; if(data && data.data) applyState(data.data); // 到着次第上書き
+    await cfgP; render(); loadLocal();
+    const data = await dataP; if(data && data.data) applyState(data.data);
 
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
     startRemoteSync(true);
@@ -520,7 +518,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 });
 
-/* ===== エラー表示（致命的な実行時エラーを画面に出す） ===== */
+/* ===== エラー表示 ===== */
 window.addEventListener('error', e=>{
   toastEl.style.background='#c53030';
   toastEl.textContent='エラー: '+e.message;
