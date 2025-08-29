@@ -298,10 +298,7 @@
       <h2>在席確認表</h2>
       <p>拠点を選び、パスワードを入力してください</p>
       <label class="sr-only" for="officeSel">拠点</label>
-      <select id="officeSel">
-        <option value="nagoya" selected>名古屋中央営業所</option>
-        <option value="test">Administrator</option>
-      </select>
+      <select id="officeSel" aria-label="拠点"></select>
       <input type="password" id="pw" placeholder="Password" />
       <button id="btnLogin" onclick="window.__doLogin && window.__doLogin()">ログイン</button>
       <div id="loginMsg" style="color:#0073bb;margin-top:8px" aria-live="polite"></div>
@@ -649,8 +646,8 @@ function ensureAuthUI(){
   logoutBtn.style.display = SESSION_TOKEN ? 'inline-block' : 'none';
 }
 
-/* ログアウト（裏面を非表示に戻す） */
-function logout(){
+/* ログアウト（裏面を非表示に戻す & ログイン拠点を最新化） */
+async function logout(){
   try{
     if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; }
     if(configWatchTimer){ clearInterval(configWatchTimer); configWatchTimer=null; }
@@ -676,7 +673,28 @@ function logout(){
   titleBtn.textContent = '在席確認表';
   ensureAuthUI();
 
+  // 最新の拠点一覧を取得してからログインUIを表示
+  await refreshPublicOfficeSelect();
   loginEl.style.display='flex';
+}
+
+/* ===== 公開オフィス一覧（未ログインで取得） ===== */
+async function refreshPublicOfficeSelect(selectedId){
+  // いったん「読込中…」表示
+  officeSel.innerHTML = `<option value="" disabled selected>読込中…</option>`;
+  const res = await jsonp(`${REMOTE_ENDPOINT}?action=publicListOffices`);
+  const fallback = [
+    {id:'nagoya', name:'名古屋中央営業所'},
+    {id:'test',   name:'Administrator'}
+  ];
+  const offices = (res && Array.isArray(res.offices) && res.offices.length) ? res.offices : fallback;
+  officeSel.innerHTML = offices.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
+  // 既定選択
+  if(selectedId && offices.some(o=>o.id===selectedId)){
+    officeSel.value = selectedId;
+  }else{
+    officeSel.selectedIndex = 0;
+  }
 }
 
 /* ===== サーバ通信（通常ユーザ） ===== */
@@ -1020,8 +1038,12 @@ btnAddOffice.addEventListener('click', async ()=>{
   if(!/^[A-Za-z0-9_-]+$/.test(id)){ toast('IDは半角英数_-のみ', false); return; }
   if(!name || !pw || !apw){ toast('拠点名/パスワードを入力', false); return; }
   const r = await adminAddOffice(id, name, pw, apw);
-  if(r && r.ok){ toast('拠点を追加しました'); await populateAdminOffices(id); }
-  else toast('追加に失敗', false);
+  if(r && r.ok){
+    toast('拠点を追加しました');
+    await populateAdminOffices(id);
+  } else {
+    toast('追加に失敗', false);
+  }
 });
 
 /* Delete Office（スーパのみ・再確認＋再認証＋バックアップ） */
@@ -1039,8 +1061,12 @@ btnDeleteOffice.addEventListener('click', async ()=>{
   if(!chk.ok) return;
 
   const r = await adminDeleteOffice(office, chk.superPw);
-  if(r && r.ok){ toast('拠点を削除しました（バックアップ済）'); await populateAdminOffices(); }
-  else toast('削除に失敗（権限・バックアップ・ネットワーク）', false);
+  if(r && r.ok){
+    toast('拠点を削除しました（バックアップ済）');
+    await populateAdminOffices();
+  } else {
+    toast('削除に失敗（権限・バックアップ・ネットワーク）', false);
+  }
 });
 
 /* Set Password（スーパー時は再確認＋再認証） */
@@ -1077,10 +1103,14 @@ refreshOfficesBtn.addEventListener('click', ()=> populateAdminOffices(adminOffic
 logoutBtn.addEventListener('click', ()=> logout());
 
 /* ===== 起動 ===== */
-document.addEventListener('DOMContentLoaded', ()=>{
+document.addEventListener('DOMContentLoaded', async ()=>{
+  // 初回：ログイン拠点を最新化
+  await refreshPublicOfficeSelect();
+
   window.__doLogin = async () => {
     const pw = pwInput.value;
     const office = officeSel.value;
+    if(!office){ loginMsg.textContent="拠点を選択してください"; return; }
     if(!pw || !pw.trim()){ loginMsg.textContent="パスワードを入力してください"; return; }
     loginMsg.textContent = "認証中…";
     const res = await jsonp(`${REMOTE_ENDPOINT}?action=login&office=${encodeURIComponent(office)}&password=${encodeURIComponent(pw)}`);
@@ -1126,7 +1156,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         startConfigWatch();
         ensureAuthUI();
       }else{
-        logout();
+        await logout();
       }
     })();
   }else{
@@ -1152,5 +1182,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
-
