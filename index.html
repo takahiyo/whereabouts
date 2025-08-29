@@ -380,10 +380,10 @@ function buildGroupMenu(){
 
   // 見出しに総数を反映
   if(menuTitle){
-    menuTitle.textContent = `グループにジャンプ（全体：${total}名）`;
+    menuTitle.textContent = `グループにジャンプ`;
   }else{
     const h4 = menuEl.querySelector('h4');
-    if(h4) h4.textContent = `グループにジャンプ（全体：${total}名）`;
+    if(h4) h4.textContent = `グループにジャンプ`;
   }
 
   // 先頭に「全体（合計：XX名）」を置き、その後に各グループ
@@ -704,3 +704,4 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
+
