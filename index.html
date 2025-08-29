@@ -121,7 +121,7 @@
 /* ===== 接続設定（GAS Webアプリ） ===== */
 const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
 const REMOTE_KEY      = "presence-board-default";
-const REMOTE_POLL_MS  = 8000;        // データの定期取得
+const REMOTE_POLL_MS  = 2000;        // データの定期取得
 const CONFIG_POLL_MS  = 120000;      // 名簿（構成）更新チェック
 const SESSION_KEY     = "presence-session-token";
 const TOKEN_DEFAULT_TTL = 3600000;   // トークン既定寿命（ms）
@@ -474,6 +474,7 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
+
 
 
 
