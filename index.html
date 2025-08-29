@@ -143,7 +143,7 @@
     }
     tbody td.name::before{ content:""; display:none; }
 
-    /* ★ 並び順を変更：
+    /* ★ 並び順：
        1段目 = 内線 → 戻り時間
        2段目 = ステータス
        3段目 = 備考（フル幅） */
@@ -185,19 +185,20 @@
 /* ===== 接続設定（GAS Webアプリ） ===== */
 const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
 const REMOTE_KEY      = "presence-board-default";
-const REMOTE_POLL_MS  = 2000;        // 反映短縮
+const REMOTE_POLL_MS  = 2000;        // 反映短縮（8秒→2秒）
 const CONFIG_POLL_MS  = 120000;      // 名簿（構成）更新チェック
 const SESSION_KEY     = "presence-session-token";
 const TOKEN_DEFAULT_TTL = 3600000;   // トークン既定寿命（ms）
 
-/* ===== レイアウト（列数 3→2→1 の自動調整） ===== */
+/* ===== レイアウト（列数 3→2→1 の自動調整） =====
+   1パネルあたりの必要目安幅（px）と隙間幅から列数を算出し、--cols に反映する。 */
 const PANEL_MIN_PX = 760;
 const GAP_PX = 20;
 const MAX_COLS = 3;
 
 /* ===== 名簿とUI要素 ===== */
-let GROUPS = [];
-let CONFIG_UPDATED = 0;
+let GROUPS = [];              // [{title, members:[{name, ext, id}]}]
+let CONFIG_UPDATED = 0;       // サーバ側の設定更新時刻
 let tokenRenewTimer = null;
 
 const board   = document.getElementById('board');
@@ -232,7 +233,9 @@ function startGridObserver(){
   updateCols();
 }
 
-/* ===== 名簿（構成）をクライアント整形 ===== */
+/* ===== 名簿（構成）をクライアント整形 =====
+   - サーバからの groups:{title, members:[{name, ext?, id?}]} を前提
+   - id が未指定なら name+ext から安定IDを生成 */
 function makeLocalId(s){
   const seed = (s||"").normalize('NFKC').replace(/\s+/g,'');
   let h = 0; for(let i=0;i<seed.length;i++){ h = (h*31 + seed.charCodeAt(i)) >>> 0; }
@@ -252,7 +255,7 @@ function normalizeConfigClient(cfg){
   }));
 }
 
-/* ===== テーブル UI生成（スマホ用カードビュー：data-label 付与） ===== */
+/* ===== テーブル UI生成（スマホ用カードビュー対応：data-label 付与） ===== */
 function timeOptions(){
   const opts=['<option value=""></option>'];
   for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
@@ -265,6 +268,7 @@ function rowHtml(member){
   const name= member.name || "";
   const ext = (member.ext && /^[0-9]{1,4}$/.test(String(member.ext))) ? String(member.ext) : "";
   const key = member.id;
+  /* ★ PC表示の列順（DOM順）は固定：氏名→内線→ステータス→戻り時間→備考 */
   return `
     <tr id="row-${key}" data-key="${key}" data-status="在席">
       <td class="name"  data-label="氏名">${name}</td>
@@ -272,13 +276,13 @@ function rowHtml(member){
         <label class="sr-only" for="ext-${key}">内線</label>
         <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" value="${ext}" />
       </td>
-      <td class="time"   data-label="戻り時間">
-        <label class="sr-only" for="time-${key}">戻り時間</label>
-        <select id="time-${key}" name="time">${timeOptions()}</select>
-      </td>
       <td class="status" data-label="ステータス">
         <label class="sr-only" for="status-${key}">ステータス</label>
         <select id="status-${key}" name="status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}</select>
+      </td>
+      <td class="time"   data-label="戻り時間">
+        <label class="sr-only" for="time-${key}">戻り時間</label>
+        <select id="time-${key}" name="time">${timeOptions()}</select>
       </td>
       <td class="note"   data-label="備考">
         <input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" />
@@ -302,7 +306,7 @@ function render(){
   board.innerHTML = GROUPS.map(g=>panelHtml(g)).join('');
   board.style.display = '';
   wireEvents();
-  loadLocal();
+  loadLocal();     // ローカル保存を即時反映（体感を速く）
   recolor();
   startGridObserver();
 }
@@ -334,14 +338,18 @@ function applyState(data){
     if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
     if(t) t.value = v.time || "";
     if(n) n.value = v.note || "";
-    if(s && t) toggleTimeEnable(s, t);
+    if(s && t) toggleTimeEnable(s, t); // ステータスに応じて時間入力の可否のみ切替
   });
   recolor();
 }
 function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(e){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) applyState(JSON.parse(raw)); }catch(e){} }
 
-/* ===== 行内イベント ===== */
+/* ===== 行内イベント（同期：即時 or デバウンス） =====
+   - ステータス: 変更即時送信（在席系へ戻したら時間/備考をクリア）
+   - 戻り時間: 変更即時送信
+   - 内線: フィールド確定時に送信（change）
+   - 備考: IME合成中は待機、入力は900msデバウンス、確定時は即時送信 */
 const noteTimers = new Map();
 function debounceRowPush(key, delay=900){
   if(noteTimers.has(key)) clearTimeout(noteTimers.get(key));
@@ -382,7 +390,7 @@ function recolor(){
   });
 }
 
-/* ===== JSONP ===== */
+/* ===== JSONP（GAS側のdoGetをcallbackでラップして受信） ===== */
 function jsonp(url, timeout=12000){
   return new Promise((resolve)=>{
     const cb = 'cb_'+Math.random().toString(36).slice(2);
@@ -397,7 +405,7 @@ function jsonp(url, timeout=12000){
   });
 }
 
-/* ===== サーバ通信 ===== */
+/* ===== サーバ通信：ログイン・名簿取得・データ取得/更新・トークン更新 ===== */
 let SESSION_TOKEN = "";
 
 async function tryLoadGroupsFromServer(nocache=false){
@@ -427,7 +435,7 @@ async function pushRowDelta(key){
   const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
   const res = await jsonp(url);
   if(res && res.error){ sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; loginEl.style.display='flex'; return; }
-  await pullRemote(); // 反映確認
+  await pullRemote(); // 反映確認（軽量pull）
 }
 function startRemoteSync(forcePull=false){
   const start = ()=>{ if(forcePull) pullRemote(); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
@@ -468,7 +476,7 @@ async function renewToken(){
   }
 }
 
-/* ===== 起動 ===== */
+/* ===== 起動：最速描画 ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   window.__doLogin = async () => {
     const pw = pwInput.value;
@@ -485,8 +493,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const cfgP  = tryLoadGroupsFromServer(true).catch(()=>{});
     const dataP = fastFetchDataOnce().catch(()=>null);
 
-    await cfgP; render(); loadLocal();
-    const data = await dataP; if(data && data.data) applyState(data.data);
+    await cfgP; render(); loadLocal();                 // 先に描画して即表示
+    const data = await dataP; if(data && data.data) applyState(data.data); // 到着次第上書き
 
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
     startRemoteSync(true);
@@ -518,7 +526,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 });
 
-/* ===== エラー表示 ===== */
+/* ===== エラー表示（致命的な実行時エラーを画面に出す） ===== */
 window.addEventListener('error', e=>{
   toastEl.style.background='#c53030';
   toastEl.textContent='エラー: '+e.message;
