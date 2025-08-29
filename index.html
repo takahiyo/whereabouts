@@ -54,7 +54,6 @@
     margin-bottom:12px; flex-wrap:wrap; background:#fff;
     padding:6px 0; box-shadow: 0 1px 0 rgba(0,0,0,.06);
   }
-  /* 見た目はチップ風ボタンだが <button> でアクセシビリティ対応 */
   header .title-btn{
     font-size:14px; font-weight:600; color:#1f2937;
     padding:.35rem .9rem; background:#dff1ff; border-radius:999px;
@@ -95,7 +94,6 @@
   /* ===== パネルと表 ===== */
   .panel{
     border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto;
-    /* 固定ヘッダに隠れないようにスクロール位置の余白を確保 */
     scroll-margin-top: calc(var(--header-height) + 12px);
   }
   .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
@@ -138,12 +136,10 @@
 
   /* ======== スマホ用カードビュー（方式C） ======== */
   @media (max-width: 720px){
-    /* テーブルをカード化：ヘッダ/col幅を無効化 */
     colgroup, thead{ display:none; }
     table{ table-layout:auto; }
     tbody{ display:block; }
 
-    /* 行をカードに */
     tbody tr{
       display:flex;
       flex-wrap:wrap;
@@ -154,7 +150,6 @@
       margin:10px 0;
     }
 
-    /* セルはラベル付きの項目として積む */
     tbody td{
       border:none;
       padding:0;
@@ -166,7 +161,6 @@
       background:transparent;
     }
 
-    /* ラベル表示（氏名以外） */
     tbody td::before{
       content: attr(data-label);
       font-weight:600;
@@ -175,7 +169,6 @@
       flex:0 0 auto;
     }
 
-    /* 氏名はタイトル扱い（1段目フル幅） */
     tbody td.name{
       order:0;
       flex:1 1 100%;
@@ -186,16 +179,12 @@
     }
     tbody td.name::before{ content:""; display:none; }
 
-    /* 並び順（スマホ時）：
-       1段目 = 内線 → 戻り時間
-       2段目 = ステータス
-       3段目 = 備考（フル幅） */
+    /* 並び順（スマホ時） */
     tbody td.ext    { order:1; }
     tbody td.time   { order:2; }
     tbody td.status { order:3; }
     tbody td.note   { order:4; flex:1 1 100%; }
 
-    /* フォームの幅は常に100% */
     select, input[type="text"]{ width:100%; }
     td.status select{ padding-right:2.0em; }
   }
@@ -366,10 +355,10 @@ function render(){
   board.innerHTML = GROUPS.map((g,i)=>panelHtml(g,i)).join('');
   board.style.display = '';
   wireEvents();
-  loadLocal();     // ローカル保存を即時反映（体感を速く）
+  loadLocal();
   recolor();
   startGridObserver();
-  buildGroupMenu(); // タイトルのメニューを再構築
+  buildGroupMenu();
 }
 
 /* ===== グループメニュー（タイトル→一覧→スクロール） ===== */
@@ -384,7 +373,6 @@ function buildGroupMenu(){
   }).join('');
   menuList.innerHTML = html;
 
-  // クリックでスクロール & メニューを閉じる
   menuList.querySelectorAll('button.grp-item').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.getAttribute('data-target');
@@ -394,28 +382,11 @@ function buildGroupMenu(){
     });
   });
 }
-
-/* メニューの開閉制御 */
-function openMenu(){
-  menuEl.classList.add('show');
-  titleBtn.setAttribute('aria-expanded','true');
-}
-function closeMenu(){
-  menuEl.classList.remove('show');
-  titleBtn.setAttribute('aria-expanded','false');
-}
-function toggleMenu(){
-  if(menuEl.classList.contains('show')) closeMenu(); else openMenu();
-}
-
-/* タイトル・外側クリック・ESCで閉じる */
+function openMenu(){ menuEl.classList.add('show'); titleBtn.setAttribute('aria-expanded','true'); }
+function closeMenu(){ menuEl.classList.remove('show'); titleBtn.setAttribute('aria-expanded','false'); }
+function toggleMenu(){ if(menuEl.classList.contains('show')) closeMenu(); else openMenu(); }
 titleBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggleMenu(); });
-document.addEventListener('click', (e)=>{
-  if(menuEl.classList.contains('show')){
-    const within = menuEl.contains(e.target) || titleBtn.contains(e.target);
-    if(!within) closeMenu();
-  }
-});
+document.addEventListener('click', (e)=>{ if(menuEl.classList.contains('show')){ const within=menuEl.contains(e.target)||titleBtn.contains(e.target); if(!within) closeMenu(); } });
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
 /* ===== 行状態の取得・適用・保存 ===== */
@@ -436,29 +407,67 @@ function getState(){
   });
   return data;
 }
+
+/* ==== ★ サーバ値の適用：編集中のセルは上書きしない ==== */
+function isEditingField(el){
+  if(!el) return false;
+  if(el.dataset && el.dataset.editing === '1') return true;      // focus中
+  if(el.dataset && el.dataset.composing === '1') return true;     // IME合成中
+  if(el === document.activeElement) return true;                  // 念のため
+  return false;
+}
+function setIfNeeded(el, newVal){
+  if(!el) return;
+  if(isEditingField(el)) return;           // ★編集中は絶対に触らない
+  if(el.value !== newVal) el.value = newVal ?? "";
+}
 function applyState(data){
   if(!data) return;
   Object.entries(data).forEach(([k,v])=>{
-    const e=document.getElementById(`ext-${k}`), s=document.getElementById(`status-${k}`),
-          t=document.getElementById(`time-${k}`), n=document.getElementById(`note-${k}`);
-    if(e && typeof v.ext==="string") e.value = v.ext;
-    if(s && v.status && STATUSES.includes(v.status)) s.value=v.status;
-    if(t) t.value = v.time || "";
-    if(n) n.value = v.note || "";
-    if(s && t) toggleTimeEnable(s, t); // ステータスに応じて時間入力の可否のみ切替
+    const e=document.getElementById(`ext-${k}`);
+    const s=document.getElementById(`status-${k}`);
+    const t=document.getElementById(`time-${k}`);
+    const n=document.getElementById(`note-${k}`);
+
+    if(typeof v.ext==="string")  setIfNeeded(e, v.ext);
+    if(v.status && STATUSES.includes(v.status)) setIfNeeded(s, v.status);
+    setIfNeeded(t, v.time || "");
+    setIfNeeded(n, v.note || "");
+
+    // ステータスに応じた時間入力の有効/無効は、現在のs.value基準でOK（値を書き換えていなくても反映される）
+    if(s && t) toggleTimeEnable(s, t);
   });
   recolor();
 }
+
 function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(e){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) applyState(JSON.parse(raw)); }catch(e){} }
 
-/* ===== 行内イベント（同期：即時 or デバウンス） ===== */
+/* ===== 行内イベント（同期：即時 or デバウンス） =====
+   - ステータス: 変更即時送信（在席系へ戻したら時間/備考をクリア）
+   - 戻り時間: 変更即時送信
+   - 内線: フィールド確定時に送信（change）
+   - 備考: IME合成中は待機、入力は900msデバウンス、確定時は即時送信 */
 const noteTimers = new Map();
 function debounceRowPush(key, delay=900){
   if(noteTimers.has(key)) clearTimeout(noteTimers.get(key));
   noteTimers.set(key, setTimeout(()=>{ noteTimers.delete(key); pushRowDelta(key); }, delay));
 }
+function markEditing(el){
+  if(!el) return;
+  el.dataset.editing = '1';
+}
+function unmarkEditing(el){
+  if(!el) return;
+  delete el.dataset.editing;
+}
 function wireEvents(){
+  // 共通：フォーカス/ブラーで編集中フラグを管理
+  board.querySelectorAll("input, select").forEach(el=>{
+    el.addEventListener('focus', ()=> markEditing(el));
+    el.addEventListener('blur',  ()=> unmarkEditing(el));
+  });
+
   board.querySelectorAll("select[name='status']").forEach(sel=>{
     sel.addEventListener("change", ()=>{
       const key  = sel.id.replace("status-","");
