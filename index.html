@@ -68,7 +68,7 @@
     transform: translateX(-50%);
     background:#fff; border:1px solid var(--line); border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,.12);
-    min-width: 240px; max-width: 90vw; max-height: 60vh; overflow:auto;
+    min-width: 260px; max-width: 90vw; max-height: 60vh; overflow:auto;
     padding:8px; z-index: 1600; display:none;
   }
   .grp-menu.show{ display:block; }
@@ -136,10 +136,12 @@
 
   /* ======== スマホ用カードビュー（方式C） ======== */
   @media (max-width: 720px){
+    /* テーブルをカード化：ヘッダ/col幅を無効化 */
     colgroup, thead{ display:none; }
     table{ table-layout:auto; }
     tbody{ display:block; }
 
+    /* 行をカードに */
     tbody tr{
       display:flex;
       flex-wrap:wrap;
@@ -150,6 +152,7 @@
       margin:10px 0;
     }
 
+    /* セルはラベル付きの項目として積む */
     tbody td{
       border:none;
       padding:0;
@@ -161,6 +164,7 @@
       background:transparent;
     }
 
+    /* ラベル表示（氏名以外） */
     tbody td::before{
       content: attr(data-label);
       font-weight:600;
@@ -169,6 +173,7 @@
       flex:0 0 auto;
     }
 
+    /* 氏名はタイトル扱い（1段目フル幅） */
     tbody td.name{
       order:0;
       flex:1 1 100%;
@@ -179,12 +184,16 @@
     }
     tbody td.name::before{ content:""; display:none; }
 
-    /* 並び順（スマホ時） */
+    /* 並び順（スマホ時）：
+       1段目 = 内線 → 戻り時間
+       2段目 = ステータス
+       3段目 = 備考（フル幅） */
     tbody td.ext    { order:1; }
     tbody td.time   { order:2; }
     tbody td.status { order:3; }
     tbody td.note   { order:4; flex:1 1 100%; }
 
+    /* フォームの幅は常に100% */
     select, input[type="text"]{ width:100%; }
     td.status select{ padding-right:2.0em; }
   }
@@ -198,9 +207,9 @@
     </button>
   </header>
 
-  <!-- グループメニュー（動的に中身を挿入） -->
+  <!-- グループメニュー（総人数を見出し表示＆先頭に「全体」を追加） -->
   <div id="groupMenu" class="grp-menu" role="menu" aria-labelledby="titleBtn">
-    <h4>グループにジャンプ</h4>
+    <h4 id="groupMenuTitle">グループにジャンプ</h4>
     <ul id="groupMenuList"></ul>
   </div>
 
@@ -227,7 +236,7 @@
 /* ===== 接続設定（GAS Webアプリ） ===== */
 const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
 const REMOTE_KEY      = "presence-board-default";
-const REMOTE_POLL_MS  = 2000;        // 反映短縮（8秒→2秒）
+const REMOTE_POLL_MS  = 2000;        // 反映短縮
 const CONFIG_POLL_MS  = 120000;      // 名簿（構成）更新チェック
 const SESSION_KEY     = "presence-session-token";
 const TOKEN_DEFAULT_TTL = 3600000;   // トークン既定寿命（ms）
@@ -248,9 +257,10 @@ const loginEl = document.getElementById('login');
 const loginMsg= document.getElementById('loginMsg');
 const pwInput = document.getElementById('pw');
 
-const menuEl  = document.getElementById('groupMenu');
-const menuList= document.getElementById('groupMenuList');
-const titleBtn= document.getElementById('titleBtn');
+const menuEl   = document.getElementById('groupMenu');
+const menuList = document.getElementById('groupMenuList');
+const menuTitle= document.getElementById('groupMenuTitle');
+const titleBtn = document.getElementById('titleBtn');
 
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]); // これらへ切替時は戻り時間と備考をクリア
@@ -355,38 +365,81 @@ function render(){
   board.innerHTML = GROUPS.map((g,i)=>panelHtml(g,i)).join('');
   board.style.display = '';
   wireEvents();
-  loadLocal();
+  loadLocal();     // ローカル保存を即時反映（体感を速く）
   recolor();
   startGridObserver();
-  buildGroupMenu();
+  buildGroupMenu(); // タイトルのメニューを再構築（総数も更新）
 }
 
-/* ===== グループメニュー（タイトル→一覧→スクロール） ===== */
+/* ===== グループメニュー（タイトル→一覧→スクロール + 総数表示） ===== */
 function buildGroupMenu(){
   if(!Array.isArray(GROUPS)) return;
-  const html = GROUPS.map((g,i)=>{
-    const title = fallbackGroupTitle(g,i);
-    const sub = (g && g.members && g.members.length) ? `（${g.members.length}名）` : '';
-    return `<li><button class="grp-item" role="menuitem" data-target="grp-${i}">
-              ${title} <span class="muted">${sub}</span>
-            </button></li>`;
-  }).join('');
-  menuList.innerHTML = html;
 
+  // 総人数を計算
+  const total = GROUPS.reduce((sum, g) => sum + ((g.members && g.members.length) || 0), 0);
+
+  // 見出しに総数を反映
+  if(menuTitle){
+    menuTitle.textContent = `グループにジャンプ（全体：${total}名）`;
+  }else{
+    const h4 = menuEl.querySelector('h4');
+    if(h4) h4.textContent = `グループにジャンプ（全体：${total}名）`;
+  }
+
+  // 先頭に「全体（合計：XX名）」を置き、その後に各グループ
+  const items = [];
+  items.push(
+    `<li><button class="grp-item" role="menuitem" data-target="top">全体（合計：${total}名）</button></li>`
+  );
+
+  GROUPS.forEach((g,i)=>{
+    const title = fallbackGroupTitle(g,i);
+    const sub = (g && g.members && g.members.length) ? `（${g.members.length}名）` : '（0名）';
+    items.push(
+      `<li><button class="grp-item" role="menuitem" data-target="grp-${i}">
+        ${title} <span class="muted">${sub}</span>
+      </button></li>`
+    );
+  });
+
+  menuList.innerHTML = items.join('');
+
+  // クリックでスクロール & メニューを閉じる
   menuList.querySelectorAll('button.grp-item').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.getAttribute('data-target');
-      const sec = document.getElementById(id);
       closeMenu();
+      if(id === 'top'){
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      const sec = document.getElementById(id);
       if(sec){ sec.scrollIntoView({behavior:'smooth', block:'start'}); }
     });
   });
 }
-function openMenu(){ menuEl.classList.add('show'); titleBtn.setAttribute('aria-expanded','true'); }
-function closeMenu(){ menuEl.classList.remove('show'); titleBtn.setAttribute('aria-expanded','false'); }
-function toggleMenu(){ if(menuEl.classList.contains('show')) closeMenu(); else openMenu(); }
+
+/* メニューの開閉制御 */
+function openMenu(){
+  menuEl.classList.add('show');
+  titleBtn.setAttribute('aria-expanded','true');
+}
+function closeMenu(){
+  menuEl.classList.remove('show');
+  titleBtn.setAttribute('aria-expanded','false');
+}
+function toggleMenu(){
+  if(menuEl.classList.contains('show')) closeMenu(); else openMenu();
+}
+
+/* タイトル・外側クリック・ESCで閉じる */
 titleBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggleMenu(); });
-document.addEventListener('click', (e)=>{ if(menuEl.classList.contains('show')){ const within=menuEl.contains(e.target)||titleBtn.contains(e.target); if(!within) closeMenu(); } });
+document.addEventListener('click', (e)=>{
+  if(menuEl.classList.contains('show')){
+    const within = menuEl.contains(e.target) || titleBtn.contains(e.target);
+    if(!within) closeMenu();
+  }
+});
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
 /* ===== 行状態の取得・適用・保存 ===== */
@@ -419,7 +472,7 @@ function isEditingField(el){
 function setIfNeeded(el, newVal){
   if(!el) return;
   if(isEditingField(el)) return;           // ★編集中は絶対に触らない
-  if(el.value !== newVal) el.value = newVal ?? "";
+  if(el.value !== (newVal ?? "")) el.value = newVal ?? "";
 }
 function applyState(data){
   if(!data) return;
@@ -434,7 +487,6 @@ function applyState(data){
     setIfNeeded(t, v.time || "");
     setIfNeeded(n, v.note || "");
 
-    // ステータスに応じた時間入力の有効/無効は、現在のs.value基準でOK（値を書き換えていなくても反映される）
     if(s && t) toggleTimeEnable(s, t);
   });
   recolor();
@@ -443,11 +495,7 @@ function applyState(data){
 function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(e){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) applyState(JSON.parse(raw)); }catch(e){} }
 
-/* ===== 行内イベント（同期：即時 or デバウンス） =====
-   - ステータス: 変更即時送信（在席系へ戻したら時間/備考をクリア）
-   - 戻り時間: 変更即時送信
-   - 内線: フィールド確定時に送信（change）
-   - 備考: IME合成中は待機、入力は900msデバウンス、確定時は即時送信 */
+/* ===== 行内イベント（同期：即時 or デバウンス） ===== */
 const noteTimers = new Map();
 function debounceRowPush(key, delay=900){
   if(noteTimers.has(key)) clearTimeout(noteTimers.get(key));
