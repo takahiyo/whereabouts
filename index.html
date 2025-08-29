@@ -1,707 +1,377 @@
-<!doctype html>
-<html lang="ja">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>在席確認表</title>
+/** 在席表 同期API（JSONP） - 拠点ごとにキー分割（簡易マルチテナント） */
 
-<style>
-  /* ===== レイアウトと列幅の基準（表示に必要な最小幅だけ定義） ===== */
-  :root{
-    --base-name:   120px;  /* 氏名 基準 */
-    --base-ext:     70px;  /* 内線 基準 */
-    --base-status: 170px;  /* ステータス 基準 */
-    --base-time:    65px;  /* 戻り時間 基準 */
-    --base-note:   210px;  /* 備考 基準 */
-
-    --scale-name:   0.50;  /* 基準からの縮尺 */
-    --scale-ext:    0.33;
-    --scale-status: 0.75;
-    --scale-time:   0.45;
-
-    /* 列の下限 */
-    --min-name:    85px;
-    --min-ext:     35px;
-    --min-status:  85px;
-    --min-time:    65px;
-    --min-note:   70px;
-
-    --w-name:   max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
-    --w-ext:    max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
-    --w-status: max(calc(var(--base-status) * var(--scale-status)), var(--min-status));
-    --w-time:   max(calc(var(--base-time)   * var(--scale-time)),   var(--min-time));
-    --w-note:   max(var(--base-note), var(--min-note));
-
-    /* --status-fixed を与えるとステータス列を固定幅にできる（未指定なら --w-status） */
-    /* 例: :root { --status-fixed: 200px; } */
-    --status-effective: var(--status-fixed, var(--w-status));
-
-    --gap: 20px;   /* パネル間の隙間 */
-    --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
-    --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
-
-    --header-height: 56px; /* 固定ヘッダの高さ（スクロール補正用） */
-  }
-
-  html{ scroll-behavior:smooth; }
-
-  body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
-
-  /* ===== 固定ヘッダ（タイトルをボタン化＋常時表示） ===== */
-  header{
-    position: sticky; top: 0; z-index: 1500;
-    display:flex; gap:8px; align-items:center; justify-content:center;
-    margin-bottom:12px; flex-wrap:wrap; background:#fff;
-    padding:6px 0; box-shadow: 0 1px 0 rgba(0,0,0,.06);
-  }
-  header .title-btn{
-    font-size:14px; font-weight:600; color:#1f2937;
-    padding:.35rem .9rem; background:#dff1ff; border-radius:999px;
-    border:1px solid #bfe4ff; cursor:pointer; line-height:1.2;
-  }
-  header .title-btn:hover{ background:#cfe9ff; }
-  header .title-btn:focus{ outline:3px solid #93c5fd; outline-offset:2px; }
-
-  /* タイトル下に開くグループメニュー（ドロップダウン） */
-  .grp-menu{
-    position: fixed; top: calc(var(--header-height) + 8px); left: 50%;
-    transform: translateX(-50%);
-    background:#fff; border:1px solid var(--line); border-radius:10px;
-    box-shadow:0 8px 24px rgba(0,0,0,.12);
-    min-width: 260px; max-width: 90vw; max-height: 60vh; overflow:auto;
-    padding:8px; z-index: 1600; display:none;
-  }
-  .grp-menu.show{ display:block; }
-  .grp-menu h4{ font-size:12px; color:#6b7280; margin:4px 8px; }
-  .grp-menu ul{ list-style:none; padding:0; margin:4px 0; }
-  .grp-menu li{ margin:0; }
-  .grp-menu button.grp-item{
-    width:100%; text-align:left; border:0; background:transparent; cursor:pointer;
-    padding:10px 12px; border-radius:8px; font-size:14px; color:#111827;
-  }
-  .grp-menu button.grp-item:hover{ background:#f3f4f6; }
-  .grp-menu .muted{ color:#6b7280; }
-
-  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-
-  /* ===== パネルの並び：列数はJSが --cols を更新して 3→2→1 に自動調整 ===== */
-  .wrap{width:100%; margin:0 auto;}
-  .board{
-    display:grid; gap:var(--gap);
-    grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
-  }
-
-  /* ===== パネルと表 ===== */
-  .panel{
-    border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto;
-    scroll-margin-top: calc(var(--header-height) + 12px);
-  }
-  .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
-  table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
-  thead th{position:sticky;top:0;background:#f2efe9;font-weight:700}
-  th,td{border:1px solid var(--line);padding:6px;font-size:14px}
-  th{text-align:left}
-
-  /* 列幅（PC/タブレット向け） */
-  col.col-name{width:var(--w-name)}
-  col.col-ext{width:var(--w-ext)}
-  col.col-status{width:var(--status-effective)}
-  col.col-time{width:var(--w-time)}
-  col.col-note{width:var(--w-note)}
-
-  select,input[type="text"]{width:100%;box-sizing:border-box;padding:.3rem .35rem;border:1px solid var(--line);border-radius:4px;background:#fff;font-size:14px;appearance:auto;-webkit-appearance:auto}
-  td.status{min-width: var(--status-effective)}
-  td.status select{padding-right:2.6em}
-  td.time select{text-align-last:center;font-variant-numeric:tabular-nums}
-
-  /* ステータスごとの背景色（視認性向上） */
-  tr[data-status="在席"]{background:var(--present)}
-  tr[data-status="外出"]{background:var(--away)}
-  tr[data-status="休み"],tr[data-status="健康診断"],tr[data-status="コアドック"]{background:var(--off)}
-  tr[data-status="帰宅"]{background:var(--home)}
-  tr[data-status="在宅勤務"]{background:var(--remote)}
-  tr[data-status="出張"],tr[data-status="研修"]{background:var(--away)}
-
-  /* 簡易エラー表示 */
-  .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
-  .toast.show{opacity:1}
-
-  /* ログインオーバーレイ */
-  .login{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2000}
-  .login .card{background:#fff;border-radius:8px;padding:20px;min-width:300px;max-width:90vw;text-align:center}
-  .login .card h2{margin:.2rem 0 1rem}
-  .login .card input{margin:.4rem 0}
-
-  @media print{header,.toast,.login{display:none} body{margin:0}.board{gap:10px} th,td{font-size:12px;padding:4px}}
-
-  /* ======== スマホ用カードビュー（方式C） ======== */
-  @media (max-width: 720px){
-    /* テーブルをカード化：ヘッダ/col幅を無効化 */
-    colgroup, thead{ display:none; }
-    table{ table-layout:auto; }
-    tbody{ display:block; }
-
-    /* 行をカードに */
-    tbody tr{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px 12px;
-      border:1px solid var(--line);
-      border-radius:10px;
-      padding:10px;
-      margin:10px 0;
-    }
-
-    /* セルはラベル付きの項目として積む */
-    tbody td{
-      border:none;
-      padding:0;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex:1 1 48%;
-      min-width:160px;
-      background:transparent;
-    }
-
-    /* ラベル表示（氏名以外） */
-    tbody td::before{
-      content: attr(data-label);
-      font-weight:600;
-      color:#6B7280;
-      min-width:5.5em;
-      flex:0 0 auto;
-    }
-
-    /* 氏名はタイトル扱い（1段目フル幅） */
-    tbody td.name{
-      order:0;
-      flex:1 1 100%;
-      font-weight:800;
-      font-size:15px;
-      line-height:1.2;
-      padding-bottom:2px;
-    }
-    tbody td.name::before{ content:""; display:none; }
-
-    /* 並び順（スマホ時）：
-       1段目 = 内線 → 戻り時間
-       2段目 = ステータス
-       3段目 = 備考（フル幅） */
-    tbody td.ext    { order:1; }
-    tbody td.time   { order:2; }
-    tbody td.status { order:3; }
-    tbody td.note   { order:4; flex:1 1 100%; }
-
-    /* フォームの幅は常に100% */
-    select, input[type="text"]{ width:100%; }
-    td.status select{ padding-right:2.0em; }
-  }
-</style>
-</head>
-
-<body>
-  <header>
-    <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false" aria-controls="groupMenu">
-      ビジネスフロント名古屋中央　在席確認表
-    </button>
-  </header>
-
-  <!-- グループメニュー（総人数を見出し表示＆先頭に「全体」を追加） -->
-  <div id="groupMenu" class="grp-menu" role="menu" aria-labelledby="titleBtn">
-    <h4 id="groupMenuTitle">グループにジャンプ</h4>
-    <ul id="groupMenuList"></ul>
-  </div>
-
-  <!-- ログイン（パスワード認証→トークンをセッション保存） -->
-  <div id="login" class="login" style="display:none">
-    <div class="card">
-      <h2>在席確認表</h2>
-      <p>パスワードを入力してください</p>
-      <input type="password" id="pw" placeholder="Password" />
-      <button id="btnLogin" onclick="window.__doLogin && window.__doLogin()">ログイン</button>
-      <div id="loginMsg" style="color:#0073bb;margin-top:8px" aria-live="polite"></div>
-    </div>
-  </div>
-
-  <!-- エラー時の簡易トースト -->
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-  <!-- パネル群（グリッド） -->
-  <div class="wrap">
-    <div id="board" class="board" style="display:none"></div>
-  </div>
-
-<script>
-/* ===== 接続設定（GAS Webアプリ） ===== */
-const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
-const REMOTE_KEY      = "presence-board-default";
-const REMOTE_POLL_MS  = 2000;        // 反映短縮
-const CONFIG_POLL_MS  = 120000;      // 名簿（構成）更新チェック
-const SESSION_KEY     = "presence-session-token";
-const TOKEN_DEFAULT_TTL = 3600000;   // トークン既定寿命（ms）
-
-/* ===== レイアウト（列数 3→2→1 の自動調整） ===== */
-const PANEL_MIN_PX = 760;
-const GAP_PX = 20;
-const MAX_COLS = 3;
-
-/* ===== 名簿とUI要素 ===== */
-let GROUPS = [];              // [{title, members:[{name, ext, id}]}]
-let CONFIG_UPDATED = 0;       // サーバ側の設定更新時刻
-let tokenRenewTimer = null;
-
-const board   = document.getElementById('board');
-const toastEl = document.getElementById('toast');
-const loginEl = document.getElementById('login');
-const loginMsg= document.getElementById('loginMsg');
-const pwInput = document.getElementById('pw');
-
-const menuEl   = document.getElementById('groupMenu');
-const menuList = document.getElementById('groupMenuList');
-const menuTitle= document.getElementById('groupMenuTitle');
-const titleBtn = document.getElementById('titleBtn');
-
-const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
-const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]); // これらへ切替時は戻り時間と備考をクリア
-const storeKey = "presence-board-v3"; // ローカル保存キー
-
-/* ===== 列数の算出と監視 ===== */
-let ro = null;
-function getContainerWidth(){
-  const el = board.parentElement || document.body;
-  const r = el.getBoundingClientRect();
-  return Math.max(0, Math.round(r.width));
-}
-function updateCols(){
-  const w = getContainerWidth();
-  let n = Math.floor((w + GAP_PX) / (PANEL_MIN_PX + GAP_PX));
-  if(!Number.isFinite(n) || n < 1) n = 1;
-  if(n > MAX_COLS) n = MAX_COLS;
-  board.style.setProperty('--cols', n);
-}
-function startGridObserver(){
-  if(ro) ro.disconnect();
-  ro = new ResizeObserver(updateCols);
-  ro.observe(board.parentElement || document.body);
-  window.addEventListener('resize', updateCols, {passive:true});
-  updateCols();
-}
-
-/* ===== 名簿（構成）をクライアント整形 ===== */
-function makeLocalId(s){
-  const seed = (s||"").normalize('NFKC').replace(/\s+/g,'');
-  let h = 0; for(let i=0;i<seed.length;i++){ h = (h*31 + seed.charCodeAt(i)) >>> 0; }
-  return "P" + (h.toString(16) + "00000000").slice(0,8);
-}
-function normalizeConfigClient(cfg){
-  if(!cfg || !Array.isArray(cfg.groups)) return [];
-  return cfg.groups.map(g=>({
-    title: String(g.title || ""),
-    members: (Array.isArray(g.members) ? g.members : []).map(m=>{
-      const name = String((m && m.name) || "");
-      const ext  = (m && m.ext) ? String(m.ext) : "";
-      let id     = (m && m.id) ? String(m.id) : "";
-      if(!/^[A-Za-z0-9_-]+$/.test(id)) id = makeLocalId(name+ext);
-      return { name, ext, id };
-    })
-  }));
-}
-function fallbackGroupTitle(g, idx){
-  const t = (g && typeof g.title === 'string' ? g.title.trim() : "");
-  return t || `グループ${idx+1}`;
-}
-
-/* ===== テーブル UI生成（スマホ用カードビュー対応：data-label 付与） ===== */
-function timeOptions(){
-  const opts=['<option value=""></option>'];
-  for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
-    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-    opts.push(`<option value="${t}">${t}</option>`);
-  } }
-  return opts.join('');
-}
-function rowHtml(member){
-  const name= member.name || "";
-  const ext = (member.ext && /^[0-9]{1,4}$/.test(String(member.ext))) ? String(member.ext) : "";
-  const key = member.id;
-  /* ★ PC表示の列順（DOM順）は固定：氏名→内線→ステータス→戻り時間→備考 */
-  return `
-    <tr id="row-${key}" data-key="${key}" data-status="在席">
-      <td class="name"  data-label="氏名">${name}</td>
-      <td class="ext"   data-label="内線">
-        <label class="sr-only" for="ext-${key}">内線</label>
-        <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" value="${ext}" />
-      </td>
-      <td class="status" data-label="ステータス">
-        <label class="sr-only" for="status-${key}">ステータス</label>
-        <select id="status-${key}" name="status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}</select>
-      </td>
-      <td class="time"   data-label="戻り時間">
-        <label class="sr-only" for="time-${key}">戻り時間</label>
-        <select id="time-${key}" name="time">${timeOptions()}</select>
-      </td>
-      <td class="note"   data-label="備考">
-        <input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" />
-      </td>
-    </tr>`;
-}
-function panelHtml(group, idx){
-  const gid = `grp-${idx}`;
-  const title = fallbackGroupTitle(group, idx);
-  return `
-    <section class="panel" id="${gid}" data-group-index="${idx}">
-      <h3 class="title">${title}</h3>
-      <table aria-label="在席表（${title}）">
-        <colgroup>
-          <col class="col-name"><col class="col-ext"><col class="col-status"><col class="col-time"><col class="col-note">
-        </colgroup>
-        <thead><tr><th>氏名</th><th>内線</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr></thead>
-        <tbody>${group.members.map(m=>rowHtml(m)).join("")}</tbody>
-      </table>
-    </section>`;
-}
-function render(){
-  board.innerHTML = GROUPS.map((g,i)=>panelHtml(g,i)).join('');
-  board.style.display = '';
-  wireEvents();
-  loadLocal();     // ローカル保存を即時反映（体感を速く）
-  recolor();
-  startGridObserver();
-  buildGroupMenu(); // タイトルのメニューを再構築（総数も更新）
-}
-
-/* ===== グループメニュー（タイトル→一覧→スクロール + 総数表示） ===== */
-function buildGroupMenu(){
-  if(!Array.isArray(GROUPS)) return;
-
-  // 総人数を計算
-  const total = GROUPS.reduce((sum, g) => sum + ((g.members && g.members.length) || 0), 0);
-
-  // 見出しに総数を反映
-  if(menuTitle){
-    menuTitle.textContent = `グループにジャンプ`;
-  }else{
-    const h4 = menuEl.querySelector('h4');
-    if(h4) h4.textContent = `グループにジャンプ`;
-  }
-
-  // 先頭に「全体（合計：XX名）」を置き、その後に各グループ
-  const items = [];
-  items.push(
-    `<li><button class="grp-item" role="menuitem" data-target="top">全体（合計：${total}名）</button></li>`
-  );
-
-  GROUPS.forEach((g,i)=>{
-    const title = fallbackGroupTitle(g,i);
-    const sub = (g && g.members && g.members.length) ? `（${g.members.length}名）` : '（0名）';
-    items.push(
-      `<li><button class="grp-item" role="menuitem" data-target="grp-${i}">
-        ${title} <span class="muted">${sub}</span>
-      </button></li>`
-    );
-  });
-
-  menuList.innerHTML = items.join('');
-
-  // クリックでスクロール & メニューを閉じる
-  menuList.querySelectorAll('button.grp-item').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const id = btn.getAttribute('data-target');
-      closeMenu();
-      if(id === 'top'){
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-      const sec = document.getElementById(id);
-      if(sec){ sec.scrollIntoView({behavior:'smooth', block:'start'}); }
-    });
-  });
-}
-
-/* メニューの開閉制御 */
-function openMenu(){
-  menuEl.classList.add('show');
-  titleBtn.setAttribute('aria-expanded','true');
-}
-function closeMenu(){
-  menuEl.classList.remove('show');
-  titleBtn.setAttribute('aria-expanded','false');
-}
-function toggleMenu(){
-  if(menuEl.classList.contains('show')) closeMenu(); else openMenu();
-}
-
-/* タイトル・外側クリック・ESCで閉じる */
-titleBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggleMenu(); });
-document.addEventListener('click', (e)=>{
-  if(menuEl.classList.contains('show')){
-    const within = menuEl.contains(e.target) || titleBtn.contains(e.target);
-    if(!within) closeMenu();
-  }
+// === 拠点定義（必要に応じて追加） ===
+const OFFICES = Object.freeze({
+  nagoya: { name: '名古屋中央営業所', password: 'NagoChu6261', adminPassword: 'NagoChu6261' },
+  test:   { name: 'テスト',             password: 'test123',     adminPassword: 'test123'     },
 });
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
-/* ===== 行状態の取得・適用・保存 ===== */
-function getRowStateByTr(tr){
-  if(!tr) return {ext:"",status:"在席",time:"",note:""};
+const TOKEN_TTL_MS   = 60 * 60 * 1000;
+const TOKEN_PREFIX   = 'tok_';
+const TOKEN_OFFICE_PREFIX = 'toff_';
+const CACHE_TTL_SEC  = 20;
+const KEY_PREFIX     = 'presence:';  // for Cache keys
+const MAX_SET_BYTES  = 120 * 1024;
+const RESET_DATA_ON_CONFIG_CHANGE = false;
+
+function now(){ return Date.now(); }
+function outJSONP(cb, obj){
+  if(!/^[a-zA-Z0-9_.$]+$/.test(cb)) cb = 'callback';
+  return ContentService.createTextOutput(cb + '(' + JSON.stringify(obj) + ')')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+function safeParam_(e, name, def){
+  return (e && e.parameter && typeof e.parameter[name] === 'string') ? e.parameter[name] : def;
+}
+function checkToken_(prop, token){
+  const exp = Number(prop.getProperty(TOKEN_PREFIX + token) || 0);
+  return (exp && exp >= now());
+}
+function getOfficeByToken_(prop, token){
+  const office = prop.getProperty(TOKEN_OFFICE_PREFIX + token);
+  if (!office || !OFFICES[office]) return null;
+  return office;
+}
+function sweepTokens_(prop){
+  if (Math.random() < 0.02) {
+    const all = prop.getProperties(), t = now();
+    for (var k in all) {
+      if (k.indexOf(TOKEN_PREFIX) === 0) {
+        var exp = Number(all[k] || 0);
+        if (!exp || exp < t) {
+          const token = k.substring(TOKEN_PREFIX.length);
+          prop.deleteProperty(k);
+          prop.deleteProperty(TOKEN_OFFICE_PREFIX + token);
+        }
+      }
+    }
+  }
+}
+
+// === キー算出（拠点ごと） ===
+function dataKeyForOffice_(office){ return `presence-board-${office}`; }
+function configKeyForOffice_(office){ return `presence-config-${office}`; }
+
+// === ID 生成 ===
+function ensureMemberId_(member, seed, usedSet){
+  if (member.id && /^[A-Za-z0-9_-]+$/.test(String(member.id)) && !usedSet.has(member.id)) {
+    usedSet.add(member.id);
+    return member.id;
+  }
+  const src = String(member.name||'') + '|' + String(member.ext||'') + '|' + String(seed||'');
+  const hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.newBlob(src).getBytes());
+  let n = 0;
+  for (let i=0;i<6;i++){ n = (n * 256 + (hash[i] & 0xff)) >>> 0; }
+  let pid = ('p' + n.toString(36)).slice(0,10);
+  let cnt = 0;
+  while (usedSet.has(pid)) { cnt++; pid = ('p' + n.toString(36) + cnt.toString(36)).slice(0,12); }
+  member.id = pid;
+  usedSet.add(pid);
+  return pid;
+}
+
+// === 既定名簿（名古屋） ===
+function defaultConfigNagoya_(){
   return {
-    ext:   tr.querySelector('input[name="ext"]').value.trim(),
-    status:tr.querySelector('select[name="status"]').value,
-    time:  tr.querySelector('select[name="time"]').value,
-    note:  tr.querySelector('input[name="note"]').value
+    version: 2,
+    updated: now(),
+    groups: [
+      { title:"", members:[
+        { name:"城間SV", ext:"108" }, 
+        { name:"清水", ext:"419" }, { name:"石垣", ext:"406" }, { name:"大島", ext:"426" }, { name:"加藤", ext:"422" }, 
+        { name:"橋本", ext:"420" }, { name:"大石", ext:"423" }, { name:"田中", ext:"433" }, { name:"井山", ext:"427" },
+      ]},
+      { title:"", members:[
+        { name:"近藤SV", ext:"111" }, 
+        { name:"飯島", ext:"415" }, { name:"永峯", ext:"429" }, { name:"蒲", ext:"430" }, { name:"山本", ext:"428" }, 
+        { name:"能登", ext:"410" }, { name:"松浦", ext:"414" }, { name:"長縄", ext:"424" },
+      ]},
+      { title:"", members:[
+        { name:"鈴木", ext:"418" }, { name:"江場", ext:"404" }, { name:"三島", ext:"410" }, 
+        { name:"中村(亮)", ext:"412" }, { name:"伊藤(尊)", ext:"425" }, { name:"古田(茂)", ext:"431" }, { name:"小川", ext:"432" },
+      ]},
+      { title:"", members:[
+        { name:"小伊勢SV", ext:"109" }, 
+        { name:"今泉", ext:"413" }, { name:"村田", ext:"407" }, { name:"大野", ext:"411" },
+        { name:"北村", ext:"400" }, { name:"長谷川", ext:"405" }, { name:"横内", ext:"421" },
+      ]},
+      { title:"", members:[
+        { name:"石井SV", ext:"106" }, 
+        { name:"金村", ext:"402" }, { name:"井上", ext:"417" }, { name:"坪井", ext:"409" },
+        { name:"折原", ext:"401" }, { name:"佐藤", ext:"403" }, { name:"水野", ext:"408" },
+      ]},
+      { title:"", members:[
+        { name:"高橋B長", ext:"115" },
+        { name:"中村(純)", ext:"309" }, { name:"稲葉", ext:"305" }, { name:"小森", ext:"308" },
+        { name:"三浦", ext:"300" }, { name:"伊藤(信)", ext:"315" }, { name:"朝井", ext:"304" },
+      ]},
+      { title:"", members:[
+        { name:"中村", ext:"301" }, { name:"阿部", ext:"302" }, { name:"平良", ext:"303" }, { name:"平八重", ext:"313", id:"2379862" },
+        { name:"吉田(拓)", ext:"306" }, { name:"若山", ext:"314" }, { name:"伊藤(樹)" }, { name:"竹森", ext:"307" },
+      ]},
+      { title:"", members:[
+        { name:"高木SV", ext:"114" },
+        { name:"村上", ext:"203" }, { name:"河内", ext:"208" }, { name:"鵜飼", ext:"201" },
+        { name:"林", ext:"211" }, { name:"大井", ext:"206" }, { name:"樋口", ext:"209" },
+      ]},
+      { title:"", members:[
+        { name:"高羽", ext:"204" }, { name:"川崎", ext:"202" }, 
+        { name:"田中(あ)", ext:"200" }, { name:"小川", ext:"210" },
+      ]},
+      { title:"", members:[
+        { name:"猪野所長", ext:"100" }, 
+        { name:"渡辺副所長", ext:"101" }, { name:"日黒副所長", ext:"102" }, { name:"嶋本EM", ext:"103" }, { name:"藤井SV", ext:"107" }, 
+      ]},
+    ]
   };
 }
-function getRowState(id){ return getRowStateByTr(document.getElementById(`row-${id}`)); }
-function getState(){
-  const data={};
-  board.querySelectorAll("tbody tr").forEach(tr=>{
-    data[tr.dataset.key]=getRowStateByTr(tr);
-  });
-  return data;
+
+// === 既定名簿（テスト拠点） ===
+function defaultConfigTest_(){
+  return {
+    version: 2,
+    updated: now(),
+    groups: [
+      { title:"テスト1", members:[ { name:"test1さん" } ] },
+      { title:"テスト2", members:[ { name:"test2さん" } ] },
+    ]
+  };
 }
 
-/* ==== ★ サーバ値の適用：編集中のセルは上書きしない ==== */
-function isEditingField(el){
-  if(!el) return false;
-  if(el.dataset && el.dataset.editing === '1') return true;      // focus中
-  if(el.dataset && el.dataset.composing === '1') return true;     // IME合成中
-  if(el === document.activeElement) return true;                  // 念のため
-  return false;
-}
-function setIfNeeded(el, newVal){
-  if(!el) return;
-  if(isEditingField(el)) return;           // ★編集中は絶対に触らない
-  if(el.value !== (newVal ?? "")) el.value = newVal ?? "";
-}
-function applyState(data){
-  if(!data) return;
-  Object.entries(data).forEach(([k,v])=>{
-    const e=document.getElementById(`ext-${k}`);
-    const s=document.getElementById(`status-${k}`);
-    const t=document.getElementById(`time-${k}`);
-    const n=document.getElementById(`note-${k}`);
+// 旧形式→v2 + id付与
+function normalizeConfig(json){
+  let cfg;
+  if (Array.isArray(json) && json.length && Array.isArray(json[0])) {
+    cfg = { version:2, updated:now(), groups: json.map(arr=>({title:"", members:arr.map(name=>({name:String(name||'')}))})) };
+  } else if (json && typeof json==='object' && Array.isArray(json.groups)) {
+    cfg = {
+      version:2, updated:(typeof json.updated==='number')?json.updated:now(),
+      groups: json.groups.map(g=>({
+        title: (g && typeof g.title==='string') ? g.title : "",
+        members: Array.isArray(g?.members)? g.members.map(m=>({
+          name:String(m?.name||''), ext:(m && m.ext)?String(m.ext):undefined, id:(m && m.id)?String(m.id):undefined
+        })) : []
+      }))
+    };
+  } else { cfg = {version:2, updated:now(), groups:[]}; }
 
-    if(typeof v.ext==="string")  setIfNeeded(e, v.ext);
-    if(v.status && STATUSES.includes(v.status)) setIfNeeded(s, v.status);
-    setIfNeeded(t, v.time || "");
-    setIfNeeded(n, v.note || "");
-
-    if(s && t) toggleTimeEnable(s, t);
-  });
-  recolor();
+  const used = new Set();
+  cfg.groups.forEach((g,gi)=>g.members.forEach((m,mi)=>{
+    if (m.id && /^[A-Za-z0-9_-]+$/.test(m.id)) { if (used.has(m.id)) m.id=undefined; }
+    ensureMemberId_(m, `${gi}-${mi}`, used);
+  }));
+  return cfg;
 }
 
-function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(e){} }
-function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) applyState(JSON.parse(raw)); }catch(e){} }
-
-/* ===== 行内イベント（同期：即時 or デバウンス） ===== */
-const noteTimers = new Map();
-function debounceRowPush(key, delay=900){
-  if(noteTimers.has(key)) clearTimeout(noteTimers.get(key));
-  noteTimers.set(key, setTimeout(()=>{ noteTimers.delete(key); pushRowDelta(key); }, delay));
-}
-function markEditing(el){
-  if(!el) return;
-  el.dataset.editing = '1';
-}
-function unmarkEditing(el){
-  if(!el) return;
-  delete el.dataset.editing;
-}
-function wireEvents(){
-  // 共通：フォーカス/ブラーで編集中フラグを管理
-  board.querySelectorAll("input, select").forEach(el=>{
-    el.addEventListener('focus', ()=> markEditing(el));
-    el.addEventListener('blur',  ()=> unmarkEditing(el));
-  });
-
-  board.querySelectorAll("select[name='status']").forEach(sel=>{
-    sel.addEventListener("change", ()=>{
-      const key  = sel.id.replace("status-","");
-      const time = document.getElementById(`time-${key}`);
-      const note = document.getElementById(`note-${key}`);
-      if(CLEAR_ON.has(sel.value)){ if(time) time.value=""; if(note) note.value=""; }
-      if(time) toggleTimeEnable(sel, time);
-      saveLocal(); pushRowDelta(key); recolor();
-    });
-  });
-  board.querySelectorAll("select[name='time']").forEach(sel=>{
-    sel.addEventListener("change", ()=>{ const key = sel.id.replace("time-",""); saveLocal(); pushRowDelta(key); });
-  });
-  board.querySelectorAll("input[name='ext']").forEach(inp=>{
-    inp.addEventListener('change', ()=>{ const key = inp.id.replace("ext-",""); saveLocal(); pushRowDelta(key); });
-  });
-  board.querySelectorAll("input[name='note']").forEach(inp=>{
-    const key = inp.id.replace("note-","");
-    inp.addEventListener('compositionstart', ()=>{ inp.dataset.composing = '1'; });
-    inp.addEventListener('compositionend',  ()=>{ inp.dataset.composing = ''; saveLocal(); pushRowDelta(key); });
-    inp.addEventListener('input', ()=>{ saveLocal(); if(!inp.dataset.composing) debounceRowPush(key, 900); });
-    inp.addEventListener('change', ()=>{ saveLocal(); pushRowDelta(key); });
-  });
-}
-function toggleTimeEnable(statusEl, timeEl){
-  const needsTime = ["外出","出張","研修"].includes(statusEl.value);
-  if(timeEl) timeEl.disabled = !needsTime;
-}
-function recolor(){
-  board.querySelectorAll("tbody tr").forEach(tr=>{
-    tr.dataset.status = tr.querySelector('select[name="status"]').value;
+// 初期構成の保証（全拠点）
+function ensureConfigAll_(){
+  const prop = PropertiesService.getScriptProperties();
+  Object.keys(OFFICES).forEach(office=>{
+    const cfgKey = configKeyForOffice_(office);
+    if(!prop.getProperty(cfgKey)){
+      const base = office==='nagoya' ? defaultConfigNagoya_() : defaultConfigTest_();
+      const def = normalizeConfig(base);
+      prop.setProperty(cfgKey, JSON.stringify(def));
+    }
   });
 }
 
-/* ===== JSONP（GAS側のdoGetをcallbackでラップして受信） ===== */
-function jsonp(url, timeout=12000){
-  return new Promise((resolve)=>{
-    const cb = 'cb_'+Math.random().toString(36).slice(2);
-    let done=false;
-    const cleanup=(s)=>{ try{ delete window[cb]; }catch(e){} if(s){ if(s.remove){s.remove();} else if(s.parentNode){s.parentNode.removeChild(s);} } };
-    const timer=setTimeout(()=>{ if(!done){ done=true; cleanup(script); resolve(null); } }, timeout);
-    window[cb]=(data)=>{ if(done) return; done=true; clearTimeout(timer); cleanup(script); resolve(data); };
-    const script=document.createElement('script');
-    script.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb + '&_=' + Date.now();
-    script.onerror=()=>{ if(!done){ done=true; clearTimeout(timer); cleanup(script); resolve(null); } };
-    document.body.appendChild(script);
-  });
-}
+/* === メイン: doGet === */
+function doGet(e){
+  const cb     = safeParam_(e,'callback','callback');
+  const action = safeParam_(e,'action','get');
+  const prop   = PropertiesService.getScriptProperties();
+  const cache  = CacheService.getScriptCache();
 
-/* ===== サーバ通信：ログイン・名簿取得・データ取得/更新・トークン更新 ===== */
-let SESSION_TOKEN = "";
+  sweepTokens_(prop);
+  ensureConfigAll_();
 
-async function tryLoadGroupsFromServer(nocache=false){
-  const url = `${REMOTE_ENDPOINT}?action=getConfig&key=presence-config&token=${encodeURIComponent(SESSION_TOKEN)}${nocache?'&nocache=1':''}`;
-  const cfg = await jsonp(url);
-  if(!cfg || cfg.error) throw new Error('config_load_failed');
-  const groups = normalizeConfigClient(cfg);
-  if(!groups.length) throw new Error('config_empty');
-  GROUPS = groups;
-  CONFIG_UPDATED = (typeof cfg.updated === 'number') ? cfg.updated : 0;
-}
-async function fastFetchDataOnce(){
-  const url = `${REMOTE_ENDPOINT}?action=get&key=${encodeURIComponent(REMOTE_KEY)}&token=${encodeURIComponent(SESSION_TOKEN)}&nocache=1`;
-  return await jsonp(url);
-}
-async function pullRemote(){
-  if(!SESSION_TOKEN) return;
-  const remote = await fastFetchDataOnce();
-  if(!remote) return;
-  if(remote.error){ sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; loginEl.style.display='flex'; return; }
-  if(remote.data){ applyState(remote.data); try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data))); }catch(e){} }
-}
-async function pushRowDelta(key){
-  if(!SESSION_TOKEN) return;
-  const payloadObj = {updated:Date.now(), data:{ [key]: getRowState(key) }};
-  const payload = encodeURIComponent(JSON.stringify(payloadObj));
-  const url = `${REMOTE_ENDPOINT}?action=set&key=${encodeURIComponent(REMOTE_KEY)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`;
-  const res = await jsonp(url);
-  if(res && res.error){ sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; loginEl.style.display='flex'; return; }
-  await pullRemote(); // 反映確認（軽量pull）
-}
-function startRemoteSync(forcePull=false){
-  const start = ()=>{ if(forcePull) pullRemote(); setInterval(()=>pullRemote(), REMOTE_POLL_MS + Math.floor(Math.random()*1000)); };
-  const jitter = Math.floor(Math.random()*REMOTE_POLL_MS);
-  setTimeout(start, jitter);
-}
-let configWatchTimer = null;
-function startConfigWatch(){
-  if(configWatchTimer) clearInterval(configWatchTimer);
-  configWatchTimer = setInterval(async ()=>{
-    if(!SESSION_TOKEN) return;
+  // --- login（拠点＋PW） ---
+  if (action==='login'){
+    const office = safeParam_(e,'office','');
+    const pw = safeParam_(e,'password','');
+    if (!OFFICES[office] || pw !== OFFICES[office].password) return outJSONP(cb,{error:'unauthorized'});
+    const token = Utilities.getUuid();
+    prop.setProperty(TOKEN_PREFIX+token, String(now()+TOKEN_TTL_MS));
+    prop.setProperty(TOKEN_OFFICE_PREFIX+token, office);
+    return outJSONP(cb,{token:token, exp:TOKEN_TTL_MS, office:office, officeName:OFFICES[office].name});
+  }
+
+  // --- renew ---
+  if (action==='renew'){
+    const token = safeParam_(e,'token','');
+    if (!checkToken_(prop,token)) return outJSONP(cb,{error:'unauthorized'});
+    prop.setProperty(TOKEN_PREFIX+token, String(now()+TOKEN_TTL_MS));
+    return outJSONP(cb,{ok:true, exp:TOKEN_TTL_MS});
+  }
+
+  // 認証必須以降
+  const token = safeParam_(e,'token','');
+  if (!checkToken_(prop,token)) return outJSONP(cb,{error:'unauthorized'});
+  const office = getOfficeByToken_(prop, token);
+  if (!office) return outJSONP(cb,{error:'unauthorized'});
+
+  const DATA_KEY   = dataKeyForOffice_(office);
+  const CONFIG_KEY = configKeyForOffice_(office);
+
+  if (action==='get'){
+    const noCache = safeParam_(e,'nocache','')==='1';
+    const cKey    = KEY_PREFIX + 'data:' + office;
+    const hit     = noCache ? null : cache.get(cKey);
+    if (hit){ try{ return outJSONP(cb, JSON.parse(hit)); }catch(err){} }
+    const v = prop.getProperty(DATA_KEY) || '{"updated":0,"data":{}}';
+    try { if (!noCache) cache.put(cKey, v, CACHE_TTL_SEC); return outJSONP(cb, JSON.parse(v)); }
+    catch(err){ return outJSONP(cb,{updated:0,data:{}}); }
+  }
+
+  if (action==='set'){
+    const dataRaw = safeParam_(e,'data','{"updated":0,"data":{}}');
+    if (dataRaw && dataRaw.length>MAX_SET_BYTES) return outJSONP(cb,{error:'too_large'});
+
+    let incoming;
     try{
-      const cfg = await jsonp(`${REMOTE_ENDPOINT}?action=getConfig&key=presence-config&token=${encodeURIComponent(SESSION_TOKEN)}&nocache=1`);
-      if(cfg && !cfg.error && typeof cfg.updated === 'number' && cfg.updated > CONFIG_UPDATED){
-        const prev = getState();
-        GROUPS = normalizeConfigClient(cfg);
-        CONFIG_UPDATED = cfg.updated;
-        render();
-        applyState(prev);
+      incoming = JSON.parse(dataRaw);
+      if (!incoming || typeof incoming!=='object' || typeof incoming.updated!=='number' || typeof incoming.data!=='object')
+        return outJSONP(cb,{error:'bad_data'});
+    }catch(err){ return outJSONP(cb,{error:'bad_json'}); }
+
+    const lock = LockService.getScriptLock();
+    try{
+      lock.tryLock(500);
+
+      const prevRaw = prop.getProperty(DATA_KEY) || '{"updated":0,"data":{}}';
+      let prev; try{ prev = JSON.parse(prevRaw); }catch(_){ prev = {updated:0,data:{}}; }
+
+      let out;
+      if (incoming.full === true) {
+        out = { updated: incoming.updated || now(), data: incoming.data || {} };
+      } else {
+        const merged = Object.assign({}, prev.data || {});
+        for (var k in incoming.data) merged[k] = incoming.data[k];
+        out = { updated: Math.max(Number(prev.updated)||0, Number(incoming.updated)||0, now()), data: merged };
       }
-    }catch(e){}
-  }, CONFIG_POLL_MS);
-}
-function scheduleRenew(expMs){
-  if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; }
-  const delay = Math.max(10000, Math.floor(expMs * 0.8));
-  tokenRenewTimer = setTimeout(renewToken, delay);
-}
-async function renewToken(){
-  if(!SESSION_TOKEN) return;
-  const res = await jsonp(`${REMOTE_ENDPOINT}?action=renew&token=${encodeURIComponent(SESSION_TOKEN)}`);
-  if(res && res.ok){
-    const next = Number(res.exp) || TOKEN_DEFAULT_TTL;
-    scheduleRenew(next);
-  }else{
-    sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN="";
-    loginEl.style.display='flex';
+
+      const outStr = JSON.stringify(out);
+      prop.setProperty(DATA_KEY, outStr);
+      cache.put(KEY_PREFIX+'data:'+office, outStr, CACHE_TTL_SEC);
+      return outJSONP(cb,{ok:true});
+    } finally {
+      try{ lock.releaseLock(); }catch(e2){}
+    }
   }
+
+  if (action==='getConfig'){
+    const noCache = safeParam_(e,'nocache','')==='1';
+    const cKey    = KEY_PREFIX + 'cfg:' + office;
+    const hit     = noCache ? null : cache.get(cKey);
+    if (hit){ try{ return outJSONP(cb, JSON.parse(hit)); }catch(err){} }
+    const v = prop.getProperty(CONFIG_KEY);
+    let parsed;
+    try{
+      parsed = normalizeConfig(JSON.parse(v));
+    }catch(err){
+      parsed = normalizeConfig(office==='nagoya'? defaultConfigNagoya_() : defaultConfigTest_());
+    }
+    parsed.updated = typeof parsed.updated==='number' ? parsed.updated : now();
+    const out = JSON.stringify(parsed);
+    prop.setProperty(CONFIG_KEY, out);
+    if (!noCache) cache.put(cKey, out, CACHE_TTL_SEC);
+    return outJSONP(cb, parsed);
+  }
+
+  if (action==='setConfig'){
+    const adminPw = safeParam_(e,'adminPw','');
+    if (adminPw!==OFFICES[office].adminPassword) return outJSONP(cb,{error:'forbidden'});
+    const dataRaw = safeParam_(e,'data','');
+    try{
+      const json = normalizeConfig(JSON.parse(dataRaw));
+      if (!json || !Array.isArray(json.groups)) throw new Error('bad');
+      json.updated = now();
+      const out = JSON.stringify(json);
+      const lock = LockService.getScriptLock();
+      try{
+        lock.tryLock(500);
+        prop.setProperty(CONFIG_KEY, out);
+        if (RESET_DATA_ON_CONFIG_CHANGE){
+          const empty = JSON.stringify({updated:0, data:{}});
+          prop.setProperty(DATA_KEY, empty);
+        }
+        cache.put(KEY_PREFIX+'cfg:'+office, out, CACHE_TTL_SEC);
+        cache.remove(KEY_PREFIX+'data:'+office);
+      }finally{ try{ lock.releaseLock(); }catch(e2){} }
+      return outJSONP(cb,{ok:true});
+    }catch(err){ return outJSONP(cb,{error:'bad_config'}); }
+  }
+
+  if (action==='clearData'){
+    const adminPw = safeParam_(e,'adminPw','');
+    if (adminPw!==OFFICES[office].adminPassword) return outJSONP(cb,{error:'forbidden'});
+    const empty = JSON.stringify({updated:0, data:{}});
+    prop.setProperty(DATA_KEY, empty);
+    CacheService.getScriptCache().remove(KEY_PREFIX + 'data:' + office);
+    return outJSONP(cb,{ok:true});
+  }
+
+  return outJSONP(cb,{error:'unknown_action'});
 }
 
-/* ===== 起動：最速描画 ===== */
-document.addEventListener('DOMContentLoaded', ()=>{
-  window.__doLogin = async () => {
-    const pw = pwInput.value;
-    if(!pw || !pw.trim()){ loginMsg.textContent="パスワードを入力してください"; return; }
-    loginMsg.textContent = "認証中…";
-    const res = await jsonp(`${REMOTE_ENDPOINT}?action=login&password=${encodeURIComponent(pw)}`);
-    if(res === null){ loginMsg.textContent = "通信エラー（公開設定/URLを確認）"; return; }
-    if(res && res.error === 'unauthorized'){ loginMsg.textContent = "パスワードが違います"; return; }
-    if(!(res && res.token)){ loginMsg.textContent = "サーバ応答が不正です"; return; }
-
-    SESSION_TOKEN = res.token; sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
-    loginEl.style.display='none'; loginMsg.textContent="";
-
-    const cfgP  = tryLoadGroupsFromServer(true).catch(()=>{});
-    const dataP = fastFetchDataOnce().catch(()=>null);
-
-    await cfgP; render(); loadLocal();                 // 先に描画して即表示
-    const data = await dataP; if(data && data.data) applyState(data.data); // 到着次第上書き
-
-    scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
-    startRemoteSync(true);
-    startConfigWatch();
-  };
-
-  document.getElementById('btnLogin').addEventListener('click', window.__doLogin);
-  pwInput.addEventListener('keypress', (e)=>{ if(e.key==='Enter') window.__doLogin(); });
-
-  const existing = sessionStorage.getItem(SESSION_KEY);
-  if(existing){
-    SESSION_TOKEN = existing; loginEl.style.display='none';
-    (async ()=>{
-      const ok = await jsonp(`${REMOTE_ENDPOINT}?action=renew&token=${encodeURIComponent(SESSION_TOKEN)}`);
-      if(ok && ok.ok){
-        scheduleRenew(Number(ok.exp)||TOKEN_DEFAULT_TTL);
-        const cfgP  = tryLoadGroupsFromServer(true).catch(()=>{});
-        const dataP = fastFetchDataOnce().catch(()=>null);
-        await cfgP; render(); loadLocal();
-        const data = await dataP; if(data && data.data) applyState(data.data);
-        startRemoteSync(true);
-        startConfigWatch();
-      }else{
-        sessionStorage.removeItem(SESSION_KEY); SESSION_TOKEN=""; loginEl.style.display='flex';
-      }
-    })();
-  }else{
-    loginEl.style.display='flex';
-  }
-});
-
-/* ===== エラー表示（致命的な実行時エラーを画面に出す） ===== */
-window.addEventListener('error', e=>{
-  toastEl.style.background='#c53030';
-  toastEl.textContent='エラー: '+e.message;
-  toastEl.classList.add('show');
-  setTimeout(()=>toastEl.classList.remove('show'), 1500);
-});
-</script>
-
-<!-- 備考入力の補完候補 -->
-<datalist id="noteOptions">
-  <option value=""></option>
-  <option value="直出"></option>
-  <option value="直帰"></option>
-  <option value="直出/直帰"></option>
-</datalist>
-</body>
-</html>
-
+/* 管理ユーティリティ */
+function exportConfigToLog(office){
+  const k = configKeyForOffice_(office||'nagoya');
+  Logger.log(PropertiesService.getScriptProperties().getProperty(k) || '(no config)');
+}
+function importConfigFromString(jsonString, office){
+  if (typeof jsonString!=='string' || !jsonString.trim()) throw new Error('jsonString required');
+  const o = office||'nagoya';
+  const json = normalizeConfig(JSON.parse(jsonString)); json.updated = now();
+  const prop = PropertiesService.getScriptProperties();
+  prop.setProperty(configKeyForOffice_(o), JSON.stringify(json));
+  flushConfigCache(o);
+  if (RESET_DATA_ON_CONFIG_CHANGE){ prop.setProperty(dataKeyForOffice_(o), JSON.stringify({updated:0, data:{}})); }
+}
+function setMemberIdByName(name,newId,office){
+  if (!/^[\s\S]+$/.test(name)) throw new Error('name required');
+  if (!/^[A-Za-z0-9_-]+$/.test(newId)) throw new Error('newId must be alnum/_-');
+  const o = office||'nagoya';
+  const prop = PropertiesService.getScriptProperties();
+  const v = prop.getProperty(configKeyForOffice_(o)); if(!v) throw new Error('no config');
+  const cfg = normalizeConfig(JSON.parse(v));
+  let changed=false; const used=new Set(); cfg.groups.forEach(g=>g.members.forEach(m=>{if(m.id) used.add(m.id)}));
+  for(const g of cfg.groups){ for(const m of g.members){ if(m.name===name){ if(used.has(newId)) throw new Error('newId already exists'); used.delete(m.id); m.id=newId; used.add(newId); changed=true; break; } } if(changed) break; }
+  if(!changed) throw new Error('name not found');
+  cfg.updated=now(); prop.setProperty(configKeyForOffice_(o), JSON.stringify(cfg)); flushConfigCache(o);
+}
+function renameMemberId(oldId,newId,office){
+  if (!/^[A-Za-z0-9_-]+$/.test(oldId) || !/^[A-Za-z0-9_-]+$/.test(newId)) throw new Error('id invalid');
+  const o = office||'nagoya';
+  const prop = PropertiesService.getScriptProperties(); const v=prop.getProperty(configKeyForOffice_(o)); if(!v) throw new Error('no config');
+  const cfg=normalizeConfig(JSON.parse(v)); const used=new Set(); let found=false;
+  cfg.groups.forEach(g=>g.members.forEach(m=>{if(m.id) used.add(m.id)})); if(used.has(newId)) throw new Error('newId already exists');
+  for(const g of cfg.groups){ for(const m of g.members){ if(m.id===oldId){ m.id=newId; found=true; break; } } if(found) break; }
+  if(!found) throw new Error('oldId not found'); cfg.updated=now(); prop.setProperty(configKeyForOffice_(o), JSON.stringify(cfg)); flushConfigCache(o);
+}
+function flushConfigCache(office){
+  const cache = CacheService.getScriptCache();
+  const o = office||'nagoya';
+  cache.remove(KEY_PREFIX+'cfg:'+o);
+  cache.remove(KEY_PREFIX+'data:'+o);
+}
+function resetConfigToDefault(office){
+  const o = office||'nagoya';
+  const prop = PropertiesService.getScriptProperties();
+  const cfg  = normalizeConfig(o==='nagoya'? defaultConfigNagoya_() : defaultConfigTest_());
+  cfg.updated = Date.now();
+  prop.setProperty(configKeyForOffice_(o), JSON.stringify(cfg));
+  flushConfigCache(o);
+}
+function clearPresenceData(office){
+  const o = office||'nagoya';
+  const p = PropertiesService.getScriptProperties();
+  p.setProperty(dataKeyForOffice_(o), JSON.stringify({updated:0, data:{}}));
+  CacheService.getScriptCache().remove(KEY_PREFIX + 'data:' + o);
+}
+function dumpPresenceData(office){
+  const o = office||'nagoya';
+  const raw = PropertiesService.getScriptProperties().getProperty(dataKeyForOffice_(o));
+  Logger.log(raw || '(empty)');
+}
