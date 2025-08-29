@@ -19,7 +19,7 @@
     --scale-status: 0.75;
     --scale-time:   0.45;
 
-  /* 列の下限 */
+    /* 列の下限 */
     --min-name:    85px;
     --min-ext:     35px;
     --min-status:  85px;
@@ -61,7 +61,7 @@
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
   th{text-align:left}
 
-  /* 列幅 */
+  /* 列幅（PC/タブレット向け） */
   col.col-name{width:var(--w-name)}
   col.col-ext{width:var(--w-ext)}
   col.col-status{width:var(--status-effective)}
@@ -92,6 +92,65 @@
   .login .card input{margin:.4rem 0}
 
   @media print{header,.toast,.login{display:none} body{margin:0}.board{gap:10px} th,td{font-size:12px;padding:4px}}
+
+  /* ======== スマホ用カードビュー（方式C） ======== */
+  @media (max-width: 720px){
+    /* テーブルをカード化：ヘッダ/col幅を無効化 */
+    colgroup, thead{ display:none; }
+    table{ table-layout:auto; }
+    tbody{ display:block; }
+    /* 行をカードに */
+    tbody tr{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px 12px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px;
+      margin:10px 0;
+    }
+    /* セルはラベル付きの項目として積む */
+    tbody td{
+      border:none;
+      padding:0;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:1 1 48%;
+      min-width:160px;
+      background:transparent;
+    }
+    /* ラベル表示（氏名以外） */
+    tbody td::before{
+      content: attr(data-label);
+      font-weight:600;
+      color:#6B7280;
+      min-width:5.5em;
+      flex:0 0 auto;
+    }
+    /* 氏名はタイトル扱い（1段目フル幅） */
+    tbody td.name{
+      order:0;
+      flex:1 1 100%;
+      font-weight:800;
+      font-size:15px;
+      line-height:1.2;
+      padding-bottom:2px;
+    }
+    tbody td.name::before{ content:""; display:none; }
+
+    /* 1段目：ステータス→戻り時間（横並びになりやすい幅） */
+    tbody td.status{ order:1; }
+    tbody td.time  { order:2; }
+
+    /* 2段目：内線→備考 */
+    tbody td.ext  { order:3; }
+    tbody td.note { order:4; flex:1 1 100%; }
+
+    /* フォームの幅は常に100% */
+    select, input[type="text"]{ width:100%; }
+    td.status select{ padding-right:2.0em; }
+  }
 </style>
 </head>
 
@@ -121,7 +180,7 @@
 /* ===== 接続設定（GAS Webアプリ） ===== */
 const REMOTE_ENDPOINT = "https://script.google.com/macros/s/AKfycbxP4UKpNe0PRdsZY5diuEtcGXe6EDomDcjWhbPavpjf3B2RiNOYZF0V39cCMEfCVxGM/exec";
 const REMOTE_KEY      = "presence-board-default";
-const REMOTE_POLL_MS  = 2000;        // データの定期取得
+const REMOTE_POLL_MS  = 2000;        // ★ 反映短縮（8秒→2秒）
 const CONFIG_POLL_MS  = 120000;      // 名簿（構成）更新チェック
 const SESSION_KEY     = "presence-session-token";
 const TOKEN_DEFAULT_TTL = 3600000;   // トークン既定寿命（ms）
@@ -191,7 +250,7 @@ function normalizeConfigClient(cfg){
   }));
 }
 
-/* ===== テーブル UI生成 ===== */
+/* ===== テーブル UI生成（スマホ用カードビュー対応：data-label 付与） ===== */
 function timeOptions(){
   const opts=['<option value=""></option>'];
   for(let h=0;h<24;h++){ for(let m=0;m<60;m+=30){
@@ -206,17 +265,22 @@ function rowHtml(member){
   const key = member.id;
   return `
     <tr id="row-${key}" data-key="${key}" data-status="在席">
-      <td class="name">${name}</td>
-      <td class="ext"><label class="sr-only" for="ext-${key}">内線</label>
+      <td class="name"  data-label="氏名">${name}</td>
+      <td class="ext"   data-label="内線">
+        <label class="sr-only" for="ext-${key}">内線</label>
         <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" value="${ext}" />
       </td>
-      <td class="status"><label class="sr-only" for="status-${key}">ステータス</label>
+      <td class="status" data-label="ステータス">
+        <label class="sr-only" for="status-${key}">ステータス</label>
         <select id="status-${key}" name="status">${STATUSES.map(s=>`<option value="${s}">${s}</option>`).join("")}</select>
       </td>
-      <td class="time"><label class="sr-only" for="time-${key}">戻り時間</label>
+      <td class="time"   data-label="戻り時間">
+        <label class="sr-only" for="time-${key}">戻り時間</label>
         <select id="time-${key}" name="time">${timeOptions()}</select>
       </td>
-      <td class="note"><input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" /></td>
+      <td class="note"   data-label="備考">
+        <input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" />
+      </td>
     </tr>`;
 }
 function panelHtml(group){
@@ -406,7 +470,7 @@ async function renewToken(){
   }
 }
 
-/* ===== 起動：最速描画（名簿とデータを並列取得→即レンダ→ローカル適用→サーバ到着で上書き） ===== */
+/* ===== 起動：最速描画 ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   window.__doLogin = async () => {
     const pw = pwInput.value;
@@ -474,11 +538,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
-
-
-
-
-
-
-
