@@ -54,8 +54,8 @@
     padding:.35rem .9rem; background:#dff1ff; border-radius:999px;
     border:1px solid #bfe4ff; cursor:pointer; line-height:1.2;
   }
-  header .admin-btn{ background:#e7f8e7; border-color:#b7e6b7; display:none; }
-  header .logout-btn{ background:#fee2e2; border-color:#fecaca; display:none; }
+  header .admin-btn{ background:#e7f8e7; border-color:#b7e6b7; display:none; } /* 初期は非表示 → JSで表示 */
+  header .logout-btn{ background:#fee2e2; border-color:#fecaca; display:none; } /* 初期は非表示 → JSで表示 */
   header .title-btn:hover{ background:#cfe9ff; }
   header .admin-btn:hover{ background:#d5f2d5; }
   header .logout-btn:hover{ background:#fde8e8; }
@@ -656,6 +656,7 @@ function logout(){
   loginEl.style.display='flex';
 }
 
+/* サーバデータ */
 async function tryLoadGroupsFromServer(nocache=false){
   const url = `${REMOTE_ENDPOINT}?action=getConfig&token=${encodeURIComponent(SESSION_TOKEN)}${nocache?'&nocache=1':''}`;
   const cfg = await jsonp(url);
@@ -825,7 +826,7 @@ function parseCSV(text){
   return out;
 }
 
-/* ===== Admin UIロジック ===== */
+/* ===== Admin/UI ===== */
 function toast(msg, ok=true){
   toastEl.style.background = ok ? '#334155' : '#c53030';
   toastEl.textContent = msg;
@@ -834,8 +835,8 @@ function toast(msg, ok=true){
 }
 function showAdmin(yes){ adminModal.classList.toggle('show', !!yes); }
 function ensureAuthUI(){
-  adminBtn.style.display = (SESSION_TOKEN && CURRENT_ROLE === 'admin') ? '' : 'none';
-  logoutBtn.style.display = (SESSION_TOKEN) ? '' : 'none';
+  adminBtn.style.display  = (SESSION_TOKEN && CURRENT_ROLE === 'admin') ? 'inline-block' : 'none';
+  logoutBtn.style.display = (SESSION_TOKEN) ? 'inline-block' : 'none';
 }
 
 async function populateAdminOffices(selected){
