@@ -488,7 +488,7 @@ function buildGroupMenu(){
   if(menuTitle){ menuTitle.textContent = 'グループにジャンプ'; }
 
   const items = [];
-  items.push(`<li><button class="grp-item" role="menuitem" data-target="top">全体（合計：${total}名）</button></li>`;
+  items.push(`<li><button class="grp-item" role="menuitem" data-target="top">全体（合計：${total}名）</button></li>`);
   GROUPS.forEach((g,i)=>{
     const title = fallbackGroupTitle(g,i);
     const sub = (g && g.members && g.members.length) ? `（${g.members.length}名）` : '（0名）';
@@ -872,7 +872,7 @@ btnImport.addEventListener('click', async ()=>{
   const must = ['group_index','group_title','member_order','id','name','ext','status','time','note'];
   if(must.some((h,i)=> hdr[i] !== h)){ toast('CSVヘッダが不正です', false); return; }
 
-  const recs = rows.slice(1).filter(r=>r.some(x=> (x||'').trim()!=='')).map(r=>{
+  const recs = rows.slice(1).filter(r=>r.some(x=> (x||'').trim()!=='' )).map(r=>{
     const [gi,gt,mi,id,name,ext,status,time,note] = r;
     return {
       gi: Number(gi)||0,
