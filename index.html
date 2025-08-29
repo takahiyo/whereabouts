@@ -39,11 +39,50 @@
     --gap: 20px;   /* パネル間の隙間 */
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --present:#e8f6e8; --away:#fff3e6; --remote:#e8f0ff; --off:#f7e8ee; --home:#ffe8f0;
+
+    --header-height: 56px; /* 固定ヘッダの高さ（スクロール補正用） */
   }
 
+  html{ scroll-behavior:smooth; }
+
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
-  header{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:12px;flex-wrap:wrap}
-  header h1{font-size:14px;font-weight:600;color:#4a5568;margin:0;padding:.35rem .9rem;background:#dff1ff;border-radius:999px}
+
+  /* ===== 固定ヘッダ（タイトルをボタン化＋常時表示） ===== */
+  header{
+    position: sticky; top: 0; z-index: 1500;
+    display:flex; gap:8px; align-items:center; justify-content:center;
+    margin-bottom:12px; flex-wrap:wrap; background:#fff;
+    padding:6px 0; box-shadow: 0 1px 0 rgba(0,0,0,.06);
+  }
+  /* 見た目はチップ風ボタンだが <button> でアクセシビリティ対応 */
+  header .title-btn{
+    font-size:14px; font-weight:600; color:#1f2937;
+    padding:.35rem .9rem; background:#dff1ff; border-radius:999px;
+    border:1px solid #bfe4ff; cursor:pointer; line-height:1.2;
+  }
+  header .title-btn:hover{ background:#cfe9ff; }
+  header .title-btn:focus{ outline:3px solid #93c5fd; outline-offset:2px; }
+
+  /* タイトル下に開くグループメニュー（ドロップダウン） */
+  .grp-menu{
+    position: fixed; top: calc(var(--header-height) + 8px); left: 50%;
+    transform: translateX(-50%);
+    background:#fff; border:1px solid var(--line); border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.12);
+    min-width: 240px; max-width: 90vw; max-height: 60vh; overflow:auto;
+    padding:8px; z-index: 1600; display:none;
+  }
+  .grp-menu.show{ display:block; }
+  .grp-menu h4{ font-size:12px; color:#6b7280; margin:4px 8px; }
+  .grp-menu ul{ list-style:none; padding:0; margin:4px 0; }
+  .grp-menu li{ margin:0; }
+  .grp-menu button.grp-item{
+    width:100%; text-align:left; border:0; background:transparent; cursor:pointer;
+    padding:10px 12px; border-radius:8px; font-size:14px; color:#111827;
+  }
+  .grp-menu button.grp-item:hover{ background:#f3f4f6; }
+  .grp-menu .muted{ color:#6b7280; }
+
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
   /* ===== パネルの並び：列数はJSが --cols を更新して 3→2→1 に自動調整 ===== */
@@ -54,7 +93,11 @@
   }
 
   /* ===== パネルと表 ===== */
-  .panel{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto}
+  .panel{
+    border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:8px;overflow:auto;
+    /* 固定ヘッダに隠れないようにスクロール位置の余白を確保 */
+    scroll-margin-top: calc(var(--header-height) + 12px);
+  }
   .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
   thead th{position:sticky;top:0;background:#f2efe9;font-weight:700}
@@ -143,7 +186,7 @@
     }
     tbody td.name::before{ content:""; display:none; }
 
-    /* ★ 並び順：
+    /* 並び順（スマホ時）：
        1段目 = 内線 → 戻り時間
        2段目 = ステータス
        3段目 = 備考（フル幅） */
@@ -160,7 +203,17 @@
 </head>
 
 <body>
-  <header><h1>ビジネスフロント名古屋中央　在席確認表</h1></header>
+  <header>
+    <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false" aria-controls="groupMenu">
+      ビジネスフロント名古屋中央　在席確認表
+    </button>
+  </header>
+
+  <!-- グループメニュー（動的に中身を挿入） -->
+  <div id="groupMenu" class="grp-menu" role="menu" aria-labelledby="titleBtn">
+    <h4>グループにジャンプ</h4>
+    <ul id="groupMenuList"></ul>
+  </div>
 
   <!-- ログイン（パスワード認証→トークンをセッション保存） -->
   <div id="login" class="login" style="display:none">
@@ -190,8 +243,7 @@ const CONFIG_POLL_MS  = 120000;      // 名簿（構成）更新チェック
 const SESSION_KEY     = "presence-session-token";
 const TOKEN_DEFAULT_TTL = 3600000;   // トークン既定寿命（ms）
 
-/* ===== レイアウト（列数 3→2→1 の自動調整） =====
-   1パネルあたりの必要目安幅（px）と隙間幅から列数を算出し、--cols に反映する。 */
+/* ===== レイアウト（列数 3→2→1 の自動調整） ===== */
 const PANEL_MIN_PX = 760;
 const GAP_PX = 20;
 const MAX_COLS = 3;
@@ -206,6 +258,10 @@ const toastEl = document.getElementById('toast');
 const loginEl = document.getElementById('login');
 const loginMsg= document.getElementById('loginMsg');
 const pwInput = document.getElementById('pw');
+
+const menuEl  = document.getElementById('groupMenu');
+const menuList= document.getElementById('groupMenuList');
+const titleBtn= document.getElementById('titleBtn');
 
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]); // これらへ切替時は戻り時間と備考をクリア
@@ -233,9 +289,7 @@ function startGridObserver(){
   updateCols();
 }
 
-/* ===== 名簿（構成）をクライアント整形 =====
-   - サーバからの groups:{title, members:[{name, ext?, id?}]} を前提
-   - id が未指定なら name+ext から安定IDを生成 */
+/* ===== 名簿（構成）をクライアント整形 ===== */
 function makeLocalId(s){
   const seed = (s||"").normalize('NFKC').replace(/\s+/g,'');
   let h = 0; for(let i=0;i<seed.length;i++){ h = (h*31 + seed.charCodeAt(i)) >>> 0; }
@@ -253,6 +307,10 @@ function normalizeConfigClient(cfg){
       return { name, ext, id };
     })
   }));
+}
+function fallbackGroupTitle(g, idx){
+  const t = (g && typeof g.title === 'string' ? g.title.trim() : "");
+  return t || `グループ${idx+1}`;
 }
 
 /* ===== テーブル UI生成（スマホ用カードビュー対応：data-label 付与） ===== */
@@ -289,11 +347,13 @@ function rowHtml(member){
       </td>
     </tr>`;
 }
-function panelHtml(group){
+function panelHtml(group, idx){
+  const gid = `grp-${idx}`;
+  const title = fallbackGroupTitle(group, idx);
   return `
-    <section class="panel">
-      <h3 class="title">${group.title ?? ""}</h3>
-      <table aria-label="在席表">
+    <section class="panel" id="${gid}" data-group-index="${idx}">
+      <h3 class="title">${title}</h3>
+      <table aria-label="在席表（${title}）">
         <colgroup>
           <col class="col-name"><col class="col-ext"><col class="col-status"><col class="col-time"><col class="col-note">
         </colgroup>
@@ -303,13 +363,60 @@ function panelHtml(group){
     </section>`;
 }
 function render(){
-  board.innerHTML = GROUPS.map(g=>panelHtml(g)).join('');
+  board.innerHTML = GROUPS.map((g,i)=>panelHtml(g,i)).join('');
   board.style.display = '';
   wireEvents();
   loadLocal();     // ローカル保存を即時反映（体感を速く）
   recolor();
   startGridObserver();
+  buildGroupMenu(); // タイトルのメニューを再構築
 }
+
+/* ===== グループメニュー（タイトル→一覧→スクロール） ===== */
+function buildGroupMenu(){
+  if(!Array.isArray(GROUPS)) return;
+  const html = GROUPS.map((g,i)=>{
+    const title = fallbackGroupTitle(g,i);
+    const sub = (g && g.members && g.members.length) ? `（${g.members.length}名）` : '';
+    return `<li><button class="grp-item" role="menuitem" data-target="grp-${i}">
+              ${title} <span class="muted">${sub}</span>
+            </button></li>`;
+  }).join('');
+  menuList.innerHTML = html;
+
+  // クリックでスクロール & メニューを閉じる
+  menuList.querySelectorAll('button.grp-item').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.getAttribute('data-target');
+      const sec = document.getElementById(id);
+      closeMenu();
+      if(sec){ sec.scrollIntoView({behavior:'smooth', block:'start'}); }
+    });
+  });
+}
+
+/* メニューの開閉制御 */
+function openMenu(){
+  menuEl.classList.add('show');
+  titleBtn.setAttribute('aria-expanded','true');
+}
+function closeMenu(){
+  menuEl.classList.remove('show');
+  titleBtn.setAttribute('aria-expanded','false');
+}
+function toggleMenu(){
+  if(menuEl.classList.contains('show')) closeMenu(); else openMenu();
+}
+
+/* タイトル・外側クリック・ESCで閉じる */
+titleBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggleMenu(); });
+document.addEventListener('click', (e)=>{
+  if(menuEl.classList.contains('show')){
+    const within = menuEl.contains(e.target) || titleBtn.contains(e.target);
+    if(!within) closeMenu();
+  }
+});
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
 /* ===== 行状態の取得・適用・保存 ===== */
 function getRowStateByTr(tr){
@@ -345,11 +452,7 @@ function applyState(data){
 function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(e){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) applyState(JSON.parse(raw)); }catch(e){} }
 
-/* ===== 行内イベント（同期：即時 or デバウンス） =====
-   - ステータス: 変更即時送信（在席系へ戻したら時間/備考をクリア）
-   - 戻り時間: 変更即時送信
-   - 内線: フィールド確定時に送信（change）
-   - 備考: IME合成中は待機、入力は900msデバウンス、確定時は即時送信 */
+/* ===== 行内イベント（同期：即時 or デバウンス） ===== */
 const noteTimers = new Map();
 function debounceRowPush(key, delay=900){
   if(noteTimers.has(key)) clearTimeout(noteTimers.get(key));
