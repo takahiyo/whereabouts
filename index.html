@@ -42,20 +42,22 @@
   html{ scroll-behavior:smooth; }
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
 
-  /* 固定ヘッダ（タイトル=ジャンプボタン） */
+  /* 固定ヘッダ（タイトル=ジャンプボタン／管理ボタン） */
   header{
     position: sticky; top: 0; z-index: 1500;
     display:flex; gap:8px; align-items:center; justify-content:center;
     margin-bottom:12px; flex-wrap:wrap; background:#fff;
     padding:6px 0; box-shadow: 0 1px 0 rgba(0,0,0,.06);
   }
-  header .title-btn{
+  header .title-btn, header .admin-btn{
     font-size:14px; font-weight:600; color:#1f2937;
     padding:.35rem .9rem; background:#dff1ff; border-radius:999px;
     border:1px solid #bfe4ff; cursor:pointer; line-height:1.2;
   }
+  header .admin-btn{ background:#e7f8e7; border-color:#b7e6b7; display:none; }
   header .title-btn:hover{ background:#cfe9ff; }
-  header .title-btn:focus{ outline:3px solid #93c5fd; outline-offset:2px; }
+  header .admin-btn:hover{ background:#d5f2d5; }
+  header .title-btn:focus, header .admin-btn:focus{ outline:3px solid #93c5fd; outline-offset:2px; }
 
   /* グループメニュー（ドロップダウン） */
   .grp-menu{
@@ -63,7 +65,7 @@
     transform: translateX(-50%);
     background:#fff; border:1px solid var(--line); border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,.12);
-    min-width: 260px; max-width: 90vw; max-height: 60vh; overflow:auto;
+    min-width: 260px; max-width: 92vw; max-height: 60vh; overflow:auto;
     padding:8px; z-index: 1600; display:none;
   }
   .grp-menu.show{ display:block; }
@@ -76,6 +78,23 @@
   }
   .grp-menu button.grp-item:hover{ background:#f3f4f6; }
   .grp-menu .muted{ color:#6b7280; }
+
+  /* 管理モーダル */
+  .admin-modal{ position:fixed; inset:0; z-index:1800; display:none; }
+  .admin-modal.show{ display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5); }
+  .admin-card{
+    background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px;
+    width:min(960px, 94vw); max-height:80vh; overflow:auto;
+  }
+  .admin-card h3{ margin:4px 0 12px; }
+  .admin-grid{ display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .admin-box{ border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .admin-box h4{ margin:0 0 8px; font-size:14px; color:#374151; }
+  .admin-row{ display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap; }
+  .admin-row input, .admin-row select{ padding:.35rem .45rem; border:1px solid var(--line); border-radius:6px; min-width:120px; }
+  .admin-row button{ padding:.35rem .6rem; border-radius:8px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; }
+  .admin-row button:hover{ background:#eef2f7; }
+  .admin-note{ font-size:12px; color:#6b7280; }
 
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
@@ -113,16 +132,16 @@
   tr[data-status="在宅勤務"]{background:var(--remote)}
   tr[data-status="出張"],tr[data-status="研修"]{background:var(--away)}
 
-  .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:9999}
+  .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:2000}
   .toast.show{opacity:1}
 
-  /* ログイン（オフィス選択＋パスワード） */
-  .login{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2000}
+  /* ログイン（拠点選択＋パスワード） */
+  .login{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:2200}
   .login .card{background:#fff;border-radius:8px;padding:20px;min-width:300px;max-width:90vw;text-align:center}
   .login .card h2{margin:.2rem 0 1rem}
   .login .card input,.login .card select{margin:.4rem 0}
 
-  @media print{header,.toast,.login{display:none} body{margin:0}.board{gap:10px} th,td{font-size:12px;padding:4px}}
+  @media print{header,.toast,.login,.admin-modal{display:none} body{margin:0}.board{gap:10px} th,td{font-size:12px;padding:4px}}
 
   /* スマホカード表示 */
   @media (max-width: 720px){
@@ -185,12 +204,87 @@
     <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false" aria-controls="groupMenu">
       在席確認表
     </button>
+    <button id="adminBtn" class="admin-btn" title="管理">管理</button>
   </header>
 
   <!-- グループメニュー -->
   <div id="groupMenu" class="grp-menu" role="menu" aria-labelledby="titleBtn">
     <h4 id="groupMenuTitle">グループにジャンプ</h4>
     <ul id="groupMenuList"></ul>
+  </div>
+
+  <!-- 管理モーダル（adminのみ表示） -->
+  <div id="adminModal" class="admin-modal">
+    <div class="admin-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h3>管理パネル</h3>
+        <button id="adminClose">閉じる</button>
+      </div>
+
+      <div class="admin-box">
+        <div class="admin-row">
+          <label for="adminOfficeSel">対象拠点：</label>
+          <select id="adminOfficeSel"></select>
+          <button id="refreshOffices">更新</button>
+          <span class="admin-note">（テスト拠点ログイン時に利用可能）</span>
+        </div>
+      </div>
+
+      <div class="admin-grid" style="margin-top:10px;">
+        <div class="admin-box">
+          <h4>CSVエクスポート</h4>
+          <div class="admin-row">
+            <button id="btnExport">ダウンロード</button>
+          </div>
+          <div class="admin-note">フォーマット：group_index,group_title,member_order,id,name,ext,status,time,note</div>
+        </div>
+
+        <div class="admin-box">
+          <h4>CSVインポート（正規CSV）</h4>
+          <div class="admin-row">
+            <input type="file" id="csvFile" accept=".csv,text/csv" />
+            <button id="btnImport">取り込み</button>
+          </div>
+          <div class="admin-note">名簿→在席の順で安全に更新します。大きい場合は自動分割送信します。</div>
+        </div>
+
+        <div class="admin-box">
+          <h4>拠点名の変更</h4>
+          <div class="admin-row">
+            <input id="renameOfficeName" placeholder="新しい拠点名" />
+            <button id="btnRenameOffice">変更</button>
+          </div>
+        </div>
+
+        <div class="admin-box">
+          <h4>拠点の追加</h4>
+          <div class="admin-row">
+            <input id="addOfficeId" placeholder="ID（半角英数_-）" />
+            <input id="addOfficeName" placeholder="拠点名" />
+            <input id="addOfficePw" placeholder="パスワード" />
+            <input id="addOfficeAdminPw" placeholder="管理者PW" />
+            <button id="btnAddOffice">追加</button>
+          </div>
+        </div>
+
+        <div class="admin-box">
+          <h4>拠点の削除</h4>
+          <div class="admin-row">
+            <button id="btnDeleteOffice" style="background:#fee2e2;border-color:#fecaca;">この拠点を削除</button>
+          </div>
+          <div class="admin-note">復元不可。名簿・在席データともに削除されます。</div>
+        </div>
+
+        <div class="admin-box">
+          <h4>拠点パスワードの変更</h4>
+          <div class="admin-row">
+            <input id="setPw" placeholder="新パスワード（任意）" />
+            <input id="setAdminPw" placeholder="新管理者PW（任意）" />
+            <button id="btnSetPw">更新</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ログイン（拠点選択＋パスワード） -->
@@ -244,6 +338,32 @@ const menuEl   = document.getElementById('groupMenu');
 const menuList = document.getElementById('groupMenuList');
 const menuTitle= document.getElementById('groupMenuTitle');
 const titleBtn = document.getElementById('titleBtn');
+
+const adminBtn = document.getElementById('adminBtn');
+const adminModal = document.getElementById('adminModal');
+const adminClose = document.getElementById('adminClose');
+
+const adminOfficeSel = document.getElementById('adminOfficeSel');
+const refreshOfficesBtn = document.getElementById('refreshOffices');
+
+const btnExport = document.getElementById('btnExport');
+const csvFile   = document.getElementById('csvFile');
+const btnImport = document.getElementById('btnImport');
+
+const renameOfficeName = document.getElementById('renameOfficeName');
+const btnRenameOffice  = document.getElementById('btnRenameOffice');
+
+const addOfficeId   = document.getElementById('addOfficeId');
+const addOfficeName = document.getElementById('addOfficeName');
+const addOfficePw   = document.getElementById('addOfficePw');
+const addOfficeAdminPw = document.getElementById('addOfficeAdminPw');
+const btnAddOffice  = document.getElementById('btnAddOffice');
+
+const btnDeleteOffice = document.getElementById('btnDeleteOffice');
+
+const setPw      = document.getElementById('setPw');
+const setAdminPw = document.getElementById('setAdminPw');
+const btnSetPw   = document.getElementById('btnSetPw');
 
 const STATUSES = ["在席","外出","休み","帰宅","在宅勤務","出張","研修","健康診断","コアドック"];
 const CLEAR_ON = new Set(["在席","休み","帰宅","在宅勤務"]);
@@ -355,7 +475,6 @@ function render(){
 /* グループメニュー */
 function buildGroupMenu(){
   if(!Array.isArray(GROUPS)) return;
-
   const total = GROUPS.reduce((sum, g) => sum + ((g.members && g.members.length) || 0), 0);
   if(menuTitle){ menuTitle.textContent = 'グループにジャンプ'; }
 
@@ -487,7 +606,7 @@ function recolor(){
 }
 
 /* JSONP */
-function jsonp(url, timeout=12000){
+function jsonp(url, timeout=15000){
   return new Promise((resolve)=>{
     const cb = 'cb_'+Math.random().toString(36).slice(2);
     let done=false;
@@ -501,9 +620,10 @@ function jsonp(url, timeout=12000){
   });
 }
 
-/* サーバ通信 */
+/* サーバ通信（通常ユーザ） */
 let SESSION_TOKEN = "";
 let CURRENT_OFFICE_NAME = "";
+let CURRENT_ROLE = "user";
 
 async function tryLoadGroupsFromServer(nocache=false){
   const url = `${REMOTE_ENDPOINT}?action=getConfig&token=${encodeURIComponent(SESSION_TOKEN)}${nocache?'&nocache=1':''}`;
@@ -573,7 +693,261 @@ async function renewToken(){
   }
 }
 
-/* 起動 */
+/* ===== Admin（管理API呼び出し） ===== */
+async function adminListOffices(){
+  return await jsonp(`${REMOTE_ENDPOINT}?action=listOffices&token=${encodeURIComponent(SESSION_TOKEN)}`);
+}
+async function adminGetFor(office){
+  return await jsonp(`${REMOTE_ENDPOINT}?action=getFor&office=${encodeURIComponent(office)}&token=${encodeURIComponent(SESSION_TOKEN)}&nocache=1`);
+}
+async function adminGetConfigFor(office){
+  return await jsonp(`${REMOTE_ENDPOINT}?action=getConfigFor&office=${encodeURIComponent(office)}&token=${encodeURIComponent(SESSION_TOKEN)}&nocache=1`);
+}
+async function adminSetConfigFor(office, cfgObj){
+  const payload = encodeURIComponent(JSON.stringify(cfgObj));
+  return await jsonp(`${REMOTE_ENDPOINT}?action=setConfigFor&office=${encodeURIComponent(office)}&data=${payload}&token=${encodeURIComponent(SESSION_TOKEN)}`);
+}
+async function adminSetForChunked(office, dataObjFull){
+  // 1回で送れるサイズに制限があるため分割：最初のみ full=true
+  const entries = Object.entries(dataObjFull || {});
+  if(entries.length===0){
+    return await jsonp(`${REMOTE_ENDPOINT}?action=setFor&office=${encodeURIComponent(office)}&data=${encodeURIComponent(JSON.stringify({updated:Date.now(), data:{}, full:true}))}&token=${encodeURIComponent(SESSION_TOKEN)}`);
+  }
+  const chunkSize = 100; // 目安
+  let first = true, ok=true;
+  for(let i=0;i<entries.length;i+=chunkSize){
+    const chunk = Object.fromEntries(entries.slice(i, i+chunkSize));
+    const obj = {updated:Date.now(), data:chunk, full:first};
+    const res = await jsonp(`${REMOTE_ENDPOINT}?action=setFor&office=${encodeURIComponent(office)}&data=${encodeURIComponent(JSON.stringify(obj))}&token=${encodeURIComponent(SESSION_TOKEN)}`);
+    if(!(res && res.ok)) ok=false;
+    first = false;
+  }
+  return ok?{ok:true}:{error:'chunk_failed'};
+}
+async function adminRenameOffice(office, name){
+  return await jsonp(`${REMOTE_ENDPOINT}?action=renameOffice&office=${encodeURIComponent(office)}&name=${encodeURIComponent(name)}&token=${encodeURIComponent(SESSION_TOKEN)}`);
+}
+async function adminAddOffice(id, name, pw, apw){
+  return await jsonp(`${REMOTE_ENDPOINT}?action=addOffice&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&password=${encodeURIComponent(pw)}&adminPassword=${encodeURIComponent(apw)}&token=${encodeURIComponent(SESSION_TOKEN)}`);
+}
+async function adminDeleteOffice(office){
+  return await jsonp(`${REMOTE_ENDPOINT}?action=deleteOffice&id=${encodeURIComponent(office)}&token=${encodeURIComponent(SESSION_TOKEN)}`);
+}
+async function adminSetOfficePassword(office, pw, apw){
+  const q = [`id=${encodeURIComponent(office)}`];
+  if(pw)  q.push(`password=${encodeURIComponent(pw)}`);
+  if(apw) q.push(`adminPassword=${encodeURIComponent(apw)}`);
+  return await jsonp(`${REMOTE_ENDPOINT}?action=setOfficePassword&${q.join('&')}&token=${encodeURIComponent(SESSION_TOKEN)}`);
+}
+
+/* ===== CSVユーティリティ ===== */
+function toCsvRow(arr){
+  return arr.map(v=>{
+    const s = (v==null)?'':String(v);
+    if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }).join(',');
+}
+function makeNormalizedCSV(cfg, data){
+  const rows = [];
+  rows.push(toCsvRow(['group_index','group_title','member_order','id','name','ext','status','time','note']));
+  (cfg.groups||[]).forEach((g,gi)=>{
+    (g.members||[]).forEach((m,mi)=>{
+      const id = m.id || '';
+      const rec = (data && data[id]) || {};
+      rows.push(toCsvRow([
+        gi+1,
+        g.title||'',
+        mi+1,
+        id,
+        m.name||'',
+        m.ext||'',
+        rec.status||'在席',
+        rec.time||'',
+        rec.note||''
+      ]));
+    });
+  });
+  return rows.join('\n');
+}
+function parseCSV(text){
+  const out=[]; let i=0, s=text;
+  let row=[]; let field=''; let inq=false;
+  function pushField(){ row.push(field); field=''; }
+  function pushRow(){ out.push(row); row=[]; }
+  while(i<s.length){
+    const c=s[i++];
+    if(inq){
+      if(c==='"' && s[i]==='"'){ field+='"'; i++; }
+      else if(c==='"'){ inq=false; }
+      else field+=c;
+    }else{
+      if(c===','){ pushField(); }
+      else if(c==='"'){ inq=true; }
+      else if(c==='\n'){ pushField(); pushRow(); }
+      else if(c==='\r'){ /* skip */ }
+      else field+=c;
+    }
+  }
+  if(field!=='' || row.length){ pushField(); pushRow(); }
+  return out;
+}
+
+/* ===== Admin UIロジック ===== */
+function toast(msg, ok=true){
+  toastEl.style.background = ok ? '#334155' : '#c53030';
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(()=>toastEl.classList.remove('show'), 1600);
+}
+function showAdmin(yes){ adminModal.classList.toggle('show', !!yes); }
+function ensureAdminUI(){
+  adminBtn.style.display = (CURRENT_ROLE === 'admin') ? '' : 'none';
+}
+
+async function populateAdminOffices(selected){
+  const res = await adminListOffices();
+  if(!(res && res.offices)) { toast('拠点一覧の取得に失敗', false); return; }
+  adminOfficeSel.innerHTML = res.offices.map(o=>`<option value="${o.id}">${o.name}（${o.id}）</option>`).join('');
+  if(selected) adminOfficeSel.value = selected;
+}
+
+/* Export */
+btnExport.addEventListener('click', async ()=>{
+  const office = adminOfficeSel.value;
+  const cfg = await adminGetConfigFor(office);
+  const dat = await adminGetFor(office);
+  if(!(cfg && cfg.groups) || !(dat && typeof dat.data==='object')){ toast('エクスポート失敗', false); return; }
+  const csv = makeNormalizedCSV(cfg, dat.data);
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `presence_${office}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+/* Import */
+btnImport.addEventListener('click', async ()=>{
+  const office = adminOfficeSel.value;
+  const file = csvFile.files && csvFile.files[0];
+  if(!file){ toast('CSVを選択してください', false); return; }
+  const text = await file.text();
+  const rows = parseCSV(text);
+  if(!rows.length){ toast('CSVが空です', false); return; }
+  const hdr = rows[0].map(s=>s.trim());
+  const must = ['group_index','group_title','member_order','id','name','ext','status','time','note'];
+  if(must.some((h,i)=> hdr[i] !== h)){ toast('CSVヘッダが不正です', false); return; }
+
+  const recs = rows.slice(1).filter(r=>r.some(x=> (x||'').trim()!=='')).map(r=>{
+    const [gi,gt,mi,id,name,ext,status,time,note] = r;
+    return {
+      gi: Number(gi)||0,
+      gt: (gt||''),
+      mi: Number(mi)||0,
+      id: (id||''),
+      name: (name||''),
+      ext: (ext||''),
+      status: (status||'在席'),
+      time: (time||''),
+      note: (note||'')
+    };
+  });
+
+  const groupsMap = new Map();
+  for(const r of recs){
+    if(!r.gi || !r.mi || !r.name){ continue; }
+    if(!groupsMap.has(r.gi)) groupsMap.set(r.gi, { title:r.gt||'', members:[] });
+    const g = groupsMap.get(r.gi);
+    g.title = r.gt||'';
+    g.members.push({ _mi:r.mi, name:r.name, ext:r.ext||'', id: r.id||undefined });
+  }
+  const groups = Array.from(groupsMap.entries()).sort((a,b)=>a[0]-b[0]).map(([gi, g])=>{
+    g.members.sort((a,b)=> (a._mi||0)-(b._mi||0));
+    g.members.forEach(m=> delete m._mi);
+    return g;
+  });
+  const cfgToSet = { version:2, updated: Date.now(), groups };
+
+  const r1 = await adminSetConfigFor(office, cfgToSet);
+  if(!(r1 && r1.ok)){ toast('名簿の設定に失敗', false); return; }
+
+  const newCfg = await adminGetConfigFor(office);
+  if(!(newCfg && newCfg.groups)){ toast('名簿再取得に失敗', false); return; }
+
+  const keyOf = (gi, gt, mi, name, ext)=> [String(gi), String(gt||''), String(mi), String(name||''), String(ext||'')].join('|');
+  const idIndex = new Map();
+  (newCfg.groups||[]).forEach((g, gi0)=>{
+    (g.members||[]).forEach((m, mi0)=>{
+      idIndex.set(keyOf(gi0+1, g.title||'', mi0+1, m.name||'', m.ext||''), m.id);
+    });
+  });
+
+  const dataObj = {};
+  for(const r of recs){
+    const id = r.id || idIndex.get(keyOf(r.gi, r.gt, r.mi, r.name, r.ext||'')) || null;
+    if(!id) continue;
+    dataObj[id] = { ext: r.ext||'', status: STATUSES.includes(r.status)? r.status : '在席', time: r.time||'', note: r.note||'' };
+  }
+
+  const r2 = await adminSetForChunked(office, dataObj);
+  if(!(r2 && r2.ok)){ toast('在席データ更新に失敗', false); return; }
+
+  toast('インポート完了', true);
+});
+
+/* Rename Office */
+btnRenameOffice.addEventListener('click', async ()=>{
+  const office = adminOfficeSel.value;
+  const name = (renameOfficeName.value||'').trim();
+  if(!name){ toast('新しい拠点名を入力', false); return; }
+  const r = await adminRenameOffice(office, name);
+  if(r && r.ok){ toast('拠点名を変更しました'); await populateAdminOffices(office); }
+  else toast('変更に失敗', false);
+});
+
+/* Add Office */
+btnAddOffice.addEventListener('click', async ()=>{
+  const id = (addOfficeId.value||'').trim();
+  const name = (addOfficeName.value||'').trim();
+  const pw = (addOfficePw.value||'').trim();
+  const apw = (addOfficeAdminPw.value||'').trim();
+  if(!/^[A-Za-z0-9_-]+$/.test(id)){ toast('IDは半角英数_-のみ', false); return; }
+  if(!name || !pw || !apw){ toast('拠点名/パスワードを入力', false); return; }
+  const r = await adminAddOffice(id, name, pw, apw);
+  if(r && r.ok){ toast('拠点を追加しました'); await populateAdminOffices(id); }
+  else toast('追加に失敗', false);
+});
+
+/* Delete Office */
+btnDeleteOffice.addEventListener('click', async ()=>{
+  const office = adminOfficeSel.value;
+  if(!confirm(`拠点「${office}」を削除します。復元できません。よろしいですか？`)) return;
+  const r = await adminDeleteOffice(office);
+  if(r && r.ok){ toast('拠点を削除しました'); await populateAdminOffices(); }
+  else toast('削除に失敗', false);
+});
+
+/* Set Password */
+btnSetPw.addEventListener('click', async ()=>{
+  const office = adminOfficeSel.value;
+  const pw  = (setPw.value||'').trim();
+  const apw = (setAdminPw.value||'').trim();
+  if(!pw && !apw){ toast('更新する項目を入力', false); return; }
+  const r = await adminSetOfficePassword(office, pw, apw);
+  if(r && r.ok){ toast('パスワードを更新しました'); setPw.value=''; setAdminPw.value=''; }
+  else toast('更新に失敗', false);
+});
+
+/* 管理モーダル開閉 */
+adminBtn.addEventListener('click', async ()=>{
+  await populateAdminOffices();
+  showAdmin(true);
+});
+adminClose.addEventListener('click', ()=> showAdmin(false));
+refreshOfficesBtn.addEventListener('click', ()=> populateAdminOffices(adminOfficeSel.value));
+
+/* ===== 起動 ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
   window.__doLogin = async () => {
     const pw = pwInput.value;
@@ -587,7 +961,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
     SESSION_TOKEN = res.token; sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
     CURRENT_OFFICE_NAME = res.officeName || "";
+    CURRENT_ROLE = res.role || "user";
     titleBtn.textContent = (CURRENT_OFFICE_NAME? `${CURRENT_OFFICE_NAME}　在席確認表` : '在席確認表');
+    ensureAdminUI();
 
     loginEl.style.display='none'; loginMsg.textContent="";
 
@@ -644,4 +1020,3 @@ window.addEventListener('error', e=>{
 </datalist>
 </body>
 </html>
-
