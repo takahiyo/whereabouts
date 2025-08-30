@@ -5,34 +5,37 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>在席確認表</title>
 
-<!-- 暫定CSP（JSONPとインラインJSのため 'unsafe-inline' を許可） -->
-<meta http-equiv="Content-Security-Policy"
-      content="default-src 'self';
-               script-src 'self' https://script.google.com 'unsafe-inline';
-               connect-src https://script.google.com;
-               style-src 'self' 'unsafe-inline';
-               img-src 'self' data:;
-               object-src 'none'">
+<!-- JSONPがブロックされないようCSPを調整（script.google.com / script.googleusercontent.com を許可） -->
+<meta http-equiv="Content-Security-Policy" content="
+default-src 'self';
+script-src 'self' 'unsafe-inline' https://script.google.com https://script.googleusercontent.com;
+style-src  'self' 'unsafe-inline';
+connect-src 'self' https://script.google.com https://script.googleusercontent.com;
+img-src 'self' data:;
+font-src 'self' data:;
+base-uri 'self';
+frame-ancestors 'self';
+form-action 'none';
+">
 
 <style>
   :root{
-    /* レイアウト基準（絶対値指定はここだけ） */
     --base-name:   120px;
     --base-ext:     70px;
     --base-status: 170px;
     --base-time:    65px;
     --base-note:   210px;
 
-    --scale-name:   0.50; /* 50% */
-    --scale-ext:    0.33; /* 33% */
-    --scale-status: 0.75; /* 75% */
-    --scale-time:   0.45; /* 45% */
+    --scale-name:   0.50;
+    --scale-ext:    0.33;
+    --scale-status: 0.75;
+    --scale-time:   0.45;
 
     --min-name:    85px;
     --min-ext:     35px;
     --min-status:  85px;
     --min-time:    65px;
-    --min-note:    70px;
+    --min-note:   70px;
 
     --w-name:   max(calc(var(--base-name)   * var(--scale-name)),   var(--min-name));
     --w-ext:    max(calc(var(--base-ext)    * var(--scale-ext)),    var(--min-ext));
@@ -51,7 +54,7 @@
   html{ scroll-behavior:smooth; }
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
 
-  /* 固定ヘッダ */
+  /* 固定ヘッダ（タイトル／管理／ログオフ） */
   header{
     position: sticky; top: 0; z-index: 1500;
     display:flex; gap:8px; align-items:center; justify-content:center;
@@ -94,15 +97,14 @@
   .admin-modal.show{ display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.5); }
   .admin-card{
     background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px;
-    width:min(1000px, 94vw); max-height:80vh; overflow:auto;
+    width:min(960px, 94vw); max-height:80vh; overflow:auto;
   }
   .admin-card h3{ margin:4px 0 12px; }
-  .admin-grid{ display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .admin-grid{ display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
   .admin-box{ border:1px solid var(--line); border-radius:10px; padding:12px; }
   .admin-box h4{ margin:0 0 8px; font-size:14px; color:#374151; }
   .admin-row{ display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap; }
-  .admin-row input, .admin-row select, .admin-row textarea{ padding:.35rem .45rem; border:1px solid var(--line); border-radius:6px; min-width:120px; }
-  .admin-row textarea{ width:100%; min-height:140px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .admin-row input, .admin-row select{ padding:.35rem .45rem; border:1px solid var(--line); border-radius:6px; min-width:120px; }
   .admin-row button{ padding:.35rem .6rem; border-radius:8px; border:1px solid #cbd5e1; background:#f8fafc; cursor:pointer; }
   .admin-row button:hover{ background:#eef2f7; }
   .admin-note{ font-size:12px; color:#6b7280; overflow-wrap:anywhere; word-break:break-word; white-space:normal; }
@@ -120,7 +122,6 @@
     scroll-margin-top: calc(var(--header-height) + 12px);
   }
   .panel .title{font-weight:700;color:#6B7280;background:#f7f7f7;border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin:0 0 6px 0;min-height:1.8em}
-
   table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
   thead th{position:sticky;top:0;background:#f2efe9;font-weight:700}
   th,td{border:1px solid var(--line);padding:6px;font-size:14px}
@@ -136,6 +137,8 @@
   td.status{min-width: var(--status-effective)}
   td.status select{padding-right:2.6em}
   td.time select{text-align-last:center;font-variant-numeric:tabular-nums}
+
+  /* 行の色はJSで動的適用（サーバメニュー colors） */
 
   .toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:8px 12px;border-radius:4px;font-size:12px;opacity:0;transition:.25s;z-index:2000}
   .toast.show{opacity:1}
@@ -232,7 +235,7 @@
           <label for="adminOfficeSel">対象拠点：</label>
           <select id="adminOfficeSel"></select>
           <button id="refreshOffices">更新</button>
-          <span class="admin-note">（スーパ管理者は拠点選択可／拠点管理者は自拠点固定）</span>
+          <span class="admin-note">（スーパ管理者は拠点を選択可能／拠点管理者は自拠点固定）</span>
         </div>
       </div>
 
@@ -252,7 +255,7 @@
             <input type="file" id="csvFile" accept=".csv,text/csv" />
             <button id="btnImport">取り込み</button>
           </div>
-          <div class="admin-note">※スーパー管理者操作はHMACによる追加認証。処理前にサーバが自動バックアップを保存します。</div>
+          <div class="admin-note">※スーパー管理者の場合は実行前に再確認＆追加認証。処理前にサーバが自動バックアップを保存します。</div>
         </div>
 
         <div class="admin-box">
@@ -279,7 +282,7 @@
           <div class="admin-row">
             <button id="btnDeleteOffice" style="background:#fee2e2;border-color:#fecaca;">この拠点を削除</button>
           </div>
-          <div class="admin-note">※実行前に追加認証（HMAC）。サーバが自動バックアップを保存します。</div>
+          <div class="admin-note">※実行前に再確認＆追加認証。サーバが自動バックアップを保存します。</div>
         </div>
 
         <div class="admin-box">
@@ -289,19 +292,7 @@
             <input id="setAdminPw" placeholder="新管理者PW（任意）" />
             <button id="btnSetPw">更新</button>
           </div>
-          <div class="admin-note">※スーパー管理者が他拠点を操作する場合はHMAC追加認証。</div>
-        </div>
-
-        <div class="admin-box">
-          <h4>メニュー設定（JSON）</h4>
-          <div class="admin-row">
-            <textarea id="menusJson" placeholder='{"statuses":[...], "noteOptions":[...], "timeStepMinutes":30}'></textarea>
-          </div>
-          <div class="admin-row">
-            <button id="btnLoadMenus">現在の設定を読み込み</button>
-            <button id="btnSaveMenus">保存（拠点に適用）</button>
-          </div>
-          <div class="admin-note">※UI簡略化のためJSON編集型。値／色（#RRGGBB）／requiresTime／clearOn を指定可。</div>
+          <div class="admin-note">※スーパー管理者の場合は実行前に追加認証。</div>
         </div>
 
       </div>
@@ -315,8 +306,8 @@
       <p>拠点を選び、パスワードを入力してください</p>
       <label class="sr-only" for="officeSel">拠点</label>
       <select id="officeSel" aria-label="拠点"></select>
-      <input type="password" id="pw" placeholder="Password" autocomplete="current-password" autocapitalize="off" spellcheck="false" />
-      <button id="btnLogin">ログイン</button>
+      <input type="password" id="pw" placeholder="Password" />
+      <button id="btnLogin" onclick="window.__doLogin && window.__doLogin()">ログイン</button>
       <div id="loginMsg" style="color:#0073bb;margin-top:8px" aria-live="polite"></div>
     </div>
   </div>
@@ -340,13 +331,10 @@ const PANEL_MIN_PX = 760;
 const GAP_PX = 20;
 const MAX_COLS = 3;
 
-/* 名簿とUI要素 */
+/* 名簿・メニューとUI要素 */
 let GROUPS = [];
+let MENUS = defaultMenus(); // サーバから上書き
 let CONFIG_UPDATED = 0;
-let MENUS = null; // {statuses,noteOptions,timeStepMinutes}
-let requiresTimeSet = new Set();
-let clearOnSet = new Set();
-let statusClassMap = new Map(); // value -> className
 let tokenRenewTimer = null;
 
 const board   = document.getElementById('board');
@@ -389,112 +377,9 @@ const setPw      = document.getElementById('setPw');
 const setAdminPw = document.getElementById('setAdminPw');
 const btnSetPw   = document.getElementById('btnSetPw');
 
-const menusJson  = document.getElementById('menusJson');
-const btnLoadMenus = document.getElementById('btnLoadMenus');
-const btnSaveMenus  = document.getElementById('btnSaveMenus');
+const storeKey = "presence-board-v3";
 
-let STATUSES = []; // [{value,color,requiresTime,clearOn}]
-let storeKeyBase = "presence-board-v3"; // + ':' + officeId after login
-
-/* タイマー・オブザーバ管理 */
-let ro = null;
-let remotePullTimer = null;
-let remoteStartTimer = null;
-let configWatchTimer = null;
-
-/* 認証状態 */
-let SESSION_TOKEN = "";
-let CURRENT_OFFICE_NAME = "";
-let CURRENT_OFFICE_ID = "";
-let CURRENT_ROLE = "user"; // 'user' | 'officeAdmin' | 'superAdmin'
-
-function isSuper(){ return CURRENT_ROLE === 'superAdmin'; }
-function isOfficeAdmin(){ return CURRENT_ROLE === 'officeAdmin'; }
-
-/* ===== Utility: Crypto（HMAC/SHA-256） ===== */
-const enc = new TextEncoder();
-function toHex(buf){
-  const a = new Uint8Array(buf); let s=''; for(let i=0;i<a.length;i++){ s+=a[i].toString(16).padStart(2,'0'); } return s;
-}
-function toBase64(buf){
-  const bin = String.fromCharCode(...new Uint8Array(buf));
-  return btoa(bin);
-}
-async function sha256Bytes(str){ return await crypto.subtle.digest('SHA-256', enc.encode(str)); }
-async function hmacSha256(keyBytes, messageStr){
-  const key = await crypto.subtle.importKey('raw', keyBytes, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(messageStr));
-  return sig; // ArrayBuffer
-}
-
-/* ===== Utility: DOM/XSS対策 ===== */
-function el(tag, attrs={}, children=[]){
-  const e = document.createElement(tag);
-  for(const [k,v] of Object.entries(attrs||{})){
-    if(v==null) continue;
-    if(k==='class') e.className = v;
-    else if(k==='text') e.textContent = String(v);
-    else if(k==='html'){ /* 使用禁止 */ e.textContent = String(v); }
-    else e.setAttribute(k, String(v));
-  }
-  (children||[]).forEach(c=>{
-    if(typeof c==='string'){ e.appendChild(document.createTextNode(c)); }
-    else if(c) e.appendChild(c);
-  });
-  return e;
-}
-function sanitizeText(s){
-  // 最低限の正規化（文字列化 & 制御文字除去）
-  s = (s==null)?'':String(s);
-  return s.replace(/[\u0000-\u001F\u007F]/g,'');
-}
-
-/* ===== レイアウト ===== */
-function getContainerWidth(){
-  const elc = board.parentElement || document.body;
-  const r = elc.getBoundingClientRect();
-  return Math.max(0, Math.round(r.width));
-}
-function updateCols(){
-  const w = getContainerWidth();
-  let n = Math.floor((w + GAP_PX) / (PANEL_MIN_PX + GAP_PX));
-  if(!Number.isFinite(n) || n < 1) n = 1;
-  if(n > MAX_COLS) n = MAX_COLS;
-  board.style.setProperty('--cols', n);
-}
-function startGridObserver(){
-  if(ro) ro.disconnect();
-  ro = new ResizeObserver(updateCols);
-  ro.observe(board.parentElement || document.body);
-  window.addEventListener('resize', updateCols, {passive:true});
-  updateCols();
-}
-
-/* ===== 名簿整形 ===== */
-function makeLocalId(s){
-  const seed = (s||"").normalize('NFKC').replace(/\s+/g,'');
-  let h = 0; for(let i=0;i<seed.length;i++){ h = (h*31 + seed.charCodeAt(i)) >>> 0; }
-  return "P" + (h.toString(16) + "00000000").slice(0,8);
-}
-function normalizeConfigClient(cfg){
-  const groups = Array.isArray(cfg?.groups)? cfg.groups : [];
-  return groups.map(g=>({
-    title: String(g?.title || ""),
-    members: Array.isArray(g?.members) ? g.members.map(m=>{
-      const name = String(m?.name || "");
-      const ext  = m?.ext ? String(m.ext) : "";
-      let id     = m?.id ? String(m.id) : "";
-      if(!/^[A-Za-z0-9_-]+$/.test(id)) id = makeLocalId(name+ext);
-      return { name, ext, id };
-    }) : []
-  }));
-}
-function fallbackGroupTitle(g, idx){
-  const t = (g && typeof g.title === 'string' ? g.title.trim() : "");
-  return t || `グループ${idx+1}`;
-}
-
-/* ===== メニュー関連 ===== */
+/* サーバメニュー派生（status一覧・色・時間要否・クリア） */
 function defaultMenus(){
   return {
     statuses: [
@@ -512,172 +397,176 @@ function defaultMenus(){
     timeStepMinutes: 30
   };
 }
-function setupMenus(m){
-  MENUS = m && typeof m==='object' ? m : defaultMenus();
-  const sts = Array.isArray(MENUS.statuses) ? MENUS.statuses : defaultMenus().statuses;
-  // バリデーションと正規化
-  STATUSES = sts.map(s=>({
-    value: sanitizeText(s?.value || ""),
-    color: /^#[0-9A-Fa-f]{6}$/.test(String(s?.color||"")) ? s.color : "#ffffff",
-    requiresTime: !!s?.requiresTime,
-    clearOn: !!s?.clearOn
-  })).filter(s=>s.value);
-
-  requiresTimeSet = new Set(STATUSES.filter(s=>s.requiresTime).map(s=>s.value));
-  clearOnSet      = new Set(STATUSES.filter(s=>s.clearOn).map(s=>s.value));
-
-  // ノート候補を更新
-  const noteOpts = Array.isArray(MENUS.noteOptions) ? MENUS.noteOptions.map(sanitizeText) : defaultMenus().noteOptions;
-  const dl = document.getElementById('noteOptions');
-  if(dl){
-    dl.innerHTML = "";
-    noteOpts.forEach(v=>{
-      const opt = el('option', { value: v });
-      dl.appendChild(opt);
-    });
-  }
-
-  // ステータス配色（安全クラス付与）を動的に注入
-  statusClassMap.clear();
-  const styleId = 'dyn-status-styles';
-  let styleEl = document.getElementById(styleId);
-  if(!styleEl){ styleEl = el('style', { id: styleId }); document.head.appendChild(styleEl); }
-  const css = [];
-  STATUSES.forEach(s=>{
-    const h = shortHash(s.value);
-    const cls = `st-${h}`;
-    statusClassMap.set(s.value, cls);
-    css.push(`.${cls}{ background:${s.color}; }`);
-  });
-  styleEl.textContent = css.join('\n');
+let STATUS_VALUES = MENUS.statuses.map(s=>s.value);
+let STATUS_COLOR = Object.fromEntries(MENUS.statuses.map(s=>[s.value, s.color||""]));
+let STATUS_REQUIRES_TIME = new Set(MENUS.statuses.filter(s=>s.requiresTime).map(s=>s.value));
+let STATUS_CLEAR_ON = new Set(MENUS.statuses.filter(s=>s.clearOn).map(s=>s.value));
+function applyMenus(m){
+  MENUS = normalizeMenus(m||{});
+  STATUS_VALUES = MENUS.statuses.map(s=>s.value);
+  STATUS_COLOR  = Object.fromEntries(MENUS.statuses.map(s=>[s.value, s.color||""]));
+  STATUS_REQUIRES_TIME = new Set(MENUS.statuses.filter(s=>s.requiresTime).map(s=>s.value));
+  STATUS_CLEAR_ON      = new Set(MENUS.statuses.filter(s=>s.clearOn).map(s=>s.value));
 }
-function shortHash(str){
-  let h=2166136261>>>0;
-  for(let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return (h>>>0).toString(36);
-}
-
-/* ===== テーブル UI生成（DOM安全生成版） ===== */
-function buildTimeOptions(stepMin){
-  const frag = document.createDocumentFragment();
-  const empty = el('option', {value:"", text:""}); frag.appendChild(empty);
-  const step = Math.max(5, Math.min(60, Number(stepMin||30)));
-  for(let h=0;h<24;h++){
-    for(let m=0;m<60;m+=step){
-      const t = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-      frag.appendChild(el('option', {value:t, text:t}));
+function normalizeMenus(m){
+  const base = defaultMenus();
+  try{
+    const out = { ...base };
+    if(Array.isArray(m.statuses) && m.statuses.length){
+      out.statuses = m.statuses.map(s=>({
+        value: String(s.value||"").trim(),
+        color: /^#[0-9A-Fa-f]{6}$/.test(String(s.color||"")) ? s.color : (s.color? String(s.color): ""),
+        requiresTime: !!s.requiresTime,
+        clearOn: !!s.clearOn
+      })).filter(x=>x.value);
     }
-  }
-  return frag;
+    if(Array.isArray(m.noteOptions)) out.noteOptions = m.noteOptions.map(x=>String(x??""));
+    const step = Number(m.timeStepMinutes);
+    if(step && isFinite(step) && step>=5 && step<=60) out.timeStepMinutes = Math.floor(step);
+    return out;
+  }catch(_){ return base; }
 }
-function buildRow(member){
-  const name= sanitizeText(member.name || "");
+
+/* タイマー・オブザーバ管理 */
+let ro = null;
+let remotePullTimer = null;
+let remoteStartTimer = null;
+let configWatchTimer = null;
+
+/* 認証状態 */
+let SESSION_TOKEN = "";
+let CURRENT_OFFICE_NAME = "";
+let CURRENT_OFFICE_ID = "";
+let CURRENT_ROLE = "user"; // 'user' | 'officeAdmin' | 'superAdmin'
+
+function isSuper(){ return CURRENT_ROLE === 'superAdmin'; }
+function isOfficeAdmin(){ return CURRENT_ROLE === 'officeAdmin'; }
+
+/* レイアウト */
+function getContainerWidth(){
+  const el = board.parentElement || document.body;
+  const r = el.getBoundingClientRect();
+  return Math.max(0, Math.round(r.width));
+}
+function updateCols(){
+  const w = getContainerWidth();
+  let n = Math.floor((w + GAP_PX) / (PANEL_MIN_PX + GAP_PX));
+  if(!Number.isFinite(n) || n < 1) n = 1;
+  if(n > MAX_COLS) n = MAX_COLS;
+  board.style.setProperty('--cols', n);
+}
+function startGridObserver(){
+  if(ro) ro.disconnect();
+  ro = new ResizeObserver(updateCols);
+  ro.observe(board.parentElement || document.body);
+  window.addEventListener('resize', updateCols, {passive:true});
+  updateCols();
+}
+
+/* 名簿（構成）整形 */
+function makeLocalId(s){
+  const seed = (s||"").normalize('NFKC').replace(/\s+/g,'');
+  let h = 0; for(let i=0;i<seed.length;i++){ h = (h*31 + seed.charCodeAt(i)) >>> 0; }
+  return "P" + (h.toString(16) + "00000000").slice(0,8);
+}
+function normalizeConfigClient(cfg){
+  const groups = (cfg && Array.isArray(cfg.groups)) ? cfg.groups.map(g=>({
+    title: String(g.title || ""),
+    members: (Array.isArray(g.members) ? g.members : []).map(m=>{
+      const name = String((m && m.name) || "");
+      const ext  = (m && m.ext) ? String(m.ext) : "";
+      let id     = (m && m.id) ? String(m.id) : "";
+      if(!/^[A-Za-z0-9_-]+$/.test(id)) id = makeLocalId(name+ext);
+      return { name, ext, id };
+    })
+  })) : [];
+  const menus = (cfg && typeof cfg.menus==='object') ? cfg.menus : {};
+  return { groups, menus };
+}
+function fallbackGroupTitle(g, idx){
+  const t = (g && typeof g.title === 'string' ? g.title.trim() : "");
+  return t || `グループ${idx+1}`;
+}
+
+/* テーブル UI生成 */
+function timeOptions(){
+  const step = MENUS.timeStepMinutes || 30;
+  const opts=['<option value=""></option>'];
+  for(let h=0;h<24;h++){ for(let m=0;m<60;m+=step){
+    const t=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    opts.push(`<option value="${t}">${t}</option>`);
+  } }
+  return opts.join('');
+}
+function statusOptions(){
+  return STATUS_VALUES.map(s=>`<option value="${s}">${s}</option>`).join("");
+}
+function rowHtml(member){
+  const name= member.name || "";
   const ext = (member.ext && /^[0-9]{1,4}$/.test(String(member.ext))) ? String(member.ext) : "";
   const key = member.id;
-
-  const tr = el('tr', { id:`row-${key}` });
-  tr.dataset.key = key;
-
-  // name
-  const tdName = el('td', { class:'name', 'data-label':'氏名' }, [name]);
-
-  // ext
-  const tdExt = el('td', { class:'ext', 'data-label':'内線' });
-  const inpExt = el('input', { id:`ext-${key}`, name:'ext', type:'text', maxlength:'4', inputmode:'numeric', pattern:'^[0-9]{0,4}$', placeholder:'内線', value:ext });
-  tdExt.appendChild(el('label', { class:'sr-only', for:`ext-${key}`, text:'内線' }));
-  tdExt.appendChild(inpExt);
-
-  // status
-  const tdStatus = el('td', { class:'status', 'data-label':'ステータス' });
-  const selStatus = el('select', { id:`status-${key}`, name:'status' });
-  tdStatus.appendChild(el('label', { class:'sr-only', for:`status-${key}`, text:'ステータス' }));
-  STATUSES.forEach(s=>{
-    selStatus.appendChild(el('option', { value:s.value, text:s.value }));
-  });
-
-  // time
-  const tdTime = el('td', { class:'time', 'data-label':'戻り時間' });
-  const selTime = el('select', { id:`time-${key}`, name:'time' });
-  tdTime.appendChild(el('label', { class:'sr-only', for:`time-${key}`, text:'戻り時間' }));
-  selTime.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
-
-  // note
-  const tdNote = el('td', { class:'note', 'data-label':'備考' });
-  const inpNote = el('input', { id:`note-${key}`, name:'note', type:'text', list:'noteOptions', placeholder:'備考' });
-  tdNote.appendChild(inpNote);
-
-  tr.appendChild(tdName);
-  tr.appendChild(tdExt);
-  tr.appendChild(tdStatus);
-  tr.appendChild(tdTime);
-  tr.appendChild(tdNote);
-
-  return tr;
+  return `
+    <tr id="row-${key}" data-key="${key}" data-status="在席">
+      <td class="name"  data-label="氏名">${name}</td>
+      <td class="ext"   data-label="内線">
+        <label class="sr-only" for="ext-${key}">内線</label>
+        <input id="ext-${key}" name="ext" type="text" maxlength="4" inputmode="numeric" pattern="^[0-9]{0,4}$" placeholder="内線" value="${ext}" />
+      </td>
+      <td class="status" data-label="ステータス">
+        <label class="sr-only" for="status-${key}">ステータス</label>
+        <select id="status-${key}" name="status">${statusOptions()}</select>
+      </td>
+      <td class="time"   data-label="戻り時間">
+        <label class="sr-only" for="time-${key}">戻り時間</label>
+        <select id="time-${key}" name="time">${timeOptions()}</select>
+      </td>
+      <td class="note"   data-label="備考">
+        <input id="note-${key}" name="note" type="text" list="noteOptions" placeholder="備考" />
+      </td>
+    </tr>`;
 }
-function buildPanel(group, idx){
+function panelHtml(group, idx){
   const gid = `grp-${idx}`;
-  const sec = el('section', { class:'panel', id:gid });
-  sec.dataset.groupIndex = String(idx);
-
   const title = fallbackGroupTitle(group, idx);
-  sec.appendChild(el('h3', { class:'title', text: title }));
-
-  const table = el('table', { 'aria-label': `在席表（${title}）` });
-  const colgroup = el('colgroup', {}, [
-    el('col', {class:'col-name'}),
-    el('col', {class:'col-ext'}),
-    el('col', {class:'col-status'}),
-    el('col', {class:'col-time'}),
-    el('col', {class:'col-note'})
-  ]);
-  table.appendChild(colgroup);
-
-  const thead = el('thead');
-  const thr = el('tr');
-  ['氏名','内線','ステータス','戻り時間','備考'].forEach(h=> thr.appendChild(el('th', { text:h })));
-  thead.appendChild(thr);
-  table.appendChild(thead);
-
-  const tbody = el('tbody');
-  group.members.forEach(m=> tbody.appendChild(buildRow(m)));
-  table.appendChild(tbody);
-  sec.appendChild(table);
-  return sec;
+  return `
+    <section class="panel" id="${gid}" data-group-index="${idx}">
+      <h3 class="title">${title}</h3>
+      <table aria-label="在席表（${title}）">
+        <colgroup>
+          <col class="col-name"><col class="col-ext"><col class="col-status"><col class="col-time"><col class="col-note">
+        </colgroup>
+        <thead><tr><th>氏名</th><th>内線</th><th>ステータス</th><th>戻り時間</th><th>備考</th></tr></thead>
+        <tbody>${group.members.map(m=>rowHtml(m)).join("")}</tbody>
+      </table>
+    </section>`;
 }
 function render(){
-  board.replaceChildren(); // clear
-  GROUPS.forEach((g,i)=> board.appendChild(buildPanel(g,i)));
+  board.innerHTML = GROUPS.map((g,i)=>panelHtml(g,i)).join('');
   board.style.display = '';
   wireEvents();
   loadLocal();
   recolor();
   startGridObserver();
   buildGroupMenu();
+  refreshNoteDatalist();
 }
 
-/* ===== グループメニュー ===== */
+/* グループメニュー */
 function buildGroupMenu(){
   if(!Array.isArray(GROUPS)) return;
   const total = GROUPS.reduce((sum, g) => sum + ((g.members && g.members.length) || 0), 0);
   if(menuTitle){ menuTitle.textContent = 'グループにジャンプ'; }
-  menuList.replaceChildren();
 
-  const ul = menuList;
-  const itemTop = el('li', {}, [
-    el('button', {class:'grp-item', 'role':'menuitem', 'data-target':'top', text:`全体（合計：${total}名）`})
-  ]);
-  ul.appendChild(itemTop);
-
+  const items = [];
+  items.push(`<li><button class="grp-item" role="menuitem" data-target="top">全体（合計：${total}名）</button></li>`);
   GROUPS.forEach((g,i)=>{
     const title = fallbackGroupTitle(g,i);
     const sub = (g && g.members && g.members.length) ? `（${g.members.length}名）` : '（0名）';
-    const li = el('li', {}, [
-      el('button', {class:'grp-item', 'role':'menuitem', 'data-target':`grp-${i}`}, [title, el('span', {class:'muted', text:` ${sub}`})])
-    ]);
-    ul.appendChild(li);
+    items.push(`<li><button class="grp-item" role="menuitem" data-target="grp-${i}">${title} <span class="muted">${sub}</span></button></li>`);
   });
+  menuList.innerHTML = items.join('');
 
-  ul.querySelectorAll('button.grp-item').forEach(btn=>{
+  menuList.querySelectorAll('button.grp-item').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.getAttribute('data-target');
       closeMenu();
@@ -694,9 +583,9 @@ titleBtn.addEventListener('click', (e)=>{ e.stopPropagation(); toggleMenu(); });
 document.addEventListener('click', (e)=>{ if(menuEl.classList.contains('show')){ const within = menuEl.contains(e.target) || titleBtn.contains(e.target); if(!within) closeMenu(); } });
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
-/* ===== 行状態 ===== */
+/* 行状態 */
 function getRowStateByTr(tr){
-  if(!tr) return {ext:"",status:STATUSES[0]?.value||"在席",time:"",note:""};
+  if(!tr) return {ext:"",status:STATUS_VALUES[0]||"在席",time:"",note:""};
   return {
     ext:   tr.querySelector('input[name="ext"]').value.trim(),
     status:tr.querySelector('select[name="status"]').value,
@@ -713,7 +602,7 @@ function getState(){
   return data;
 }
 
-/* ===== 適用：編集中は上書きしない ===== */
+/* 適用：編集中は上書きしない */
 function isEditingField(el){
   if(!el) return false;
   if(el.dataset && el.dataset.editing === '1') return true;
@@ -735,7 +624,7 @@ function applyState(data){
     const n=document.getElementById(`note-${k}`);
 
     if(typeof v.ext==="string")  setIfNeeded(e, v.ext);
-    if(v.status && STATUSES.some(x=>x.value===v.status)) setIfNeeded(s, v.status);
+    if(v.status && STATUS_VALUES.includes(v.status)) setIfNeeded(s, v.status);
     setIfNeeded(t, v.time || "");
     setIfNeeded(n, v.note || "");
 
@@ -744,12 +633,10 @@ function applyState(data){
   recolor();
 }
 
-/* ===== ローカル保存（拠点別キー） ===== */
-function localKey(){ return `${storeKeyBase}:${CURRENT_OFFICE_ID||'__none__'}`; }
-function saveLocal(){ try{ localStorage.setItem(localKey(), JSON.stringify(getState())); }catch(e){} }
-function loadLocal(){ try{ const raw=localStorage.getItem(localKey()); if(raw) applyState(JSON.parse(raw)); }catch(e){} }
+function saveLocal(){ try{ localStorage.setItem(storeKey, JSON.stringify(getState())); }catch(e){} }
+function loadLocal(){ try{ const raw=localStorage.getItem(storeKey); if(raw) applyState(JSON.parse(raw)); }catch(e){} }
 
-/* ===== イベント&同期 ===== */
+/* イベント&同期 */
 const noteTimers = new Map();
 function debounceRowPush(key, delay=900){
   if(noteTimers.has(key)) clearTimeout(noteTimers.get(key));
@@ -768,7 +655,7 @@ function wireEvents(){
       const key  = sel.id.replace("status-","");
       const time = document.getElementById(`time-${key}`);
       const note = document.getElementById(`note-${key}`);
-      if(clearOnSet.has(sel.value)){ if(time) time.value=""; if(note) note.value=""; }
+      if(STATUS_CLEAR_ON.has(sel.value)){ if(time) time.value=""; if(note) note.value=""; }
       if(time) toggleTimeEnable(sel, time);
       saveLocal(); pushRowDelta(key); recolor();
     });
@@ -788,24 +675,24 @@ function wireEvents(){
   });
 }
 function toggleTimeEnable(statusEl, timeEl){
-  const needsTime = requiresTimeSet.has(statusEl.value);
+  const needsTime = STATUS_REQUIRES_TIME.has(statusEl.value);
   if(timeEl) timeEl.disabled = !needsTime;
 }
-
-/* ===== 行の配色（動的クラス） ===== */
 function recolor(){
   board.querySelectorAll("tbody tr").forEach(tr=>{
     const st = tr.querySelector('select[name="status"]').value;
-    // 既存クラスを剥がす
-    statusClassMap.forEach((cls)=> tr.classList.remove(cls));
-    // 新クラス付与
-    const cls = statusClassMap.get(st);
-    if(cls) tr.classList.add(cls);
-    tr.dataset.status = st; // 表示用
+    tr.dataset.status = st;
+    const c = STATUS_COLOR[st] || "";
+    if(c){ tr.style.backgroundColor = c; } else { tr.style.backgroundColor = ""; }
   });
 }
+function refreshNoteDatalist(){
+  const dl = document.getElementById('noteOptions');
+  if(!dl) return;
+  dl.innerHTML = MENUS.noteOptions.map(v=>`<option value="${String(v)}"></option>`).join('');
+}
 
-/* ===== JSONP ===== */
+/* JSONP */
 function jsonp(url, timeout=20000){
   return new Promise((resolve)=>{
     const cb = 'cb_'+Math.random().toString(36).slice(2);
@@ -826,6 +713,8 @@ function ensureAuthUI(){
   adminBtn.style.display  = showAdmin ? 'inline-block' : 'none';
   logoutBtn.style.display = SESSION_TOKEN ? 'inline-block' : 'none';
 }
+
+/* ログアウト（裏面を非表示に戻す & ログイン拠点を最新化） */
 async function logout(){
   try{
     if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; }
@@ -833,14 +722,14 @@ async function logout(){
     if(remoteStartTimer){ clearTimeout(remoteStartTimer); remoteStartTimer=null; }
     if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer=null; }
     if(ro){ try{ ro.disconnect(); }catch(_){} }
-  }catch(_){}  
+  }catch(_){}
 
   closeMenu();
   showAdmin(false);
 
   board.style.display = 'none';
   if (board.replaceChildren) board.replaceChildren(); else board.innerHTML = '';
-  menuList.replaceChildren();
+  menuList.innerHTML = '';
   window.scrollTo(0, 0);
 
   SESSION_TOKEN = "";
@@ -852,20 +741,21 @@ async function logout(){
   titleBtn.textContent = '在席確認表';
   ensureAuthUI();
 
-  await refreshPublicOfficeSelect(); // 最新拠点一覧を取得してからログインUIへ
+  // 最新の拠点一覧を取得してからログインUIを表示
+  await refreshPublicOfficeSelect();
   loginEl.style.display='flex';
 }
 
-/* ===== 公開オフィス一覧（未ログインで取得／フォールバック廃止） ===== */
+/* ===== 公開オフィス一覧（未ログインで取得） ===== */
 async function refreshPublicOfficeSelect(selectedId){
   officeSel.innerHTML = `<option value="" disabled selected>読込中…</option>`;
   const res = await jsonp(`${REMOTE_ENDPOINT}?action=publicListOffices`);
-  const offices = (res && Array.isArray(res.offices)) ? res.offices : [];
-  if(offices.length===0){
-    officeSel.innerHTML = `<option value="" disabled selected>取得できませんでした。再読込してください</option>`;
-    return;
-  }
-  officeSel.innerHTML = offices.map(o=>`<option value="${o.id}">${sanitizeText(o.name)}</option>`).join('');
+  const fallback = [
+    {id:'nagoya', name:'名古屋中央営業所'},
+    {id:'test',   name:'Administrator'}
+  ];
+  const offices = (res && Array.isArray(res.offices) && res.offices.length) ? res.offices : fallback;
+  officeSel.innerHTML = offices.map(o=>`<option value="${o.id}">${o.name}</option>`).join('');
   if(selectedId && offices.some(o=>o.id===selectedId)){
     officeSel.value = selectedId;
   }else{
@@ -878,12 +768,10 @@ async function tryLoadGroupsFromServer(nocache=false){
   const url = `${REMOTE_ENDPOINT}?action=getConfig&token=${encodeURIComponent(SESSION_TOKEN)}${nocache?'&nocache=1':''}`;
   const cfg = await jsonp(url);
   if(!cfg || cfg.error) throw new Error('config_load_failed');
-  const groups = normalizeConfigClient(cfg);
-  if(!groups.length) throw new Error('config_empty');
-  GROUPS = groups;
+  const parsed = normalizeConfigClient(cfg);
+  GROUPS = parsed.groups || [];
+  applyMenus(parsed.menus || {});
   CONFIG_UPDATED = (typeof cfg.updated === 'number') ? cfg.updated : 0;
-
-  setupMenus(cfg.menus || null); // 追加
 }
 async function fastFetchDataOnce(){
   const url = `${REMOTE_ENDPOINT}?action=get&token=${encodeURIComponent(SESSION_TOKEN)}&nocache=1`;
@@ -894,7 +782,7 @@ async function pullRemote(){
   const remote = await fastFetchDataOnce();
   if(!remote){ return; }
   if(remote.error){ logout(); return; }
-  if(remote.data){ applyState(remote.data); try{ localStorage.setItem(localKey(), JSON.stringify(Object.assign({}, getState(), remote.data))); }catch(e){} }
+  if(remote.data){ applyState(remote.data); try{ localStorage.setItem(storeKey, JSON.stringify(Object.assign({}, getState(), remote.data))); }catch(e){} }
 }
 async function pushRowDelta(key){
   if(!SESSION_TOKEN) return;
@@ -920,9 +808,10 @@ function startConfigWatch(){
       const cfg = await jsonp(`${REMOTE_ENDPOINT}?action=getConfig&token=${encodeURIComponent(SESSION_TOKEN)}&nocache=1`);
       if(cfg && !cfg.error && typeof cfg.updated === 'number' && cfg.updated > CONFIG_UPDATED){
         const prev = getState();
-        GROUPS = normalizeConfigClient(cfg);
+        const parsed = normalizeConfigClient(cfg);
+        GROUPS = parsed.groups || [];
+        applyMenus(parsed.menus || {});
         CONFIG_UPDATED = cfg.updated;
-        setupMenus(cfg.menus || null);
         render();
         applyState(prev);
       }
@@ -958,17 +847,16 @@ async function adminGetFor(office){
 async function adminGetConfigFor(office){
   return await jsonp(`${REMOTE_ENDPOINT}?action=getConfigFor&office=${encodeURIComponent(office)}&token=${encodeURIComponent(SESSION_TOKEN)}&nocache=1`);
 }
-async function adminSetConfigFor(office, cfgObj, superProof){
+async function adminSetConfigFor(office, cfgObj, superHmac){
   const payload = encodeURIComponent(JSON.stringify(cfgObj));
   const q = [`action=setConfigFor`,`office=${encodeURIComponent(office)}`,`data=${payload}`,`token=${encodeURIComponent(SESSION_TOKEN)}`];
-  if(superProof){ q.push(`superHmac=${encodeURIComponent(superProof.hmac)}`, `nonce=${encodeURIComponent(superProof.nonce)}`); }
+  if(superHmac){ q.push(`superHmac=${encodeURIComponent(superHmac.hmac)}`); q.push(`nonce=${encodeURIComponent(superHmac.nonce)}`); }
   return await jsonp(`${REMOTE_ENDPOINT}?${q.join('&')}`);
 }
-async function adminSetForChunked(office, dataObjFull, superProof){
+async function adminSetForChunked(office, dataObjFull, superHmac){
   const entries = Object.entries(dataObjFull || {});
   if(entries.length===0){
     const q = [`action=setFor`,`office=${encodeURIComponent(office)}`,`data=${encodeURIComponent(JSON.stringify({updated:Date.now(), data:{}, full:true}))}`,`token=${encodeURIComponent(SESSION_TOKEN)}`];
-    if(superProof){ q.push(`superHmac=${encodeURIComponent(superProof.hmac)}`, `nonce=${encodeURIComponent(superProof.nonce)}`); }
     return await jsonp(`${REMOTE_ENDPOINT}?${q.join('&')}`);
   }
   const chunkSize = 100;
@@ -977,7 +865,6 @@ async function adminSetForChunked(office, dataObjFull, superProof){
     const chunk = Object.fromEntries(entries.slice(i, i+chunkSize));
     const obj = {updated:Date.now(), data:chunk, full:first};
     const q = [`action=setFor`,`office=${encodeURIComponent(office)}`,`data=${encodeURIComponent(JSON.stringify(obj))}`,`token=${encodeURIComponent(SESSION_TOKEN)}`];
-    if(superProof){ q.push(`superHmac=${encodeURIComponent(superProof.hmac)}`, `nonce=${encodeURIComponent(superProof.nonce)}`); }
     const res = await jsonp(`${REMOTE_ENDPOINT}?${q.join('&')}`);
     if(!(res && res.ok)) ok=false;
     first = false;
@@ -990,40 +877,70 @@ async function adminRenameOffice(office, name){
 async function adminAddOffice(id, name, pw, apw){
   return await jsonp(`${REMOTE_ENDPOINT}?action=addOffice&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&password=${encodeURIComponent(pw)}&adminPassword=${encodeURIComponent(apw)}&token=${encodeURIComponent(SESSION_TOKEN)}`);
 }
-async function adminDeleteOffice(office, superProof){
+async function adminDeleteOffice(office, superHmac){
   const q = [`action=deleteOffice`,`id=${encodeURIComponent(office)}`,`token=${encodeURIComponent(SESSION_TOKEN)}`];
-  if(superProof){ q.push(`superHmac=${encodeURIComponent(superProof.hmac)}`, `nonce=${encodeURIComponent(superProof.nonce)}`); }
+  if(superHmac){ q.push(`superHmac=${encodeURIComponent(superHmac.hmac)}`); q.push(`nonce=${encodeURIComponent(superHmac.nonce)}`); }
   return await jsonp(`${REMOTE_ENDPOINT}?${q.join('&')}`);
 }
-async function adminSetOfficePassword(office, pw, apw, superProof){
+async function adminSetOfficePassword(office, pw, apw, superHmac){
   const q = [`action=setOfficePassword`,`id=${encodeURIComponent(office)}`];
   if(pw)  q.push(`password=${encodeURIComponent(pw)}`);
   if(apw) q.push(`adminPassword=${encodeURIComponent(apw)}`);
-  if(superProof){ q.push(`superHmac=${encodeURIComponent(superProof.hmac)}`, `nonce=${encodeURIComponent(superProof.nonce)}`); }
-  q.push(`token=${encodeURIComponent(SESSION_ONEN)}`);
-}
-
-/* 修正：↑タイポ修正用の再定義（上の関数末尾にタイプミスがある場合に備える） */
-async function adminSetOfficePassword(office, pw, apw, superProof){
-  const q = [`action=setOfficePassword`,`id=${encodeURIComponent(office)}`];
-  if(pw)  q.push(`password=${encodeURIComponent(pw)}`);
-  if(apw) q.push(`adminPassword=${encodeURIComponent(apw)}`);
-  if(superProof){ q.push(`superHmac=${encodeURIComponent(superProof.hmac)}`, `nonce=${encodeURIComponent(superProof.nonce)}`); }
+  if(superHmac){ q.push(`superHmac=${encodeURIComponent(superHmac.hmac)}`); q.push(`nonce=${encodeURIComponent(superHmac.nonce)}`); }
   q.push(`token=${encodeURIComponent(SESSION_TOKEN)}`);
   return await jsonp(`${REMOTE_ENDPOINT}?${q.join('&')}`);
 }
 
-/* ===== CSVユーティリティ（式注入対策） ===== */
-function csvProtectFormula(s){
-  if(s==null) return '';
-  const v = String(s);
-  // 先頭が = + - @ または TAB の場合、先頭にシングルクォートを付与
-  if(/^[=\+\-@\t]/.test(v)) return "'" + v;
-  return v;
+/* ===== Super Admin 追加認証（HMAC） ===== */
+async function getNonceAndSalt(){
+  const res = await jsonp(`${REMOTE_ENDPOINT}?action=getNonce`);
+  if(!res || res.error) return null;
+  return { nonce: res.nonce, salt: res.salt };
 }
+// フロントでは PW を送らず、saltとPWでHMAC(nonce)を生成（簡易：SHA-256(salt+pw)を鍵、HMAC-SHA-256）
+async function superHmacFromPassword(pw){
+  const ns = await getNonceAndSalt();
+  if(!ns) return null;
+  const keyBytes = await sha256Bytes(ns.salt + pw);
+  const hmacBytes = await hmacSha256Bytes(keyBytes, ns.nonce);
+  return { nonce: ns.nonce, hmac: base64(hmacBytes) };
+}
+function strToBytes(s){
+  const u = new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i)&0xff;
+  return u;
+}
+async function sha256Bytes(s){
+  // WebCryptoが無い環境向け簡易（非常時用）：サーバで検証するため、ここは疑似でもOK。今回はSubtle無依存の簡易実装を避け、fallbackなし。
+  if(crypto && crypto.subtle){
+    const enc = new TextEncoder();
+    const buf = await crypto.subtle.digest('SHA-256', enc.encode(s));
+    return new Uint8Array(buf);
+  }else{
+    // 簡易フォールバック：JSONPでサーバに任せる運用も可能だが、今回は必要時のみPWログインにフォールバック
+    return null;
+  }
+}
+async function hmacSha256Bytes(keyBytes, message){
+  if(!keyBytes) return null;
+  if(crypto && crypto.subtle){
+    const enc = new TextEncoder();
+    const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(message));
+    return new Uint8Array(sig);
+  }else{
+    return null;
+  }
+}
+function base64(bytes){
+  let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b));
+  return btoa(bin);
+}
+
+/* ===== CSVユーティリティ ===== */
 function toCsvRow(arr){
   return arr.map(v=>{
-    const s = csvProtectFormula(v);
+    const s = (v==null)?'':String(v);
     if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
     return s;
   }).join(',');
@@ -1042,7 +959,7 @@ function makeNormalizedCSV(cfg, data){
         id,
         m.name||'',
         m.ext||'',
-        rec.status|| (STATUSES[0]?.value || '在席'),
+        rec.status||STATUS_VALUES[0]||'在席',
         rec.time||'',
         rec.note||''
       ]));
@@ -1050,13 +967,36 @@ function makeNormalizedCSV(cfg, data){
   });
   return rows.join('\n');
 }
+function parseCSV(text){
+  const out=[]; let i=0, s=text;
+  let row=[]; let field=''; let inq=false;
+  function pushField(){ row.push(field); field=''; }
+  function pushRow(){ out.push(row); row=[]; }
+  while(i<s.length){
+    const c=s[i++];
+    if(inq){
+      if(c==='"' && s[i]==='"'){ field+='"'; i++; }
+      else if(c==='"'){ inq=false; }
+      else field+=c;
+    }else{
+      if(c===','){ pushField(); }
+      else if(c==='"'){ inq=true; }
+      else if(c==='\n'){ pushField(); pushRow(); }
+      else if(c==='\r'){ /* skip */ }
+      else field+=c;
+    }
+  }
+  if(field!=='') pushField();
+  if(row.length) pushRow();
+  return out;
+}
 
-/* ===== 管理UI 共通 ===== */
+/* ===== Admin/UI 共通 ===== */
 function toast(msg, ok=true){
   toastEl.style.background = ok ? '#334155' : '#c53030';
   toastEl.textContent = msg;
   toastEl.classList.add('show');
-  setTimeout(()=>toastEl.classList.remove('show'), 2000);
+  setTimeout(()=>toastEl.classList.remove('show'), 1800);
 }
 function showAdmin(yes){ adminModal.classList.toggle('show', !!yes); }
 function applyRoleToAdminPanel(){
@@ -1069,32 +1009,21 @@ async function populateAdminOffices(selected){
   if(isSuper()){
     const res = await adminListOffices();
     if(!(res && res.offices)) { toast('拠点一覧の取得に失敗', false); return; }
-    adminOfficeSel.innerHTML = res.offices.map(o=>`<option value="${o.id}">${sanitizeText(o.name)}（${o.id}）</option>`).join('');
+    adminOfficeSel.innerHTML = res.offices.map(o=>`<option value="${o.id}">${o.name}（${o.id}）</option>`).join('');
     if(selected){ adminOfficeSel.value = selected; }
   }else{
-    adminOfficeSel.innerHTML = `<option value="${CURRENT_OFFICE_ID}">${sanitizeText(CURRENT_OFFICE_NAME)}（${CURRENT_OFFICE_ID}）</option>`;
+    adminOfficeSel.innerHTML = `<option value="${CURRENT_OFFICE_ID}">${CURRENT_OFFICE_NAME}（${CURRENT_OFFICE_ID}）</option>`;
   }
 }
 
-/* ===== 重要操作の再認証（HMAC+Nonce） ===== */
-async function getNonce(){
-  const r = await jsonp(`${REMOTE_ENDPOINT}?action=getNonce`);
-  if(!r || !r.nonce || !r.salt){ throw new Error('nonce_failed'); }
-  return { nonce:r.nonce, salt:r.salt };
-}
-async function superHmacFlow(promptTitle='スーパー管理者パスワードを入力してください'){
-  try{
-    const pw = window.prompt(promptTitle);
-    if(!pw){ toast('キャンセルしました', false); return null; }
-    const {nonce, salt} = await getNonce();
-    const kBytes = await sha256Bytes(salt + pw);
-    const sig = await hmacSha256(kBytes, nonce);
-    const hmac = toBase64(sig);
-    return { hmac, nonce };
-  }catch(e){
-    toast('追加認証に失敗', false);
-    return null;
-  }
+/* ===== 重要操作の追加認証 ===== */
+async function getSuperHmacIfNeeded(){
+  if(!isSuper()) return null;
+  const pw = prompt("スーパー管理者パスワードを入力してください（送信時はハッシュ化されます）");
+  if(!pw) { toast('キャンセルしました', false); return null; }
+  const h = await superHmacFromPassword(pw);
+  if(!h){ toast('追加認証に失敗', false); return null; }
+  return h;
 }
 
 /* ===== 管理操作ボタン ===== */
@@ -1120,11 +1049,10 @@ btnImport.addEventListener('click', async ()=>{
   const file = csvFile.files && csvFile.files[0];
   if(!file){ toast('CSVを選択してください', false); return; }
 
-  // スーパー管理者操作は追加認証（HMAC+nonce）
-  let superProof = null;
+  let superHmac = null;
   if(isSuper()){
-    superProof = await superHmacFlow("CSVインポートを実行します。スーパー管理者パスワードを入力してください");
-    if(!superProof) return;
+    superHmac = await getSuperHmacIfNeeded();
+    if(!superHmac) return;
   }
 
   const text = await file.text();
@@ -1143,13 +1071,12 @@ btnImport.addEventListener('click', async ()=>{
       id: (id||''),
       name: (name||''),
       ext: (ext||''),
-      status: (status|| (STATUSES[0]?.value || '在席')),
+      status: (status||STATUS_VALUES[0]||'在席'),
       time: (time||''),
       note: (note||'')
     };
   });
 
-  // 名簿（config）を先に適用
   const groupsMap = new Map();
   for(const r of recs){
     if(!r.gi || !r.mi || !r.name){ continue; }
@@ -1163,9 +1090,10 @@ btnImport.addEventListener('click', async ()=>{
     g.members.forEach(m=> delete m._mi);
     return g;
   });
-  const cfgToSet = { version:2, updated: Date.now(), groups, menus: MENUS || undefined };
+  const cfgToSet = { version:2, updated: Date.now(), groups, menus: MENUS };
 
-  const r1 = await adminSetConfigFor(office, cfgToSet, superProof);
+  // 名簿（config）を先に適用
+  const r1 = await adminSetConfigFor(office, cfgToSet, superHmac);
   if(!(r1 && r1.ok)){ toast('名簿の設定に失敗（権限・バックアップ・ネットワーク）', false); return; }
 
   // 新しいIDを取得して在席データへ反映
@@ -1184,10 +1112,10 @@ btnImport.addEventListener('click', async ()=>{
   for(const r of recs){
     const id = r.id || idIndex.get(keyOf(r.gi, r.gt, r.mi, r.name, r.ext||'')) || null;
     if(!id) continue;
-    dataObj[id] = { ext: r.ext||'', status: STATUSES.some(s=>s.value===r.status)? r.status : (STATUSES[0]?.value || '在席'), time: r.time||'', note: r.note||'' };
+    dataObj[id] = { ext: r.ext||'', status: STATUS_VALUES.includes(r.status)? r.status : (STATUS_VALUES[0]||'在席'), time: r.time||'', note: r.note||'' };
   }
 
-  const r2 = await adminSetForChunked(office, dataObj, superProof);
+  const r2 = await adminSetForChunked(office, dataObj, superHmac);
   if(!(r2 && r2.ok)){ toast('在席データ更新に失敗', false); return; }
 
   toast('インポート完了（バックアップ済）', true);
@@ -1221,16 +1149,19 @@ btnAddOffice.addEventListener('click', async ()=>{
   }
 });
 
-/* Delete Office（スーパのみ・HMAC追加認証＋バックアップ） */
+/* Delete Office（スーパのみ・追加認証） */
 btnDeleteOffice.addEventListener('click', async ()=>{
   if(!isSuper()){ toast('権限がありません', false); return; }
   const office = adminOfficeSel.value;
   const officeLabel = adminOfficeSel.options[adminOfficeSel.selectedIndex]?.text || office;
 
-  const superProof = await superHmacFlow(`拠点を削除します。\n対象：${officeLabel}\nスーパー管理者パスワードを入力してください`);
-  if(!superProof) return;
+  if(!confirm(`拠点を削除します。\n対象拠点：${officeLabel}\n※処理前に自動バックアップを保存します。\n本当に実行しますか？`)){
+    toast('キャンセルしました', false); return;
+  }
+  const superHmac = await getSuperHmacIfNeeded();
+  if(!superHmac) return;
 
-  const r = await adminDeleteOffice(office, superProof);
+  const r = await adminDeleteOffice(office, superHmac);
   if(r && r.ok){
     toast('拠点を削除しました（バックアップ済）');
     await populateAdminOffices();
@@ -1239,59 +1170,22 @@ btnDeleteOffice.addEventListener('click', async ()=>{
   }
 });
 
-/* Set Password（スーパー時はHMAC追加認証） */
+/* Set Password（スーパー時は追加認証） */
 btnSetPw.addEventListener('click', async ()=>{
   const office = selectedOfficeId();
   const pw  = (setPw.value||'').trim();
   const apw = (setAdminPw.value||'').trim();
   if(!pw && !apw){ toast('更新する項目を入力', false); return; }
 
-  let superProof = null;
+  let superHmac = null;
   if(isSuper()){
-    superProof = await superHmacFlow("拠点パスワードを変更します。スーパー管理者パスワードを入力してください");
-    if(!superProof) return;
+    superHmac = await getSuperHmacIfNeeded();
+    if(!superHmac) return;
   }
 
-  const r = await adminSetOfficePassword(office, pw, apw, superProof);
+  const r = await adminSetOfficePassword(office, pw, apw, superHmac);
   if(r && r.ok){ toast('パスワードを更新しました'); setPw.value=''; setAdminPw.value=''; }
   else toast('更新に失敗（権限・ネットワーク）', false);
-});
-
-/* Menus JSON load/save */
-btnLoadMenus.addEventListener('click', async ()=>{
-  const office = selectedOfficeId();
-  const cfg = await adminGetConfigFor(office);
-  if(!(cfg && cfg.menus)){ menusJson.value = JSON.stringify(defaultMenus(), null, 2); return; }
-  menusJson.value = JSON.stringify(cfg.menus, null, 2);
-});
-btnSaveMenus.addEventListener('click', async ()=>{
-  let obj;
-  try{
-    obj = JSON.parse(menusJson.value);
-  }catch(e){ toast('JSONの形式が不正です', false); return; }
-
-  // 現在の名簿に menus を上書きして保存
-  const office = selectedOfficeId();
-  const cfg = await adminGetConfigFor(office);
-  if(!(cfg && cfg.groups)){ toast('名簿の取得に失敗', false); return; }
-
-  // スーパの場合はHMAC追加認証
-  let superProof = null;
-  if(isSuper()){
-    superProof = await superHmacFlow("メニュー設定を保存します。スーパー管理者パスワードを入力してください");
-    if(!superProof) return;
-  }
-
-  cfg.menus = obj;
-  const r = await adminSetConfigFor(office, cfg, superProof);
-  if(r && r.ok){
-    toast('メニュー設定を保存しました');
-    // 即反映
-    setupMenus(cfg.menus);
-    render();
-  }else{
-    toast('保存に失敗', false);
-  }
 });
 
 /* 管理モーダル開閉 + ログオフ */
@@ -1305,78 +1199,42 @@ refreshOfficesBtn.addEventListener('click', ()=> populateAdminOffices(adminOffic
 logoutBtn.addEventListener('click', ()=> logout());
 
 /* ===== 起動 ===== */
-function parseCSV(text){
-  const out=[]; let i=0, s=text;
-  let row=[]; let field=''; let inq=false;
-  function pushField(){ row.push(field); field=''; }
-  function pushRow(){ out.push(row); row=[]; }
-  while(i<s.length){
-    const c=s[i++];
-    if(inq){
-      if(c==='"' && s[i]==='"'){ field+='"'; i++; }
-      else if(c==='"'){ inq=false; }
-      else field+=c;
-    }else{
-      if(c===','){ pushField(); }
-      else if(c==='"'){ inq=true; }
-      else if(c==='\n'){ pushField(); pushRow(); }
-      else if(c==='\r'){ /* skip */ }
-      else field+=c;
-    }
-  }
-  if(field!=='') pushField();
-  if(row.length) pushRow();
-  return out;
-}
-
 document.addEventListener('DOMContentLoaded', async ()=>{
+  // 初回：ログイン拠点を最新化
   await refreshPublicOfficeSelect();
 
-  // ログイン処理：スーパーはHMAC、その他は従来（平文PW）
-  document.getElementById('btnLogin').addEventListener('click', async ()=>{
+  window.__doLogin = async () => {
     const pw = pwInput.value;
     const office = officeSel.value;
     if(!office){ loginMsg.textContent="拠点を選択してください"; return; }
     if(!pw || !pw.trim()){ loginMsg.textContent="パスワードを入力してください"; return; }
+
+    // まずはHMAC（super想定） → 失敗したら通常PWへフォールバック
     loginMsg.textContent = "認証中…";
-
-    // まずスーパー管理者HMACで試行（成功すればsuperAdminとしてログイン）
+    let res = null;
     try{
-      const {nonce, salt} = await getNonce();
-      const kBytes = await sha256Bytes(salt + pw);
-      const sig = await hmacSha256(kBytes, nonce);
-      const hmac = toBase64(sig);
-      const resSup = await jsonp(`${REMOTE_ENDPOINT}?action=login&office=${encodeURIComponent(office)}&hmac=${encodeURIComponent(hmac)}&nonce=${encodeURIComponent(nonce)}`);
-      if(resSup && resSup.token && resSup.role === 'superAdmin'){
-        await afterLogin(resSup);
-        return;
+      const h = await superHmacFromPassword(pw);
+      if(h){
+        res = await jsonp(`${REMOTE_ENDPOINT}?action=login&office=${encodeURIComponent(office)}&nonce=${encodeURIComponent(h.nonce)}&hmac=${encodeURIComponent(h.hmac)}`);
       }
-    }catch(_){ /* HMAC経路失敗は無視し、通常ログインへフォールバック */ }
+    }catch(_){}
+    if(!(res && res.token)){
+      // フォールバック：通常PW
+      res = await jsonp(`${REMOTE_ENDPOINT}?action=login&office=${encodeURIComponent(office)}&password=${encodeURIComponent(pw)}`);
+    }
 
-    // 通常（officeAdmin / user）ログイン
-    const res = await jsonp(`${REMOTE_ENDPOINT}?action=login&office=${encodeURIComponent(office)}&password=${encodeURIComponent(pw)}`);
-    if(res === null){ loginMsg.textContent = "通信エラー（公開設定/URLを確認）"; return; }
+    if(res === null){ loginMsg.textContent = "通信エラー（公開設定/URL/CSPを確認）"; return; }
     if(res && res.error === 'unauthorized'){ loginMsg.textContent = "拠点またはパスワードが違います"; return; }
     if(!(res && res.token)){ loginMsg.textContent = "サーバ応答が不正です"; return; }
-    await afterLogin(res);
-  });
 
-  async function afterLogin(res){
     SESSION_TOKEN = res.token; sessionStorage.setItem(SESSION_KEY, SESSION_TOKEN);
     CURRENT_OFFICE_NAME = res.officeName || "";
     CURRENT_OFFICE_ID = res.office || "";
     CURRENT_ROLE = res.role || "user";
     titleBtn.textContent = (CURRENT_OFFICE_NAME? `${CURRENT_OFFICE_NAME}　在席確認表` : '在席確認表');
     loginEl.style.display='none'; loginMsg.textContent="";
-    ensureAuthUI();
 
-    // ストレージキーを拠点別に
-    // 旧キーがあれば片道移行して削除（安全運転）
-    try{
-      const old = localStorage.getItem(storeKeyBase);
-      if(old && !localStorage.getItem(localKey())){ localStorage.setItem(localKey(), old); }
-      localStorage.removeItem(storeKeyBase);
-    }catch(_){}
+    ensureAuthUI();
 
     const cfgP  = tryLoadGroupsFromServer(true).catch(()=>{});
     const dataP = fastFetchDataOnce().catch(()=>null);
@@ -1387,9 +1245,11 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
     startRemoteSync(true);
     startConfigWatch();
-  }
+  };
 
-  // セッション継続
+  document.getElementById('btnLogin').addEventListener('click', window.__doLogin);
+  pwInput.addEventListener('keypress', (e)=>{ if(e.key==='Enter') window.__doLogin(); });
+
   const existing = sessionStorage.getItem(SESSION_KEY);
   if(existing){
     SESSION_TOKEN = existing; loginEl.style.display='none';
@@ -1419,12 +1279,10 @@ window.addEventListener('error', e=>{
   toastEl.style.background='#c53030';
   toastEl.textContent='エラー: '+e.message;
   toastEl.classList.add('show');
-  setTimeout(()=>toastEl.classList.remove('show'), 1800);
+  setTimeout(()=>toastEl.classList.remove('show'), 1500);
 });
 </script>
 
-<datalist id="noteOptions">
-  <!-- JSで動的に埋め替え -->
-</datalist>
+<datalist id="noteOptions"></datalist>
 </body>
 </html>
