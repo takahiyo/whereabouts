@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>在席確認表【開発用】</title>
+<title>在席確認表</title>
 
 <!-- 強めのキャッシュ抑止（HTMLに効く） -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -192,7 +192,7 @@
 </head>
 <body>
   <header>
-    <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false" aria-controls="groupMenu">在席確認表【開発用】</button>
+    <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false" aria-controls="groupMenu">在席確認表</button>
     <button id="adminBtn" class="admin-btn" title="管理">管理</button>
     <button id="logoutBtn" class="logout-btn" title="ログオフ">ログオフ</button>
   </header>
@@ -271,7 +271,7 @@
   <!-- ログイン -->
   <div id="login" class="login" style="display:none">
     <div class="card">
-      <h2>在席確認表【開発用】</h2>
+      <h2>在席確認表</h2>
       <p>拠点を選び、パスワードを入力してください</p>
       <select id="officeSel" aria-label="拠点"></select>
       <input type="password" id="pw" placeholder="Password" autocomplete="current-password" />
@@ -472,7 +472,7 @@ btnSaveMenus.addEventListener('click', async ()=>{ let obj; try{ obj=JSON.parse(
 function parseCSV(text){ const out=[]; let i=0,row=[],field='',inq=false; function pushField(){ row.push(field); field=''; } function pushRow(){ out.push(row); row=[]; } while(i<text.length){ const c=text[i++]; if(inq){ if(c=='"'&&text[i]=='"'){ field+='"'; i++; } else if(c=='"'){ inq=false; } else field+=c; } else { if(c===','){ pushField(); } else if(c=='"'){ inq=true; } else if(c=='\n'){ pushField(); pushRow(); } else if(c=='\r'){ } else field+=c; } } if(field!=='') pushField(); if(row.length) pushRow(); return out; }
 
 /* ログアウト */
-async function logout(){ try{ if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; } if(configWatchTimer){ clearInterval(configWatchTimer); configWatchTimer=null; } if(remoteStartTimer){ clearTimeout(remoteStartTimer); remoteStartTimer=null; } if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer=null; } if(ro){ try{ ro.disconnect(); }catch{} } }catch{} closeMenu(); showAdminModal(false); board.style.display='none'; board.replaceChildren(); menuList.replaceChildren(); window.scrollTo(0,0); SESSION_TOKEN=""; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_ROLE_KEY); sessionStorage.removeItem(SESSION_OFFICE_KEY); sessionStorage.removeItem(SESSION_OFFICE_NAME_KEY); CURRENT_OFFICE_NAME=""; CURRENT_OFFICE_ID=""; CURRENT_ROLE="user"; titleBtn.textContent='在席確認表【開発用】'; ensureAuthUI(); await refreshPublicOfficeSelect(); loginEl.style.display='flex'; }
+async function logout(){ try{ if(tokenRenewTimer){ clearTimeout(tokenRenewTimer); tokenRenewTimer=null; } if(configWatchTimer){ clearInterval(configWatchTimer); configWatchTimer=null; } if(remoteStartTimer){ clearTimeout(remoteStartTimer); remoteStartTimer=null; } if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer=null; } if(ro){ try{ ro.disconnect(); }catch{} } }catch{} closeMenu(); showAdminModal(false); board.style.display='none'; board.replaceChildren(); menuList.replaceChildren(); window.scrollTo(0,0); SESSION_TOKEN=""; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_ROLE_KEY); sessionStorage.removeItem(SESSION_OFFICE_KEY); sessionStorage.removeItem(SESSION_OFFICE_NAME_KEY); CURRENT_OFFICE_NAME=""; CURRENT_OFFICE_ID=""; CURRENT_ROLE="user"; titleBtn.textContent='在席確認表'; ensureAuthUI(); await refreshPublicOfficeSelect(); loginEl.style.display='flex'; }
 
 /* 認証UI */
 function ensureAuthUI(){ const showAdmin=(SESSION_TOKEN&&(isSuper()||isOfficeAdmin())); adminBtn.style.display=showAdmin?'inline-block':'none'; logoutBtn.style.display=SESSION_TOKEN?'inline-block':'none'; }
@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     SESSION_TOKEN=res.token; sessionStorage.setItem(SESSION_KEY,SESSION_TOKEN);
     CURRENT_OFFICE_NAME=res.officeName||""; CURRENT_OFFICE_ID=res.office||"";
     CURRENT_ROLE = res.role || res.userRole || (res.isAdmin===true?'officeAdmin':'user');
-    saveSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表【開発用】`:'在席確認表【開発用】');
+    saveSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
     loginEl.style.display='none'; loginMsg.textContent=""; ensureAuthUI();
 
     // 役割確定（管理ボタンが消えないように先に表示済みだが、renewで上書き）
@@ -529,7 +529,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const existing=sessionStorage.getItem(SESSION_KEY);
   if(existing){
     SESSION_TOKEN=existing; loginEl.style.display='none';
-    loadSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表【開発用】`:'在席確認表【開発用】');
+    loadSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
     ensureAuthUI();
     // 初期データ取得
     (async()=>{
@@ -580,3 +580,4 @@ function ensureAuthUI(){ const showAdmin = (SESSION_TOKEN && (isSuper()||isOffic
 </script>
 </body>
 </html>
+
