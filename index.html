@@ -14,7 +14,7 @@
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
                script-src 'self' 'unsafe-inline';
-               connect-src 'self' https://presence-proxy-test.taka-hiyo.workers.dev;
+               connect-src 'self' https://presence-proxy.taka-hiyo.workers.dev;
                style-src 'self' 'unsafe-inline';
                img-src 'self' data:;
                object-src 'none'">
@@ -345,10 +345,10 @@ const CONFIG_POLL_MS = 120000;
 const TOKEN_DEFAULT_TTL = 3600000;
 
 /* セッションキー */
-const SESSION_KEY = "presence-test-session-token";
-const SESSION_ROLE_KEY = "presence-test-role";
-const SESSION_OFFICE_KEY = "presence-test-office";
-const SESSION_OFFICE_NAME_KEY = "presence-test-office-name";
+const SESSION_KEY = "presence-session-token";
+const SESSION_ROLE_KEY = "presence-role";
+const SESSION_OFFICE_KEY = "presence-office";
+const SESSION_OFFICE_NAME_KEY = "presence-office-name";
 
 /* 要素 */
 const board=document.getElementById('board'), toastEl=document.getElementById('toast'), diag=document.getElementById('diag');
@@ -365,7 +365,7 @@ const menusJson=document.getElementById('menusJson'), btnLoadMenus=document.getE
 /* 状態 */
 let GROUPS=[], CONFIG_UPDATED=0, MENUS=null, STATUSES=[], requiresTimeSet=new Set(), clearOnSet=new Set(), statusClassMap=new Map();
 let tokenRenewTimer=null, ro=null, remotePullTimer=null, remoteStartTimer=null, configWatchTimer=null;
-let storeKeyBase="presence-board-v4-test";
+let storeKeyBase="presence-board-v4";
 
 /* 認証状態 */
 let SESSION_TOKEN=""; let CURRENT_OFFICE_NAME=""; let CURRENT_OFFICE_ID=""; let CURRENT_ROLE="user";
@@ -684,3 +684,4 @@ window.addEventListener('error', e=>{ toast('エラー: '+e.message,false); diag
 <datalist id="noteOptions"></datalist>
 </body>
 </html>
+
