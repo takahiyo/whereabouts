@@ -50,6 +50,44 @@
     --gap: 20px;
     --line:#d9d9d9; --head:#f1ece6; --bg:#fafafa;
     --header-height: 56px;
+        /* ===== ステータス別の行色（在席はデフォルト） ===== */
+#board tbody tr{ transition: background-color .15s ease; }
+
+/* 在席（デフォルト見た目：色付けなし） */
+#board tbody tr.st-here{ background: transparent; }
+
+/* 外出：淡いオレンジ + 左端アクセント */
+#board tbody tr.st-out{
+  background:#fff7ed;                  /* orange-50 相当 */
+  box-shadow: inset 4px 0 0 #f59e0b;   /* orange-500 */
+}
+
+/* 会議：淡いブルー + 左端アクセント */
+#board tbody tr.st-meeting{
+  background:#eff6ff;                  /* blue-50 */
+  box-shadow: inset 4px 0 0 #3b82f6;   /* blue-500 */
+}
+
+/* テレワーク：淡いパープル + 左端アクセント */
+#board tbody tr.st-remote{
+  background:#f5f3ff;                  /* violet-50 */
+  box-shadow: inset 4px 0 0 #8b5cf6;   /* violet-500 */
+}
+
+/* 休み：淡いレッド + 左端アクセント（文字は少し落ち着いた色に） */
+#board tbody tr.st-off{
+  background:#fef2f2;                  /* red-50 */
+  box-shadow: inset 4px 0 0 #ef4444;   /* red-500 */
+  color:#374151;                        /* gray-700 */
+}
+#board tbody tr.st-off input,
+#board tbody tr.st-off select{
+  color:#374151;
+}
+
+/* モバイルのカード表示でも行背景が見えるよう tr に色付けする設計にしています
+   （td は透明のままなのでそのまま効きます） */
+
   }
 
   body{font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;background:#fff;margin:16px}
@@ -1087,3 +1125,4 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 </script>
 </body>
 </html>
+
