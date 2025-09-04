@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>在席確認表【開発用】</title>
+<title>在席確認表</title>
 
 <!-- 強めのキャッシュ抑止（HTMLに効く） -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 
-<!-- CSP：Worker への POST を許可（開発＝-test を指す） -->
+<!-- CSP：Worker への POST を許可（開発＝-prod を指す） -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
                script-src 'self' 'unsafe-inline';
-               connect-src 'self' https://presence-proxy-test.taka-hiyo.workers.dev;
+               connect-src 'self' https://presence-proxy-prod.taka-hiyo.workers.dev;
                style-src 'self' 'unsafe-inline';
                img-src 'self' data:;
                object-src 'none'">
@@ -178,7 +178,7 @@
 </head>
 <body>
   <header>
-    <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false" aria-controls="groupMenu">在席確認表【開発用】</button>
+    <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false" aria-controls="groupMenu">在席確認表</button>
     <button id="adminBtn" class="admin-btn" title="管理">管理</button>
     <button id="logoutBtn" class="logout-btn" title="ログオフ">ログオフ</button>
   </header>
@@ -259,7 +259,7 @@
   <!-- ログイン -->
   <div id="login" class="login" style="display:none">
     <div class="card">
-      <h2>在席確認表【開発用】</h2>
+      <h2>在席確認表</h2>
       <p>拠点を選び、パスワードを入力してください</p>
       <select id="officeSel" aria-label="拠点"></select>
       <input type="password" id="pw" placeholder="Password" autocomplete="current-password" />
@@ -274,7 +274,7 @@
 
 <script>
 /* ===== 接続設定 ===== */
-const REMOTE_ENDPOINT = "https://presence-proxy-test.taka-hiyo.workers.dev";
+const REMOTE_ENDPOINT = "https://presence-proxy-prod.taka-hiyo.workers.dev";
 const REMOTE_POLL_MS = 2000;
 const CONFIG_POLL_MS = 120000;
 const TOKEN_DEFAULT_TTL = 3600000;
@@ -760,7 +760,7 @@ async function logout(){
   SESSION_TOKEN=""; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_ROLE_KEY);
   sessionStorage.removeItem(SESSION_OFFICE_KEY); sessionStorage.removeItem(SESSION_OFFICE_NAME_KEY);
   CURRENT_OFFICE_NAME=""; CURRENT_OFFICE_ID=""; CURRENT_ROLE="user";
-  titleBtn.textContent='在席確認表【開発用】';
+  titleBtn.textContent='在席確認表';
 ensureAuthUI();
 try{
   await refreshPublicOfficeSelect();
@@ -883,7 +883,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     SESSION_TOKEN=res.token; sessionStorage.setItem(SESSION_KEY,SESSION_TOKEN);
     CURRENT_OFFICE_NAME=res.officeName||""; CURRENT_OFFICE_ID=res.office||"";
     CURRENT_ROLE = res.role || res.userRole || (res.isAdmin===true?'officeAdmin':'user');
-    saveSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表【開発用】`:'在席確認表【開発用】');
+    saveSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
     loginEl.style.display='none'; loginMsg.textContent=""; ensureAuthUI();
 
     // 役割確定（管理ボタンが消えないように先に表示済みだが、renewで上書き）
@@ -903,7 +903,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const existing=sessionStorage.getItem(SESSION_KEY);
   if(existing){
     SESSION_TOKEN=existing; loginEl.style.display='none';
-    loadSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表【開発用】`:'在席確認表【開発用】');
+    loadSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
     ensureAuthUI();
     // 初期データ取得
     (async()=>{
@@ -919,3 +919,4 @@ document.addEventListener('DOMContentLoaded', async ()=>{
 </script>
 </body>
 </html>
+
