@@ -1,8 +1,5 @@
 /* ===== 接続設定 ===== */
-const REMOTE_ENDPOINT = "https://presence-proxy-prod.taka-hiyo.workers.dev";
-const REMOTE_POLL_MS = 2000;
-const CONFIG_POLL_MS = 120000;
-const TOKEN_DEFAULT_TTL = 3600000;
+/* config.js で REMOTE_ENDPOINT などを定義 */
 
 /* セッションキー */
 const SESSION_KEY = "presence-session-token";
@@ -54,8 +51,7 @@ const ID_RE=/^[0-9A-Za-z_-]+$/;
 
 function el(tag,attrs={},children=[]){ const e=document.createElement(tag); for(const [k,v] of Object.entries(attrs||{})){ if(v==null) continue; if(k==='class') e.className=v; else if(k==='text') e.textContent=String(v); else e.setAttribute(k,String(v)); } (children||[]).forEach(c=>e.appendChild(typeof c==='string'?document.createTextNode(c):c)); return e; }
 function qsEncode(obj){ const p=new URLSearchParams(); Object.entries(obj||{}).forEach(([k,v])=>{ if(v==null) return; p.append(k,String(v)); }); return p.toString(); }
-async function apiPost(params,timeout=20000){ const controller=new AbortController(); const t=setTimeout(()=>controller.abort(),timeout); try{ const res=await fetch(REMOTE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:qsEncode(params),signal:controller.signal,credentials:'omit',cache:'no-store'}); const ct=(res.headers.get('content-type')||'').toLowerCase(); if(!ct.includes('application/json')) return null; return await res.json(); }catch{ return null; } finally{ clearTimeout(t); }}
-
+async function apiPost(params,timeout=20000){ const controller=new AbortController(); const t=setTimeout(()=>controller.abort(),timeout); try{ const res=await fetch(REMOTE_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:qsEncode(params),signal:controller.signal,credentials:'omit',cache:'no-store'}); const ct=(res.headers.get('content-type')||'').toLowerCase(); if(!ct.includes('application/json')) return {ok:false,error:'invalid_content_type'}; return await res.json(); }catch(err){ console.error(err); return {ok:false,error:err}; } finally{ clearTimeout(t); }}
 /* セッションメタ(F5耐性) */
 function saveSessionMeta(){ try{ sessionStorage.setItem(SESSION_ROLE_KEY,CURRENT_ROLE||'user'); sessionStorage.setItem(SESSION_OFFICE_KEY,CURRENT_OFFICE_ID||''); sessionStorage.setItem(SESSION_OFFICE_NAME_KEY,CURRENT_OFFICE_NAME||''); }catch{} }
 function loadSessionMeta(){ try{ CURRENT_ROLE=sessionStorage.getItem(SESSION_ROLE_KEY)||'user'; CURRENT_OFFICE_ID=sessionStorage.getItem(SESSION_OFFICE_KEY)||''; CURRENT_OFFICE_NAME=sessionStorage.getItem(SESSION_OFFICE_NAME_KEY)||''; }catch{} }
@@ -63,7 +59,20 @@ function loadSessionMeta(){ try{ CURRENT_ROLE=sessionStorage.getItem(SESSION_ROL
 /* レイアウト（JS + CSS両方で冗長に制御） */
 const PANEL_MIN_PX=760,GAP_PX=20,MAX_COLS=3;
 function getContainerWidth(){ const elc=board.parentElement||document.body; const r=elc.getBoundingClientRect(); return Math.max(0,Math.round(r.width)); }
-function updateCols(){ const w=getContainerWidth(); let n=Math.floor((w+GAP_PX)/(PANEL_MIN_PX+GAP_PX)); if(!Number.isFinite(n)||n<1) n=1; if(n>MAX_COLS) n=MAX_COLS; board.style.setProperty('--cols', String(n)); board.dataset.cols=String(n); board.classList.toggle('force-cards', n === 1); }
+function updateCols(){
+  const w = getContainerWidth();
+  if (w < CARD_BREAKPOINT_PX) {
+    board.classList.add('force-cards');
+    board.dataset.cols = '2'; // 1列レイアウトを回避
+    return;
+  }
+  let n = Math.floor((w + GAP_PX) / (PANEL_MIN_PX + GAP_PX));
+  if (n < 2) n = 2;
+  if (n > MAX_COLS) n = MAX_COLS;
+  board.style.setProperty('--cols', String(n));
+  board.dataset.cols = String(n);
+  board.classList.remove('force-cards');
+}
 function startGridObserver(){ if(ro) ro.disconnect(); ro=new ResizeObserver(updateCols); ro.observe(board.parentElement||document.body); window.addEventListener('resize',updateCols,{passive:true}); updateCols(); }
 
 /* === フィルタ === */
@@ -841,9 +850,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     // 通常ログイン
     const res=await apiPost({ action:'login', office, password: pw });
     if(res===null){ loginMsg.textContent="通信エラー"; return; }
-    if(res && res.error==='unauthorized'){ loginMsg.textContent="拠点またはパスワードが違います"; return; }
-    if(!(res && res.token)){ loginMsg.textContent="サーバ応答が不正です"; return; }
-    await afterLogin(res);
+    if(res?.error==='unauthorized'){ loginMsg.textContent="拠点またはパスワードが違います"; return; }
+    if(res?.ok===false){ loginMsg.textContent="通信エラー"; return; }
+    if(!res?.token){ loginMsg.textContent="サーバ応答が不正です"; return; }
+        await afterLogin(res);
   });
 
   async function afterLogin(res){
