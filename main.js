@@ -74,7 +74,20 @@ function updateCols(){
   board.dataset.cols = String(n);
   board.classList.remove('force-cards');
 }
-function startGridObserver(){ if(ro) ro.disconnect(); ro=new ResizeObserver(updateCols); ro.observe(board.parentElement||document.body); window.addEventListener('resize',updateCols,{passive:true}); updateCols(); }
+function startGridObserver(){
+  if(ro){
+    ro.disconnect();
+    ro=null;
+  }
+  window.removeEventListener('resize', updateCols);
+  if(typeof ResizeObserver!=='undefined'){
+    ro=new ResizeObserver(updateCols);
+    ro.observe(board.parentElement||document.body);
+  }else{
+    window.addEventListener('resize', updateCols, {passive:true});
+  }
+  updateCols();
+}
 
 /* === フィルタ === */
 function buildStatusFilterOptions(){
@@ -226,7 +239,14 @@ function render(){
   board.style.display='';
   // 自己修復
   board.querySelectorAll('tbody tr').forEach(ensureRowControls);
-  wireEvents(); loadLocal(); recolor(); startGridObserver(); buildGroupMenu();
+  wireEvents(); loadLocal(); recolor();
+  try {
+    startGridObserver();
+  } catch (e) {
+    console.error(e);
+  } finally {
+    buildGroupMenu();
+  }
   buildStatusFilterOptions(); updateStatusFilterCounts();
   applyFilters();
 }
