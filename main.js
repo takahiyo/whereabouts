@@ -62,13 +62,13 @@ const CARD_BREAKPOINT_PX=760; // これより狭い幅ではカード表示を�
 function getContainerWidth(){ const elc=board.parentElement||document.body; const r=elc.getBoundingClientRect(); return Math.max(0,Math.round(r.width)); }
 function updateCols(){
   const w = getContainerWidth();
-  if (w < CARD_BREAKPOINT_PX) {
+  let n = Math.floor((w + GAP_PX) / (PANEL_MIN_PX + GAP_PX));
+  if (n < 2) {
     board.classList.add('force-cards');
-    board.dataset.cols = '2'; // 1列レイアウトを回避
+    board.dataset.cols = '1';
+    board.style.removeProperty('--cols');
     return;
   }
-  let n = Math.floor((w + GAP_PX) / (PANEL_MIN_PX + GAP_PX));
-  if (n < 2) n = 2;
   if (n > MAX_COLS) n = MAX_COLS;
   board.style.setProperty('--cols', String(n));
   board.dataset.cols = String(n);
@@ -713,7 +713,7 @@ async function logout(){
   SESSION_TOKEN=""; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_ROLE_KEY);
   sessionStorage.removeItem(SESSION_OFFICE_KEY); sessionStorage.removeItem(SESSION_OFFICE_NAME_KEY);
   CURRENT_OFFICE_NAME=""; CURRENT_OFFICE_ID=""; CURRENT_ROLE="user";
-  titleBtn.textContent='在席確認表';
+  titleBtn.textContent='在席確認表【開発用】';
   ensureAuthUI();
   try{ await refreshPublicOfficeSelect(); }
   catch{ ensureAuthUIPublicError(); }
@@ -882,7 +882,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     SESSION_TOKEN=res.token; sessionStorage.setItem(SESSION_KEY,SESSION_TOKEN);
     CURRENT_OFFICE_NAME=res.officeName||""; CURRENT_OFFICE_ID=res.office||"";
     CURRENT_ROLE = res.role || res.userRole || (res.isAdmin===true?'officeAdmin':'user');
-    saveSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
+    saveSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表【開発用】`:'在席確認表【開発用】');
     loginEl.style.display='none'; loginMsg.textContent=""; ensureAuthUI(); applyRoleToManual();
 
     // 役割確定（renewで上書き）
@@ -913,7 +913,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const existing=sessionStorage.getItem(SESSION_KEY);
   if(existing){
     SESSION_TOKEN=existing; loginEl.style.display='none';
-    loadSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
+    loadSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表【開発用】`:'在席確認表【開発用】');
     ensureAuthUI(); applyRoleToManual();
     (async()=>{
       const cfg=await apiPost({ action:'getConfig', token:SESSION_TOKEN, nocache:'1' });
