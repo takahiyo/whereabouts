@@ -23,7 +23,7 @@ const nameFilter=document.getElementById('nameFilter'), statusFilter=document.ge
 
 /* 状態 */
 let GROUPS=[], CONFIG_UPDATED=0, MENUS=null, STATUSES=[], requiresTimeSet=new Set(), clearOnSet=new Set(), statusClassMap=new Map();
-let tokenRenewTimer=null, ro=null, remotePullTimer=null, configWatchTimer=null;
+let tokenRenewTimer=null, ro=null, remotePullTimer=null, configWatchTimer=null, configWatchSource=null, configWatchSince=0;
 let storeKeyBase="presence-board-v4";
 const PENDING_ROWS = new Set();
 
@@ -344,11 +344,15 @@ function defaultMenus(){
   return {
     timeStepMinutes: 30,
     statuses: [
-      { value: "在席",         class: "st-here",    clearOnSet: true  },
-      { value: "外出",         requireTime: true,   class: "st-out"   },
-      { value: "会議",         requireTime: true,   class: "st-meeting" },
-      { value: "テレワーク",   class: "st-remote",  clearOnSet: true  },
-      { value: "休み",         class: "st-off",     clearOnSet: true  }
+      { value: "在席",       class: "st-here",    clearOnSet: true  },
+      { value: "外出",       requireTime: true,   class: "st-out"   },
+      { value: "在宅勤務",   class: "st-remote",  clearOnSet: true  },
+      { value: "出張",       requireTime: true,   class: "st-trip"   },
+      { value: "研修",       requireTime: true,   class: "st-training" },
+      { value: "健康診断",   requireTime: true,   class: "st-health" },
+      { value: "コアドック", requireTime: true,   class: "st-coadoc" },
+      { value: "帰宅",       class: "st-home",    clearOnSet: true  },
+      { value: "休み",       class: "st-off",     clearOnSet: true  }
     ],
     noteOptions: ["直出","直帰","直出・直帰"]
   };
@@ -407,11 +411,45 @@ function startRemoteSync(immediate){
   }, REMOTE_POLL_MS);
 }
 function startConfigWatch(){
-  if(configWatchTimer){ clearInterval(configWatchTimer); configWatchTimer = null; }
-  configWatchTimer = setInterval(async ()=>{
+  if(configWatchTimer){ clearTimeout(configWatchTimer); configWatchTimer=null; }
+  if(configWatchSource){ try{ configWatchSource.close(); }catch{} configWatchSource=null; }
+
+  const url = `${REMOTE_ENDPOINT.replace(/\/$/, '')}?action=watchConfig&token=${encodeURIComponent(SESSION_TOKEN)}&since=${configWatchSince}`;
+  if('EventSource' in window){
+    try{
+      configWatchSource = new EventSource(url);
+      configWatchSource.onmessage = ev=>{
+        try{
+          const cfg = JSON.parse(ev.data||'{}');
+          const updated = Number(cfg.updated||0);
+          if(updated && updated !== CONFIG_UPDATED){
+            GROUPS = normalizeConfigClient(cfg);
+            CONFIG_UPDATED = updated;
+            setupMenus(cfg.menus || null);
+            render();
+          }
+          configWatchSince = Number(ev.lastEventId||configWatchSince);
+        }catch(err){ console.error(err); }
+        if(configWatchSource){ try{ configWatchSource.close(); }catch{} configWatchSource=null; }
+        startConfigWatch();
+      };
+      configWatchSource.onerror = ()=>{
+        try{ configWatchSource.close(); }catch{}
+        configWatchSource=null;
+        startConfigPolling();
+      };
+      return;
+    }catch(err){ console.error(err); }
+  }
+  startConfigPolling();
+}
+
+function startConfigPolling(){
+  if(configWatchTimer){ clearTimeout(configWatchTimer); configWatchTimer=null; }
+  const poll = async ()=>{
     const cfg = await apiPost({ action:'getConfig', token: SESSION_TOKEN, nocache:'1' });
     if(cfg && !cfg.error){
-      const updated = (typeof cfg.updated === 'number') ? cfg.updated : 0;
+      const updated = Number(cfg.updated||0);
       if(updated && updated !== CONFIG_UPDATED){
         GROUPS = normalizeConfigClient(cfg);
         CONFIG_UPDATED = updated;
@@ -419,7 +457,9 @@ function startConfigWatch(){
         render();
       }
     }
-  }, CONFIG_POLL_MS);
+    configWatchTimer = setTimeout(poll, CONFIG_POLL_MS);
+  };
+  poll();
 }
 function scheduleRenew(ttlMs){
   if(tokenRenewTimer) { clearTimeout(tokenRenewTimer); tokenRenewTimer = null; }
@@ -713,7 +753,7 @@ async function logout(){
   SESSION_TOKEN=""; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_ROLE_KEY);
   sessionStorage.removeItem(SESSION_OFFICE_KEY); sessionStorage.removeItem(SESSION_OFFICE_NAME_KEY);
   CURRENT_OFFICE_NAME=""; CURRENT_OFFICE_ID=""; CURRENT_ROLE="user";
-  titleBtn.textContent='在席確認表';
+  titleBtn.textContent='在席確認表【開発用】';
   ensureAuthUI();
   try{ await refreshPublicOfficeSelect(); }
   catch{ ensureAuthUIPublicError(); }
@@ -882,7 +922,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     SESSION_TOKEN=res.token; sessionStorage.setItem(SESSION_KEY,SESSION_TOKEN);
     CURRENT_OFFICE_NAME=res.officeName||""; CURRENT_OFFICE_ID=res.office||"";
     CURRENT_ROLE = res.role || res.userRole || (res.isAdmin===true?'officeAdmin':'user');
-    saveSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
+    saveSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表【開発用】`:'在席確認表【開発用】');
     loginEl.style.display='none'; loginMsg.textContent=""; ensureAuthUI(); applyRoleToManual();
 
     // 役割確定（renewで上書き）
@@ -913,7 +953,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const existing=sessionStorage.getItem(SESSION_KEY);
   if(existing){
     SESSION_TOKEN=existing; loginEl.style.display='none';
-    loadSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
+    loadSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表【開発用】`:'在席確認表【開発用】');
     ensureAuthUI(); applyRoleToManual();
     (async()=>{
       const cfg=await apiPost({ action:'getConfig', token:SESSION_TOKEN, nocache:'1' });
