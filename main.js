@@ -16,6 +16,7 @@ const btnExport=document.getElementById('btnExport'), csvFile=document.getElemen
 const renameOfficeName=document.getElementById('renameOfficeName'), btnRenameOffice=document.getElementById('btnRenameOffice');
 const setPw=document.getElementById('setPw'), setAdminPw=document.getElementById('setAdminPw'), btnSetPw=document.getElementById('btnSetPw');
 const menusJson=document.getElementById('menusJson'), btnLoadMenus=document.getElementById('btnLoadMenus'), btnSaveMenus=document.getElementById('btnSaveMenus');
+const adminOfficeRow=document.getElementById('adminOfficeRow'), adminOfficeSel=document.getElementById('adminOfficeSel');
 const manualBtn=document.getElementById('manualBtn'), manualModal=document.getElementById('manualModal'), manualClose=document.getElementById('manualClose'), manualUser=document.getElementById('manualUser'), manualAdmin=document.getElementById('manualAdmin');
 const nameFilter=document.getElementById('nameFilter'), statusFilter=document.getElementById('statusFilter');
 
@@ -25,6 +26,7 @@ let tokenRenewTimer=null, ro=null, remotePullTimer=null, configWatchTimer=null;
 let resumeRemoteSyncOnVisible=false, resumeConfigWatchOnVisible=false;
 let storeKeyBase="presence-board-v4";
 const PENDING_ROWS = new Set();
+let adminSelectedOfficeId='';
 
 /* 認証状態 */
 let SESSION_TOKEN=""; let CURRENT_OFFICE_NAME=""; let CURRENT_OFFICE_ID=""; let CURRENT_ROLE="user";
@@ -48,7 +50,7 @@ document.addEventListener('visibilitychange', ()=>{
     resumeConfigWatchOnVisible = false;
   }
 });
-function isOfficeAdmin(){ return CURRENT_ROLE==='officeAdmin'; }
+function isOfficeAdmin(){ return CURRENT_ROLE==='officeAdmin' || CURRENT_ROLE==='superAdmin'; }
 
 /* ユーティリティ */
 function toast(msg,ok=true){ toastEl.style.background=ok?'#334155':'#c53030'; toastEl.textContent=msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),2000); }
@@ -417,9 +419,23 @@ async function fastFetchDataOnce(){
 }
 function startRemoteSync(immediate){
   if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer = null; }
-  if(immediate){ fastFetchDataOnce().then(r => { if(r && r.data) applyState(r.data); }).catch(()=>{}); }
+  if(immediate){
+    fastFetchDataOnce().then(async r => {
+      if(r?.error==='unauthorized'){
+        if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer=null; }
+        await logout();
+        return;
+      }
+      if(r && r.data) applyState(r.data);
+    }).catch(()=>{});
+  }
   remotePullTimer = setInterval(async ()=>{
     const r = await apiPost({ action:'get', token: SESSION_TOKEN });
+	      if(r?.error==='unauthorized'){
+      if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer=null; }
+      await logout();
+      return;
+    }
     if(r && r.data) applyState(r.data);
   }, REMOTE_POLL_MS);
 }
@@ -427,6 +443,11 @@ function startConfigWatch(){
   if(configWatchTimer){ clearInterval(configWatchTimer); configWatchTimer = null; }
   configWatchTimer = setInterval(async ()=>{
     const cfg = await apiPost({ action:'getConfig', token: SESSION_TOKEN, nocache:'1' });
+	      if(cfg?.error==='unauthorized'){
+      if(configWatchTimer){ clearInterval(configWatchTimer); configWatchTimer=null; }
+      await logout();
+      return;
+    }
     if(cfg && !cfg.error){
       const updated = (typeof cfg.updated === 'number') ? cfg.updated : 0;
       if(updated && updated !== CONFIG_UPDATED){
@@ -444,8 +465,13 @@ function scheduleRenew(ttlMs){
   tokenRenewTimer = setTimeout(async ()=>{
     const me = await apiPost({ action: 'renew', token: SESSION_TOKEN });
     if(me && me.ok){
+		      const prevRole = CURRENT_ROLE;
       CURRENT_ROLE = me.role || CURRENT_ROLE;
       saveSessionMeta();
+	        if(CURRENT_ROLE !== prevRole){
+        ensureAuthUI();
+        applyRoleToManual();
+      }
       scheduleRenew(Number(me.exp) || TOKEN_DEFAULT_TTL);
     }
   }, delay);
@@ -553,8 +579,9 @@ function wireEvents(){
 
 
 /* 管理UIイベント */
+if(adminOfficeSel){ adminOfficeSel.addEventListener('change', ()=>{ adminSelectedOfficeId=adminOfficeSel.value||''; }); }
 btnExport.addEventListener('click', async ()=>{
-  const office=selectedOfficeId();
+  const office=selectedOfficeId(); if(!office) return;
   const cfg=await adminGetConfigFor(office);
   const dat=await adminGetFor(office);
   if(!(cfg&&cfg.groups) || !(dat&&typeof dat.data==='object')){ toast('エクスポート失敗',false); return; }
@@ -569,7 +596,7 @@ btnExport.addEventListener('click', async ()=>{
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },0);
 });
 btnImport.addEventListener('click', async ()=>{
-  const office=selectedOfficeId();
+  const office=selectedOfficeId(); if(!office) return;
   const file=csvFile.files&&csvFile.files[0];
   if(!file){ toast('CSVを選択してください',false); return; }
 
@@ -599,7 +626,7 @@ btnImport.addEventListener('click', async ()=>{
   const groups=Array.from(groupsMap.entries()).sort((a,b)=>a[0]-b[0]).map(([gi,g])=>{ g.members.sort((a,b)=>(a._mi||0)-(b._mi||0)); g.members.forEach(m=>delete m._mi); return g; });
   const cfgToSet={version:2,updated:Date.now(),groups,menus:MENUS||undefined};
   const r1=await adminSetConfigFor(office,cfgToSet);
-  if(!(r1&&r1.ok)){ toast('名簿の設定に失敗',false); return; }
+  if(!r1 || r1.error){ toast('名簿の設定に失敗',false); return; }
 
   const newCfg=await adminGetConfigFor(office);
   if(!(newCfg&&newCfg.groups)){ toast('名簿再取得に失敗',false); return; }
@@ -619,7 +646,7 @@ btnImport.addEventListener('click', async ()=>{
   toast('インポート完了',true);
 });
 btnRenameOffice.addEventListener('click', async ()=>{
-  const office=selectedOfficeId();
+  const office=selectedOfficeId(); if(!office) return;
   const name=(renameOfficeName.value||'').trim();
   if(!name){ toast('新しい拠点名を入力',false); return; }
   const r=await adminRenameOffice(office,name);
@@ -628,7 +655,7 @@ btnRenameOffice.addEventListener('click', async ()=>{
 });
 
 btnSetPw.addEventListener('click', async ()=>{
-  const office=selectedOfficeId();
+  const office=selectedOfficeId(); if(!office) return;
   const pw=(setPw.value||'').trim();
   const apw=(setAdminPw.value||'').trim();
   if(!pw&&!apw){ toast('更新する項目を入力',false); return; }
@@ -637,20 +664,20 @@ btnSetPw.addEventListener('click', async ()=>{
   else toast('更新に失敗',false);
 });
 btnLoadMenus.addEventListener('click', async ()=>{
-  const office=selectedOfficeId();
+  const office=selectedOfficeId(); if(!office) return;
   const cfg=await adminGetConfigFor(office);
   menusJson.value=JSON.stringify((cfg&&cfg.menus)||defaultMenus(),null,2);
 });
 btnSaveMenus.addEventListener('click', async ()=>{
   let obj;
   try{ obj=JSON.parse(menusJson.value); }catch{ toast('JSONの形式が不正です',false); return; }
-  const office=selectedOfficeId();
+  const office=selectedOfficeId(); if(!office) return;
   const cfg=await adminGetConfigFor(office);
   if(!(cfg&&cfg.groups)){ toast('名簿の取得に失敗',false); return; }
 
   cfg.menus=obj;
   const r=await adminSetConfigFor(office,cfg);
-  if(r&&r.ok){ toast('メニュー設定を保存しました'); setupMenus(cfg.menus); render(); }
+  if(r && !r.error){ toast('メニュー設定を保存しました'); setupMenus(cfg.menus); render(); }
   else toast('保存に失敗',false);
 });
 
@@ -692,6 +719,9 @@ async function logout(){
   SESSION_TOKEN=""; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_ROLE_KEY);
   sessionStorage.removeItem(SESSION_OFFICE_KEY); sessionStorage.removeItem(SESSION_OFFICE_NAME_KEY);
   CURRENT_OFFICE_NAME=""; CURRENT_OFFICE_ID=""; CURRENT_ROLE="user";
+    adminSelectedOfficeId='';
+  if(adminOfficeSel){ adminOfficeSel.textContent=''; adminOfficeSel.disabled=false; }
+  if(adminOfficeRow){ adminOfficeRow.style.display='none'; }
   titleBtn.textContent='在席確認表';
   ensureAuthUI();
   try{ await refreshPublicOfficeSelect(); }
@@ -710,7 +740,79 @@ async function logout(){
     statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
   }
   function showAdminModal(yes){ adminModal.classList.toggle('show', !!yes); }
-  function applyRoleToAdminPanel(){ }
+  async function applyRoleToAdminPanel(){
+    if(!(adminOfficeRow&&adminOfficeSel)) return;
+    if(CURRENT_ROLE!=='superAdmin'){
+      adminOfficeRow.style.display='none';
+      adminOfficeSel.disabled=false;
+      adminOfficeSel.textContent='';
+      adminSelectedOfficeId='';
+      return;
+    }
+
+    adminOfficeRow.style.display='';
+    adminOfficeSel.disabled=true;
+    adminOfficeSel.textContent='';
+    const loadingOpt=document.createElement('option');
+    loadingOpt.value=''; loadingOpt.disabled=true; loadingOpt.selected=true; loadingOpt.textContent='読込中…';
+    adminOfficeSel.appendChild(loadingOpt);
+
+    let offices=[];
+    try{
+      const res=await apiPost({ action:'listOffices', token:SESSION_TOKEN });
+      if(res && res.ok!==false && Array.isArray(res.offices)){
+        offices=res.offices;
+      }else{
+        throw new Error(res&&res.error?String(res.error):'unexpected_response');
+      }
+    }catch(err){
+      console.error('listOffices failed',err);
+      adminOfficeSel.textContent='';
+      const opt=document.createElement('option');
+      opt.value=''; opt.disabled=true; opt.selected=true; opt.textContent='取得に失敗しました';
+      adminOfficeSel.appendChild(opt);
+      adminSelectedOfficeId='';
+      adminOfficeSel.disabled=false;
+      toast('拠点一覧の取得に失敗しました',false);
+      return;
+    }
+
+    adminOfficeSel.textContent='';
+    const seen=new Set();
+    let desiredId=adminSelectedOfficeId||CURRENT_OFFICE_ID||'';
+    let hasDesired=false;
+
+    offices.forEach(o=>{
+      if(!o) return;
+      const id=String(o.id||'').trim();
+      if(!id||seen.has(id)) return;
+      seen.add(id);
+      const opt=document.createElement('option');
+      opt.value=id;
+      opt.textContent=stripCtl(o.name==null?id:String(o.name))||id;
+      adminOfficeSel.appendChild(opt);
+      if(id===desiredId) hasDesired=true;
+    });
+
+    if(adminOfficeSel.options.length===0){
+      const opt=document.createElement('option');
+      opt.value=''; opt.disabled=true; opt.selected=true; opt.textContent='拠点がありません';
+      adminOfficeSel.appendChild(opt);
+      adminSelectedOfficeId='';
+      adminOfficeSel.disabled=false;
+      return;
+    }
+
+    if(!hasDesired){
+      if(CURRENT_OFFICE_ID && seen.has(CURRENT_OFFICE_ID)) desiredId=CURRENT_OFFICE_ID;
+      else desiredId=adminOfficeSel.options[0].value||'';
+    }
+
+    if(desiredId){ adminOfficeSel.value=desiredId; }
+    if(adminOfficeSel.selectedIndex<0){ adminOfficeSel.selectedIndex=0; desiredId=adminOfficeSel.value||''; }
+    adminSelectedOfficeId=desiredId||'';
+    adminOfficeSel.disabled=false;
+  }
   function showManualModal(yes){ manualModal.classList.toggle('show', !!yes); }
   function applyRoleToManual(){
     const isAdmin = isOfficeAdmin();
@@ -732,7 +834,11 @@ manualClose.addEventListener('click', ()=> showManualModal(false));
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ showAdminModal(false); showManualModal(false); closeMenu(); }});
 
 /* Admin API */
-function selectedOfficeId(){ return CURRENT_OFFICE_ID; }
+function selectedOfficeId(){
+  const office=adminSelectedOfficeId||CURRENT_OFFICE_ID||'';
+  if(!office){ toast('操作対象拠点を選択してください',false); }
+  return office;
+}
 async function adminGetFor(office){ return await apiPost({ action:'getFor', token:SESSION_TOKEN, office, nocache:'1' }); }
 async function adminGetConfigFor(office){ return await apiPost({ action:'getConfigFor', token:SESSION_TOKEN, office, nocache:'1' }); }
 async function adminSetConfigFor(office,cfgObj){ const q={ action:'setConfigFor', token:SESSION_TOKEN, office, data:JSON.stringify(cfgObj) }; return await apiPost(q); }
@@ -860,6 +966,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   async function afterLogin(res){
     SESSION_TOKEN=res.token; sessionStorage.setItem(SESSION_KEY,SESSION_TOKEN);
     CURRENT_OFFICE_NAME=res.officeName||""; CURRENT_OFFICE_ID=res.office||"";
+	    adminSelectedOfficeId='';
     CURRENT_ROLE = res.role || res.userRole || (res.isAdmin===true?'officeAdmin':'user');
     saveSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
     loginEl.style.display='none'; loginMsg.textContent=""; ensureAuthUI(); applyRoleToManual();
@@ -868,23 +975,40 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     try{
       const me=await apiPost({ action:'renew', token:SESSION_TOKEN });
       if(me&&me.ok){
-        CURRENT_ROLE=me.role||CURRENT_ROLE; CURRENT_OFFICE_ID=me.office||CURRENT_OFFICE_ID; CURRENT_OFFICE_NAME=me.officeName||CURRENT_OFFICE_NAME;
+        const prevOfficeId=CURRENT_OFFICE_ID;
+        const nextOfficeId=me.office||prevOfficeId;
+        CURRENT_ROLE=me.role||CURRENT_ROLE; CURRENT_OFFICE_ID=nextOfficeId; CURRENT_OFFICE_NAME=me.officeName||CURRENT_OFFICE_NAME;
+        if(nextOfficeId!==prevOfficeId){ adminSelectedOfficeId=''; }
         saveSessionMeta(); ensureAuthUI(); applyRoleToManual();
       }
     }catch{}
 
     const cfgP=(async()=>{
       const cfg=await apiPost({ action:'getConfig', token:SESSION_TOKEN, nocache:'1' });
+		      if(cfg?.error==='unauthorized'){
+        await logout();
+        return;
+      }
       if(cfg&&!cfg.error){ GROUPS=normalizeConfigClient(cfg); CONFIG_UPDATED=(typeof cfg.updated==='number')?cfg.updated:0; setupMenus(cfg.menus||null); }
       else { setupMenus(null); }
     })();
-    const dataP=fastFetchDataOnce().catch(()=>null);
+    const dataP=fastFetchDataOnce().then(async data=>{
+      if(data?.error==='unauthorized'){
+        await logout();
+        return null;
+      }
+      return data;
+    }).catch(()=>null);
 
     await cfgP;
+	      if(!SESSION_TOKEN) return;
     render(); loadLocal();
-    const data=await dataP; if(data&&data.data) applyState(data.data);
-
+    if(!SESSION_TOKEN) return;
+    const data=await dataP; if(!SESSION_TOKEN) return; if(data&&data.data) applyState(data.data);
+    if(!SESSION_TOKEN) return;
+	  
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
+	      if(!SESSION_TOKEN) return;
     startRemoteSync(true); startConfigWatch();
   }
 
@@ -892,13 +1016,24 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   const existing=sessionStorage.getItem(SESSION_KEY);
   if(existing){
     SESSION_TOKEN=existing; loginEl.style.display='none';
-    loadSessionMeta(); titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
+    loadSessionMeta(); adminSelectedOfficeId=''; titleBtn.textContent=(CURRENT_OFFICE_NAME?`${CURRENT_OFFICE_NAME}　在席確認表`:'在席確認表');
     ensureAuthUI(); applyRoleToManual();
     (async()=>{
       const cfg=await apiPost({ action:'getConfig', token:SESSION_TOKEN, nocache:'1' });
+		      if(cfg?.error==='unauthorized'){
+        await logout();
+        return;
+      }
       if(cfg&&!cfg.error){ GROUPS=normalizeConfigClient(cfg); CONFIG_UPDATED=(typeof cfg.updated==='number')?cfg.updated:0; setupMenus(cfg.menus||null); render(); }
-      const d=await fastFetchDataOnce(); if(d&&d.data) applyState(d.data);
-      startRemoteSync(true); startConfigWatch();
+      if(!SESSION_TOKEN) return;
+      const d=await fastFetchDataOnce();
+      if(d?.error==='unauthorized'){
+        await logout();
+        return;
+      }
+      if(d&&d.data) applyState(d.data);
+      if(!SESSION_TOKEN) return;
+		startRemoteSync(true); startConfigWatch();
     })();
   }else{
     loginEl.style.display='flex';
