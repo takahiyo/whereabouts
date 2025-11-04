@@ -25,11 +25,10 @@ const TOKEN_OFFICE_PREFIX  = 'toff_';
 const TOKEN_ROLE_PREFIX    = 'trole_';
 
 /* ===== ユーティリティ ===== */
+const CTL_RE = /[\u0000-\u001F\u007F]/g;
 function now_(){ return Date.now(); }
 function json_(obj){ return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
 function p_(e, k, d){ return (e && e.parameter && e.parameter[k] != null) ? String(e.parameter[k]) : d; }
-
-
 
 /* ===== データ保存キー ===== */
 function dataKeyForOffice_(office){ return `presence-board-${office}`; }
@@ -97,6 +96,19 @@ function getCasEnforce_(){
 
 
 /* ===== 既定メニュー／設定 ===== */
+const DEFAULT_BUSINESS_HOURS = [
+  "07:00-15:30",
+  "07:30-16:00",
+  "08:00-16:30",
+  "08:30-17:00",
+  "09:00-17:30",
+  "09:30-18:00",
+  "10:00-18:30",
+  "10:30-19:00",
+  "11:00-19:30",
+  "11:30-20:00",
+  "12:00-20:30",
+];
 function defaultMenus_(){
   return {
     timeStepMinutes: 30,
@@ -111,7 +123,8 @@ function defaultMenus_(){
       { value: "帰宅",       class: "st-home",    clearOnSet: true  },
       { value: "休み",       class: "st-off",     clearOnSet: true  }
       ],
-    noteOptions: ["直出","直帰","直出・直帰"]
+    noteOptions: ["直出","直帰","直出・直帰"],
+    businessHours: DEFAULT_BUSINESS_HOURS.slice()
   };
 }
 function defaultConfig_(){
@@ -128,9 +141,10 @@ function normalizeConfig_(cfg){
       return {
         title: String(g.title || ''),
         members: members.map(m=>({
-          id:   String(m.id || '').trim(),
-          name: String(m.name || ''),
-          ext:  String(m.ext || '')
+          id:        String(m.id || '').trim(),
+          name:      String(m.name || ''),
+          ext:       String(m.ext || ''),
+          workHours: m.workHours == null ? '' : String(m.workHours)
         })).filter(m=>m.id || m.name)
       };
     }),
@@ -288,9 +302,16 @@ function doPost(e){
           return;
         }
         const nextRev = prevRev + 1; // 緩和/厳格いずれでもサーバ採番
+        const hasWorkHours = Object.prototype.hasOwnProperty.call(client, 'workHours');
+        let workHoursValue = prev.workHours;
+        if(hasWorkHours){
+          workHoursValue = client.workHours == null ? '' : String(client.workHours);
+        }
+
         const rec = {
           ext:   client.ext   == null ? '' : String(client.ext),
           status:client.status== null ? '' : String(client.status),
+          workHours: workHoursValue,
           time:  client.time  == null ? '' : String(client.time),
           note:  client.note  == null ? '' : String(client.note),
           rev: nextRev,
@@ -396,12 +417,17 @@ function doPost(e){
       Object.keys(incoming.data || {}).forEach(id=>{
         const v = incoming.data[id] || {};
         const prev = cur.data && cur.data[id] || {};
+        let workHoursValue = prev.workHours;
+        if(Object.prototype.hasOwnProperty.call(v, 'workHours')){
+          workHoursValue = v.workHours == null ? '' : String(v.workHours);
+        }
         const nextRev = (typeof prev.rev === 'number' ? prev.rev : 0) + 1;
         outData[id] = {
           ext:   v.ext   == null ? '' : String(v.ext),
           status:v.status== null ? '' : String(v.status),
           time:  v.time  == null ? '' : String(v.time),
           note:  v.note  == null ? '' : String(v.note),
+          workHours: workHoursValue,
           rev: nextRev,
           serverUpdated: nowTs
         };
@@ -470,4 +496,15 @@ function doGet(e){
     return ContentService.createTextOutput(out).setMimeType('text/event-stream');
   }
   return ContentService.createTextOutput('unsupported');
+
 }
+
+
+
+
+
+
+
+
+
+
