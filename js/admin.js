@@ -138,31 +138,154 @@ btnSetPw.addEventListener('click', async ()=>{
   if(r&&r.ok){ toast('パスワードを更新しました'); setPw.value=''; setAdminPw.value=''; }
   else toast('更新に失敗',false);
 });
-btnLoadMenus.addEventListener('click', async ()=>{
-  const office=selectedOfficeId(); if(!office) return;
-  const cfg=await adminGetConfigFor(office);
-  menusJson.value=JSON.stringify((cfg&&cfg.menus)||defaultMenus(),null,2);
-});
-btnSaveMenus.addEventListener('click', async ()=>{
-  let obj;
-  try{ obj=JSON.parse(menusJson.value); }catch{ toast('JSONの形式が不正です',false); return; }
-  // --- normalize legacy keys for business-hours list ---
-  if(obj && typeof obj === 'object'){
-    if(!Array.isArray(obj.businessHours)){
-      if(Array.isArray(obj.workHourOptions)) obj.businessHours = obj.workHourOptions;
-      else if(Array.isArray(obj.workHoursOptions)) obj.businessHours = obj.workHoursOptions;
+
+/* 管理モーダルのタブ切り替え */
+document.querySelectorAll('.admin-tabs .tab-btn').forEach(btn => {
+  btn.addEventListener('click', async ()=> {
+    const targetTab = btn.dataset.tab;
+    
+    // タブボタンのアクティブ状態を切り替え
+    document.querySelectorAll('.admin-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    // タブパネルの表示を切り替え
+    document.querySelectorAll('.admin-modal .tab-panel').forEach(panel => panel.classList.remove('active'));
+    
+    if(targetTab === 'basic'){
+      document.getElementById('tabBasic').classList.add('active');
+    } else if(targetTab === 'notices'){
+      document.getElementById('tabNotices').classList.add('active');
+      // お知らせタブを開いたときに自動読み込み
+      if(typeof autoLoadNoticesOnAdminOpen === 'function'){
+        await autoLoadNoticesOnAdminOpen();
+      }
     }
-  }
-
-  const office=selectedOfficeId(); if(!office) return;
-  const cfg=await adminGetConfigFor(office);
-  if(!(cfg&&cfg.groups)){ toast('名簿の取得に失敗',false); return; }
-
-  cfg.menus=obj;
-  const r=await adminSetConfigFor(office,cfg);
-  if(r && !r.error){ toast('メニュー設定を保存しました'); setupMenus(cfg.menus); render(); }
-  else toast('保存に失敗',false);
+  });
 });
+
+/* お知らせ管理UI */
+btnAddNotice.addEventListener('click', ()=> addNoticeEditorItem());
+btnLoadNotices.addEventListener('click', async ()=>{
+  const office=selectedOfficeId(); if(!office) return;
+  try{
+    const params = { action:'getNotices', token:SESSION_TOKEN, nocache:'1', office };
+    const res=await apiPost(params);
+    console.log('getNotices response:', res);
+    if(res && res.notices){
+      noticesEditor.innerHTML='';
+      if(res.notices.length === 0){
+        addNoticeEditorItem();
+      } else {
+        res.notices.forEach(n=> addNoticeEditorItem(n.title, n.content));
+      }
+      toast('お知らせを読み込みました');
+    } else if(res && res.error){
+      toast('エラー: ' + res.error, false);
+    }
+  }catch(e){
+    console.error('Load notices error:', e);
+    toast('お知らせの読み込みに失敗',false);
+  }
+});
+btnSaveNotices.addEventListener('click', async ()=>{
+  const office=selectedOfficeId(); if(!office) return;
+  const items=noticesEditor.querySelectorAll('.notice-edit-item');
+  const notices=[];
+  items.forEach(item=>{
+    const title=(item.querySelector('.notice-edit-title').value||'').trim();
+    const content=(item.querySelector('.notice-edit-content').value||'').trim();
+    if(title || content){
+      notices.push({ title, content });
+    }
+  });
+  
+  console.log('Saving notices:', notices, 'for office:', office);
+  const success=await saveNotices(notices, office);
+  if(success) toast('お知らせを保存しました');
+  else toast('お知らせの保存に失敗',false);
+});
+
+function addNoticeEditorItem(title='', content=''){
+  const item=document.createElement('div');
+  item.className='notice-edit-item';
+  item.draggable=true;
+  item.innerHTML=`
+    <span class="notice-edit-handle">⋮⋮</span>
+    <div class="notice-edit-row">
+      <input type="text" class="notice-edit-title" placeholder="タイトル" value="${escapeHtml(title)}">
+      <div class="notice-edit-controls">
+        <button class="btn-move-up" title="上に移動">▲</button>
+        <button class="btn-move-down" title="下に移動">▼</button>
+        <button class="btn-remove-notice">削除</button>
+      </div>
+    </div>
+    <textarea class="notice-edit-content" placeholder="内容（省略可）&#10;URLを記載すると自動的にリンクになります">${escapeHtml(content)}</textarea>
+  `;
+  
+  // 削除ボタン
+  item.querySelector('.btn-remove-notice').addEventListener('click', ()=> {
+    item.remove();
+    updateMoveButtons();
+  });
+  
+  // 上に移動ボタン
+  item.querySelector('.btn-move-up').addEventListener('click', ()=> {
+    const prev = item.previousElementSibling;
+    if(prev){
+      noticesEditor.insertBefore(item, prev);
+      updateMoveButtons();
+    }
+  });
+  
+  // 下に移動ボタン
+  item.querySelector('.btn-move-down').addEventListener('click', ()=> {
+    const next = item.nextElementSibling;
+    if(next){
+      noticesEditor.insertBefore(next, item);
+      updateMoveButtons();
+    }
+  });
+  
+  // ドラッグ&ドロップイベント
+  item.addEventListener('dragstart', (e)=> {
+    item.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  
+  item.addEventListener('dragend', ()=> {
+    item.classList.remove('dragging');
+    document.querySelectorAll('.notice-edit-item').forEach(i=> i.classList.remove('drag-over'));
+  });
+  
+  item.addEventListener('dragover', (e)=> {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const dragging = noticesEditor.querySelector('.dragging');
+    if(dragging && dragging !== item){
+      const rect = item.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      if(e.clientY < midpoint){
+        noticesEditor.insertBefore(dragging, item);
+      } else {
+        noticesEditor.insertBefore(dragging, item.nextSibling);
+      }
+    }
+  });
+  
+  noticesEditor.appendChild(item);
+  updateMoveButtons();
+}
+
+// 上下移動ボタンの有効/無効を更新
+function updateMoveButtons(){
+  const items = noticesEditor.querySelectorAll('.notice-edit-item');
+  items.forEach((item, index)=> {
+    const upBtn = item.querySelector('.btn-move-up');
+    const downBtn = item.querySelector('.btn-move-down');
+    if(upBtn) upBtn.disabled = (index === 0);
+    if(downBtn) downBtn.disabled = (index === items.length - 1);
+  });
+}
 
 /* Admin API */
 function selectedOfficeId(){
@@ -230,4 +353,24 @@ function makeNormalizedCSV(cfg,data){
     });
   });
   return rows.join('\n');
+}
+
+/* 管理モーダルを開いたときにお知らせを自動読み込み */
+async function autoLoadNoticesOnAdminOpen(){
+  const office = adminSelectedOfficeId || CURRENT_OFFICE_ID;
+  if(!office) return;
+  try{
+    const params = { action:'getNotices', token:SESSION_TOKEN, nocache:'1', office };
+    const res = await apiPost(params);
+    if(res && res.notices){
+      noticesEditor.innerHTML = '';
+      if(res.notices.length === 0){
+        addNoticeEditorItem();
+      } else {
+        res.notices.forEach(n=> addNoticeEditorItem(n.title, n.content));
+      }
+    }
+  }catch(e){
+    console.error('Auto-load notices error:', e);
+  }
 }

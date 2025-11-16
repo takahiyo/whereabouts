@@ -10,6 +10,7 @@ async function logout(){
     if(configWatchTimer){ clearInterval(configWatchTimer); configWatchTimer=null; }
     if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer=null; }
     if(ro){ try{ ro.disconnect(); }catch{} }
+    stopNoticesPolling();
   }catch{}
   logoutButtonsCleanup();
   SESSION_TOKEN=""; sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(SESSION_ROLE_KEY);
@@ -18,6 +19,9 @@ async function logout(){
     adminSelectedOfficeId='';
   if(adminOfficeSel){ adminOfficeSel.textContent=''; adminOfficeSel.disabled=false; }
   if(adminOfficeRow){ adminOfficeRow.style.display='none'; }
+  // お知らせエリアを非表示にする
+  const noticesArea = document.getElementById('noticesArea');
+  if(noticesArea) noticesArea.style.display='none';
   titleBtn.textContent='在席確認表';
   ensureAuthUI();
   try{ await refreshPublicOfficeSelect(); }
@@ -27,6 +31,7 @@ async function logout(){
 function ensureAuthUI(){
   const loggedIn = !!SESSION_TOKEN;
   const showAdmin = loggedIn && isOfficeAdmin();
+  noticesBtn.style.display = 'none'; // デフォルトは非表示、お知らせがある場合にnotices.jsで表示
   adminBtn.style.display   = showAdmin ? 'inline-block' : 'none';
   logoutBtn.style.display  = loggedIn ? 'inline-block' : 'none';
   manualBtn.style.display  = loggedIn ? 'inline-block' : 'none';
@@ -110,8 +115,26 @@ async function applyRoleToAdminPanel(){
 function showManualModal(yes){ manualModal.classList.toggle('show', !!yes); }
 function applyRoleToManual(){
   const isAdmin = isOfficeAdmin();
-  manualUser.style.display = '';
-  manualAdmin.style.display = isAdmin ? '' : 'none';
+  // 管理者タブボタンの表示/非表示
+  const adminTabBtn = document.querySelector('.manual-tab-btn[data-tab="admin"]');
+  if(adminTabBtn){
+    adminTabBtn.style.display = isAdmin ? 'inline-block' : 'none';
+  }
+  // デフォルトタブの設定（管理者なら管理者タブ、それ以外はユーザータブ）
+  const userTabBtn = document.querySelector('.manual-tab-btn[data-tab="user"]');
+  if(isAdmin && adminTabBtn){
+    // 管理者の場合は管理者タブを表示
+    document.querySelectorAll('.manual-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.manual-tab-content').forEach(c => c.classList.remove('active'));
+    adminTabBtn.classList.add('active');
+    manualAdmin.classList.add('active');
+  } else {
+    // 一般ユーザーの場合はユーザータブを表示
+    document.querySelectorAll('.manual-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.manual-tab-content').forEach(c => c.classList.remove('active'));
+    if(userTabBtn) userTabBtn.classList.add('active');
+    manualUser.classList.add('active');
+  }
 }
 
 /* 管理/マニュアルUIイベント */
@@ -124,4 +147,27 @@ logoutBtn.addEventListener('click', logout);
 
 manualBtn.addEventListener('click', ()=>{ applyRoleToManual(); showManualModal(true); });
 manualClose.addEventListener('click', ()=> showManualModal(false));
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ showAdminModal(false); showManualModal(false); closeMenu(); }});
+document.addEventListener('keydown', (e)=>{ 
+  if(e.key==='Escape'){ 
+    showAdminModal(false); 
+    showManualModal(false); 
+    closeMenu(); 
+  }
+});
+
+/* マニュアルタブ切り替え */
+document.querySelectorAll('.manual-tab-btn').forEach(btn => {
+  btn.addEventListener('click', ()=>{
+    const targetTab = btn.dataset.tab;
+    // すべてのタブボタンとコンテンツのactiveクラスを削除
+    document.querySelectorAll('.manual-tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.manual-tab-content').forEach(c => c.classList.remove('active'));
+    // クリックされたタブボタンとそのコンテンツにactiveクラスを追加
+    btn.classList.add('active');
+    if(targetTab === 'user'){
+      document.getElementById('manualUser').classList.add('active');
+    } else if(targetTab === 'admin'){
+      document.getElementById('manualAdmin').classList.add('active');
+    }
+  });
+});

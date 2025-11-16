@@ -15,6 +15,7 @@
 const TOKEN_TTL_MS   = 60 * 60 * 1000;  // 1時間
 const CACHE_TTL_SEC  = 20;              // 20秒
 const MAX_SET_BYTES  = 120 * 1024;      // set payload サイズ制限
+const MAX_NOTICES_PER_OFFICE = 100;     // お知らせ最大件数
 
 /* ===== ScriptProperties キー ===== */
 const KEY_PREFIX          = 'presence:';
@@ -33,6 +34,7 @@ function p_(e, k, d){ return (e && e.parameter && e.parameter[k] != null) ? Stri
 /* ===== データ保存キー ===== */
 function dataKeyForOffice_(office){ return `presence-board-${office}`; }
 function configKeyForOffice_(office){ return `presence-config-${office}`; }
+function noticesKeyForOffice_(office){ return `presence-notices-${office}`; }
 
 /* ===== 拠点一覧（初期値） ===== */
 const DEFAULT_OFFICES = {
@@ -151,6 +153,56 @@ function normalizeConfig_(cfg){
     menus: (cfg.menus && typeof cfg.menus === 'object') ? cfg.menus : defaultMenus_()
   };
   return out;
+}
+
+function coerceNoticeArray_(src){
+  if(src == null) return [];
+  if(Array.isArray(src)) return src;
+  if(typeof src === 'string'){
+    const trimmed = src.trim();
+    if(!trimmed) return [];
+    if(trimmed[0] === '[' || trimmed[0] === '{'){
+      try{ return coerceNoticeArray_(JSON.parse(trimmed)); }catch(_){ /* fallthrough */ }
+    }
+    return [ trimmed ];
+  }
+  if(typeof src === 'object'){
+    if(Array.isArray(src.list)) return src.list;
+    if(Array.isArray(src.items)) return src.items;
+    return Object.keys(src).sort().map(k=>src[k]).filter(v=>v!=null);
+  }
+  return [];
+}
+
+function normalizeNoticeItem_(raw){
+  if(raw == null) return null;
+  if(typeof raw === 'string'){
+    const text = raw.trim();
+    if(!text) return null;
+    return { title: text.substring(0, 200), content: '' };
+  }
+  if(Array.isArray(raw)){
+    const title = raw[0] == null ? '' : String(raw[0]).substring(0, 200);
+    const content = raw[1] == null ? '' : String(raw[1]).substring(0, 2000);
+    if(!title.trim() && !content.trim()) return null;
+    return { title, content };
+  }
+  if(typeof raw !== 'object') return null;
+  const titleSrc = raw.title != null ? raw.title : (raw.subject != null ? raw.subject : raw.headline);
+  const contentSrc = raw.content != null ? raw.content : (raw.body != null ? raw.body : (raw.text != null ? raw.text : raw.description));
+  const title = titleSrc == null ? '' : String(titleSrc).substring(0, 200);
+  const content = contentSrc == null ? '' : String(contentSrc).substring(0, 2000);
+  if(!title.trim() && !content.trim()) return null;
+  return { title, content };
+}
+
+function normalizeNoticesArray_(raw){
+  const arr = coerceNoticeArray_(raw);
+  const normalized = arr.map(normalizeNoticeItem_).filter(Boolean);
+  if(normalized.length > MAX_NOTICES_PER_OFFICE){
+    return normalized.slice(0, MAX_NOTICES_PER_OFFICE);
+  }
+  return normalized;
 }
 
 function notifyConfigPush_(office){
@@ -466,6 +518,66 @@ function doPost(e){
     if(apw) offs[id].adminPassword = apw;
     setOffices_(offs);
     return json_({ ok:true });
+  }
+
+  /* ===== お知らせAPI ===== */
+  if(action === 'getNotices'){
+    const requestedOffice = p_(e,'office', '');
+    let office = tokenOffice;
+    // スーパー管理者が別拠点を指定した場合、権限チェック
+    if(requestedOffice && requestedOffice !== tokenOffice){
+      if(canAdminOffice_(prop, token, requestedOffice)){
+        office = requestedOffice;
+      }
+    }
+    const NOTICES_KEY = noticesKeyForOffice_(office);
+    const cKey = KEY_PREFIX + 'notices:' + office;
+    const noCache = p_(e,'nocache','') === '1';
+
+    const hit = noCache ? null : cache.get(cKey);
+    if(hit){ try{ return json_(JSON.parse(hit)); }catch(_){ /* fallthrough */ } }
+
+    const stored = prop.getProperty(NOTICES_KEY);
+    const notices = normalizeNoticesArray_(stored || []);
+
+    const outObj = { updated: now_(), notices };
+    if(!noCache) cache.put(cKey, JSON.stringify(outObj), CACHE_TTL_SEC);
+    return json_(outObj);
+  }
+
+  if(action === 'setNotices'){
+    const requestedOffice = p_(e,'office', '');
+    let office = tokenOffice;
+    // スーパー管理者が別拠点を指定した場合、権限チェック
+    if(requestedOffice && requestedOffice !== tokenOffice){
+      if(canAdminOffice_(prop, token, requestedOffice)){
+        office = requestedOffice;
+      } else {
+        return json_({ error:'forbidden', debug:'cannot_admin_office='+requestedOffice });
+      }
+    }
+    const role = getRoleByToken_(prop, token);
+    if(!roleIsOfficeAdmin_(prop, token)) return json_({ error:'forbidden', debug:'role='+role });
+
+    const NOTICES_KEY = noticesKeyForOffice_(office);
+    const noticesParam = p_(e,'notices','[]');
+    let parsedNotices;
+    try{ parsedNotices = JSON.parse(noticesParam); }
+    catch(err){ return json_({ error:'bad_json', debug:String(err), param:noticesParam }); }
+
+    const lock = LockService.getScriptLock(); lock.waitLock(2000);
+    try{
+      const normalized = normalizeNoticesArray_(parsedNotices);
+
+      prop.setProperty(NOTICES_KEY, JSON.stringify(normalized));
+      const out = JSON.stringify({ updated: now_(), notices: normalized });
+      cache.put(KEY_PREFIX+'notices:'+office, out, CACHE_TTL_SEC);
+      return json_({ ok:true, notices: normalized });
+    } catch(err){
+      return json_({ error:'save_failed', debug:String(err) });
+    } finally{
+      try{ lock.releaseLock(); }catch(_){}
+    }
   }
 
   return json_({ error:'unknown_action' });
