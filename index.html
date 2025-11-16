@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>在席確認表【開発用】</title>
+<title>在席確認表</title>
 
 <!-- 強めのキャッシュ抑止（HTMLに効く） -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -14,7 +14,7 @@
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
                script-src 'self';
-               connect-src 'self' https://presence-proxy-test.taka-hiyo.workers.dev;
+               connect-src 'self' https://presence-proxy-.taka-hiyo.workers.dev;
                style-src 'self' 'unsafe-inline';
                img-src 'self' data:;
                font-src 'self';
@@ -27,7 +27,7 @@
 <body>
 <header>
     <div class="title-wrap">
-      <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false" aria-controls="groupMenu">在席確認表【開発用】</button>
+      <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false" aria-controls="groupMenu">在席確認表</button>
       <div id="groupMenu" class="grp-menu" role="menu" aria-labelledby="titleBtn">
         <h4 id="groupMenuTitle">グループにジャンプ</h4>
         <ul id="groupMenuList"></ul>
@@ -445,7 +445,7 @@
   <!-- ログイン -->
   <div id="login" class="login" style="display:none">
     <div class="card">
-      <h2>在席確認表【開発用】</h2>
+      <h2>在席確認表</h2>
       <p>拠点を選び、パスワードを入力してください</p>
       <select id="officeSel" aria-label="拠点"></select>
       <input type="password" id="pw" placeholder="Password" autocomplete="current-password" />
