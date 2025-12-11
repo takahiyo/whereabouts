@@ -1,6 +1,7 @@
 /* お知らせ機能 */
 
 let CURRENT_NOTICES = [];
+window.CURRENT_NOTICES = CURRENT_NOTICES; // グローバルに公開してadmin.jsから参照可能にする
 const MAX_NOTICE_ITEMS = 100;
 
 // URLを自動リンク化する関数
@@ -33,6 +34,15 @@ function coerceNoticeVisibleFlag(raw) {
   return coerceNoticeDisplayFlag(raw);
 }
 
+function normalizeNoticeKey(value) {
+  if (value == null) return '';
+  return String(value)
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+window.normalizeNoticeKey = normalizeNoticeKey;
+
 function coerceNoticeArray(raw) {
   if (raw == null) return [];
   if (Array.isArray(raw)) return raw;
@@ -62,12 +72,13 @@ function coerceNoticeArray(raw) {
 function normalizeNoticeEntries(raw) {
   const arr = coerceNoticeArray(raw);
   const normalized = arr
-    .map((item) => {
+    .map((item, idx) => {
       if (item == null) return null;
       if (typeof item === 'string') {
         const text = item.trim();
         if (!text) return null;
-        return { title: text.slice(0, 200), content: '', display: true, visible: true };
+        const id = `notice_str_${idx}`;
+        return { id, title: text.slice(0, 200), content: '', display: true, visible: true };
       }
       if (Array.isArray(item)) {
         const titleRaw = item[0] == null ? '' : String(item[0]);
@@ -75,7 +86,8 @@ function normalizeNoticeEntries(raw) {
         const title = titleRaw.slice(0, 200);
         const content = contentRaw.slice(0, 2000);
         if (!title.trim() && !content.trim()) return null;
-        return { title, content, display: true, visible: true };
+        const id = `notice_arr_${idx}`;
+        return { id, title, content, display: true, visible: true };
       }
       if (typeof item === 'object') {
         const titleSource =
@@ -90,7 +102,8 @@ function normalizeNoticeEntries(raw) {
           item.visible ?? item.display ?? item.show ?? true
         );
         if (!title.trim() && !content.trim()) return null;
-        return { title, content, display: visible, visible };
+        const id = item.id ?? item.noticeId ?? item.uid ?? `notice_obj_${idx}`;
+        return { id, title, content, display: visible, visible };
       }
       return null;
     })
@@ -104,6 +117,7 @@ function normalizeNoticeEntries(raw) {
 function applyNotices(raw) {
   const normalized = normalizeNoticeEntries(raw);
   CURRENT_NOTICES = normalized;
+  window.CURRENT_NOTICES = normalized; // グローバルに公開してadmin.jsから参照可能にする
   renderNotices(normalized);
 }
 
@@ -137,6 +151,7 @@ function renderNotices(notices) {
     noticesList.innerHTML = '';
     noticesArea.style.display = 'none';
     if (noticesBtn) noticesBtn.style.display = 'none';
+    window.CURRENT_NOTICES = []; // グローバルにも空配列を反映
     return;
   }
 
@@ -146,6 +161,8 @@ function renderNotices(notices) {
     const title = notice && notice.title != null ? String(notice.title) : '';
     const content = notice && notice.content != null ? String(notice.content) : '';
     const hasContent = content.trim().length > 0;
+    const noticeId = notice?.id ?? notice?.noticeId ?? notice?.uid ?? '';
+    const noticeKey = notice?.noticeKey ?? notice?.key ?? normalizeNoticeKey(title);
 
     const item = document.createElement('div');
     if (hasContent) {
@@ -168,6 +185,8 @@ function renderNotices(notices) {
         </div>
       `;
     }
+    if (noticeId) item.dataset.noticeId = String(noticeId);
+    if (noticeKey) item.dataset.noticeKey = normalizeNoticeKey(noticeKey);
     noticesList.appendChild(item);
   });
 
@@ -210,21 +229,21 @@ function toggleNoticesArea() {
 }
 
 // お知らせを取得
-async function fetchNotices() {
+async function fetchNotices(requestedOfficeId) {
   if (!SESSION_TOKEN) {
     console.log('fetchNotices: SESSION_TOKEN is not set');
     return;
   }
-  
+
   try {
+    const targetOfficeId = requestedOfficeId || CURRENT_OFFICE_ID || '';
     const params = {
       action: 'getNotices',
       token: SESSION_TOKEN,
       nocache: '1'
     };
-    const officeId = CURRENT_OFFICE_ID || '';
-    if (officeId) {
-      params.office = officeId;
+    if (targetOfficeId) {
+      params.office = targetOfficeId;
     }
 
     console.log('fetchNotices params:', params);

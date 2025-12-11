@@ -106,6 +106,17 @@ function fallbackGroupTitle(g, idx){
   const t = (g && g.title != null) ? String(g.title).trim() : "";
   return t || `グループ${idx + 1}`;
 }
+function getRosterOrdering(){
+  return (GROUPS || []).map((g, gi) => ({
+    title: fallbackGroupTitle(g, gi),
+    members: (g.members || []).map((m, mi) => ({
+      id: (m && m.id != null && String(m.id)) ? String(m.id) : `__auto_${gi}_${mi}`,
+      name: String(m?.name || ""),
+      ext: String(m?.ext || ""),
+      order: mi
+    }))
+  }));
+}
 function normalizeConfigClient(cfg){
   const groups = (cfg && Array.isArray(cfg.groups)) ? cfg.groups : [];
   return groups.map(g => {
@@ -170,8 +181,20 @@ function scheduleRenew(ttlMs){
   if(tokenRenewTimer) { clearTimeout(tokenRenewTimer); tokenRenewTimer = null; }
   const delay = Math.max(10_000, Number(ttlMs||TOKEN_DEFAULT_TTL) - 60_000);
   tokenRenewTimer = setTimeout(async ()=>{
+    tokenRenewTimer = null;
     const me = await apiPost({ action: 'renew', token: SESSION_TOKEN });
-    if(me && me.ok){
+    if(!me || me.error === 'unauthorized'){
+      await logout();
+      return;
+    }
+
+    if(!me.ok){
+      toast('ログイン状態を再確認してください', false);
+      await logout();
+      return;
+    }
+
+    if(me.ok){
                   const prevRole = CURRENT_ROLE;
       CURRENT_ROLE = me.role || CURRENT_ROLE;
       saveSessionMeta();

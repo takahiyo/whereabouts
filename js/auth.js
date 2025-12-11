@@ -1,7 +1,11 @@
 /* 認証UI + 管理UI + マニュアルUI */
 function logoutButtonsCleanup(){
-  closeMenu(); showAdminModal(false); showManualModal(false);
+  closeMenu(); showAdminModal(false); showManualModal(false); showEventModal(false);
   board.style.display='none'; board.replaceChildren(); menuList.replaceChildren();
+  // イベントバナーは削除されたため、この行はコメントアウト
+  // try{ if(typeof updateEventBanner==='function'){ updateEventBanner(null); } }catch{}
+  if(typeof renderVacationRadioMessage==='function'){ renderVacationRadioMessage('読み込み待ち'); }
+  if(typeof updateEventDetail==='function'){ updateEventDetail(null); }
   window.scrollTo(0,0);
 }
 async function logout(){
@@ -35,10 +39,14 @@ function ensureAuthUI(){
   adminBtn.style.display   = showAdmin ? 'inline-block' : 'none';
   logoutBtn.style.display  = loggedIn ? 'inline-block' : 'none';
   manualBtn.style.display  = loggedIn ? 'inline-block' : 'none';
+  eventBtn.style.display = 'none';
+  if(btnEventSave) btnEventSave.style.display = loggedIn ? 'inline-block' : 'none';
+  updateEventButtonVisibility();
   nameFilter.style.display = loggedIn ? 'inline-block' : 'none';
   statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
 }
 function showAdminModal(yes){ adminModal.classList.toggle('show', !!yes); }
+function showEventModal(yes){ eventModal.classList.toggle('show', !!yes); }
 async function applyRoleToAdminPanel(){
   if(!(adminOfficeRow&&adminOfficeSel)) return;
   if(CURRENT_ROLE!=='superAdmin'){
@@ -145,15 +153,45 @@ adminBtn.addEventListener('click', async ()=>{
 adminClose.addEventListener('click', ()=> showAdminModal(false));
 logoutBtn.addEventListener('click', logout);
 
+eventBtn.addEventListener('click', async ()=>{
+  const targetOfficeId=(vacationOfficeSelect?.value)||adminSelectedOfficeId||CURRENT_OFFICE_ID||'';
+  const list=await loadEvents(targetOfficeId, true, { visibleOnly:true, onSelect: handleEventSelection });
+  if(!Array.isArray(list) || list.length===0){ toast('表示対象なし'); return; }
+  const ctrl=getEventGanttController();
+  if(ctrl?.setSaveMode){
+    ctrl.setSaveMode('event-modal');
+  }
+  showEventModal(true);
+});
+eventClose.addEventListener('click', ()=> showEventModal(false));
+
+if(btnEventSave){
+  btnEventSave.addEventListener('click', async ()=>{
+    await saveEventFromModal();
+  });
+}
+
 manualBtn.addEventListener('click', ()=>{ applyRoleToManual(); showManualModal(true); });
 manualClose.addEventListener('click', ()=> showManualModal(false));
-document.addEventListener('keydown', (e)=>{ 
-  if(e.key==='Escape'){ 
-    showAdminModal(false); 
-    showManualModal(false); 
-    closeMenu(); 
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Escape'){
+    showAdminModal(false);
+    showManualModal(false);
+    showEventModal(false);
+    closeMenu();
   }
 });
+
+function setupModalOverlayClose(modalEl, closeFn){
+  if(!modalEl) return;
+  modalEl.addEventListener('click', (e)=>{
+    if(e.target===modalEl){ closeFn(); }
+  });
+}
+
+setupModalOverlayClose(adminModal, ()=> showAdminModal(false));
+setupModalOverlayClose(manualModal, ()=> showManualModal(false));
+setupModalOverlayClose(eventModal, ()=> showEventModal(false));
 
 /* マニュアルタブ切り替え */
 document.querySelectorAll('.manual-tab-btn').forEach(btn => {

@@ -35,6 +35,7 @@ function p_(e, k, d){ return (e && e.parameter && e.parameter[k] != null) ? Stri
 function dataKeyForOffice_(office){ return `presence-board-${office}`; }
 function configKeyForOffice_(office){ return `presence-config-${office}`; }
 function noticesKeyForOffice_(office){ return `presence-notices-${office}`; }
+function vacationsKeyForOffice_(office){ return `presence-vacations-${office}`; }
 
 /* ===== 拠点一覧（初期値） ===== */
 const DEFAULT_OFFICES = {
@@ -181,6 +182,49 @@ function coerceNoticeVisibleFlag_(raw){
   return !(s === 'false' || s === '0' || s === 'off' || s === 'no' || s === 'hide');
 }
 
+function coerceVacationVisibleFlag_(raw){
+  if(raw === true) return true;
+  if(raw === false) return false;
+  if(typeof raw === 'number') return raw !== 0;
+  if(typeof raw === 'string'){
+    const s = raw.trim().toLowerCase();
+    if(!s) return false;
+    return !(s === 'false' || s === '0' || s === 'off' || s === 'no' || s === 'hide');
+  }
+  return false;
+}
+
+function coerceVacationTypeFlag_(raw){
+  if(raw === true) return true;
+  if(raw === false) return false;
+  if(typeof raw === 'string'){
+    const s = raw.trim().toLowerCase();
+    if(!s) return true;
+    return !(s === 'false' || s === '0' || s === 'off' || s === 'no' || s === 'hide');
+  }
+  if(typeof raw === 'number') return raw !== 0;
+  return true;
+}
+
+function normalizeVacationItem_(raw, office){
+  if(raw == null) return null;
+  const id = String(raw.id || raw.vacationId || '').trim();
+  const title = String(raw.title || raw.subject || '').substring(0, 200);
+  const startDate = String(raw.startDate || raw.start || raw.from || '').trim();
+  const endDate = String(raw.endDate || raw.end || raw.to || '').trim();
+  const noticeId = String(raw.noticeId || raw.noticeKey || '').trim();
+  const noticeTitle = String(raw.noticeTitle || '').substring(0, 200);
+  const note = String(raw.note || raw.memo || noticeTitle || '').substring(0, 2000);
+  const membersBits = String(raw.membersBits || raw.bits || '').trim();
+  const visible = coerceVacationVisibleFlag_(raw.visible);
+  const isVacation = coerceVacationTypeFlag_(raw.isVacation);
+  const color = String(raw.color || raw.eventColor || 'amber').trim() || 'amber';
+  const orderRaw = Number(raw.order || raw.sortOrder || raw.position || 0);
+  const order = Number.isFinite(orderRaw) && orderRaw > 0 ? orderRaw : 0;
+  const updated = Number(raw.updated || raw.serverUpdated || 0) || now_();
+  return { id, office: String(raw.office || office || ''), title, startDate, endDate, note, noticeId, noticeTitle, membersBits, updated, visible, isVacation, color, order };
+}
+
 function normalizeNoticeItem_(raw){
   if(raw == null) return null;
   if(typeof raw === 'string'){
@@ -195,13 +239,16 @@ function normalizeNoticeItem_(raw){
     return { title, content, display: true, visible: true };
   }
   if(typeof raw !== 'object') return null;
+  const id = raw.id != null ? raw.id : (raw.noticeId != null ? raw.noticeId : (raw.uid != null ? raw.uid : undefined));
   const titleSrc = raw.title != null ? raw.title : (raw.subject != null ? raw.subject : raw.headline);
   const contentSrc = raw.content != null ? raw.content : (raw.body != null ? raw.body : (raw.text != null ? raw.text : raw.description));
   const title = titleSrc == null ? '' : String(titleSrc).substring(0, 200);
   const content = contentSrc == null ? '' : String(contentSrc).substring(0, 2000);
   const visible = coerceNoticeVisibleFlag_(raw.visible != null ? raw.visible : (raw.display != null ? raw.display : (raw.show != null ? raw.show : true)));
   if(!title.trim() && !content.trim()) return null;
-  return { title, content, display: visible, visible: visible };
+  const result = { title, content, display: visible, visible: visible };
+  if(id != null) result.id = id;
+  return result;
 }
 
 function normalizeNoticesArray_(raw){
@@ -588,6 +635,168 @@ function doPost(e){
     } catch(err){
       return json_({ error:'save_failed', debug:String(err) });
     } finally{
+      try{ lock.releaseLock(); }catch(_){}
+    }
+  }
+
+  /* ===== 長期休暇API ===== */
+  if(action === 'getVacation'){
+    const requestedOffice = p_(e,'office', '');
+    let office = tokenOffice;
+    // スーパー管理者が別拠点を指定した場合、権限チェック
+    if(requestedOffice && requestedOffice !== tokenOffice){
+      if(canAdminOffice_(prop, token, requestedOffice)){
+        office = requestedOffice;
+      }
+    }
+    const VACATIONS_KEY = vacationsKeyForOffice_(office);
+    const stored = prop.getProperty(VACATIONS_KEY);
+    let vacations = [];
+    if(stored){
+      try{
+        const parsed = JSON.parse(stored);
+        const raw = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.vacations) ? parsed.vacations : []);
+        vacations = raw.map(v => normalizeVacationItem_(v, office)).filter(v => v);
+      }catch(_){
+        vacations = [];
+      }
+    }
+    vacations = vacations.map((v, idx)=>{
+      const orderVal = Number(v.order || 0);
+      return { ...v, order: orderVal > 0 ? orderVal : (idx + 1) };
+    }).sort((a,b)=>{
+      const ao = Number(a.order || 0);
+      const bo = Number(b.order || 0);
+      if(ao !== bo) return ao - bo;
+      return (Number(a.updated||0)) - (Number(b.updated||0));
+    });
+    return json_({ vacations, updated: now_() });
+  }
+
+  if(action === 'setVacation'){
+    const requestedOffice = p_(e,'office', '');
+    let office = tokenOffice;
+    // スーパー管理者が別拠点を指定した場合、権限チェック
+    if(requestedOffice && requestedOffice !== tokenOffice){
+      if(canAdminOffice_(prop, token, requestedOffice)){
+        office = requestedOffice;
+      } else {
+        return json_({ error:'forbidden' });
+      }
+    }
+    if(!roleIsOfficeAdmin_(prop, token)) return json_({ error:'forbidden' });
+
+    const VACATIONS_KEY = vacationsKeyForOffice_(office);
+    const dataParam = p_(e,'data','{}');
+    let payload;
+    try{
+      payload = JSON.parse(dataParam);
+    }catch(err){
+      return json_({ error:'bad_json', debug:String(err) });
+    }
+
+    const lock = LockService.getScriptLock(); lock.waitLock(2000);
+    try{
+      // 既存の休暇リストを取得
+      const stored = prop.getProperty(VACATIONS_KEY);
+      let vacations = [];
+      if(stored){
+        try{
+          const parsed = JSON.parse(stored);
+          const raw = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.vacations) ? parsed.vacations : []);
+          vacations = raw.map(v => normalizeVacationItem_(v, office)).filter(v => v);
+        }catch(_){
+          vacations = [];
+        }
+      }
+
+      // 新規追加または更新
+      const id = payload.id || Utilities.getUuid().replace(/-/g,'');
+      const title = String(payload.title || '').substring(0, 200);
+      const startDate = String(payload.start || '');
+      const endDate = String(payload.end || '');
+      const noticeId = String(payload.noticeId || payload.noticeKey || '').substring(0, 200);
+      const noticeTitle = String(payload.noticeTitle || '').substring(0, 200);
+      const note = String(payload.note || noticeTitle || '').substring(0, 2000);
+      const membersBits = String(payload.membersBits || '');
+      const visible = coerceVacationVisibleFlag_(payload.visible);
+      const isVacation = coerceVacationTypeFlag_(payload.isVacation);
+      const color = String(payload.color || payload.eventColor || 'amber').trim() || 'amber';
+      const orderRaw = Number(payload.order || payload.sortOrder || 0);
+      const hasOrder = Number.isFinite(orderRaw) && orderRaw > 0;
+      const base = { id, office, title, startDate, endDate, note, noticeId, noticeTitle, membersBits, visible, isVacation, color, updated: now_() };
+      if(hasOrder){ base.order = orderRaw; }
+      const newItem = normalizeVacationItem_(base, office);
+
+      // IDが存在する場合は更新、なければ追加
+      const existingIndex = vacations.findIndex(v => v.id === id);
+      if(existingIndex >= 0){
+        vacations[existingIndex] = newItem;
+      }else{
+        vacations.push(newItem);
+      }
+
+      vacations = vacations.map((v, idx)=>{
+        const orderVal = Number(v.order || 0);
+        return { ...v, order: orderVal > 0 ? orderVal : (idx + 1) };
+      }).sort((a,b)=>{
+        const ao = Number(a.order || 0);
+        const bo = Number(b.order || 0);
+        if(ao !== bo) return ao - bo;
+        return (Number(a.updated||0)) - (Number(b.updated||0));
+      }).map((v, idx)=> normalizeVacationItem_({ ...v, order: Number(v.order||0) || (idx+1) }, office));
+      const savedItem = vacations.find(v => v.id === id) || newItem;
+
+      // 保存
+      prop.setProperty(VACATIONS_KEY, JSON.stringify(vacations));
+      return json_({ ok:true, id, vacation: savedItem, vacations });
+    }catch(err){
+      return json_({ error:'save_failed', debug:String(err) });
+    }finally{
+      try{ lock.releaseLock(); }catch(_){}
+    }
+  }
+
+  if(action === 'deleteVacation'){
+    const requestedOffice = p_(e,'office', '');
+    let office = tokenOffice;
+    // スーパー管理者が別拠点を指定した場合、権限チェック
+    if(requestedOffice && requestedOffice !== tokenOffice){
+      if(canAdminOffice_(prop, token, requestedOffice)){
+        office = requestedOffice;
+      } else {
+        return json_({ error:'forbidden' });
+      }
+    }
+    if(!roleIsOfficeAdmin_(prop, token)) return json_({ error:'forbidden' });
+
+    const id = p_(e,'id','').trim();
+    if(!id) return json_({ error:'bad_request' });
+
+    const VACATIONS_KEY = vacationsKeyForOffice_(office);
+    const lock = LockService.getScriptLock(); lock.waitLock(2000);
+    try{
+      const stored = prop.getProperty(VACATIONS_KEY);
+      let vacations = [];
+      if(stored){
+        try{
+          const parsed = JSON.parse(stored);
+          const raw = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.vacations) ? parsed.vacations : []);
+          vacations = raw.map(v => normalizeVacationItem_(v, office)).filter(v => v);
+        }catch(_){
+          vacations = [];
+        }
+      }
+
+      // IDが一致するものを削除
+      vacations = vacations.filter(v => v.id !== id);
+
+      // 保存
+      prop.setProperty(VACATIONS_KEY, JSON.stringify(vacations));
+      return json_({ ok:true });
+    }catch(err){
+      return json_({ error:'delete_failed', debug:String(err) });
+    }finally{
       try{ lock.releaseLock(); }catch(_){}
     }
   }
