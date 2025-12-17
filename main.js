@@ -34,7 +34,15 @@ document.addEventListener('DOMContentLoaded', async ()=>{
         CURRENT_ROLE=me.role||CURRENT_ROLE; CURRENT_OFFICE_ID=nextOfficeId; CURRENT_OFFICE_NAME=me.officeName||CURRENT_OFFICE_NAME;
         if(nextOfficeId!==prevOfficeId){ adminSelectedOfficeId=''; }
         saveSessionMeta(); ensureAuthUI(); applyRoleToManual();
-        if(nextOfficeId!==prevOfficeId){ eventP=loadEvents(nextOfficeId, false); }
+        if(nextOfficeId!==prevOfficeId){
+          eventP=loadEvents(nextOfficeId, false);
+          if(typeof fetchTools === 'function'){
+            fetchTools(nextOfficeId).catch(()=>{});
+          }
+          if(typeof startToolsPolling === 'function'){
+            startToolsPolling(nextOfficeId);
+          }
+        }
       }
     }catch{}
 
@@ -65,6 +73,12 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     scheduleRenew(Number(res.exp)||TOKEN_DEFAULT_TTL);
     if(!SESSION_TOKEN) return;
     startRemoteSync(true); startConfigWatch(); startNoticesPolling();
+    if(typeof fetchTools === 'function'){
+      fetchTools(CURRENT_OFFICE_ID).catch(()=>{});
+    }
+    if(typeof startToolsPolling === 'function'){
+      startToolsPolling(CURRENT_OFFICE_ID);
+    }
     await eventP;
     
     // 保存されているイベントを自動適用
@@ -96,6 +110,12 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       if(d&&d.data) applyState(d.data);
       if(!SESSION_TOKEN) return;
       startRemoteSync(true); startConfigWatch(); startNoticesPolling();
+      if(typeof fetchTools === 'function'){
+        fetchTools(CURRENT_OFFICE_ID).catch(()=>{});
+      }
+      if(typeof startToolsPolling === 'function'){
+        startToolsPolling(CURRENT_OFFICE_ID);
+      }
       await eventP;
       
       // 保存されているイベントを自動適用
@@ -113,17 +133,12 @@ if(noticesBtn){
   noticesBtn.addEventListener('click', ()=>{
     const noticesArea = document.getElementById('noticesArea');
     if(!noticesArea) return;
-    
-    // エリアを展開してから画面をスクロール
-    const wasCollapsed = noticesArea.classList.contains('collapsed');
+
     toggleNoticesArea();
-    
-    // 折りたたまれていた場合は展開後にスクロール
-    if(wasCollapsed){
-      // 少し遅延させて、DOM更新後にスクロール
-      setTimeout(()=>{
-        noticesArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-    }
+
+    // 少し遅延させて、DOM更新後にページトップにスクロール
+    setTimeout(()=>{
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
   });
 }
