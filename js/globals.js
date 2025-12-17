@@ -12,25 +12,36 @@ const board=document.getElementById('board'), toastEl=document.getElementById('t
 const loginEl=document.getElementById('login'), loginMsg=document.getElementById('loginMsg'), pwInput=document.getElementById('pw'), officeSel=document.getElementById('officeSel');
 const menuEl=document.getElementById('groupMenu'), menuList=document.getElementById('groupMenuList'), menuTitle=document.getElementById('groupMenuTitle'), titleBtn=document.getElementById('titleBtn');
 const noticesBtn=document.getElementById('noticesBtn'), adminBtn=document.getElementById('adminBtn'), logoutBtn=document.getElementById('logoutBtn'), adminModal=document.getElementById('adminModal'), adminClose=document.getElementById('adminClose');
+const toolsBtn=document.getElementById('toolsBtn'), toolsModal=document.getElementById('toolsModal'), toolsModalClose=document.getElementById('toolsModalClose');
 const eventBtn=document.getElementById('eventBtn'), eventModal=document.getElementById('eventModal'), eventClose=document.getElementById('eventClose');
 const vacationRadioList=document.getElementById('vacationRadioList');
 const eventGanttWrap=document.getElementById('eventGanttWrap');
 const eventGantt=document.getElementById('eventGantt');
 const eventGroupJumps=document.getElementById('eventGroupJumps');
+const eventColorManualHint=document.getElementById('eventColorManualHint');
 const eventStartInput=document.getElementById('eventStart');
 const eventEndInput=document.getElementById('eventEnd');
 const eventBitsInput=document.getElementById('eventBits');
 const btnEventSave=document.getElementById('btnEventSave');
+const btnEventPrint=document.getElementById('btnEventPrint');
 const btnExport=document.getElementById('btnExport'), csvFile=document.getElementById('csvFile'), btnImport=document.getElementById('btnImport');
 const renameOfficeName=document.getElementById('renameOfficeName'), btnRenameOffice=document.getElementById('btnRenameOffice');
 const setPw=document.getElementById('setPw'), setAdminPw=document.getElementById('setAdminPw'), btnSetPw=document.getElementById('btnSetPw');
+const memberTableBody=document.getElementById('memberTableBody'), btnMemberSave=document.getElementById('btnMemberSave'), btnMemberReload=document.getElementById('btnMemberReload');
+const memberEditForm=document.getElementById('memberEditForm');
+const memberEditName=document.getElementById('memberEditName'), memberEditExt=document.getElementById('memberEditExt'), memberEditMobile=document.getElementById('memberEditMobile'), memberEditEmail=document.getElementById('memberEditEmail'), memberEditGroup=document.getElementById('memberEditGroup');
+const memberGroupOptions=document.getElementById('memberGroupOptions'), memberEditId=document.getElementById('memberEditId'), memberEditModeLabel=document.getElementById('memberEditModeLabel');
+const memberEditReset=document.getElementById('memberEditReset'), memberFilterInput=document.getElementById('memberFilterInput'), btnMemberFilterClear=document.getElementById('btnMemberFilterClear');
 const adminOfficeRow=document.getElementById('adminOfficeRow'), adminOfficeSel=document.getElementById('adminOfficeSel');
 const manualBtn=document.getElementById('manualBtn'), manualModal=document.getElementById('manualModal'), manualClose=document.getElementById('manualClose'), manualUser=document.getElementById('manualUser'), manualAdmin=document.getElementById('manualAdmin');
 const nameFilter=document.getElementById('nameFilter'), statusFilter=document.getElementById('statusFilter');
 const noticesEditor=document.getElementById('noticesEditor'), btnAddNotice=document.getElementById('btnAddNotice'), btnLoadNotices=document.getElementById('btnLoadNotices'), btnSaveNotices=document.getElementById('btnSaveNotices');
+const toolsEditor=document.getElementById('toolsEditor'), btnAddTool=document.getElementById('btnAddTool'), btnLoadTools=document.getElementById('btnLoadTools'), btnSaveTools=document.getElementById('btnSaveTools');
 const noticeModal=document.getElementById('noticeModal'), noticeModalTitle=document.getElementById('noticeModalTitle'), noticeModalBody=document.getElementById('noticeModalBody'), noticeModalClose=document.getElementById('noticeModalClose');
+const toolsList=document.getElementById('toolsList');
 const vacationTitleInput=document.getElementById('vacationTitle'), vacationStartInput=document.getElementById('vacationStart'), vacationEndInput=document.getElementById('vacationEnd');
 const vacationNoticeSelect=document.getElementById('vacationNotice'), vacationOfficeSelect=document.getElementById('vacationOffice'), vacationMembersBitsInput=document.getElementById('vacationMembersBits');
+const btnCreateNoticeFromEvent=document.getElementById('btnCreateNoticeFromEvent');
 const vacationIdInput=document.getElementById('vacationId'), vacationListBody=document.getElementById('vacationListBody');
 const vacationTypeText=document.getElementById('vacationTypeText');
 const vacationColorSelect=document.getElementById('vacationColor');
@@ -52,6 +63,7 @@ let appliedEventTitles=[];
 let eventGanttController=null;
 let eventSelectedId='';
 let selectedEventIds=[];
+let eventDateColorState={ officeId:'', map:new Map(), lastSaved:new Map(), autoSaveTimer:null, saveInFlight:false, queued:false, statusEl:null, loaded:false };
 
 /* 認証状態 */
 let SESSION_TOKEN=""; let CURRENT_OFFICE_NAME=""; let CURRENT_OFFICE_ID=""; let CURRENT_ROLE="user";
@@ -116,6 +128,21 @@ function coerceVacationVisibleFlag(raw){
 }
 
 function renderVacationRadioMessage(message){
+  // プルダウン形式の場合
+  const dropdown = document.getElementById('eventSelectDropdown');
+  if(dropdown){
+    dropdown.innerHTML = '';
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = message;
+    option.disabled = true;
+    option.selected = true;
+    dropdown.appendChild(option);
+    dropdown.disabled = true;
+    return;
+  }
+  
+  // 旧形式（カードリスト）のフォールバック
   if(!vacationRadioList) return;
   vacationRadioList.style.display='block';
   vacationRadioList.textContent='';
@@ -144,6 +171,25 @@ function getEventColorClass(color){
   return `event-color-${key}`;
 }
 
+function getEventColorClasses(){
+  return EVENT_COLOR_KEYS.map(key=>getEventColorClass(key)).filter(Boolean);
+}
+
+function normalizeEventDateKey(date){
+  if(!date) return '';
+  const d = new Date(date);
+  if(Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function normalizeEventColorKeyClient(raw){
+  const key=(raw||'').toString().trim().toLowerCase();
+  return EVENT_COLOR_KEYS.includes(key)?key:'';
+}
+
 function eventSelectionKey(officeId){
   return `${storeKeyBase}:event:${officeId||'__none__'}`;
 }
@@ -170,13 +216,271 @@ function saveEventIds(officeId, ids){
   catch{}
 }
 
+function getEventTargetOfficeId(){
+  return (vacationOfficeSelect?.value)||adminSelectedOfficeId||CURRENT_OFFICE_ID||'';
+}
+
 function hasRelatedNotice(item){
   return !!(item?.noticeTitle||item?.noticeId||item?.noticeKey||item?.note||item?.memo);
 }
 
+function ensureEventColorStatusEl(){
+  if(eventDateColorState.statusEl) return eventDateColorState.statusEl;
+  const el=document.createElement('div');
+  el.className='vac-save-status';
+  eventDateColorState.statusEl=el;
+  const container=eventGanttWrap||eventGantt||document.getElementById('eventGanttWrap')||document.getElementById('eventGantt');
+  if(container){ container.appendChild(el); }
+  return el;
+}
+
+function renderEventColorStatus(type, message, actions){
+  const el=ensureEventColorStatusEl();
+  el.textContent='';
+  el.dataset.state=type||'';
+  if(!message) return;
+  const msgSpan=document.createElement('span');
+  msgSpan.className='vac-save-message';
+  msgSpan.textContent=message;
+  el.appendChild(msgSpan);
+  if(type==='saving'){
+    const spinner=document.createElement('span');
+    spinner.className='vac-save-spinner';
+    spinner.setAttribute('aria-hidden','true');
+    el.prepend(spinner);
+  }
+  (actions||[]).forEach(({ label, onClick, className })=>{
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.textContent=label;
+    btn.className=className||'vac-save-action';
+    btn.addEventListener('click', onClick);
+    el.appendChild(btn);
+  });
+}
+
+function updateEventColorManualHint(hasManualColor){
+  const hintEl=eventColorManualHint||document.getElementById('eventColorManualHint');
+  if(!hintEl) return;
+  const admin=isOfficeAdmin && typeof isOfficeAdmin==='function' ? isOfficeAdmin() : false;
+  if(!admin){
+    hintEl.style.display='none';
+    hintEl.textContent='';
+    hintEl.title='';
+    return;
+  }
+  const targetOffice=getEventTargetOfficeId();
+  const shouldShow=!!hasManualColor && !!targetOffice && eventDateColorState.officeId===targetOffice;
+  if(shouldShow){
+    hintEl.style.display='inline-flex';
+    hintEl.textContent='🎨 手動色が適用されています（セルを右クリックでクリアできます）';
+    hintEl.title='セルを右クリックすると手動色を個別にクリアできます。';
+  }else{
+    hintEl.style.display='none';
+    hintEl.textContent='';
+    hintEl.title='';
+  }
+}
+
+function showEventColorSavingStatus(){
+  renderEventColorStatus('saving', '日付カラーを保存しています…');
+}
+
+function showEventColorSavedStatus(){
+  renderEventColorStatus('saved', '自動保存済み');
+  setTimeout(()=>{
+    if(eventDateColorState.statusEl && eventDateColorState.statusEl.dataset.state==='saved'){
+      eventDateColorState.statusEl.textContent='';
+      eventDateColorState.statusEl.dataset.state='';
+    }
+  }, 2000);
+}
+
+function rollbackEventDateColors(){
+  const lastSaved=eventDateColorState.lastSaved instanceof Map ? eventDateColorState.lastSaved : new Map();
+  eventDateColorState.map=new Map(lastSaved);
+  applyManualEventColorsToGantt();
+  toast('保存前の状態に戻しました', false);
+}
+
+function showEventColorErrorStatus(){
+  const actions=[{
+    label:'再試行',
+    onClick: ()=>scheduleEventDateColorSave('retry'),
+    className:'vac-save-retry'
+  }];
+  if(eventDateColorState.lastSaved){
+    actions.push({
+      label:'ロールバック',
+      onClick: rollbackEventDateColors,
+      className:'vac-save-rollback'
+    });
+  }
+  renderEventColorStatus('error', '保存に失敗しました。再試行するかロールバックできます。', actions);
+}
+
+function resetEventDateColorState(){
+  const statusEl=eventDateColorState.statusEl||null;
+  eventDateColorState={ officeId:'', map:new Map(), lastSaved:new Map(), autoSaveTimer:null, saveInFlight:false, queued:false, statusEl, loaded:false };
+  if(statusEl){
+    statusEl.textContent='';
+    statusEl.dataset.state='';
+  }
+  applyManualEventColorsToGantt();
+}
+
+function applyManualEventColorsToGantt(){
+  const gantt=eventGantt || document.getElementById('eventGantt');
+  const targetOffice=getEventTargetOfficeId();
+  if(!gantt) return;
+  const colorClasses=getEventColorClasses();
+  const map=(eventDateColorState.officeId && eventDateColorState.officeId!==targetOffice) ? new Map() : (eventDateColorState.map||new Map());
+  gantt.querySelectorAll('td.vac-cell').forEach(cell=>{
+    cell.classList.remove(...colorClasses);
+    if(cell.title && cell.title.includes('手動')){
+      cell.removeAttribute('title');
+    }
+    delete cell.dataset.manualColor;
+    delete cell.dataset.manualColorBound;
+  });
+
+  const applyColorToDayHeader=(cell)=>{
+    cell.classList.remove(...colorClasses);
+    const date=normalizeEventDateKey(cell.dataset.date||'');
+    const colorKey=map.get(date)||'';
+    if(colorKey){
+      const cls=getEventColorClass(colorKey);
+      if(cls) cell.classList.add(cls);
+      cell.dataset.manualColor=colorKey;
+      const label=EVENT_COLOR_LABELS[colorKey]||'手動色';
+      cell.title=`${label}（手動設定）: 右クリックでクリア`;
+    }else{
+      delete cell.dataset.manualColor;
+      if(cell.title && cell.title.includes('手動')){
+        cell.removeAttribute('title');
+      }
+    }
+  };
+  gantt.querySelectorAll('.vac-day-header').forEach(applyColorToDayHeader);
+  updateEventColorManualHint(map.size>0);
+}
+
+function buildEventDateColorPayload(){
+  const payload={};
+  (eventDateColorState.map||new Map()).forEach((color,date)=>{
+    const key=normalizeEventColorKeyClient(color);
+    if(date && key){ payload[date]=key; }
+  });
+  return payload;
+}
+
+function getManualEventColorForDate(date, officeId){
+  const normalized=normalizeEventDateKey(date);
+  const targetOffice=officeId||appliedEventOfficeId||getEventTargetOfficeId();
+  if(!normalized || !targetOffice) return '';
+  if(eventDateColorState.officeId !== targetOffice) return '';
+  return eventDateColorState.map.get(normalized)||'';
+}
+
+async function loadEventDateColors(officeId){
+  const targetOfficeId=officeId||getEventTargetOfficeId();
+  if(!targetOfficeId || !SESSION_TOKEN){
+    resetEventDateColorState();
+    return new Map();
+  }
+  if(eventDateColorState.officeId===targetOfficeId && eventDateColorState.loaded){
+    applyManualEventColorsToGantt();
+    return eventDateColorState.map||new Map();
+  }
+  try{
+    const res=await apiPost({ action:'getEventColorMap', token:SESSION_TOKEN, office:targetOfficeId, nocache:'1' });
+    if(res?.error==='unauthorized'){
+      await logout();
+      return new Map();
+    }
+    const map=new Map();
+    const colors=(res&&typeof res.colors==='object')?res.colors:{};
+    Object.keys(colors||{}).forEach(date=>{
+      const normalizedDate=normalizeEventDateKey(date);
+      const key=normalizeEventColorKeyClient(colors[date]);
+      if(normalizedDate && key){ map.set(normalizedDate, key); }
+    });
+    eventDateColorState={
+      ...eventDateColorState,
+      officeId: targetOfficeId,
+      map,
+      lastSaved: new Map(map),
+      loaded: true
+    };
+    applyManualEventColorsToGantt();
+    return map;
+  }catch(err){
+    console.error('loadEventDateColors error', err);
+    resetEventDateColorState();
+    return new Map();
+  }
+}
+
+async function flushEventDateColorSave(){
+  if(eventDateColorState.saveInFlight){
+    eventDateColorState.queued=true;
+    return;
+  }
+  const officeId=eventDateColorState.officeId||getEventTargetOfficeId();
+  if(!officeId || !SESSION_TOKEN || !isOfficeAdmin()) return;
+  eventDateColorState.saveInFlight=true;
+  eventDateColorState.queued=false;
+  showEventColorSavingStatus();
+  try{
+    const payload=buildEventDateColorPayload();
+    const res=await apiPost({ action:'setEventColorMap', token:SESSION_TOKEN, office:officeId, data:JSON.stringify({ colors: payload }) });
+    if(res && res.ok!==false){
+      eventDateColorState.lastSaved=new Map(eventDateColorState.map||[]);
+      showEventColorSavedStatus();
+    }else{
+      throw new Error(res&&res.error?String(res.error):'save_failed');
+    }
+  }catch(err){
+    console.error('flushEventDateColorSave error', err);
+    toast('日付カラーの保存に失敗しました', false);
+    showEventColorErrorStatus();
+  }finally{
+    eventDateColorState.saveInFlight=false;
+    if(eventDateColorState.queued){
+      eventDateColorState.queued=false;
+      flushEventDateColorSave();
+    }
+  }
+}
+
+function scheduleEventDateColorSave(){
+  if(!SESSION_TOKEN || !isOfficeAdmin()) return;
+  if(eventDateColorState.autoSaveTimer){
+    clearTimeout(eventDateColorState.autoSaveTimer);
+  }
+  eventDateColorState.autoSaveTimer=setTimeout(()=>{
+    eventDateColorState.autoSaveTimer=null;
+    flushEventDateColorSave();
+  }, 800);
+}
+
+function refreshAppliedEventHighlights(){
+  const officeId=appliedEventOfficeId||getEventTargetOfficeId();
+  const sourceList=(cachedEvents.officeId===officeId && Array.isArray(cachedEvents.list)) ? cachedEvents.list : [];
+  const idSet=new Set((appliedEventIds||[]).map(id=>String(id)));
+  const visibleItems=sourceList.filter(item=>{
+    const id=String(item?.id||item?.vacationId||'');
+    return idSet.has(id) && coerceVacationVisibleFlag(item?.visible);
+  });
+  applyEventHighlightForItems(visibleItems, undefined);
+}
+
 function renderVacationRadioList(list, options){
-  if(!vacationRadioList) return;
-  vacationRadioList.textContent='';
+  const dropdown = document.getElementById('eventSelectDropdown');
+  const noticeBtn = document.getElementById('btnShowEventNotice');
+  if(!dropdown) return;
+  
+  dropdown.innerHTML = '';
   const opts=options||{};
   const onSelectChange = typeof opts.onSelectChange==='function' ? opts.onSelectChange : null;
   const onFocus = typeof opts.onFocus==='function' ? opts.onFocus : null;
@@ -185,129 +489,105 @@ function renderVacationRadioList(list, options){
     selectedIds.clear();
     (selectedEventIds||[]).forEach(v=> selectedIds.add(String(v)) );
   };
+  
   if(!Array.isArray(list) || list.length===0){
-    renderVacationRadioMessage(opts.emptyMessage||'登録されたイベントはありません');
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '登録されたイベントはありません';
+    placeholder.disabled = true;
+    dropdown.appendChild(placeholder);
+    dropdown.disabled = true;
+    if(noticeBtn) noticeBtn.style.display = 'none';
     return;
   }
 
   const officeId=list[0]?.office||CURRENT_OFFICE_ID||'';
-  vacationRadioList.style.display='flex';
+  dropdown.disabled = false;
+  
+  // プレースホルダー
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'イベントを選択してください';
+  dropdown.appendChild(placeholder);
 
   const itemMap=new Map();
 
-  const setSelected=(id, enabled)=>{
-    syncSelectedIds();
-    if(enabled){
-      selectedIds.clear();
-      selectedIds.add(id);
-    } else {
-      selectedIds.delete(id);
+  list.forEach((item, idx)=>{
+    const id=String(item.id||item.vacationId||idx);
+    const option = document.createElement('option');
+    option.value = id;
+    const start=item.startDate||item.start||item.from||'';
+    const end=item.endDate||item.end||item.to||'';
+    const period=start||end?` (${start||''}〜${end||''})`:' ';
+    option.textContent = `${item.title||''}${period}`;
+    dropdown.appendChild(option);
+    itemMap.set(id, item);
+  });
+  
+  // 選択イベントを復元
+  syncSelectedIds();
+  const firstSelected = Array.from(selectedIds)[0];
+  if(firstSelected){
+    dropdown.value = firstSelected;
+  }
+  
+  // お知らせボタンの状態を更新
+  function updateNoticeButton(){
+    const currentId = dropdown.value;
+    const currentItem = itemMap.get(currentId);
+    if(currentItem && noticeBtn){
+      const hasNotice = hasRelatedNotice(currentItem);
+      noticeBtn.style.display = hasNotice ? 'inline-block' : 'none';
+      noticeBtn.disabled = !hasNotice;
+    } else if(noticeBtn){
+      noticeBtn.style.display = 'none';
     }
+  }
+  updateNoticeButton();
+  
+  // プルダウン変更イベント
+  dropdown.addEventListener('change', ()=>{
+    const id = dropdown.value;
+    if(!id) return;
+    syncSelectedIds();
+    selectedIds.clear();
+    selectedIds.add(id);
     const arr=Array.from(selectedIds);
     selectedEventIds=arr;
     saveEventIds(officeId, arr);
     const item=itemMap.get(id)||null;
-    updateEventCardStates();
-    if(onSelectChange) onSelectChange(arr, item, id, enabled);
-  };
-
-  list.forEach((item, idx)=>{
-    const id=String(item.id||item.vacationId||idx);
-    const wrapper=document.createElement('div');
-    wrapper.className='vacation-radio-item';
-    wrapper.setAttribute('role','button');
-    wrapper.setAttribute('tabindex','0');
-    wrapper.dataset.eventId=id;
-
-    const content=document.createElement('div');
-    content.className='vacation-radio-content';
-
-    const titleRow=document.createElement('div');
-    titleRow.className='vacation-radio-header';
-
-    const titleEl=document.createElement('a');
-    titleEl.className='vacation-radio-title';
-    titleEl.href='#noticesArea';
-    titleEl.textContent=item.title||'';
-    titleEl.addEventListener('click',(e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      setSelected(id, true);
-      if(onFocus) onFocus(item, id);
-    });
-
-    const stateEl=document.createElement('span');
-    stateEl.className='vacation-radio-state';
-    stateEl.textContent='';
-
-    titleRow.append(titleEl, stateEl);
-
-    const start=item.startDate||item.start||item.from||'';
-    const end=item.endDate||item.end||item.to||'';
-    const period=start||end?`${start||''}〜${end||''}`:'-';
-    const periodDiv=document.createElement('div');
-    periodDiv.className='vacation-radio-period';
-    periodDiv.textContent=period;
-
-    const hasNotice=hasRelatedNotice(item);
-    const actions=document.createElement('div');
-    actions.className='vacation-radio-actions';
-
-    const noticeBtn=document.createElement('button');
-    noticeBtn.type='button';
-    noticeBtn.className='btn-secondary btn-open-notice';
-    noticeBtn.textContent='関連お知らせ';
-    noticeBtn.disabled=!hasNotice;
-    if(!hasNotice){
-      noticeBtn.title='関連するお知らせがありません';
-    }
-    noticeBtn.addEventListener('click',(e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      openRelatedNotice(item, { fromEventCalendar:true, openMode:'modal' });
-    });
-
-    actions.appendChild(noticeBtn);
-
-    content.append(titleRow, periodDiv, actions);
-
-    wrapper.append(content);
-    wrapper.addEventListener('click', ()=>{
-      syncSelectedIds();
-      const willSelect=!selectedIds.has(id);
-      setSelected(id, willSelect);
-      if(onFocus) onFocus(item, id);
-    });
-    wrapper.addEventListener('keydown',(e)=>{
-      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); wrapper.click(); }
-    });
-    wrapper.addEventListener('focus', ()=>{ if(onFocus) onFocus(item, id); });
-    vacationRadioList.appendChild(wrapper);
-    itemMap.set(id, item);
+    updateNoticeButton();
+    if(onSelectChange) onSelectChange(arr, item, id, true);
+    if(onFocus) onFocus(item, id);
   });
-
-  const firstSelected=list.find(item=> selectedIds.has(String(item.id||item.vacationId||'')));
-  if(firstSelected && onFocus){
-    onFocus(firstSelected, String(firstSelected.id||firstSelected.vacationId||''));
+  
+  // お知らせボタンのクリックイベント
+  if(noticeBtn){
+    const existingListeners = noticeBtn.cloneNode(true);
+    noticeBtn.parentNode.replaceChild(existingListeners, noticeBtn);
+    existingListeners.addEventListener('click', ()=>{
+      const id = dropdown.value;
+      const item = itemMap.get(id);
+      if(item){
+        openRelatedNotice(item, { fromEventCalendar:true, openMode:'modal' });
+      }
+    });
   }
 
   selectedEventIds=Array.from(selectedIds);
-  updateEventCardStates();
+  
+  // 初期フォーカス
+  if(firstSelected){
+    const firstItem = itemMap.get(firstSelected);
+    if(firstItem && onFocus){
+      onFocus(firstItem, firstSelected);
+    }
+  }
 }
 
 function updateEventCardStates(){
-  if(!vacationRadioList) return;
-  const selectedSet=new Set((selectedEventIds||[]).map(v=>String(v)));
-  const appliedSet=new Set((appliedEventIds||[]).map(v=>String(v)));
-  vacationRadioList.querySelectorAll('.vacation-radio-item').forEach(card=>{
-    const id=card.dataset.eventId||'';
-    const isSelected=selectedSet.has(id);
-    const isApplied=appliedSet.has(id);
-    card.classList.toggle('selected', isSelected);
-    card.classList.toggle('applied', isApplied);
-    const stateEl=card.querySelector('.vacation-radio-state');
-    if(stateEl){ stateEl.textContent=isApplied?'表示中':(isSelected?'選択中':'未選択'); }
-  });
+  // プルダウン形式では不要だが、互換性のため残す
+  return;
 }
 
 function findNoticeFromCache(item){
@@ -557,6 +837,7 @@ async function loadEvents(officeId, showToastOnSuccess=false, options={}){
   renderVacationRadioMessage('読み込み中...');
   if(!SESSION_TOKEN || !targetOfficeId){
     cachedEvents={ officeId:'', list:[] };
+    resetEventDateColorState();
     renderVacationRadioMessage('拠点にログインすると表示できます');
     updateEventDetail(null, targetOfficeId);
     updateEventButtonVisibility(targetOfficeId, []);
@@ -569,6 +850,7 @@ async function loadEvents(officeId, showToastOnSuccess=false, options={}){
     if(res?.error==='unauthorized'){
       if(typeof logout==='function'){ await logout(); }
       cachedEvents={ officeId:'', list:[] };
+      resetEventDateColorState();
       updateEventDetail(null, targetOfficeId);
       updateEventButtonVisibility(targetOfficeId, []);
       return [];
@@ -592,6 +874,7 @@ async function loadEvents(officeId, showToastOnSuccess=false, options={}){
     const filteredList=(isOfficeAdmin() && opts.visibleOnly!==true)
       ? normalizedList
       : normalizedList.filter(item=>item.visible===true);
+    await loadEventDateColors(targetOfficeId);
     const emptyMessage = filteredList.length===0 && normalizedList.length>0
       ? '現在表示中のイベントはありません。管理者が「表示」に設定するとここに表示されます。'
       : '登録されたイベントはありません';
@@ -626,6 +909,7 @@ async function loadEvents(officeId, showToastOnSuccess=false, options={}){
   }catch(err){
     console.error('loadEvents error',err);
     cachedEvents={ officeId:'', list:[] };
+    resetEventDateColorState();
     renderVacationRadioMessage('読み込みに失敗しました');
     updateEventDetail(null, targetOfficeId);
     updateEventButtonVisibility(targetOfficeId, []);
@@ -653,20 +937,6 @@ function updateCachedMembersBits(officeId, id, membersBits){
     target.bits=membersBits;
   }
   return target;
-}
-
-function parseVacationMembers(bitsStr){
-  const members=getRosterOrdering().flatMap(g => g.members || []);
-  if(!members.length) return { memberIds: [], memberNames: '' };
-  const onSet = new Set();
-  (bitsStr||'').split(';').map(s => s.trim()).filter(Boolean).forEach(part => {
-    const bits = part.includes(':') ? (part.split(':')[1] || '') : part;
-    for(let i=0;i<bits.length && i<members.length;i++){
-      if(bits[i] === '1') onSet.add(i);
-    }
-  });
-  const memberIds = members.map(m => m.id!=null?String(m.id):'').filter((_,idx)=> onSet.has(idx) );
-  return { memberIds, memberNames: summarizeVacationMembers(bitsStr) };
 }
 
 function parseVacationMembersForDate(bitsStr, targetDate, startDate, endDate){
@@ -774,12 +1044,6 @@ function parseVacationMembersForDate(bitsStr, targetDate, startDate, endDate){
   return buildResultFromBits(bits);
 }
 
-function getVacationPeriodText(item){
-  const start=item?.startDate||item?.start||item?.from||'';
-  const end=item?.endDate||item?.end||item?.to||'';
-  if(start||end) return `${start||''}〜${end||''}`;
-  return '期間未設定';
-}
 const ROW_STATUS_CLASSES=['st-here','st-out','st-meeting','st-remote','st-trip','st-training','st-health','st-coadoc','st-home','st-off'];
 
 function getEventMembersForDate(item, targetDate){
@@ -845,9 +1109,13 @@ function applyEventHighlightForItems(eventItems, targetDate){
     console.warn('applyEventHighlight: board element not found');
     return;
   }
+  applyManualEventColorsToGantt();
+  const normalizedTargetDate=normalizeEventDateKey(targetDate||Date.now());
+  const manualColorForTarget=getManualEventColorForDate(normalizedTargetDate, appliedEventOfficeId||getEventTargetOfficeId());
+  const hasManualColor=!!manualColorForTarget;
   // eventItems の順序はサーバーで設定された並びを保持する想定。
   // 同日に複数のイベントが重複する場合、配列先頭（上位）を優先して色や休暇固定の適用を行う。
-  const colorClasses=EVENT_COLOR_KEYS.map(key=>getEventColorClass(key)).filter(Boolean);
+  const colorClasses=getEventColorClasses();
   const effectMap=new Map();
   (eventItems||[]).forEach(item=>{
     const { memberIds } = getEventMembersForDate(item, targetDate);
@@ -877,7 +1145,7 @@ function applyEventHighlightForItems(eventItems, targetDate){
     const statusSelect=statusTd?.querySelector('select[name="status"]');
     tr.classList.remove('event-highlight', ...colorClasses);
     if(effect){
-      const colorKey=effect.vacations[0]?.color || effect.highlights[0]?.color || '';
+      const colorKey=hasManualColor ? manualColorForTarget : (effect.vacations[0]?.color || effect.highlights[0]?.color || '');
       const colorClass=getEventColorClass(colorKey);
       tr.classList.add('event-highlight');
       if(colorClass){ tr.classList.add(colorClass); }
@@ -994,16 +1262,6 @@ async function applyEventDisplay(items){
   return true;
 }
 
-async function clearEventDisplay(){
-  appliedEventIds=[];
-  appliedEventOfficeId='';
-  appliedEventTitles=[];
-  applyEventHighlightForItems([]);
-  updateEventLegend([]);
-  updateEventCardStates();
-  return true;
-}
-
 async function autoApplySavedEvent(){
   const officeId = CURRENT_OFFICE_ID || '';
   if(!officeId) { return; }
@@ -1019,6 +1277,61 @@ async function autoApplySavedEvent(){
   }catch(err){
     console.error('Auto-apply failed:', err);
   }
+}
+
+/* イベントカレンダー印刷 */
+if(btnEventPrint){
+  btnEventPrint.addEventListener('click', ()=>{
+    const dropdown = document.getElementById('eventSelectDropdown');
+    if(!dropdown || !dropdown.value){
+      toast('印刷するイベントを選択してください', false);
+      return;
+    }
+    
+    const gantt = document.getElementById('eventGantt');
+    if(!gantt || !gantt.querySelector('table')){
+      toast('カレンダーが表示されていません', false);
+      return;
+    }
+    
+    // 印刷用イベント情報を更新
+    const selectedOption = dropdown.options[dropdown.selectedIndex];
+    const eventTitle = selectedOption ? selectedOption.textContent : '';
+    const printInfo = document.getElementById('eventPrintInfo');
+    if(printInfo && eventTitle){
+      printInfo.textContent = `イベントカレンダー: ${eventTitle}`;
+      printInfo.style.display = 'block';
+    }
+    
+    // イベントモーダルとその親要素を強制表示
+    const eventModal = document.getElementById('eventModal');
+    if(eventModal){
+      eventModal.style.display = 'block';
+      eventModal.style.visibility = 'visible';
+      eventModal.classList.add('print-mode');
+    }
+    
+    // ガントチャートを強制表示し、タイトルを設定
+    const ganttWrap = document.getElementById('eventGanttWrap');
+    if(ganttWrap){
+      ganttWrap.style.display = 'block';
+      ganttWrap.style.visibility = 'visible';
+      ganttWrap.setAttribute('data-event-title', `イベントカレンダー: ${eventTitle}`);
+    }
+    if(gantt){
+      gantt.style.display = 'block';
+      gantt.style.visibility = 'visible';
+    }
+    
+    // 印刷実行
+    setTimeout(() => {
+      window.print();
+      // 印刷後にスタイルをリセット
+      if(eventModal){
+        eventModal.classList.remove('print-mode');
+      }
+    }, 200);
+  });
 }
 
 /* レイアウト（JS + CSS両方で冗長に制御） */

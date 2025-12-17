@@ -2,9 +2,17 @@
 if(adminOfficeSel){
   adminOfficeSel.addEventListener('change', ()=>{
     adminSelectedOfficeId=adminOfficeSel.value||'';
+    adminMembersLoaded=false; adminMemberList=[]; setMemberTableMessage('読み込み待ち');
+    adminToolsLoaded=false; adminToolsOfficeId='';
     refreshVacationOfficeOptions();
+    if(document.getElementById('tabMembers')?.classList.contains('active')){
+      loadAdminMembers(true);
+    }
     if(document.getElementById('tabEvents')?.classList.contains('active')){
       loadVacationsList();
+    }
+    if(document.getElementById('tabTools')?.classList.contains('active')){
+      loadAdminTools(true);
     }
   });
 }
@@ -40,17 +48,29 @@ btnImport.addEventListener('click', async ()=>{
   const text=await file.text();
   const rows=parseCSV(text);
   if(!rows.length){ toast('CSVが空です',false); return; }
-  const hdr=rows[0].map(s=>s.trim());
+  const titleMarkers=['在席管理CSV','whereabouts presence csv'];
+  const titleRowDetected = (rows[0]||[]).length===1 && titleMarkers.some(t=>{
+    const cell=(rows[0][0]||'').trim().toLowerCase();
+    return cell && (cell===t.toLowerCase() || cell.startsWith(t.toLowerCase()));
+  });
+  const headerRowIndex = titleRowDetected ? 1 : 0;
+  if(rows.length<=headerRowIndex){ toast('CSVヘッダが不正です',false); return; }
+  const hdr=rows[headerRowIndex].map(s=>s.trim());
+  const modernEn=['group_index','group_title','member_order','id','name','ext','mobile','email','workHours','status','time','note'];
+  const modernJa=['グループ番号','グループ名','表示順','id','氏名','内線','携帯番号','Email','業務時間','ステータス','戻り時間','備考'];
   const mustEn=['group_index','group_title','member_order','id','name','ext','workHours','status','time','note'];
   const mustJa=['グループ番号','グループ名','表示順','id','氏名','内線','業務時間','ステータス','戻り時間','備考'];
   const legacyEn=['group_index','group_title','member_order','id','name','ext','status','time','note'];
   const legacyJa=['グループ番号','グループ名','表示順','id','氏名','内線','ステータス','戻り時間','備考'];
+  const okModernEn = modernEn.every((h,i)=>hdr[i]===h);
+  const okModernJa = modernJa.every((h,i)=>hdr[i]===h);
   const okEn = mustEn.every((h,i)=>hdr[i]===h);
   const okJa = mustJa.every((h,i)=>hdr[i]===h);
   const okLegacyEn = legacyEn.every((h,i)=>hdr[i]===h);
   const okLegacyJa = legacyJa.every((h,i)=>hdr[i]===h);
-  if(!(okEn || okJa || okLegacyEn || okLegacyJa)){ toast('CSVヘッダが不正です',false); return; }
-  const hasWorkHoursColumn = okEn || okJa;
+  if(!(okModernEn || okModernJa || okEn || okJa || okLegacyEn || okLegacyJa)){ toast('CSVヘッダが不正です',false); return; }
+  const hasWorkHoursColumn = okModernEn || okModernJa || okEn || okJa;
+  const hasContactColumn = okModernEn || okModernJa;
   const keyOf=(gi,gt,mi,name,ext)=>[String(gi),String(gt||''),String(mi),String(name||''),String(ext||'')].join('|');
 
   const fallbackById=new Map();
@@ -71,8 +91,25 @@ btnImport.addEventListener('click', async ()=>{
     }catch{}
   }
 
-  const recs=rows.slice(1).filter(r=>r.some(x=>(x||'').trim()!=='')).map(r=>{
-    if(hasWorkHoursColumn){
+  const recs=rows.slice(headerRowIndex+1).filter(r=>r.some(x=>(x||'').trim()!=='')).map(r=>{
+    if(hasContactColumn){
+      const [gi,gt,mi,id,name,ext,mobile,email,workHours,status,time,note]=r;
+      const workHoursValue = workHours == null ? '' : String(workHours);
+      return {
+        gi:Number(gi)||0,
+        gt:(gt||''),
+        mi:Number(mi)||0,
+        id:(id||''),
+        name:(name||''),
+        ext:(ext||''),
+        mobile:(mobile||''),
+        email:(email||''),
+        workHours:workHoursValue,
+        status:(status||(STATUSES[0]?.value||'在席')),
+        time:(time||''),
+        note:(note||'')
+      };
+    } else if(hasWorkHoursColumn){
       const [gi,gt,mi,id,name,ext,workHours,status,time,note]=r;
       const workHoursValue = workHours == null ? '' : String(workHours);
       return {
@@ -82,6 +119,8 @@ btnImport.addEventListener('click', async ()=>{
         id:(id||''),
         name:(name||''),
         ext:(ext||''),
+        mobile:'',
+        email:'',
         workHours:workHoursValue,
         status:(status||(STATUSES[0]?.value||'在席')),
         time:(time||''),
@@ -99,6 +138,8 @@ btnImport.addEventListener('click', async ()=>{
         id:(id||''),
         name:(name||''),
         ext:(ext||''),
+        mobile:'',
+        email:'',
         workHours:workHoursValue,
         status:(status||(STATUSES[0]?.value||'在席')),
         time:(time||''),
@@ -113,7 +154,7 @@ btnImport.addEventListener('click', async ()=>{
     if(!groupsMap.has(r.gi)) groupsMap.set(r.gi,{title:r.gt||'',members:[]});
     const g=groupsMap.get(r.gi);
     g.title=r.gt||'';
-    g.members.push({_mi:r.mi,name:r.name,ext:r.ext||'',workHours:r.workHours||'',id:r.id||undefined});
+    g.members.push({_mi:r.mi,name:r.name,ext:r.ext||'',mobile:r.mobile||'',email:r.email||'',workHours:r.workHours||'',id:r.id||undefined});
   }
   const groups=Array.from(groupsMap.entries()).sort((a,b)=>a[0]-b[0]).map(([gi,g])=>{ g.members.sort((a,b)=>(a._mi||0)-(b._mi||0)); g.members.forEach(m=>delete m._mi); return g; });
   const cfgToSet={version:2,updated:Date.now(),groups,menus:MENUS||undefined};
@@ -131,7 +172,7 @@ btnImport.addEventListener('click', async ()=>{
     const id=r.id || idIndex.get(keyOf(r.gi,r.gt,r.mi,r.name,r.ext||'')) || null;
     if(!id) continue;
     const workHours=r.workHours||'';
-    dataObj[id]={ ext:r.ext||'', workHours, status: STATUSES.some(s=>s.value===r.status)? r.status : (STATUSES[0]?.value||'在席'), time:r.time||'', note:r.note||'' };
+    dataObj[id]={ ext:r.ext||'', mobile:r.mobile||'', email:r.email||'', workHours, status: STATUSES.some(s=>s.value===r.status)? r.status : (STATUSES[0]?.value||'在席'), time:r.time||'', note:r.note||'' };
   }
   const r2=await adminSetForChunked(office,dataObj);
   if(!(r2&&r2.ok)){ toast('在席データ更新に失敗',false); return; }
@@ -171,8 +212,10 @@ if(adminModal){
       adminTabPanels.forEach(panel => panel.classList.remove('active'));
       const panelMap={
         basic: adminModal.querySelector('#tabBasic'),
+        members: adminModal.querySelector('#tabMembers'),
         notices: adminModal.querySelector('#tabNotices'),
-        events: adminModal.querySelector('#tabEvents')
+        events: adminModal.querySelector('#tabEvents'),
+        tools: adminModal.querySelector('#tabTools')
       };
       const panel=panelMap[targetTab];
       if(panel) panel.classList.add('active');
@@ -181,6 +224,10 @@ if(adminModal){
         if(typeof autoLoadNoticesOnAdminOpen === 'function'){
           await autoLoadNoticesOnAdminOpen();
         }
+      } else if(targetTab === 'basic'){
+        // no-op for now
+      } else if(targetTab === 'members'){
+        if(!adminMembersLoaded){ await loadAdminMembers(); }
       } else if(targetTab === 'events'){
         refreshVacationOfficeOptions();
         const officeId=(vacationOfficeSelect?.value)||adminSelectedOfficeId||CURRENT_OFFICE_ID||'';
@@ -189,9 +236,357 @@ if(adminModal){
         }
         refreshVacationNoticeOptions();
         await loadVacationsList();
+      } else if(targetTab === 'tools'){
+        await loadAdminTools();
       }
     });
   });
+}
+
+/* メンバー管理 */
+let adminMemberList=[], adminMemberData={}, adminGroupOrder=[], adminMembersLoaded=false;
+let adminToolsLoaded=false, adminToolsOfficeId='';
+
+if(btnMemberReload){ btnMemberReload.addEventListener('click', ()=> loadAdminMembers(true)); }
+if(btnMemberSave){ btnMemberSave.addEventListener('click', ()=> handleMemberSave()); }
+if(memberEditForm){
+  memberEditForm.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    submitMemberEdit();
+  });
+}
+if(memberEditReset){ memberEditReset.addEventListener('click', ()=> openMemberEditor(null)); }
+if(memberFilterInput){ memberFilterInput.addEventListener('input', renderMemberTable); }
+if(btnMemberFilterClear){
+  btnMemberFilterClear.addEventListener('click', ()=>{
+    memberFilterInput.value='';
+    renderMemberTable();
+  });
+}
+
+function setMemberTableMessage(msg){
+  if(!memberTableBody) return;
+  memberTableBody.textContent='';
+  const tr=document.createElement('tr');
+  const td=document.createElement('td');
+  td.colSpan=7; td.style.textAlign='center'; td.style.color='#6b7280';
+  td.textContent=msg;
+  tr.appendChild(td);
+  memberTableBody.appendChild(tr);
+}
+
+async function loadAdminMembers(force){
+  const office=selectedOfficeId(); if(!office) return;
+  if(force!==true && adminMembersLoaded && adminMemberList.length){ return; }
+  try{
+    setMemberTableMessage('読み込み中...');
+    const [cfg,dataRes]=await Promise.all([
+      adminGetConfigFor(office),
+      adminGetFor(office)
+    ]);
+    if(!(cfg&&Array.isArray(cfg.groups))){ setMemberTableMessage('設定の取得に失敗しました'); return; }
+    adminMemberData=(dataRes&&dataRes.data&&typeof dataRes.data==='object')?dataRes.data:{};
+    adminGroupOrder=(cfg.groups||[]).map(g=>String(g.title||''));
+    adminMemberList=[];
+    const seenIds=new Set();
+    cfg.groups.forEach((g)=>{
+      (g.members||[]).forEach((m,mi)=>{
+        const idRaw=String(m.id||'').trim();
+        const id=idRaw||generateMemberId();
+        if(seenIds.has(id)){ return; }
+        seenIds.add(id);
+        adminMemberList.push({
+          id,
+          name:String(m.name||''),
+          ext:String(m.ext||''),
+          mobile:String(m.mobile||''),
+          email:String(m.email||''),
+          workHours:(m.workHours==null?'':String(m.workHours)),
+          group:String(g.title||''),
+          order:mi
+        });
+      });
+    });
+    normalizeMemberOrdering();
+    renderMemberTable();
+    openMemberEditor(null);
+    adminMembersLoaded=true;
+  }catch(err){
+    console.error('loadAdminMembers error',err);
+    setMemberTableMessage('メンバーの取得に失敗しました');
+  }
+}
+
+function normalizeMemberOrdering(){
+  const orderBase=[...adminGroupOrder];
+  adminMemberList.forEach(m=>{ if(m.group && !orderBase.includes(m.group)){ orderBase.push(m.group); } });
+  adminGroupOrder=orderBase;
+  adminMemberList.sort((a,b)=>{
+    const ga=orderBase.indexOf(a.group); const gb=orderBase.indexOf(b.group);
+    if(ga!==gb) return ga-gb;
+    return (a.order||0)-(b.order||0);
+  });
+  const counters=new Map();
+  adminMemberList.forEach(m=>{
+    const cur=counters.get(m.group)||0;
+    m.order=cur;
+    counters.set(m.group,cur+1);
+  });
+}
+
+function filteredMemberList(){
+  const term=(memberFilterInput?.value||'').trim().toLowerCase();
+  if(!term){ return [...adminMemberList]; }
+  const words=term.split(/\s+/).filter(Boolean);
+  return adminMemberList.filter(m=>{
+    const name=(m.name||'').toLowerCase();
+    return words.every(w=> name.includes(w));
+  });
+}
+
+function renderMemberTable(){
+  if(!memberTableBody){ return; }
+  memberTableBody.textContent='';
+  if(!adminMemberList.length){
+    setMemberTableMessage('メンバーが登録されていません');
+    return;
+  }
+  const rows=filteredMemberList();
+  if(!rows.length){
+    setMemberTableMessage('条件に一致するメンバーが見つかりません');
+    return;
+  }
+  rows.forEach((m,idx)=>{
+    const tr=document.createElement('tr');
+    tr.dataset.memberId=m.id;
+    const orderTd=document.createElement('td');
+    orderTd.innerHTML=`<div class="member-row-actions"><span class="member-drag-handle" draggable="true" title="ドラッグで並び替え">⇅</span><span>#${idx+1}</span></div>`;
+    const groupTd=document.createElement('td'); groupTd.textContent=m.group||'';
+    const nameTd=document.createElement('td'); nameTd.textContent=m.name||'';
+    const extTd=document.createElement('td'); extTd.className='numeric-cell'; extTd.textContent=m.ext||'';
+    const mobileTd=document.createElement('td'); mobileTd.className='numeric-cell'; mobileTd.textContent=m.mobile||'';
+    const emailTd=document.createElement('td');
+    if(m.email){
+      const [localPart, domainPart] = m.email.split('@');
+      const emailWrap=document.createElement('div'); emailWrap.className='member-email';
+      const localSpan=document.createElement('span'); localSpan.textContent=localPart || m.email; emailWrap.appendChild(localSpan);
+      if(domainPart!==undefined){
+        const domainSpan=document.createElement('span'); domainSpan.className='email-domain'; domainSpan.textContent='@'+domainPart; emailWrap.appendChild(domainSpan);
+      }
+      emailTd.appendChild(emailWrap);
+    }
+    const actionTd=document.createElement('td'); actionTd.className='member-row-actions';
+    const editBtn=document.createElement('button'); editBtn.textContent='編集'; editBtn.className='btn-secondary';
+    editBtn.addEventListener('click', ()=> openMemberEditor(m));
+    const delBtn=document.createElement('button'); delBtn.textContent='削除'; delBtn.className='btn-danger';
+    delBtn.addEventListener('click', ()=> deleteMember(m.id));
+    const upBtn=document.createElement('button'); upBtn.textContent='▲'; upBtn.title='上に移動';
+    upBtn.addEventListener('click', ()=> moveMember(m.id,-1));
+    const downBtn=document.createElement('button'); downBtn.textContent='▼'; downBtn.title='下に移動';
+    downBtn.addEventListener('click', ()=> moveMember(m.id,1));
+    actionTd.append(editBtn, delBtn, upBtn, downBtn);
+    tr.append(orderTd, groupTd, nameTd, extTd, mobileTd, emailTd, actionTd);
+    memberTableBody.appendChild(tr);
+  });
+  enableMemberDrag();
+}
+
+function enableMemberDrag(){
+  if(!memberTableBody) return;
+  let draggingId='';
+  memberTableBody.querySelectorAll('.member-drag-handle').forEach(handle=>{
+    handle.addEventListener('dragstart', (e)=>{
+      const row=e.target.closest('tr');
+      draggingId=row?.dataset.memberId||'';
+      handle.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+    });
+    handle.addEventListener('dragend', ()=>{
+      draggingId=''; handle.classList.remove('dragging');
+      memberTableBody.querySelectorAll('tr').forEach(r=>r.classList.remove('drag-over'));
+    });
+  });
+  memberTableBody.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('dragover', (e)=>{
+      if(!draggingId) return; e.preventDefault(); e.dataTransfer.dropEffect='move';
+      const targetId=tr.dataset.memberId||'';
+      if(!targetId || targetId===draggingId) return;
+      const draggingIdx=adminMemberList.findIndex(x=>x.id===draggingId);
+      const targetIdx=adminMemberList.findIndex(x=>x.id===targetId);
+      if(draggingIdx<0||targetIdx<0) return;
+      const dragging=adminMemberList[draggingIdx];
+      const target=adminMemberList[targetIdx];
+      if(dragging.group!==target.group) return;
+      const rect=tr.getBoundingClientRect();
+      const before=e.clientY < rect.top + rect.height/2;
+      adminMemberList.splice(draggingIdx,1);
+      const insertIdx = before ? targetIdx : targetIdx+1;
+      adminMemberList.splice(insertIdx>draggingIdx?insertIdx-1:insertIdx,0,dragging);
+      normalizeMemberOrdering();
+      renderMemberTable();
+    });
+  });
+}
+
+function openMemberEditor(member){
+  if(memberEditId) memberEditId.value=member?.id||'';
+  if(memberEditName) memberEditName.value=member?.name||'';
+  if(memberEditExt) memberEditExt.value=member?.ext||'';
+  if(memberEditMobile) memberEditMobile.value=member?.mobile||'';
+  if(memberEditEmail) memberEditEmail.value=member?.email||'';
+  if(memberEditGroup) memberEditGroup.value=member?.group||'';
+  if(memberEditModeLabel){
+    memberEditModeLabel.textContent = member ? `編集中：${member.name||''}` : '新規追加／編集フォーム';
+  }
+  refreshMemberGroupOptions();
+  if(memberEditName){
+    memberEditName.focus({ preventScroll:true });
+  }
+}
+
+function refreshMemberGroupOptions(){
+  if(!memberGroupOptions) return;
+  const groups=[...new Set(adminGroupOrder.filter(Boolean))];
+  memberGroupOptions.textContent='';
+  groups.forEach(g=>{
+    const opt=document.createElement('option'); opt.value=g; memberGroupOptions.appendChild(opt);
+  });
+}
+
+function submitMemberEdit(){
+  const name=(memberEditName?.value||'').trim();
+  const ext=(memberEditExt?.value||'').trim();
+  const mobile=(memberEditMobile?.value||'').trim();
+  const email=(memberEditEmail?.value||'').trim();
+  const group=(memberEditGroup?.value||'').trim();
+  const idRaw=(memberEditId?.value||'').trim();
+  if(!name){ toast('氏名は必須です',false); return; }
+  if(!group){ toast('所属グループを入力してください',false); return; }
+  if(ext && !/^\d{1,6}$/.test(ext.replace(/[^0-9]/g,''))){ toast('内線は数字のみで入力してください（最大6桁）',false); return; }
+  const mobileDigits=mobile.replace(/[^0-9]/g,'');
+  if(mobile && (mobileDigits.length<10 || mobileDigits.length>11)){ toast('携帯番号は10〜11桁の数字で入力してください（ハイフン可）',false); return; }
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Emailの形式が不正です',false); return; }
+  const id=idRaw||generateUniqueMemberId();
+  const existingIdx=adminMemberList.findIndex(m=>m.id===id);
+  if(existingIdx>=0){
+    adminMemberList[existingIdx]={ ...adminMemberList[existingIdx], id, name, ext, mobile, email, group };
+  }else{
+    const order=adminMemberList.filter(m=>m.group===group).length;
+    adminMemberList.push({ id, name, ext, mobile, email, group, order, workHours:'' });
+  }
+  normalizeMemberOrdering();
+  renderMemberTable();
+  openMemberEditor(null);
+}
+
+function generateMemberId(){ return `member_${Date.now()}_${Math.random().toString(36).slice(2,6)}`; }
+function generateUniqueMemberId(){ let id=''; do{ id=generateMemberId(); }while(adminMemberList.some(m=>m.id===id)); return id; }
+
+function deleteMember(id){
+  if(!id) return; if(!confirm('このメンバーを削除しますか？')) return;
+  adminMemberList=adminMemberList.filter(m=>m.id!==id);
+  normalizeMemberOrdering();
+  renderMemberTable();
+}
+
+function moveMember(id,dir){
+  const idx=adminMemberList.findIndex(m=>m.id===id); if(idx<0) return;
+  const group=adminMemberList[idx].group;
+  let targetIdx=idx+dir;
+  while(targetIdx>=0 && targetIdx<adminMemberList.length && adminMemberList[targetIdx].group!==group){
+    targetIdx+=dir;
+  }
+  if(targetIdx<0||targetIdx>=adminMemberList.length) return;
+  const tmp=adminMemberList[targetIdx];
+  adminMemberList[targetIdx]=adminMemberList[idx];
+  adminMemberList[idx]=tmp;
+  normalizeMemberOrdering();
+  renderMemberTable();
+}
+
+function buildMemberSavePayload(){
+  const errors=[]; const idSet=new Set();
+  const defaultStatus = STATUSES[0]?.value || '在席';
+  const cleaned=adminMemberList.map(m=>({
+    ...m,
+    name:(m.name||'').trim(),
+    group:(m.group||'').trim(),
+    ext:(m.ext||'').trim(),
+    mobile:(m.mobile||'').trim(),
+    email:(m.email||'').trim()
+  }));
+  for(const m of cleaned){
+    if(!m.name){ errors.push('missing_name'); break; }
+    if(!m.group){ errors.push('missing_group'); break; }
+    if(m.ext && !/^\d{1,6}$/.test(m.ext.replace(/[^0-9]/g,''))){ errors.push('invalid_ext'); break; }
+    const mobileDigits=m.mobile.replace(/[^0-9]/g,'');
+    if(m.mobile && (mobileDigits.length<10 || mobileDigits.length>11)){ errors.push('invalid_mobile'); break; }
+    if(m.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m.email)){ errors.push('invalid_email'); break; }
+    if(idSet.has(m.id)){ errors.push('duplicate_id'); break; }
+    idSet.add(m.id);
+  }
+  if(errors.length){ return { errors }; }
+
+  const groupOrder=[...adminGroupOrder];
+  cleaned.forEach(m=>{ if(m.group && !groupOrder.includes(m.group)) groupOrder.push(m.group); });
+  const grouped=new Map();
+  cleaned.forEach(m=>{
+    const list=grouped.get(m.group)||[]; list.push(m); grouped.set(m.group,list);
+  });
+  const groups=[];
+  groupOrder.forEach(gName=>{
+    const mems=grouped.get(gName)||[];
+    if(!mems.length) return;
+    mems.sort((a,b)=> (a.order||0)-(b.order||0));
+    groups.push({
+      title:gName,
+      members:mems.map((m,idx)=>({ id:m.id, name:m.name, ext:m.ext, mobile:m.mobile, email:m.email, workHours:m.workHours||'', _order:idx }))
+    });
+  });
+
+  const dataObj={};
+  groups.forEach(g=>{
+    g.members.forEach(m=>{
+      const existing=adminMemberData[m.id]||{};
+      dataObj[m.id]={
+        ext:m.ext||'',
+        mobile:m.mobile||'',
+        email:m.email||'',
+        workHours: existing.workHours==null?'':String(existing.workHours||m.workHours||''),
+        status: STATUSES.some(s=>s.value===existing.status)? existing.status : defaultStatus,
+        time: existing.time||'',
+        note: existing.note||''
+      };
+    });
+  });
+
+  groups.forEach(g=> g.members.forEach(m=> delete m._order));
+  return { groups, dataObj };
+}
+
+async function handleMemberSave(){
+  const office=selectedOfficeId(); if(!office) return;
+  const { groups, dataObj, errors } = buildMemberSavePayload();
+  if(errors){
+    if(errors.includes('missing_name')){ toast('氏名は必須です',false); return; }
+    if(errors.includes('missing_group')){ toast('所属グループを入力してください',false); return; }
+    if(errors.includes('invalid_ext')){ toast('内線は数字のみで最大6桁です',false); return; }
+    if(errors.includes('invalid_mobile')){ toast('携帯番号は10〜11桁の数字で入力してください',false); return; }
+    if(errors.includes('invalid_email')){ toast('Emailの形式が不正です',false); return; }
+    if(errors.includes('duplicate_id')){ toast('IDが重複しています。編集画面で修正してください',false); return; }
+    toast('入力内容を確認してください',false); return;
+  }
+  try{
+    const cfgToSet={ version:2, updated:Date.now(), groups, menus:MENUS||undefined };
+    const r1=await adminSetConfigFor(office,cfgToSet);
+    if(!(r1&&r1.ok!==false)){ toast('名簿の保存に失敗しました',false); return; }
+    const r2=await adminSetForChunked(office,dataObj);
+    if(!(r2&&r2.ok!==false)) toast('在席データの保存に失敗しました',false);
+    else toast('保存しました');
+  }catch(err){
+    console.error('handleMemberSave error',err);
+    toast('保存に失敗しました',false);
+  }
 }
 
 /* お知らせ管理UI */
@@ -340,11 +735,175 @@ function updateMoveButtons(){
   });
 }
 
+/* ツール管理UI */
+if(btnAddTool){ btnAddTool.addEventListener('click', ()=> addToolEditorItem()); }
+if(btnLoadTools){ btnLoadTools.addEventListener('click', ()=> loadAdminTools(true)); }
+if(btnSaveTools){
+  btnSaveTools.addEventListener('click', async ()=>{
+    const office=selectedOfficeId(); if(!office) return;
+    const items=toolsEditor.querySelectorAll('.tool-edit-item');
+    const tools=[];
+    items.forEach((item, idx)=>{
+      const title=(item.querySelector('.tool-edit-title').value||'').trim();
+      const url=(item.querySelector('.tool-edit-url').value||'').trim();
+      const note=(item.querySelector('.tool-edit-note').value||'').trim();
+      const toggle=item.querySelector('.tool-display-toggle');
+      const visible=toggle?toggle.checked:true;
+      if(!title && !url && !note) return;
+      let childrenRaw=[];
+      try{
+        const stored=item.dataset.children||'[]';
+        childrenRaw=JSON.parse(stored);
+      }catch{}
+      const normalizedChildren=Array.isArray(childrenRaw)?normalizeTools(childrenRaw):[];
+      const id=item.dataset.toolId || `tool_${Date.now()}_${idx}`;
+      tools.push({ id, title, url, note, visible, display: visible, children: normalizedChildren });
+    });
+
+    const success=await saveTools(tools, office);
+    if(success){
+      adminToolsLoaded=true; adminToolsOfficeId=office;
+      toast('ツールを保存しました');
+    }else{
+      toast('ツールの保存に失敗',false);
+    }
+  });
+}
+
+async function loadAdminTools(force=false){
+  const office=selectedOfficeId(); if(!office) return;
+  if(!force && adminToolsLoaded && adminToolsOfficeId===office) return;
+  try{
+    const result=await fetchTools(office);
+    const normalized=Array.isArray(result?.list)?result.list:(Array.isArray(result)?result:[]);
+    buildToolsEditor(normalized);
+    if(!normalized.length){
+      addToolEditorItem();
+    }
+    adminToolsLoaded=true; adminToolsOfficeId=office;
+    if(force){ toast('ツールを読み込みました'); }
+  }catch(err){
+    console.error('loadAdminTools error', err);
+    toast('ツールの読み込みに失敗',false);
+  }
+}
+
+function buildToolsEditor(list){
+  if(!toolsEditor) return;
+  toolsEditor.innerHTML='';
+  const normalized = normalizeTools(list||[]);
+  if(!normalized.length){
+    addToolEditorItem();
+    return;
+  }
+  normalized.forEach((tool, idx)=>{
+    const visible=coerceToolVisibleFlag(tool?.visible ?? tool?.display ?? true);
+    addToolEditorItem(tool?.title||'', tool?.url||'', tool?.note||'', visible, tool?.children||[], tool?.id ?? idx);
+  });
+}
+
+function addToolEditorItem(title='', url='', note='', visible=true, children=null, id=null){
+  const item=document.createElement('div');
+  item.className='tool-edit-item' + (visible ? '' : ' hidden-tool');
+  item.draggable=true;
+  if(id!=null) item.dataset.toolId=String(id);
+  if(children!=null){
+    try{ item.dataset.children=JSON.stringify(children); }catch{}
+  }
+  item.innerHTML=`
+    <span class="tool-edit-handle">⋮⋮</span>
+    <div class="tool-edit-row">
+      <input type="text" class="tool-edit-title" placeholder="タイトル" value="${escapeHtml(title)}">
+      <input type="url" class="tool-edit-url" placeholder="URL" value="${escapeHtml(url)}">
+      <div class="tool-edit-controls">
+        <label class="tool-visibility-toggle"><input type="checkbox" class="tool-display-toggle" ${visible ? 'checked' : ''}> 表示する</label>
+        <button class="btn-move-up" title="上に移動">▲</button>
+        <button class="btn-move-down" title="下に移動">▼</button>
+        <button class="btn-remove-tool">削除</button>
+      </div>
+    </div>
+    <textarea class="tool-edit-note" placeholder="備考（省略可）">${escapeHtml(note)}</textarea>
+  `;
+
+  item.querySelector('.btn-remove-tool').addEventListener('click', ()=>{
+    if(confirm('このツールを削除しますか？')){
+      item.remove();
+      updateToolMoveButtons();
+    }
+  });
+
+  const displayToggle=item.querySelector('.tool-display-toggle');
+  if(displayToggle){
+    displayToggle.addEventListener('change', ()=>{
+      if(displayToggle.checked){
+        item.classList.remove('hidden-tool');
+      }else{
+        item.classList.add('hidden-tool');
+      }
+    });
+  }
+
+  item.querySelector('.btn-move-up').addEventListener('click', ()=>{
+    const prev=item.previousElementSibling;
+    if(prev){
+      toolsEditor.insertBefore(item, prev);
+      updateToolMoveButtons();
+    }
+  });
+
+  item.querySelector('.btn-move-down').addEventListener('click', ()=>{
+    const next=item.nextElementSibling;
+    if(next){
+      toolsEditor.insertBefore(next, item);
+      updateToolMoveButtons();
+    }
+  });
+
+  item.addEventListener('dragstart', (e)=>{
+    item.classList.add('dragging');
+    e.dataTransfer.effectAllowed='move';
+  });
+
+  item.addEventListener('dragend', ()=>{
+    item.classList.remove('dragging');
+    document.querySelectorAll('.tool-edit-item').forEach(i=> i.classList.remove('drag-over'));
+  });
+
+  item.addEventListener('dragover', (e)=>{
+    e.preventDefault();
+    e.dataTransfer.dropEffect='move';
+    const dragging=toolsEditor.querySelector('.dragging');
+    if(dragging && dragging!==item){
+      const rect=item.getBoundingClientRect();
+      const midpoint=rect.top + rect.height/2;
+      if(e.clientY < midpoint){
+        toolsEditor.insertBefore(dragging, item);
+      }else{
+        toolsEditor.insertBefore(dragging, item.nextSibling);
+      }
+    }
+  });
+
+  toolsEditor.appendChild(item);
+  updateToolMoveButtons();
+}
+
+function updateToolMoveButtons(){
+  const items=toolsEditor.querySelectorAll('.tool-edit-item');
+  items.forEach((item, index)=>{
+    const upBtn=item.querySelector('.btn-move-up');
+    const downBtn=item.querySelector('.btn-move-down');
+    if(upBtn) upBtn.disabled=(index===0);
+    if(downBtn) downBtn.disabled=(index===items.length-1);
+  });
+}
+
 /* イベント管理UI */
 if(btnVacationSave){ btnVacationSave.addEventListener('click', handleVacationSave); }
 if(btnVacationDelete){ btnVacationDelete.addEventListener('click', handleVacationDelete); }
 if(btnVacationReload){ btnVacationReload.addEventListener('click', ()=> loadVacationsList(true)); }
 if(btnVacationClear){ btnVacationClear.addEventListener('click', resetVacationForm); }
+if(btnCreateNoticeFromEvent){ btnCreateNoticeFromEvent.addEventListener('click', handleCreateNoticeFromEvent); }
 
 function refreshVacationOfficeOptions(){
   if(!vacationOfficeSelect) return;
@@ -854,6 +1413,32 @@ async function persistVacationPayload(payload,{ resetFormOnSuccess=true, showToa
   }
 }
 
+async function handleCreateNoticeFromEvent(){
+  const office=getVacationTargetOffice(); if(!office) return;
+  const titleInput=prompt('イベントと紐付けるお知らせのタイトルを入力してください（必須）','');
+  if(titleInput===null) return;
+  const title=(titleInput||'').trim();
+  if(!title){ toast('タイトルを入力してください', false); return; }
+  const contentInput=prompt('お知らせの本文（任意）','');
+  const newNotice={
+    id:`notice_${Date.now()}`,
+    title,
+    content:(contentInput||'').trim(),
+    visible:true,
+    display:true
+  };
+  const currentList=Array.isArray(window.CURRENT_NOTICES)? window.CURRENT_NOTICES.slice():[];
+  const nextNotices=[newNotice, ...currentList];
+  const success=await saveNotices(nextNotices, office);
+  if(success){
+    refreshVacationNoticeOptions(newNotice.id);
+    if(vacationNoticeSelect){ vacationNoticeSelect.value=newNotice.id; }
+    toast('お知らせを追加しました');
+  }else{
+    toast('お知らせの追加に失敗しました', false);
+  }
+}
+
 async function handleVacationSave(){
   const { payload, errors } = buildVacationPayload();
   if(!payload || errors?.includes('missing_title')){ toast('タイトルを入力してください',false); return; }
@@ -947,12 +1532,13 @@ function csvProtectFormula(s){ if(s==null) return ''; const v=String(s); return 
 function toCsvRow(arr){ return arr.map(v=>{ const s=csvProtectFormula(v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(','); }
 function makeNormalizedCSV(cfg,data){
   const rows=[];
-  rows.push(toCsvRow(['グループ番号','グループ名','表示順','id','氏名','内線','業務時間','ステータス','戻り時間','備考']));
+  rows.push(toCsvRow(['在席管理CSV']));
+  rows.push(toCsvRow(['グループ番号','グループ名','表示順','id','氏名','内線','携帯番号','Email','業務時間','ステータス','戻り時間','備考']));
   (cfg.groups||[]).forEach((g,gi)=>{
     (g.members||[]).forEach((m,mi)=>{
       const id=m.id||''; const rec=(data&&data[id])||{};
       const workHours = rec.workHours || m.workHours || '';
-      rows.push(toCsvRow([gi+1,g.title||'',mi+1,id,m.name||'',m.ext||'',workHours,rec.status||(STATUSES[0]?.value||'在席'),rec.time||'',rec.note||'']));
+      rows.push(toCsvRow([gi+1,g.title||'',mi+1,id,m.name||'',m.ext||'',m.mobile||rec.mobile||'',m.email||rec.email||'',workHours,rec.status||(STATUSES[0]?.value||'在席'),rec.time||'',rec.note||'']));
     });
   });
   return rows.join('\n');
@@ -980,4 +1566,73 @@ async function autoLoadNoticesOnAdminOpen(){
   }catch(e){
     console.error('Auto-load notices error:', e);
   }
+}
+
+/* イベントエクスポート機能 */
+const btnExportEvent = document.getElementById('btnExportEvent');
+if(btnExportEvent){
+  btnExportEvent.addEventListener('click', async ()=>{
+    const office = adminSelectedOfficeId || CURRENT_OFFICE_ID;
+    if(!office){ toast('拠点が選択されていません', false); return; }
+    
+    try{
+      // 設定とイベント一覧を取得
+      const cfg = await adminGetConfigFor(office);
+      const eventsRes = await apiPost({ action:'getVacation', token:SESSION_TOKEN, office, nocache:'1' });
+      
+      if(!cfg || !cfg.groups){ toast('設定の取得に失敗しました', false); return; }
+      if(!eventsRes || !eventsRes.vacations){ toast('イベントの取得に失敗しました', false); return; }
+      
+      const events = eventsRes.vacations;
+      if(!events.length){ toast('エクスポートするイベントがありません'); return; }
+      
+      // CSVヘッダー
+      const rows = [];
+      rows.push(toCsvRow(['イベントID', 'タイトル', '開始日', '終了日', 'グループ', '氏名', 'ビット状態']));
+      
+      // 各イベントについて処理
+      events.forEach(event => {
+        const eventId = event.id || event.vacationId || '';
+        const title = event.title || '';
+        const startDate = event.startDate || event.start || event.from || '';
+        const endDate = event.endDate || event.end || event.to || '';
+        const membersBits = event.membersBits || event.bits || '';
+        
+        // メンバーリストを構築
+        const members = [];
+        (cfg.groups || []).forEach(g => {
+          (g.members || []).forEach(m => {
+            members.push({ group: g.title || '', name: m.name || '' });
+          });
+        });
+        
+        // ビット文字列を解析
+        const bitChars = membersBits.split('');
+        members.forEach((member, idx) => {
+          const bitValue = bitChars[idx] === '1' ? '○' : '';
+          rows.push(toCsvRow([eventId, title, startDate, endDate, member.group, member.name, bitValue]));
+        });
+      });
+      
+      const csv = rows.join('\\n');
+      const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]);
+      const bytes = new TextEncoder().encode(csv);
+      const blob = new Blob([BOM, bytes], { type:'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      a.href = url;
+      a.download = `events_${office}_${timestamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        a.remove();
+      }, 0);
+      toast('イベントをエクスポートしました');
+    }catch(e){
+      console.error('Event export error:', e);
+      toast('エクスポートに失敗しました', false);
+    }
+  });
 }

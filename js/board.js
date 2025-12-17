@@ -44,6 +44,130 @@ function hideAllCandidatePanels(){
   });
 }
 
+let contactHoldTimer = null;
+let contactScrollBound = false;
+let currentContactOverlay = null;
+
+function clearContactHoldTimer(){
+  if(contactHoldTimer){
+    clearTimeout(contactHoldTimer);
+    contactHoldTimer = null;
+  }
+}
+
+function bindContactScrollClearer(){
+  if(contactScrollBound) return;
+  contactScrollBound = true;
+  window.addEventListener('scroll', clearContactHoldTimer, { passive: true, capture: true });
+}
+
+function closeContactPopup(){
+  if(currentContactOverlay){
+    currentContactOverlay.remove();
+    currentContactOverlay = null;
+  }
+  document.removeEventListener('keydown', handleContactEsc);
+}
+
+function handleContactEsc(e){
+  if(e.key === 'Escape') closeContactPopup();
+}
+
+function showContactPopup(member){
+  closeContactPopup();
+  const overlay = el('div', { class: 'contact-overlay' });
+  const dialogLabel = `${sanitizeText(member.name || '')}の連絡先`;
+  const dialog = el('div', { class: 'contact-dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': dialogLabel });
+  const closeBtn = el('button', { type: 'button', class: 'contact-close', 'aria-label': '閉じる' }, ['×']);
+  const title = el('h4', { class: 'contact-title', text: dialogLabel });
+
+  const mobile = member.mobile ? String(member.mobile) : '';
+  const email = member.email ? String(member.email) : '';
+
+  const mobileRow = el('div', { class: 'contact-row' }, [
+    el('span', { class: 'contact-label', text: '携帯' }),
+    mobile
+      ? el('a', { class: 'contact-link', href: `tel:${mobile}`, text: mobile })
+      : el('span', { class: 'contact-empty', text: '未登録' })
+  ]);
+
+  const emailRow = el('div', { class: 'contact-row' }, [
+    el('span', { class: 'contact-label', text: 'メール' }),
+    email
+      ? el('a', { class: 'contact-link', href: `mailto:${encodeURIComponent(email)}`, text: email })
+      : el('span', { class: 'contact-empty', text: '未登録' })
+  ]);
+
+  const body = el('div', { class: 'contact-body' }, [mobileRow, emailRow]);
+
+  closeBtn.addEventListener('click', closeContactPopup);
+  overlay.addEventListener('click', (e) => { if(e.target === overlay) closeContactPopup(); });
+  document.addEventListener('keydown', handleContactEsc);
+
+  dialog.append(closeBtn, title, body);
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+  currentContactOverlay = overlay;
+  closeBtn.focus({ preventScroll: true });
+}
+
+function resolveContactInfo(tr, fallback){
+  const nameText = tr?.querySelector('td.name')?.textContent || fallback?.name || '';
+  const mobileVal = tr ? (tr.dataset.mobile ?? '') : '';
+  const emailVal = tr ? (tr.dataset.email ?? '') : '';
+  return {
+    name: nameText,
+    mobile: (mobileVal || fallback?.mobile || '').trim(),
+    email: (emailVal || fallback?.email || '').trim()
+  };
+}
+
+function attachContactLongPress(tdName, tr, fallbackMember){
+  if(!tdName) return;
+  const HOLD_DELAY_MS = 900;
+  const MOVE_TOLERANCE_PX = 10;
+  let startTouchPoint = null;
+
+  const startHold = (touchPoint)=>{
+    clearContactHoldTimer();
+    startTouchPoint = touchPoint ? { x: touchPoint.clientX, y: touchPoint.clientY } : null;
+    contactHoldTimer = setTimeout(()=>{
+      contactHoldTimer = null;
+      const payload = resolveContactInfo(tr, fallbackMember);
+      showContactPopup(payload);
+    }, HOLD_DELAY_MS);
+  };
+  const cancelHold = ()=>{
+    startTouchPoint = null;
+    clearContactHoldTimer();
+  };
+  const handleTouchStart = (e)=>{
+    e.preventDefault();
+    const touch = e.touches?.[0];
+    startHold(touch);
+  };
+  const handleTouchMove = (e)=>{
+    if(!startTouchPoint) return;
+    const touch = e.touches?.[0];
+    if(!touch) return cancelHold();
+    const dx = Math.abs(touch.clientX - startTouchPoint.x);
+    const dy = Math.abs(touch.clientY - startTouchPoint.y);
+    if(dx > MOVE_TOLERANCE_PX || dy > MOVE_TOLERANCE_PX){
+      cancelHold();
+    }
+  };
+  const handleMouseDown = (e)=>{ if(e.button === 0) startHold(); };
+
+  tdName.addEventListener('touchstart', handleTouchStart, { passive: false });
+  tdName.addEventListener('touchend', cancelHold, { passive: false });
+  tdName.addEventListener('touchcancel', cancelHold);
+  tdName.addEventListener('touchmove', handleTouchMove, { passive: false });
+  tdName.addEventListener('mousedown', handleMouseDown);
+  tdName.addEventListener('mouseup', cancelHold);
+  tdName.addEventListener('mouseleave', cancelHold);
+  bindContactScrollClearer();
+}
+
 function toggleCandidatePanel(wrapper){
   if(!wrapper) return;
   const panel = wrapper.querySelector('.candidate-panel');
@@ -101,11 +225,14 @@ function bindCandidatePanelGlobals(){
 /* 行UI */
 function buildRow(member){
   const name=sanitizeText(member.name||"");
-  const ext=(member.ext&&/^[0-9]{1,4}$/.test(String(member.ext)))?String(member.ext):"";
+  const ext=(member.ext&&/^[0-9]{1,6}$/.test(String(member.ext)))?String(member.ext):"";
   const key=member.id;
   const tr=el('tr',{id:`row-${key}`}); tr.dataset.key=key; tr.dataset.rev='0';
+  tr.dataset.mobile = member.mobile ? String(member.mobile) : '';
+  tr.dataset.email = member.email ? String(member.email) : '';
 
   const tdName=el('td',{class:'name','data-label':'氏名'}); tdName.textContent=name;
+  attachContactLongPress(tdName, tr, member);
 
   const tdExt=el('td',{class:'ext','data-label':'内線'},[ext]); /* 表示のみ */
 
@@ -268,6 +395,15 @@ function applyState(data){
     const tr=document.getElementById(`row-${k}`);
     const s=tr?.querySelector('select[name="status"]'), t=tr?.querySelector('select[name="time"]'), w=tr?.querySelector('input[name="workHours"]'), n=tr?.querySelector('input[name="note"]');
     if(!tr || !s || !t || !w){ ensureRowControls(tr); }
+    const extTd = tr?.querySelector('td.ext');
+    if(extTd && v && v.ext !== undefined){
+      const extVal = String(v.ext || '').replace(/[^0-9]/g,'');
+      extTd.textContent = extVal;
+    }
+    if(tr){
+      if(v && v.mobile !== undefined){ tr.dataset.mobile = String(v.mobile ?? '').trim(); }
+      if(v && v.email !== undefined){ tr.dataset.email = String(v.email ?? '').trim(); }
+    }
     if(v.status && STATUSES.some(x=>x.value===v.status)) setIfNeeded(s,v.status);
     setIfNeeded(w, (v && typeof v.workHours === 'string') ? v.workHours : (v && v.workHours==null ? '' : String(v?.workHours ?? '')));
     setIfNeeded(t,v.time||""); setIfNeeded(n,v.note||"");

@@ -2,6 +2,16 @@
   const HOLIDAY_API_URL = window.HOLIDAY_API_URL || 'https://holidays-jp.github.io/api/v1/date.json';
   const MANUAL_HOLIDAYS = Array.isArray(window.MANUAL_HOLIDAYS) ? window.MANUAL_HOLIDAYS : [];
   const holidayCache = new Map(); // year -> Set<string>
+  const COLOR_PALETTE = [
+    { key: 'none', className: 'vac-color-none' },
+    { key: 'saturday', className: 'vac-color-sat' },
+    { key: 'sunday', className: 'vac-color-sun' },
+    { key: 'holiday', className: 'vac-color-holiday' },
+    { key: 'amber', className: 'vac-color-amber' },
+    { key: 'mint', className: 'vac-color-mint' },
+    { key: 'lavender', className: 'vac-color-lavender' },
+    { key: 'slate', className: 'vac-color-slate' }
+  ];
 
   const FALLBACK_DAYS = 7;
 
@@ -34,6 +44,173 @@
     let queuedSave = false;
     let latestRequestedState = null;
     let lastSavedState = null;
+    const dateColorMap = new Map(); // date -> palette index
+    let latestHolidaySet = new Set();
+    const paletteClassNames = COLOR_PALETTE.map(c => c.className);
+    const holidayPaletteIndex = COLOR_PALETTE.findIndex(c => c.key === 'holiday');
+
+    function getDefaultColorIndex(date){
+      const d = new Date(date);
+      const dow = d.getDay();
+      if(dow === 0){
+        const sundayIdx = COLOR_PALETTE.findIndex(c => c.key === 'sunday');
+        return sundayIdx >= 0 ? sundayIdx : 0;
+      }
+      if(dow === 6){
+        const saturdayIdx = COLOR_PALETTE.findIndex(c => c.key === 'saturday');
+        return saturdayIdx >= 0 ? saturdayIdx : 0;
+      }
+      return 0;
+    }
+
+    function ensureDateColor(date){
+      const normalized = normalizeDateStr(date);
+      if(!normalized) return 0;
+      if(!dateColorMap.has(normalized)){
+        dateColorMap.set(normalized, getDefaultColorIndex(normalized));
+      }
+      return dateColorMap.get(normalized) ?? 0;
+    }
+
+    function syncDateColorMapWithSlots(){
+      const available = new Set(dateSlots);
+      Array.from(dateColorMap.keys()).forEach(date => {
+        if(!available.has(date)){
+          dateColorMap.delete(date);
+        }
+      });
+      dateSlots.forEach(date => ensureDateColor(date));
+    }
+
+    function applyColumnColor(date){
+      if(!tableEl) return;
+      const idx = ensureDateColor(date) % COLOR_PALETTE.length;
+      const className = COLOR_PALETTE[idx]?.className || '';
+      const shouldShowHoliday = latestHolidaySet.has(date) && idx === holidayPaletteIndex;
+      tableEl.querySelectorAll(`[data-date="${date}"]`).forEach(el => {
+        paletteClassNames.forEach(cls => el.classList.remove(cls));
+        if(className){
+          el.classList.add(className);
+        }
+        el.dataset.colorIndex = String(idx);
+        el.classList.toggle('holiday', shouldShowHoliday);
+      });
+    }
+
+    function applyAllColumnColors(){
+      dateSlots.forEach(date => applyColumnColor(date));
+    }
+
+    let palettePopupEl = null;
+    let paletteCurrentDate = '';
+    let paletteCleanupFns = [];
+
+    function closePalettePopup(){
+      if(palettePopupEl && palettePopupEl.parentNode){
+        palettePopupEl.parentNode.removeChild(palettePopupEl);
+      }
+      palettePopupEl = null;
+      paletteCurrentDate = '';
+      paletteCleanupFns.forEach(fn => {
+        try{ fn(); }catch(err){ console.error(err); }
+      });
+      paletteCleanupFns = [];
+    }
+
+    function positionPalettePopup(anchorEl){
+      if(!palettePopupEl || !anchorEl) return;
+      const rect = anchorEl.getBoundingClientRect();
+      const popupRect = palettePopupEl.getBoundingClientRect();
+      const top = rect.bottom + window.scrollY + 6;
+      let left = rect.left + window.scrollX + (rect.width / 2) - (popupRect.width / 2);
+      const minLeft = 8;
+      const maxLeft = Math.max(minLeft, window.scrollX + document.documentElement.clientWidth - popupRect.width - 8);
+      left = Math.min(Math.max(left, minLeft), maxLeft);
+      palettePopupEl.style.top = `${top}px`;
+      palettePopupEl.style.left = `${left}px`;
+    }
+
+    function handlePaletteColorSelect(date, idx){
+      if(!date) return;
+      dateColorMap.set(date, idx % COLOR_PALETTE.length);
+      applyColumnColor(date);
+      closePalettePopup();
+    }
+
+    function createPalettePopup(anchorEl, date){
+      closePalettePopup();
+      paletteCurrentDate = date;
+      const popup = document.createElement('div');
+      popup.className = 'vac-color-palette';
+
+      const title = document.createElement('div');
+      title.className = 'vac-color-palette__title';
+      title.textContent = '列カラーを選択';
+      popup.appendChild(title);
+
+      const grid = document.createElement('div');
+      grid.className = 'vac-color-palette__grid';
+      COLOR_PALETTE.forEach((item, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `vac-color-option ${item.className}`;
+        btn.dataset.colorKey = item.key;
+        btn.setAttribute('aria-label', `${item.key} を選択`);
+        const mark = document.createElement('span');
+        mark.className = 'vac-color-option__dot';
+        btn.appendChild(mark);
+        const label = document.createElement('span');
+        label.className = 'vac-color-option__label';
+        label.textContent = item.key;
+        btn.appendChild(label);
+        btn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          handlePaletteColorSelect(date, idx);
+        });
+        grid.appendChild(btn);
+      });
+      popup.appendChild(grid);
+
+      document.body.appendChild(popup);
+      palettePopupEl = popup;
+
+      requestAnimationFrame(() => positionPalettePopup(anchorEl));
+
+      const handleOutside = (ev) => {
+        if(!palettePopupEl) return;
+        const target = ev.target;
+        if(palettePopupEl.contains(target) || anchorEl.contains(target)) return;
+        closePalettePopup();
+      };
+
+      const closeOnScroll = () => closePalettePopup();
+
+      ['mousedown','touchstart','pointerdown'].forEach(ev => {
+        document.addEventListener(ev, handleOutside, true);
+        paletteCleanupFns.push(() => document.removeEventListener(ev, handleOutside, true));
+      });
+      window.addEventListener('scroll', closeOnScroll, true);
+      paletteCleanupFns.push(() => window.removeEventListener('scroll', closeOnScroll, true));
+      window.addEventListener('resize', closeOnScroll, true);
+      paletteCleanupFns.push(() => window.removeEventListener('resize', closeOnScroll, true));
+    }
+
+    function handleColorCycle(e){
+      const isAdmin = typeof isOfficeAdmin === 'function' ? isOfficeAdmin() : false;
+      if(!isAdmin) return;
+      const target = e.target.closest('.vac-day-header');
+      if(!target) return;
+      const date = target.dataset.date;
+      if(!date) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if(palettePopupEl && paletteCurrentDate === date){
+        closePalettePopup();
+        return;
+      }
+      createPalettePopup(target, date);
+    }
     let statusEl = null;
     let saveMode = opts.saveMode || 'vacation';
     let initialized = false;
@@ -295,6 +472,15 @@
 
     function applyBitsToCells(){
       if(!tableEl) return;
+      // メンバーごとにビットが1つでもあるかをチェック
+      const memberHasBit = new Map();
+      bitsByDate.forEach((arr) => {
+        if(!Array.isArray(arr)) return;
+        arr.forEach((on, idx) => {
+          if(on) memberHasBit.set(idx, true);
+        });
+      });
+      
       tableEl.querySelectorAll('.vac-cell').forEach(cell => {
         const date = cell.dataset.date;
         const idx = Number(cell.dataset.memberIndex || '-1');
@@ -302,6 +488,13 @@
         const on = Array.isArray(arr) ? !!arr[idx] : false;
         cell.classList.toggle('on', on);
         cell.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      
+      // メンバー名のハイライト表示
+      tableEl.querySelectorAll('th.member-name').forEach(th => {
+        const idx = Number(th.dataset.memberIndex || '-1');
+        const hasBit = memberHasBit.has(idx);
+        th.classList.toggle('member-has-bit', hasBit);
       });
     }
 
@@ -410,6 +603,7 @@
           const nameTh = document.createElement('th');
           nameTh.textContent = member.name || '';
           nameTh.className = 'member-name';
+          nameTh.dataset.memberIndex = String(cursor);
           tr.appendChild(nameTh);
           dateSlots.forEach(date => {
             const td = document.createElement('td');
@@ -433,43 +627,23 @@
     }
 
     function applyHolidayColor(holidays){
-      if(!holidays || !holidays.size || !tableEl) return;
-      tableEl.querySelectorAll('.vac-cell, .vac-day-header').forEach(cell => {
-        if(holidays.has(cell.dataset.date)){
-          cell.classList.add('holiday');
-        }
-      });
+      latestHolidaySet = holidays instanceof Set ? holidays : new Set();
+      if(!tableEl) return;
+      if(holidayPaletteIndex >= 0){
+        latestHolidaySet.forEach(date => {
+          const currentIdx = ensureDateColor(date);
+          const defaultIdx = getDefaultColorIndex(date);
+          if(currentIdx === defaultIdx){
+            dateColorMap.set(date, holidayPaletteIndex);
+          }
+        });
+      }
+      applyAllColumnColors();
     }
 
     async function resolveHolidays(){
+      // 手動定義の祝日リストのみを使用（CSP違反回避のため外部API呼び出しを削除）
       const set = new Set(MANUAL_HOLIDAYS.map(normalizeDateStr).filter(Boolean));
-      const years = new Set(dateSlots.map(d => (new Date(d)).getFullYear()));
-      if(!HOLIDAY_API_URL){
-        return set;
-      }
-      for(const y of years){
-        if(holidayCache.has(y)){
-          const cached = holidayCache.get(y);
-          if(cached) cached.forEach(d => set.add(d));
-          continue;
-        }
-        try{
-          const res = await fetch(HOLIDAY_API_URL, { cache: 'force-cache' });
-          if(!res.ok) throw new Error('holiday_fetch_failed');
-          const json = await res.json();
-          const yearSet = new Set();
-          Object.entries(json || {}).forEach(([k]) => {
-            if(k.startsWith(`${y}-`)){
-              yearSet.add(k);
-              set.add(k);
-            }
-          });
-          holidayCache.set(y, yearSet);
-        }catch(err){
-          console.warn('休日取得に失敗しました。週末のみ色分けにフォールバックします', err);
-          holidayCache.set(y, null);
-        }
-      }
       return set;
     }
 
@@ -483,6 +657,7 @@
       if(statusEl){
         ganttRoot.appendChild(statusEl);
       }
+      applyAllColumnColors();
       applyBitsToCells();
       resolveHolidays().then(set => applyHolidayColor(set));
     }
@@ -490,13 +665,20 @@
     function handlePointerDown(e){
       const cell = e.target.closest('.vac-cell');
       if(!cell) return;
-      e.preventDefault();
+      // 左クリック（button === 0）のみ受け付ける
+      if(e.button !== 0) return;
       const idx = Number(cell.dataset.memberIndex || '-1');
       if(idx < 0) return;
       const date = cell.dataset.date;
       const currentOn = cell.classList.contains('on');
       const toValue = !currentOn;
-      draggingState = { toValue };
+      draggingState = {
+        toValue,
+        startX: e.clientX,
+        startY: e.clientY,
+        hasDragged: false,
+        startCell: cell
+      };
       if(tableEl){
         tableEl.classList.add('dragging');
       }
@@ -511,13 +693,21 @@
       const idx = Number(cell.dataset.memberIndex || '-1');
       if(idx < 0) return;
       const date = cell.dataset.date;
+      if(draggingState.startCell && draggingState.startCell !== cell){
+        draggingState.hasDragged = true;
+      }
       toggleBit(date, idx, draggingState.toValue);
       cell.classList.toggle('on', draggingState.toValue);
     }
 
     function handlePointerMove(e){
       if(!draggingState) return;
-      if(e.cancelable){
+      const movedX = typeof draggingState.startX === 'number' ? Math.abs((e.clientX || 0) - draggingState.startX) : 0;
+      const movedY = typeof draggingState.startY === 'number' ? Math.abs((e.clientY || 0) - draggingState.startY) : 0;
+      if(movedX > 2 || movedY > 2){
+        draggingState.hasDragged = true;
+      }
+      if(draggingState.hasDragged && e.cancelable){
         e.preventDefault();
       }
     }
@@ -645,6 +835,14 @@
 
     function bindTableEvents(){
       if(!tableEl) return;
+      const isAdmin = typeof isOfficeAdmin === 'function' ? isOfficeAdmin() : false;
+      const thead = tableEl.querySelector('thead');
+      if(thead){
+        thead.removeEventListener('click', handleColorCycle);
+        if(isAdmin){
+          thead.addEventListener('click', handleColorCycle);
+        }
+      }
       tableEl.addEventListener('pointerdown', handlePointerDown);
       tableEl.addEventListener('pointerover', handlePointerOver);
       tableEl.addEventListener('pointermove', handlePointerMove, { passive:false });
@@ -672,8 +870,10 @@
 
     function rebuild(){
       if(!ganttRoot) return;
+      closePalettePopup();
       orderedMembers = getMembersOrdered();
       dateSlots = buildDateSlots();
+      syncDateColorMapWithSlots();
       parseBitsString(bitsInput?.value || '');
       renderTable();
       renderGroupJumps();
