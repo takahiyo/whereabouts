@@ -12,6 +12,30 @@
     { key: 'lavender', className: 'vac-color-lavender' },
     { key: 'slate', className: 'vac-color-slate' }
   ];
+  const PALETTE_EVENT_COLOR_MAP = {
+    none: '',
+    saturday: 'blue',
+    sunday: 'sunday',
+    holiday: 'holiday',
+    amber: 'amber',
+    mint: 'green',
+    lavender: 'purple',
+    slate: 'slate'
+  };
+  const EVENT_COLOR_TO_PALETTE_MAP = {
+    amber: 'amber',
+    none: 'none',
+    blue: 'saturday',
+    green: 'mint',
+    purple: 'lavender',
+    sunday: 'sunday',
+    saturday: 'saturday',
+    holiday: 'holiday',
+    teal: 'mint',
+    pink: 'sunday',
+    gray: 'slate',
+    slate: 'slate'
+  };
 
   const FALLBACK_DAYS = 7;
 
@@ -130,11 +154,50 @@
       palettePopupEl.style.left = `${left}px`;
     }
 
+    function paletteKeyFromIndex(idx){
+      const normalizedIdx = Math.max(0, idx % COLOR_PALETTE.length);
+      return COLOR_PALETTE[normalizedIdx]?.key || '';
+    }
+
+    function paletteIndexFromKey(key){
+      const normalized = (key || '').toString().trim().toLowerCase();
+      return COLOR_PALETTE.findIndex(c => c.key === normalized);
+    }
+
+    function toEventColorKeyFromPalette(key){
+      const normalized = (key || '').toString().trim().toLowerCase();
+      return PALETTE_EVENT_COLOR_MAP[normalized] ?? '';
+    }
+
+    function paletteKeyFromEventColor(key){
+      const normalized = (key || '').toString().trim().toLowerCase();
+      if(EVENT_COLOR_TO_PALETTE_MAP[normalized]) return EVENT_COLOR_TO_PALETTE_MAP[normalized];
+      const paletteIdx = paletteIndexFromKey(normalized);
+      return paletteIdx >= 0 ? paletteKeyFromIndex(paletteIdx) : '';
+    }
+
     function handlePaletteColorSelect(date, idx){
-      if(!date) return;
-      dateColorMap.set(date, idx % COLOR_PALETTE.length);
-      applyColumnColor(date);
+      if(!date) return null;
+      const normalizedDate = normalizeDateStr(date) || date;
+      const paletteKey = paletteKeyFromIndex(idx);
+      const normalizedIdx = Math.max(0, idx % COLOR_PALETTE.length);
+      dateColorMap.set(normalizedDate, normalizedIdx);
+      applyColumnColor(normalizedDate);
+      const result = {
+        date: normalizedDate,
+        paletteIndex: normalizedIdx,
+        paletteKey,
+        eventColor: toEventColorKeyFromPalette(paletteKey)
+      };
+      if(typeof opts.onDateColorSelect === 'function'){
+        try{
+          opts.onDateColorSelect({ ...result });
+        }catch(err){
+          console.error('onDateColorSelect error', err);
+        }
+      }
       closePalettePopup();
+      return result;
     }
 
     function createPalettePopup(anchorEl, date){
@@ -194,6 +257,44 @@
       paletteCleanupFns.push(() => window.removeEventListener('scroll', closeOnScroll, true));
       window.addEventListener('resize', closeOnScroll, true);
       paletteCleanupFns.push(() => window.removeEventListener('resize', closeOnScroll, true));
+    }
+
+    function applyExternalDateColors(colorMap){
+      if(!colorMap){
+        syncDateColorMapWithSlots();
+        applyAllColumnColors();
+        return;
+      }
+      const entries = colorMap instanceof Map ? Array.from(colorMap.entries()) : Object.entries(colorMap);
+      const previous = new Map(dateColorMap);
+      dateColorMap.clear();
+      syncDateColorMapWithSlots();
+      let changed = true;
+      entries.forEach(([rawDate, colorValue]) => {
+        const date = normalizeDateStr(rawDate);
+        if(!date) return;
+        const paletteKey = paletteKeyFromEventColor(colorValue);
+        if(!paletteKey){
+          if(previous.has(date)){
+            dateColorMap.set(date, previous.get(date));
+            changed = true;
+          }
+          return;
+        }
+        const idx = paletteIndexFromKey(paletteKey);
+        if(idx < 0){
+          if(previous.has(date)){
+            dateColorMap.set(date, previous.get(date));
+            changed = true;
+          }
+          return;
+        }
+        dateColorMap.set(date, idx % COLOR_PALETTE.length);
+        changed = true;
+      });
+      if(changed){
+        applyAllColumnColors();
+      }
     }
 
     function handleColorCycle(e){
@@ -297,7 +398,7 @@
     }
 
     function isEventModalSaveMode(){
-      return saveMode === 'event-modal';
+      return saveMode === 'event-modal' || saveMode === 'event-auto';
     }
 
     async function invokeSaveHandler(){
@@ -952,6 +1053,7 @@
       setRangeAndBits,
       getBitsString,
       applyBitsToCells,
+      applyDateColorMap: applyExternalDateColors,
       setSaveMode: (mode)=>{ saveMode = mode || 'vacation'; }
     };
   }
