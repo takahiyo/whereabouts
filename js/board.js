@@ -503,13 +503,14 @@ function wireEvents(){
   });
 
   // 変更（ステータス/時間）
-  board.addEventListener('change', (e)=>{
+  const handleStatusTimeChange = (e)=>{
     const t = e.target;
     if(!t) return;
     const tr = t.closest('tr'); if(!tr) return;
     const key = tr.dataset.key;
 
     if(t.name === 'status'){
+      t.dataset.editing = '1';
       const timeSel = tr.querySelector('select[name="time"]');
       const noteInp = tr.querySelector('input[name="note"]');
       toggleTimeEnable(t, timeSel);
@@ -527,9 +528,18 @@ function wireEvents(){
     }
 
     if(t.name === 'time'){
+      t.dataset.editing = '1';
       ensureTimePrompt(tr);
       debounceRowPush(key);
       return;
+    }
+  };
+
+  board.addEventListener('change', handleStatusTimeChange);
+  // Edge（特にタッチ操作）で change イベントが拾えないケースへのフォールバック
+  board.addEventListener('input', (e)=>{
+    if(e.target?.name === 'status' || e.target?.name === 'time'){
+      handleStatusTimeChange(e);
     }
   });
 }
