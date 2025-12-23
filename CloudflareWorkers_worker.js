@@ -1,6 +1,6 @@
 // 【ここに貼る】Cloudflare Worker（presence-proxy）: index.js（全置換）
 // ・GAS（ウェブアプリURL）へ POST プロキシ
-// ・CORS: takahiyo.github.io からのみ許可https://presence-proxy-test.taka-hiyo.workers.dev/
+// ・CORS: takahiyo.github.io からのみ許可https://presence-proxy-prod.taka-hiyo.workers.dev/
 // ・レスポンスは no-store。login/renewの role/office/officeName をそのまま転送
 export default {
   async fetch(req, env, ctx) {
@@ -87,3 +87,4 @@ export default {
     });
   }
 };
+
