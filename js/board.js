@@ -483,7 +483,13 @@ function wireEvents(){
   board.addEventListener('compositionstart', e => { const t=e.target; if(t && t.dataset) t.dataset.composing='1'; });
   board.addEventListener('compositionend',   e => { const t=e.target; if(t && t.dataset) delete t.dataset.composing; });
 
-  board.addEventListener('focusin',  e => { const t=e.target; if(t && t.dataset) t.dataset.editing='1'; });
+  board.addEventListener('focusin',  e => {
+    const t=e.target;
+    if(t && t.dataset) t.dataset.editing='1';
+    if(t && (t.name === 'status' || t.name === 'time')){
+      t.dataset.prevValue = t.value;
+    }
+  });
   board.addEventListener('focusout', e =>{
     const t=e.target;
     if(!(t && t.dataset)) return;
@@ -491,6 +497,13 @@ function wireEvents(){
     const key=tr?.dataset.key;
     if((t.name==='note' || t.name==='workHours') && key && PENDING_ROWS.has(key)){ t.dataset.editing='1'; }
     else{ delete t.dataset.editing; }
+    if(t.name === 'status' || t.name === 'time'){
+      const prev = t.dataset.prevValue;
+      if(prev !== undefined && prev !== t.value){
+        handleStatusTimeChange({ target: t });
+      }
+      delete t.dataset.prevValue;
+    }
   });
   // 入力（備考：入力中は自動更新停止 → setIfNeeded が弾く）
   board.addEventListener('input', (e)=>{
@@ -508,6 +521,10 @@ function wireEvents(){
     if(!t) return;
     const tr = t.closest('tr'); if(!tr) return;
     const key = tr.dataset.key;
+
+    if(t.dataset){
+      t.dataset.prevValue = t.value;
+    }
 
     if(t.name === 'status'){
       t.dataset.editing = '1';
