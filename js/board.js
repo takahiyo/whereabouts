@@ -585,6 +585,23 @@ function wireEvents(){
     }
   };
 
+  const forceCommitTimeSelection = (event)=>{
+    const timeEl = event.target;
+    if(!(timeEl && timeEl.name === 'time')) return;
+    if(timeEl.dataset?.editing === '1' && timeEl !== document.activeElement) return;
+
+    const selectedOption = timeEl.options?.[timeEl.selectedIndex];
+    if(!selectedOption) return;
+
+    const selectedValue = selectedOption.value;
+    if(timeEl.value !== selectedValue){
+      timeEl.value = selectedValue;
+    }
+
+    timeEl.dispatchEvent(new Event('input', { bubbles: true }));
+    timeEl.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+
   ['pointerdown','pointerup','touchstart','touchend','touchcancel','click','input','change'].forEach(type=>{
     board.addEventListener(type, logStatusTimeEvent, true);
   });
@@ -593,6 +610,8 @@ function wireEvents(){
   });
 
   board.addEventListener('change', handleStatusTimeChange);
+  board.addEventListener('touchend', forceCommitTimeSelection);
+  board.addEventListener('pointerup', forceCommitTimeSelection);
   // Edge（特にタッチ操作）で change イベントが拾えないケースへのフォールバック
   board.addEventListener('input', (e)=>{
     if(e.target?.name === 'status' || e.target?.name === 'time'){
