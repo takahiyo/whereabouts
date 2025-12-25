@@ -417,7 +417,7 @@ function applyState(data){
 
     if(lastInteractionWasTouch){
       const hasPending = PENDING_ROWS.has(k);
-      console.log('[touch applyState]', { key: k, pending: hasPending, timeValue: t?.value });
+      console.log('[touch applyState]', { key: k, pending: hasPending, statusValue: s?.value, timeValue: t?.value });
     }
     ensureTimePrompt(tr);
   });
@@ -542,6 +542,7 @@ function wireEvents(){
     if(!t) return;
     const tr = t.closest('tr'); if(!tr) return;
     const key = tr.dataset.key;
+    const prevVal = t.dataset?.prevValue;
 
     if(t.dataset){
       t.dataset.prevValue = t.value;
@@ -551,6 +552,7 @@ function wireEvents(){
       t.dataset.editing = '1';
       const timeSel = tr.querySelector('select[name="time"]');
       const noteInp = tr.querySelector('input[name="note"]');
+      console.log('[status change] before toggle', { key, prev: prevVal, next: t.value, timeDisabled: timeSel?.disabled });
       toggleTimeEnable(t, timeSel);
       console.log('[status change] time disabled after toggle', { key, status: t.value, timeDisabled: timeSel?.disabled });
 
@@ -568,6 +570,7 @@ function wireEvents(){
 
     if(t.name === 'time'){
       t.dataset.editing = '1';
+      console.log('[time change]', { key, prev: prevVal, next: t.value });
       ensureTimePrompt(tr);
       debounceRowPush(key);
       return;
