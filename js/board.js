@@ -456,6 +456,14 @@ function loadLocal(){ try{ const raw=localStorage.getItem(localKey()); if(raw) a
 const rowTimers=new Map();
 function debounceRowPush(key,delay=900){ PENDING_ROWS.add(key); if(rowTimers.has(key)) clearTimeout(rowTimers.get(key)); rowTimers.set(key,setTimeout(()=>{ rowTimers.delete(key); pushRowDelta(key); },delay)); }
 
+function clearPendingRows(){
+  rowTimers.forEach(timerId=>{
+    try{ clearTimeout(timerId); }catch{}
+  });
+  rowTimers.clear();
+  PENDING_ROWS.clear();
+}
+
 /* 入力イベント（IME配慮・デバウンス） */
 function wireEvents(){
   bindCandidatePanelGlobals();
