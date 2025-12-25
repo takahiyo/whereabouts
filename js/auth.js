@@ -15,6 +15,7 @@ async function logout(){
     if(configWatchTimer){ clearInterval(configWatchTimer); configWatchTimer=null; }
     if(remotePullTimer){ clearInterval(remotePullTimer); remotePullTimer=null; }
     if(eventSyncTimer){ clearInterval(eventSyncTimer); eventSyncTimer=null; }
+    if(typeof clearPendingRows==='function'){ clearPendingRows(); }
     if(ro){ try{ ro.disconnect(); }catch{} }
     stopNoticesPolling();
   }catch{}
