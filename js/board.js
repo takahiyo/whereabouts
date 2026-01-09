@@ -497,6 +497,9 @@ function wireEvents(){
     if(t && (t.name === 'status' || t.name === 'time')){
       t.dataset.prevValue = t.value;
     }
+    if(t && t.name === 'time' && t.dataset){
+      t.dataset.editingTime = '1';
+    }
   });
   board.addEventListener('focusout', e =>{
     const t=e.target;
@@ -507,6 +510,9 @@ function wireEvents(){
     else{ delete t.dataset.editing; }
     if(t.name === 'status' || t.name === 'time'){
       delete t.dataset.prevValue;
+    }
+    if(t.name === 'time'){
+      delete t.dataset.editingTime;
     }
   });
   // 入力（備考：入力中は自動更新停止 → setIfNeeded が弾く）
@@ -539,11 +545,14 @@ function wireEvents(){
       t.dataset.editing = '1';
       const timeSel = tr.querySelector('select[name="time"]');
       const noteInp = tr.querySelector('input[name="note"]');
+      const isEditingTime = timeSel?.dataset?.editingTime === '1';
       console.log('[status change] before toggle', { key, prev: prevVal, next: t.value, timeDisabled: timeSel?.disabled });
-      toggleTimeEnable(t, timeSel);
+      if(!isEditingTime){
+        toggleTimeEnable(t, timeSel);
+      }
       console.log('[status change] time disabled after toggle', { key, status: t.value, timeDisabled: timeSel?.disabled });
 
-      if(clearOnSet.has(t.value)){
+      if(!isEditingTime && clearOnSet.has(t.value)){
         if(timeSel) timeSel.value = '';
         if(noteInp && isNotePresetValue(noteInp.value)){ noteInp.value = ''; }
       }
