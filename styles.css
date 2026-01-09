@@ -287,6 +287,10 @@
 
   /* 戻り時間入力の促し（外出/会議） */
   td.time{ position:relative; }
+  td.time.time-disabled select{
+    pointer-events:none;
+    opacity:0.45;
+  }
   td.time.need-time select{
     border-color:#ef4444 !important;
     box-shadow:0 0 0 3px rgba(239,68,68,.25);

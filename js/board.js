@@ -211,7 +211,6 @@ function buildCandidateField({ id, name, placeholder, type, value }){
 }
 
 let candidatePanelGlobalsBound = false;
-let lastInteractionWasTouch = false;
 function bindCandidatePanelGlobals(){
   if(candidatePanelGlobalsBound) return;
   candidatePanelGlobalsBound = true;
@@ -415,10 +414,6 @@ function applyState(data){
     const localRev  = Number(tr?.dataset.rev || 0);
     if(tr && remoteRev > localRev){ tr.dataset.rev = String(remoteRev); tr.dataset.serverUpdated = String(v.serverUpdated || 0); }
 
-    if(lastInteractionWasTouch){
-      const hasPending = PENDING_ROWS.has(k);
-      console.log('[touch applyState]', { key: k, pending: hasPending, statusValue: s?.value, timeValue: t?.value });
-    }
     ensureTimePrompt(tr);
   });
   recolor();
@@ -426,7 +421,20 @@ function applyState(data){
   applyFilters();
 }
 function recolor(){ board.querySelectorAll("tbody tr").forEach(tr=>{ const st=tr.querySelector('select[name="status"]')?.value||""; statusClassMap.forEach(cls=>tr.classList.remove(cls)); const cls=statusClassMap.get(st); if(cls) tr.classList.add(cls); tr.dataset.status=st; }); }
-function toggleTimeEnable(statusEl,timeEl){ const needsTime=requiresTimeSet.has(statusEl.value); if(timeEl) timeEl.disabled=!needsTime; }
+function toggleTimeEnable(statusEl,timeEl){
+  const needsTime=requiresTimeSet.has(statusEl.value);
+  if(!timeEl) return;
+  const timeTd = timeEl.closest('td.time');
+  if(needsTime){
+    timeEl.setAttribute('aria-disabled','false');
+    timeEl.tabIndex = 0;
+    timeTd?.classList.remove('time-disabled');
+  }else{
+    timeEl.setAttribute('aria-disabled','true');
+    timeEl.tabIndex = -1;
+    timeTd?.classList.add('time-disabled');
+  }
+}
 function ensureTimePrompt(tr){
   if(!tr) return;
   const statusEl = tr.querySelector('select[name="status"]');
@@ -502,6 +510,9 @@ function wireEvents(){
     if(t && (t.name === 'status' || t.name === 'time')){
       t.dataset.prevValue = t.value;
     }
+    if(t && t.name === 'time' && t.dataset){
+      t.dataset.editingTime = '1';
+    }
   });
   board.addEventListener('focusout', e =>{
     const t=e.target;
@@ -511,11 +522,10 @@ function wireEvents(){
     if((t.name==='note' || t.name==='workHours') && key && PENDING_ROWS.has(key)){ t.dataset.editing='1'; }
     else{ delete t.dataset.editing; }
     if(t.name === 'status' || t.name === 'time'){
-      const prev = t.dataset.prevValue;
-      if(prev !== undefined && prev !== t.value){
-        handleStatusTimeChange({ target: t });
-      }
       delete t.dataset.prevValue;
+    }
+    if(t.name === 'time'){
+      delete t.dataset.editingTime;
     }
   });
   // 入力（備考：入力中は自動更新停止 → setIfNeeded が弾く）
@@ -529,28 +539,16 @@ function wireEvents(){
   });
 
   // 変更（ステータス/時間）
-  const logStatusTimeEvent = (event)=>{
-    const target = event.target;
-    if(!(target && (target.name === 'status' || target.name === 'time'))) return;
-    if(event.type.startsWith('touch')){
-      lastInteractionWasTouch = true;
-    }else if(event.type.startsWith('pointer')){
-      lastInteractionWasTouch = event.pointerType === 'touch';
-    }
-    console.log('[status/time event]', {
-      name: target.name,
-      value: target.value,
-      disabled: target.disabled,
-      type: event.type
-    });
-  };
-
   const handleStatusTimeChange = (e)=>{
     const t = e.target;
     if(!t) return;
     const tr = t.closest('tr'); if(!tr) return;
     const key = tr.dataset.key;
     const prevVal = t.dataset?.prevValue;
+    const lastCommitted = t.dataset?.lastCommittedValue;
+
+    if(prevVal !== undefined && prevVal === t.value) return;
+    if(lastCommitted !== undefined && lastCommitted === t.value) return;
 
     if(t.dataset){
       t.dataset.prevValue = t.value;
@@ -560,11 +558,16 @@ function wireEvents(){
       t.dataset.editing = '1';
       const timeSel = tr.querySelector('select[name="time"]');
       const noteInp = tr.querySelector('input[name="note"]');
-      console.log('[status change] before toggle', { key, prev: prevVal, next: t.value, timeDisabled: timeSel?.disabled });
-      toggleTimeEnable(t, timeSel);
-      console.log('[status change] time disabled after toggle', { key, status: t.value, timeDisabled: timeSel?.disabled });
+      const isEditingTime = timeSel?.dataset?.editingTime === '1';
+      const timeDisabled = timeSel?.getAttribute('aria-disabled') === 'true';
+      console.log('[status change] before toggle', { key, prev: prevVal, next: t.value, timeDisabled });
+      if(!isEditingTime){
+        toggleTimeEnable(t, timeSel);
+      }
+      const timeDisabledAfter = timeSel?.getAttribute('aria-disabled') === 'true';
+      console.log('[status change] time disabled after toggle', { key, status: t.value, timeDisabled: timeDisabledAfter });
 
-      if(clearOnSet.has(t.value)){
+      if(!isEditingTime && clearOnSet.has(t.value)){
         if(timeSel) timeSel.value = '';
         if(noteInp && isNotePresetValue(noteInp.value)){ noteInp.value = ''; }
       }
@@ -572,6 +575,7 @@ function wireEvents(){
       ensureTimePrompt(tr);
       recolor();
       updateStatusFilterCounts();
+      if(t.dataset) t.dataset.lastCommittedValue = t.value;
       debounceRowPush(key);
       return;
     }
@@ -580,42 +584,11 @@ function wireEvents(){
       t.dataset.editing = '1';
       console.log('[time change]', { key, prev: prevVal, next: t.value });
       ensureTimePrompt(tr);
+      if(t.dataset) t.dataset.lastCommittedValue = t.value;
       debounceRowPush(key);
       return;
     }
   };
 
-  const forceCommitTimeSelection = (event)=>{
-    const timeEl = event.target;
-    if(!(timeEl && timeEl.name === 'time')) return;
-    if(timeEl.dataset?.editing === '1' && timeEl !== document.activeElement) return;
-
-    const selectedOption = timeEl.options?.[timeEl.selectedIndex];
-    if(!selectedOption) return;
-
-    const selectedValue = selectedOption.value;
-    if(timeEl.value !== selectedValue){
-      timeEl.value = selectedValue;
-    }
-
-    timeEl.dispatchEvent(new Event('input', { bubbles: true }));
-    timeEl.dispatchEvent(new Event('change', { bubbles: true }));
-  };
-
-  ['pointerdown','pointerup','touchstart','touchend','touchcancel','click','input','change'].forEach(type=>{
-    board.addEventListener(type, logStatusTimeEvent, true);
-  });
-  ['focus','blur'].forEach(type=>{
-    board.addEventListener(type, logStatusTimeEvent, true);
-  });
-
   board.addEventListener('change', handleStatusTimeChange);
-  board.addEventListener('touchend', forceCommitTimeSelection);
-  board.addEventListener('pointerup', forceCommitTimeSelection);
-  // Edge（特にタッチ操作）で change イベントが拾えないケースへのフォールバック
-  board.addEventListener('input', (e)=>{
-    if(e.target?.name === 'status' || e.target?.name === 'time'){
-      handleStatusTimeChange(e);
-    }
-  });
 }
