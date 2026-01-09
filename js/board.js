@@ -211,7 +211,6 @@ function buildCandidateField({ id, name, placeholder, type, value }){
 }
 
 let candidatePanelGlobalsBound = false;
-let lastInteractionWasTouch = false;
 function bindCandidatePanelGlobals(){
   if(candidatePanelGlobalsBound) return;
   candidatePanelGlobalsBound = true;
@@ -415,10 +414,6 @@ function applyState(data){
     const localRev  = Number(tr?.dataset.rev || 0);
     if(tr && remoteRev > localRev){ tr.dataset.rev = String(remoteRev); tr.dataset.serverUpdated = String(v.serverUpdated || 0); }
 
-    if(lastInteractionWasTouch){
-      const hasPending = PENDING_ROWS.has(k);
-      console.log('[touch applyState]', { key: k, pending: hasPending, statusValue: s?.value, timeValue: t?.value });
-    }
     ensureTimePrompt(tr);
   });
   recolor();
@@ -511,10 +506,6 @@ function wireEvents(){
     if((t.name==='note' || t.name==='workHours') && key && PENDING_ROWS.has(key)){ t.dataset.editing='1'; }
     else{ delete t.dataset.editing; }
     if(t.name === 'status' || t.name === 'time'){
-      const prev = t.dataset.prevValue;
-      if(prev !== undefined && prev !== t.value){
-        handleStatusTimeChange({ target: t });
-      }
       delete t.dataset.prevValue;
     }
   });
@@ -529,28 +520,16 @@ function wireEvents(){
   });
 
   // 変更（ステータス/時間）
-  const logStatusTimeEvent = (event)=>{
-    const target = event.target;
-    if(!(target && (target.name === 'status' || target.name === 'time'))) return;
-    if(event.type.startsWith('touch')){
-      lastInteractionWasTouch = true;
-    }else if(event.type.startsWith('pointer')){
-      lastInteractionWasTouch = event.pointerType === 'touch';
-    }
-    console.log('[status/time event]', {
-      name: target.name,
-      value: target.value,
-      disabled: target.disabled,
-      type: event.type
-    });
-  };
-
   const handleStatusTimeChange = (e)=>{
     const t = e.target;
     if(!t) return;
     const tr = t.closest('tr'); if(!tr) return;
     const key = tr.dataset.key;
     const prevVal = t.dataset?.prevValue;
+    const lastCommitted = t.dataset?.lastCommittedValue;
+
+    if(prevVal !== undefined && prevVal === t.value) return;
+    if(lastCommitted !== undefined && lastCommitted === t.value) return;
 
     if(t.dataset){
       t.dataset.prevValue = t.value;
@@ -572,6 +551,7 @@ function wireEvents(){
       ensureTimePrompt(tr);
       recolor();
       updateStatusFilterCounts();
+      if(t.dataset) t.dataset.lastCommittedValue = t.value;
       debounceRowPush(key);
       return;
     }
@@ -580,42 +560,11 @@ function wireEvents(){
       t.dataset.editing = '1';
       console.log('[time change]', { key, prev: prevVal, next: t.value });
       ensureTimePrompt(tr);
+      if(t.dataset) t.dataset.lastCommittedValue = t.value;
       debounceRowPush(key);
       return;
     }
   };
 
-  const forceCommitTimeSelection = (event)=>{
-    const timeEl = event.target;
-    if(!(timeEl && timeEl.name === 'time')) return;
-    if(timeEl.dataset?.editing === '1' && timeEl !== document.activeElement) return;
-
-    const selectedOption = timeEl.options?.[timeEl.selectedIndex];
-    if(!selectedOption) return;
-
-    const selectedValue = selectedOption.value;
-    if(timeEl.value !== selectedValue){
-      timeEl.value = selectedValue;
-    }
-
-    timeEl.dispatchEvent(new Event('input', { bubbles: true }));
-    timeEl.dispatchEvent(new Event('change', { bubbles: true }));
-  };
-
-  ['pointerdown','pointerup','touchstart','touchend','touchcancel','click','input','change'].forEach(type=>{
-    board.addEventListener(type, logStatusTimeEvent, true);
-  });
-  ['focus','blur'].forEach(type=>{
-    board.addEventListener(type, logStatusTimeEvent, true);
-  });
-
   board.addEventListener('change', handleStatusTimeChange);
-  board.addEventListener('touchend', forceCommitTimeSelection);
-  board.addEventListener('pointerup', forceCommitTimeSelection);
-  // Edge（特にタッチ操作）で change イベントが拾えないケースへのフォールバック
-  board.addEventListener('input', (e)=>{
-    if(e.target?.name === 'status' || e.target?.name === 'time'){
-      handleStatusTimeChange(e);
-    }
-  });
 }
