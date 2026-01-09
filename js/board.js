@@ -421,7 +421,20 @@ function applyState(data){
   applyFilters();
 }
 function recolor(){ board.querySelectorAll("tbody tr").forEach(tr=>{ const st=tr.querySelector('select[name="status"]')?.value||""; statusClassMap.forEach(cls=>tr.classList.remove(cls)); const cls=statusClassMap.get(st); if(cls) tr.classList.add(cls); tr.dataset.status=st; }); }
-function toggleTimeEnable(statusEl,timeEl){ const needsTime=requiresTimeSet.has(statusEl.value); if(timeEl) timeEl.disabled=!needsTime; }
+function toggleTimeEnable(statusEl,timeEl){
+  const needsTime=requiresTimeSet.has(statusEl.value);
+  if(!timeEl) return;
+  const timeTd = timeEl.closest('td.time');
+  if(needsTime){
+    timeEl.setAttribute('aria-disabled','false');
+    timeEl.tabIndex = 0;
+    timeTd?.classList.remove('time-disabled');
+  }else{
+    timeEl.setAttribute('aria-disabled','true');
+    timeEl.tabIndex = -1;
+    timeTd?.classList.add('time-disabled');
+  }
+}
 function ensureTimePrompt(tr){
   if(!tr) return;
   const statusEl = tr.querySelector('select[name="status"]');
@@ -546,11 +559,13 @@ function wireEvents(){
       const timeSel = tr.querySelector('select[name="time"]');
       const noteInp = tr.querySelector('input[name="note"]');
       const isEditingTime = timeSel?.dataset?.editingTime === '1';
-      console.log('[status change] before toggle', { key, prev: prevVal, next: t.value, timeDisabled: timeSel?.disabled });
+      const timeDisabled = timeSel?.getAttribute('aria-disabled') === 'true';
+      console.log('[status change] before toggle', { key, prev: prevVal, next: t.value, timeDisabled });
       if(!isEditingTime){
         toggleTimeEnable(t, timeSel);
       }
-      console.log('[status change] time disabled after toggle', { key, status: t.value, timeDisabled: timeSel?.disabled });
+      const timeDisabledAfter = timeSel?.getAttribute('aria-disabled') === 'true';
+      console.log('[status change] time disabled after toggle', { key, status: t.value, timeDisabled: timeDisabledAfter });
 
       if(!isEditingTime && clearOnSet.has(t.value)){
         if(timeSel) timeSel.value = '';
