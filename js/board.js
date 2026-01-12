@@ -197,16 +197,36 @@ function buildCandidateField({ id, name, placeholder, type, value }){
     inputmode: 'text'
   });
   if(value != null) input.value = value;
-  const btn = el('button', {
-    type: 'button',
-    class: 'candidate-btn',
-    'aria-haspopup': 'listbox',
-    'aria-expanded': 'false',
-    'aria-label': '候補を表示'
-  });
-  btn.innerHTML = '▼';
+  
+  let btn = null;
+  if(type !== 'note'){
+    btn = el('button', {
+      type: 'button',
+      class: 'candidate-btn',
+      'aria-haspopup': 'listbox',
+      'aria-expanded': 'false',
+      'aria-label': '候補を表示'
+    });
+    btn.innerHTML = '▼';
+  }
+
   const panel = el('div', { class: 'candidate-panel', role: 'listbox' });
-  wrapper.append(input, btn, panel);
+  
+  wrapper.appendChild(input);
+  if(btn) wrapper.appendChild(btn);
+  wrapper.appendChild(panel);
+
+  if(type === 'note'){
+    input.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if(!panel.classList.contains('show')){
+        hideAllCandidatePanels();
+        renderCandidatePanel(panel, type);
+        panel.classList.add('show');
+      }
+    });
+  }
+
   return { wrapper, input };
 }
 
