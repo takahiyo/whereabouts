@@ -527,9 +527,10 @@ function wireEvents() {
   board.addEventListener('focusin', e => {
     const t = e.target;
     if (t && t.dataset) t.dataset.editing = '1';
-    if (t && (t.name === 'status' || t.name === 'time')) {
-      t.dataset.prevValue = t.value;
-    }
+    // Windowsタッチ操作での誤判定回避のため無効化
+    // if (t && (t.name === 'status' || t.name === 'time')) {
+    //   t.dataset.prevValue = t.value;
+    // }
     if (t && t.name === 'time' && t.dataset) {
       t.dataset.editingTime = '1';
     }
