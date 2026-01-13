@@ -10,6 +10,7 @@ export default {
     // CORS 許可元
     const ALLOW_ORIGINS = new Set([
       'https://takahiyo.github.io'
+      'https://whereabouts-d4b.pages.dev'
     ]);
     const allowOrigin = ALLOW_ORIGINS.has(origin) ? origin : '';
 
@@ -87,4 +88,5 @@ export default {
     });
   }
 };
+
 
