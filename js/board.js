@@ -535,13 +535,26 @@ function wireEvents() {
       t.dataset.editingTime = '1';
     }
   });
-  board.addEventListener('focusout', e => {
+board.addEventListener('focusout', e => {
     const t = e.target;
     if (!(t && t.dataset)) return;
     const tr = t.closest('tr');
     const key = tr?.dataset.key;
-    if ((t.name === 'note' || t.name === 'workHours') && key && PENDING_ROWS.has(key)) { t.dataset.editing = '1'; }
-    else { delete t.dataset.editing; }
+    
+    // 修正箇所: time と status を判定に追加し、編集中フラグを維持するように変更
+    if ((t.name === 'note' || t.name === 'workHours' || t.name === 'time' || t.name === 'status') && key && PENDING_ROWS.has(key)) {
+      t.dataset.editing = '1';
+    } else {
+      delete t.dataset.editing;
+    }
+
+    if (t.name === 'status' || t.name === 'time') {
+      delete t.dataset.prevValue;
+    }
+    if (t.name === 'time') {
+      delete t.dataset.editingTime;
+    }
+  });
     if (t.name === 'status' || t.name === 'time') {
       delete t.dataset.prevValue;
     }
