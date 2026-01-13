@@ -1,18 +1,20 @@
 // 【ここに貼る】Cloudflare Worker（presence-proxy）: index.js（全置換）
 // ・GAS（ウェブアプリURL）へ POST プロキシ
-// ・CORS: takahiyo.github.io からのみ許可https://presence-proxy-prod.taka-hiyo.workers.dev/
+// ・CORS: takahiyo.github.io および *.pages.dev (プレビュー含む) を許可
 // ・レスポンスは no-store。login/renewの role/office/officeName をそのまま転送
 export default {
   async fetch(req, env, ctx) {
-    const GAS_ENDPOINT = env.GAS_ENDPOINT || "https://script.google.com/macros/s/AKfycbwx1nNkjmS2Xx47JjucLrYdRQfF08guGOKQaEzJJVRH7KMbLY7afpS4Csm3Ccdq1O2_/exec";
+    const GAS_ENDPOINT = env.GAS_ENDPOINT || "https://script.google.com/macros/s/AKfycbx1f8DmHkQjleOV-B2hwqNyQho5VZslJG-1jriEbgJgNhNYw9WDtfiaH5fL2yyp9Sbh/exec";
     const origin = req.headers.get('origin') || '';
 
-    // CORS 許可元
-    const ALLOW_ORIGINS = new Set([
-      'https://takahiyo.github.io'
-      'https://whereabouts-d4b.pages.dev'
-    ]);
-    const allowOrigin = ALLOW_ORIGINS.has(origin) ? origin : '';
+    // ▼▼▼ 変更箇所: CORS 許可判定ロジック ▼▼▼
+    // 1. https://takahiyo.github.io (完全一致)
+    // 2. .pages.dev で終わるドメイン (Cloudflare Pagesの本番・プレビュー全て)
+    const isAllowed = origin === 'https://takahiyo.github.io' || origin.endsWith('.pages.dev');
+    
+    // 許可されたオリジンならその値を、そうでなければ空文字をセット
+    const allowOrigin = isAllowed ? origin : '';
+    // ▲▲▲ 変更箇所ここまで ▲▲▲
 
     // Preflight
     if (req.method === 'OPTIONS') {
@@ -88,5 +90,3 @@ export default {
     });
   }
 };
-
-
