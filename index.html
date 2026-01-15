@@ -34,6 +34,10 @@
       </div>
     </div>
 <button id="adminBtn" class="admin-btn" title="管理">管理</button>
+    <div style="opacity: 0; position: absolute; height: 0; width: 0; z-index: -1; overflow: hidden;">
+      <input type="text" tabindex="-1" aria-hidden="true">
+      <input type="password" tabindex="-1" aria-hidden="true">
+    </div>
     <input id="nameFilter" class="name-filter" type="search" placeholder="氏名検索（入力と同時に絞り込み）" aria-label="氏名検索" autocomplete="off" name="member_search_query" />
     <select id="statusFilter" class="status-filter" aria-label="ステータスで絞り込み"></select>
     <button id="noticesBtn" class="notices-btn" title="お知らせ">お知らせ</button>
