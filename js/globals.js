@@ -9,7 +9,7 @@ const SESSION_OFFICE_NAME_KEY = "presence-office-name";
 
 /* 要素 */
 const board=document.getElementById('board'), toastEl=document.getElementById('toast'), diag=document.getElementById('diag');
-const loginEl=document.getElementById('login'), loginMsg=document.getElementById('loginMsg'), pwInput=document.getElementById('pw'), officeSel=document.getElementById('officeSel');
+const loginEl=document.getElementById('login'), loginMsg=document.getElementById('loginMsg'), pwInput=document.getElementById('pw'), officeSel=document.getElementById('officeSel'), btnLogin=document.getElementById('btnLogin');
 const menuEl=document.getElementById('groupMenu'), menuList=document.getElementById('groupMenuList'), menuTitle=document.getElementById('groupMenuTitle'), titleBtn=document.getElementById('titleBtn');
 const noticesBtn=document.getElementById('noticesBtn'), adminBtn=document.getElementById('adminBtn'), logoutBtn=document.getElementById('logoutBtn'), adminModal=document.getElementById('adminModal'), adminClose=document.getElementById('adminClose');
 const toolsBtn=document.getElementById('toolsBtn'), toolsModal=document.getElementById('toolsModal'), toolsModalClose=document.getElementById('toolsModalClose');
@@ -28,6 +28,7 @@ const renameOfficeName=document.getElementById('renameOfficeName'), btnRenameOff
 const setPw=document.getElementById('setPw'), setAdminPw=document.getElementById('setAdminPw'), btnSetPw=document.getElementById('btnSetPw');
 const memberTableBody=document.getElementById('memberTableBody'), btnMemberSave=document.getElementById('btnMemberSave'), btnMemberReload=document.getElementById('btnMemberReload');
 const memberEditForm=document.getElementById('memberEditForm');
+const memberEditTop=document.getElementById('memberEditTop');
 const memberEditName=document.getElementById('memberEditName'), memberEditExt=document.getElementById('memberEditExt'), memberEditMobile=document.getElementById('memberEditMobile'), memberEditEmail=document.getElementById('memberEditEmail'), memberEditGroup=document.getElementById('memberEditGroup');
 const memberGroupOptions=document.getElementById('memberGroupOptions'), memberEditId=document.getElementById('memberEditId'), memberEditModeLabel=document.getElementById('memberEditModeLabel');
 const memberEditReset=document.getElementById('memberEditReset'), memberFilterInput=document.getElementById('memberFilterInput'), btnMemberFilterClear=document.getElementById('btnMemberFilterClear');
