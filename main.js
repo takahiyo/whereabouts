@@ -81,9 +81,15 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     }
     await eventP;
     
-    // 保存されているイベントを自動適用
+// 保存されているイベントを自動適用
     if(typeof autoApplySavedEvent === 'function'){
       await autoApplySavedEvent();
+    }
+
+    // 【追加】氏名フィルタへの自動入力をクリアして全件表示に戻す
+    if(document.getElementById('nameFilter')) {
+      document.getElementById('nameFilter').value = "";
+      if(typeof applyFilters === 'function') applyFilters();
     }
   }
 
