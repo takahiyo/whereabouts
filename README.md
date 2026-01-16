@@ -59,7 +59,7 @@
 .
 ├── webapp/                      # フロントエンド (Cloudflare Pagesデプロイ対象)
 │   ├── index.html               # メインHTML（タイトル・CSP設定含む）
-│   ├── config.js                # 環境設定（Firebase設定・Workerエンドポイント）
+│   ├── js/config.js             # 環境設定（Firebase設定・Workerエンドポイント）
 │   ├── main.js                  # アプリケーション起動処理
 │   ├── styles.css               # スタイル定義
 │   └── js/
@@ -71,8 +71,9 @@
 │   ├── src/
 │   │   └── index.js             # Worker エントリポイント
 │   └── wrangler.toml            # Workers設定
-├── USER_MANUAL.md               # ユーザー向け詳細マニュアル
-├── ADMIN_MANUAL.md              # 管理者向け詳細マニュアル
+├── docs/                        # ドキュメント集
+│   ├── USER_MANUAL.md           # ユーザー向け詳細マニュアル
+│   └── ADMIN_MANUAL.md          # 管理者向け詳細マニュアル
 └── README.md                    # 本ドキュメント
 
 ```
@@ -130,23 +131,22 @@ npx wrangler deploy
 
 ### 3. Cloudflare Pages (Frontend) の設定
 
-#### `config.js` の設定
+#### `js/config.js` の設定
 
 Firebase SDKを利用するため、構成情報を追加します。
 
-**ファイル**: `webapp/config.js`
+**ファイル**: `webapp/js/config.js`
 
 ```javascript
-// Firebase SDK Configuration (Plan A用)
-const firebaseConfig = {
-  apiKey: "AIzaSy...",
-  authDomain: "...",
-  projectId: "...",
-  // ... (Firebaseコンソールから取得した値)
+const CONFIG = {
+  firebaseConfig: {
+    apiKey: "AIzaSy...",
+    authDomain: "...",
+    projectId: "...",
+    // ... (Firebaseコンソールから取得した値)
+  },
+  remoteEndpoint: "https://presence-proxy.taka-hiyo.workers.dev"
 };
-
-// Workers Endpoint (Plan B / Write用)
-const REMOTE_ENDPOINT = "[https://presence-proxy.taka-hiyo.workers.dev](https://presence-proxy.taka-hiyo.workers.dev)";
 
 ```
 
@@ -175,8 +175,8 @@ connect-src 'self'
 複数環境を管理する場合、設定ファイルを分けて管理することを推奨します。
 
 ```bash
-cp config.js config.dev.js
-cp config.js config.prod.js
+cp js/config.js js/config.dev.js
+cp js/config.js js/config.prod.js
 
 ```
 
@@ -193,7 +193,7 @@ cp config.js config.prod.js
 
 ### フロントエンド設定
 
-* [ ] **config.js**: `firebaseConfig` と `REMOTE_ENDPOINT` が正しく設定されているか
+* [ ] **js/config.js**: `CONFIG.firebaseConfig` と `CONFIG.remoteEndpoint` が正しく設定されているか
 * [ ] **index.html**: CSP に `googleapis.com`, `firebaseio.com` 等が追加されているか
 
 ### 動作確認

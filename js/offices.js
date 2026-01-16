@@ -16,7 +16,9 @@ function normalizeOfficeEntry(out,id,name){
 function configuredOfficesFallback(){
   const result=[];
   const sources=[];
-  if(typeof PUBLIC_OFFICE_FALLBACKS!=='undefined') sources.push(PUBLIC_OFFICE_FALLBACKS);
+  if (typeof CONFIG !== 'undefined' && Array.isArray(CONFIG.publicOfficeFallbacks)) {
+    sources.push(CONFIG.publicOfficeFallbacks);
+  }
   if(typeof STATIC_OFFICES!=='undefined') sources.push(STATIC_OFFICES);
   if(typeof PUBLIC_OFFICES!=='undefined') sources.push(PUBLIC_OFFICES);
   sources.forEach(src=>{

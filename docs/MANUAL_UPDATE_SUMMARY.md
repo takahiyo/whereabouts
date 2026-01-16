@@ -126,14 +126,14 @@
 
 ## ⏱️ 実装に基づく正確なタイミング情報
 
-### コードベースの値（config.js & board.js）
+### コードベースの値（js/config.js & board.js）
 
 | 項目 | 実装値 | コード箇所 | 説明 |
 |------|--------|------------|------|
 | **自動保存** | 900ms | `js/board.js:228` | `debounceRowPush(key, delay=900)` |
-| **在席状況の更新** | 10,000ms | `config.js:7` | `REMOTE_POLL_MS = 10000` |
-| **設定・お知らせの更新** | 30,000ms | `config.js:8` | `CONFIG_POLL_MS = 30000` |
-| **トークン更新** | 60分 | `config.js:9` | `TOKEN_DEFAULT_TTL = 3600000` |
+| **在席状況の更新** | 10,000ms | `js/config.js` | `CONFIG.remotePollMs = 10000` |
+| **設定・お知らせの更新** | 30,000ms | `js/config.js` | `CONFIG.configPollMs = 30000` |
+| **トークン更新** | 60分 | `js/config.js` | `CONFIG.tokenDefaultTtl = 3600000` |
 
 ### ユーザー向け表現
 
@@ -225,9 +225,9 @@
 - `ADMIN_MANUAL.md` - 管理者向け詳細マニュアル
 
 ### タイミング値の定義ファイル
-- `config.js` - ポーリング間隔の定義
-  - `REMOTE_POLL_MS = 10000` （10秒）
-  - `CONFIG_POLL_MS = 30000` （30秒）
+- `js/config.js` - ポーリング間隔の定義
+  - `CONFIG.remotePollMs = 10000` （10秒）
+  - `CONFIG.configPollMs = 30000` （30秒）
 - `js/board.js` - 自動保存の debounce 定義
   - `debounceRowPush(key, delay=900)` （0.9秒）
 
@@ -266,7 +266,7 @@ commit addb290 - docs: Update manual with notice feature and accurate timing inf
 ## 📞 今後の対応
 
 ### マニュアル更新時の注意点
-1. **タイミング値の変更時**: `config.js` の値を変更した場合、以下を更新すること
+1. **タイミング値の変更時**: `js/config.js` の値を変更した場合、以下を更新すること
    - `index.html` のマニュアルモーダル
    - `USER_MANUAL.md`
    - `ADMIN_MANUAL.md`

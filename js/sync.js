@@ -169,7 +169,10 @@ async function startLegacyPolling(immediate) {
   if (immediate) {
     pollAction().catch(() => { });
   }
-  remotePullTimer = setInterval(pollAction, REMOTE_POLL_MS);
+  const remotePollMs = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.remotePollMs))
+    ? CONFIG.remotePollMs
+    : 10000;
+  remotePullTimer = setInterval(pollAction, remotePollMs);
 }
 
 // データ同期開始（Graceful Degradation: Plan A -> Plan B）
@@ -289,11 +292,17 @@ function startConfigWatch(immediate = true) {
     fetchConfigOnce().catch(console.error);
   }
 
-  configWatchTimer = setInterval(fetchConfigOnce, CONFIG_POLL_MS);
+  const configPollMs = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.configPollMs))
+    ? CONFIG.configPollMs
+    : 30000;
+  configWatchTimer = setInterval(fetchConfigOnce, configPollMs);
 }
 function scheduleRenew(ttlMs) {
   if (tokenRenewTimer) { clearTimeout(tokenRenewTimer); tokenRenewTimer = null; }
-  const delay = Math.max(10_000, Number(ttlMs || TOKEN_DEFAULT_TTL) - 60_000);
+  const tokenDefaultTtl = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.tokenDefaultTtl))
+    ? CONFIG.tokenDefaultTtl
+    : 3600000;
+  const delay = Math.max(10_000, Number(ttlMs || tokenDefaultTtl) - 60_000);
   tokenRenewTimer = setTimeout(async () => {
     tokenRenewTimer = null;
     const me = await apiPost({ action: 'renew', token: SESSION_TOKEN });
@@ -316,7 +325,10 @@ function scheduleRenew(ttlMs) {
         ensureAuthUI();
         applyRoleToManual();
       }
-      scheduleRenew(Number(me.exp) || TOKEN_DEFAULT_TTL);
+      const tokenDefaultTtl = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.tokenDefaultTtl))
+        ? CONFIG.tokenDefaultTtl
+        : 3600000;
+      scheduleRenew(Number(me.exp) || tokenDefaultTtl);
     }
   }, delay);
 }

@@ -68,8 +68,9 @@ async function login(officeInput, passwordInput) {
     formData.append('office', officeInput);
     formData.append('password', passwordInput);
 
-    // REMOTE_ENDPOINT は js/config.js で定義されている
-    const endpoint = (typeof REMOTE_ENDPOINT !== 'undefined') ? REMOTE_ENDPOINT : "https://presence-proxy-prod.taka-hiyo.workers.dev";
+    const endpoint = (typeof CONFIG !== 'undefined' && CONFIG.remoteEndpoint)
+      ? CONFIG.remoteEndpoint
+      : "https://presence-proxy-prod.taka-hiyo.workers.dev";
 
     const resp = await fetch(endpoint, {
       method: 'POST',
