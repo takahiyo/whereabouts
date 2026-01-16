@@ -1046,10 +1046,12 @@ async function refreshEventDataSilent(officeId) {
       });
     }
     updateEventButtonVisibility(targetOfficeId, normalizedList);
-    const firstSelected = selectedEventIds?.[0] || '';
+const firstSelected = selectedEventIds?.[0] || '';
     if (firstSelected) {
       const selectedItem = findCachedEvent(targetOfficeId, firstSelected);
-      if (selectedItem) updateEventDetail(selectedItem, targetOfficeId);
+      // ▼ 修正: 編集中（未保存）の内容が上書きされて消えるのを防ぐためコメントアウト
+      /* if (selectedItem) updateEventDetail(selectedItem, targetOfficeId);
+      */
     }
     await applyEventDisplay(selectedEventIds && selectedEventIds.length ? selectedEventIds : visibleItems);
     return filteredList;
