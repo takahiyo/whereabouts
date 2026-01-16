@@ -211,8 +211,8 @@
         <div id="tabEvents" class="tab-panel" data-tab="events">
           <div class="vacation-grid">
             <div class="admin-box">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <h4 style="margin:0;">登録済みのイベント</h4>
+              <div class="u-flex-between-center u-mb-8">
+                <h4 class="u-m-0">登録済みのイベント</h4>
                 <button id="btnExportEvent" class="btn-secondary u-font-13">📄 イベントをエクスポート</button>
               </div>
               <div class="vacation-table-wrap">
@@ -549,18 +549,18 @@
           </tr>
         </table>
 
-        <p style="margin:16px 0 8px 0;"><strong>⏰ 戻り時間の入力（外出、出張、研修などの場合）</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-16 u-mb-8"><strong>⏰ 戻り時間の入力（外出、出張、研修などの場合）</strong></p>
+        <ol class="u-lh-18">
           <li>ステータスで「外出」「出張」「研修」「健康診断」「コアドック」を選ぶと、戻り時間が<strong class="u-text-red">必須</strong>になります</li>
           <li>「戻り時間」のドロップダウンをクリックして選択（07:00〜22:00、30分刻み）</li>
           <li>⚠️ 未入力の場合は赤枠で表示されます（必ず入力してください）</li>
         </ol>
-        <p style="margin:8px 0;color:#666;font-size:0.9em;">
+        <p class="u-my-8 u-text-666 u-font-09em">
           💡 ヒント：「在席」「在宅勤務」「帰宅」「休み」を選ぶと、戻り時間と備考が自動的にクリアされます
         </p>
 
-        <p style="margin:16px 0 8px 0;"><strong>📌 備考の入力（任意）</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-16 u-mb-8"><strong>📌 備考の入力（任意）</strong></p>
+        <ul class="u-lh-18">
           <li>「備考」欄をクリックして、自由に入力できます</li>
           <li>候補から選ぶこともできます：<strong>直出</strong>、<strong>直帰</strong>、<strong>直出・直帰</strong></li>
           <li>空白にしたい場合は「（空白）」を選択してください</li>
@@ -568,14 +568,14 @@
 
         <h5>📅 4. イベントの表示</h5>
         <p><strong>イベント機能とは</strong></p>
-        <ul style="line-height:1.8;">
+        <ul class="u-lh-18">
           <li>GW、年末年始、夏季休暇など、複数日にわたる休暇を簡単に管理できます</li>
           <li>管理者が休暇期間とメンバーを事前に設定しておくことで、休暇中のメンバーがわかりやすくなります</li>
           <li>イベントが登録されている場合のみ、ヘッダーに「イベント」ボタンが表示されます</li>
         </ul>
 
-        <p style="margin-top:12px;"><strong>イベントの表示方法</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12"><strong>イベントの表示方法</strong></p>
+        <ol class="u-lh-18">
           <li>ヘッダーの<strong>「イベント」</strong>ボタンをクリック</li>
           <li>登録されているイベントの一覧が表示されます（例：「GW期間休暇」「年末年始休暇」）</li>
           <li>表示したいイベントをクリックして選択</li>
@@ -583,22 +583,22 @@
           <li><strong>「表示」</strong>ボタンをクリック → メイン画面で該当メンバーの行が<strong>ハイライト表示</strong>されます</li>
         </ol>
 
-        <p style="margin-top:12px;"><strong>表示される内容</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12"><strong>表示される内容</strong></p>
+        <ul class="u-lh-18">
           <li>休暇中のメンバーの行が色付きでハイライトされます</li>
           <li>ステータス欄にイベントのタイトル（例：「GW期間休暇」）が表示されます</li>
           <li>画面上部に「イベント表示中」のバナーが表示されます</li>
         </ul>
 
-        <p style="margin-top:12px;"><strong>表示を解除する</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12"><strong>表示を解除する</strong></p>
+        <ul class="u-lh-18">
           <li>イベントモーダルで<strong>「表示クリア」</strong>ボタンをクリックすると、ハイライトが解除されます</li>
           <li>別のイベントを選択すると、表示が切り替わります</li>
         </ul>
 
         <div class="manual-alert manual-alert-warning">
           <strong>💡 ヒント</strong>
-          <ul style="margin:8px 0;line-height:1.8;">
+          <ul class="u-my-8 u-lh-18">
             <li>イベントの<strong>登録・編集・削除</strong>は管理者のみが行えます</li>
             <li>イベントを設定したい場合は、管理者に問い合わせてください</li>
             <li>イベントボタンが表示されない場合は、現在登録されているイベントがありません</li>
@@ -609,21 +609,21 @@
         </h5>
 
         <p><strong>氏名検索の使い方</strong></p>
-        <ol style="line-height:1.8;">
+        <ol class="u-lh-18">
           <li>画面上部の検索ボックスに名前を入力（例：「田中」）</li>
           <li>入力すると同時に、該当する人だけが表示されます</li>
           <li>検索を解除するには、入力内容を削除してください</li>
         </ol>
 
-        <p style="margin-top:12px;"><strong>ステータスで絞り込み</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12"><strong>ステータスで絞り込み</strong></p>
+        <ol class="u-lh-18">
           <li>画面上部の「ステータス絞り込み」ドロップダウンをクリック</li>
           <li>見たいステータスを選択（例：「外出中の人だけ見る」→「外出」を選択）</li>
           <li>全員表示に戻すには「全て」を選択してください</li>
         </ol>
 
-        <p style="margin-top:12px;"><strong>グループジャンプ（画面が長い場合）</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12"><strong>グループジャンプ（画面が長い場合）</strong></p>
+        <ol class="u-lh-18">
           <li>画面上部の拠点名（タイトル）をクリック</li>
           <li>グループ一覧メニューが表示されます</li>
           <li>行きたいグループをクリックすると、その位置にスクロールします</li>
@@ -631,23 +631,23 @@
 
         <h5>📢 5. お知らせ機能の使い方</h5>
         <p><strong>お知らせエリアとは</strong></p>
-        <ul style="line-height:1.8;">
+        <ul class="u-lh-18">
           <li>管理者が登録した重要なお知らせが、ヘッダーとメイン画面の間に表示されます</li>
           <li>システムメンテナンス、業務連絡、注意事項などが掲載されます</li>
           <li>お知らせがない場合は、お知らせエリアとボタンは表示されません</li>
         </ul>
 
-        <p style="margin-top:12px;"><strong>折りたたみ/展開の切り替え</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12"><strong>折りたたみ/展開の切り替え</strong></p>
+        <ol class="u-lh-18">
           <li><strong>初期状態（ログイン直後）</strong>：お知らせは<strong>展開</strong>された状態で表示されます</li>
           <li><strong>折りたたみ</strong>：ヘッダーの「お知らせ」ボタンをクリック → 最初のお知らせのタイトルと件数のみ表示されます<br>
-            <span style="color:#666;font-size:0.9em;">例：「システムメンテナンスのお知らせ (他2件)」</span>
+            <span class="u-text-666 u-font-09em">例：「システムメンテナンスのお知らせ (他2件)」</span>
           </li>
           <li><strong>展開</strong>：もう一度「お知らせ」ボタンをクリック → すべてのお知らせが表示されます</li>
         </ol>
 
-        <p style="margin-top:12px;"><strong>お知らせの更新頻度</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12"><strong>お知らせの更新頻度</strong></p>
+        <ul class="u-lh-18">
           <li>管理者が追加・編集・削除したお知らせは、約30秒ごとに自動的に反映されます</li>
           <li>すぐに確認したい場合は、ページを再読み込み（F5キー）してください</li>
         </ul>
@@ -655,7 +655,7 @@
         <h5>🔄 6. 自動更新について（重要）</h5>
         <div class="manual-alert manual-alert-warning">
           <strong>⚡ リアルタイム同期</strong>
-          <ul style="margin:8px 0;line-height:1.8;">
+          <ul class="u-my-8 u-lh-18">
             <li>✅ あなたが入力した内容は、<strong>約1秒後</strong>に自動的に保存されます</li>
             <li>✅ 他の人が入力した在席状況は、<strong>約10秒ごと</strong>に自動的にあなたの画面に反映されます</li>
             <li>✅ お知らせや設定の変更は、<strong>約30秒ごと</strong>に自動的に反映されます</li>
@@ -665,50 +665,50 @@
         </div>
 
         <h5>❓ よくある質問</h5>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 保存ボタンはどこですか？</summary>
-          <p style="margin:8px 0 8px 20px;">A. 保存ボタンはありません。入力すると自動的に約1秒後に保存されます。</p>
+        <details class="manual-details">
+          <summary>Q. 保存ボタンはどこですか？</summary>
+          <p>A. 保存ボタンはありません。入力すると自動的に約1秒後に保存されます。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. お知らせボタンが表示されません</summary>
-          <p style="margin:8px 0 8px 20px;">A. お知らせがない場合、お知らせボタンとお知らせエリアは表示されません。管理者がお知らせを登録すると自動的に表示されます（約30秒以内に反映）。
+        <details class="manual-details">
+          <summary>Q. お知らせボタンが表示されません</summary>
+          <p>A. お知らせがない場合、お知らせボタンとお知らせエリアは表示されません。管理者がお知らせを登録すると自動的に表示されます（約30秒以内に反映）。
           </p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. お知らせが邪魔で画面が見づらい</summary>
-          <p style="margin:8px 0 8px 20px;">A. ヘッダーの「お知らせ」ボタンをクリックすると、お知らせエリアを折りたたむことができます。折りたたむと1行のサマリー表示になります。</p>
+        <details class="manual-details">
+          <summary>Q. お知らせが邪魔で画面が見づらい</summary>
+          <p>A. ヘッダーの「お知らせ」ボタンをクリックすると、お知らせエリアを折りたたむことができます。折りたたむと1行のサマリー表示になります。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 戻り時間が選択できません</summary>
-          <p style="margin:8px 0 8px 20px;">A. ステータスが「在席」「在宅勤務」「帰宅」「休み」の場合、戻り時間は不要なため選択できません。「外出」「出張」などに変更してください。</p>
+        <details class="manual-details">
+          <summary>Q. 戻り時間が選択できません</summary>
+          <p>A. ステータスが「在席」「在宅勤務」「帰宅」「休み」の場合、戻り時間は不要なため選択できません。「外出」「出張」などに変更してください。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. スマートフォンでも使えますか？</summary>
-          <p style="margin:8px 0 8px 20px;">A. はい、スマートフォンのブラウザでも利用できます。画面が自動的にカード表示に切り替わります。</p>
+        <details class="manual-details">
+          <summary>Q. スマートフォンでも使えますか？</summary>
+          <p>A. はい、スマートフォンのブラウザでも利用できます。画面が自動的にカード表示に切り替わります。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 間違えて入力してしまいました</summary>
-          <p style="margin:8px 0 8px 20px;">A. すぐに正しい内容に入力し直してください。約2秒後に自動保存されます。</p>
+        <details class="manual-details">
+          <summary>Q. 間違えて入力してしまいました</summary>
+          <p>A. すぐに正しい内容に入力し直してください。約2秒後に自動保存されます。</p>
         </details>
 
         <h5>🌴 7. 長期休暇（イベント）機能の使い方</h5>
         <p><strong>長期休暇機能とは</strong></p>
-        <ul style="line-height:1.8;">
+        <ul class="u-lh-18">
           <li>管理者が登録した<strong>長期休暇期間（夏季休暇、年末年始、GWなど）</strong>を確認・選択できます</li>
           <li>自分がどの日に休暇を取るか、<strong>カレンダー上で選択</strong>できます</li>
           <li>選択した日は自動的にステータスが「休み」（または「休暇」「有給」など）になり、<strong>備考欄に休暇タイトル</strong>が表示されます</li>
           <li>✅ ログイン時や画面更新時に、<strong>保存した休暇が自動的に適用</strong>されます（毎回設定する必要はありません）</li>
         </ul>
 
-        <p style="margin-top:12px;"><strong>長期休暇カレンダーの開き方</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12"><strong>長期休暇カレンダーの開き方</strong></p>
+        <ol class="u-lh-18">
           <li>画面上部の<strong>「長期休暇」ボタン</strong>をクリック（管理者が設定した長期休暇がある場合のみ表示）</li>
           <li>長期休暇カレンダーが全画面で開きます</li>
           <li>複数のイベントがある場合は、リストから選択できます</li>
         </ol>
 
-        <p style="margin-top:12px;"><strong>休暇日の選択方法</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12"><strong>休暇日の選択方法</strong></p>
+        <ol class="u-lh-18">
           <li>長期休暇カレンダーを開き、必要に応じて<strong>イベントを選択</strong>します（複数ある場合）</li>
           <li>カレンダー上で<strong>自分の行</strong>を探します（グループ名と氏名で確認）</li>
           <li>休暇を取る日の<strong>セルをクリック</strong>（PCの場合はドラッグでも選択可能）</li>
@@ -719,7 +719,7 @@
 
         <div class="manual-hint">
           <strong>💡 操作のコツ</strong>
-          <ul style="margin:6px 0;line-height:1.6;">
+          <ul class="u-my-6 u-lh-16">
             <li><strong>連続した日付を選択</strong>：PCではドラッグ操作が便利です（例：5月3日〜5月7日まで一度に選択）</li>
             <li><strong>カーソルオン</strong>：セルにマウスを置くと、該当の氏名と日付がハイライト表示されます</li>
             <li><strong>横スクロール</strong>：カレンダー部分を横スクロールすると、全ての日付を確認できます</li>
@@ -729,7 +729,7 @@
 
         <div class="manual-alert manual-alert-success">
           <strong>💡 長期休暇カレンダーの便利な機能</strong>
-          <ul style="margin:8px 0;line-height:1.8;">
+          <ul class="u-my-8 u-lh-18">
             <li>✅ <strong>自動保存</strong>：選択した日は保存ボタンを押すと即座に反映され、データベースに保存されます</li>
             <li>✅ <strong>自動適用</strong>：ログイン時や画面更新（F5）時、保存された休暇が自動的に在席確認表に適用されます</li>
             <li>✅ <strong>カーソルオン強調</strong>：セルにマウスを置くと、該当の氏名と日付列がハイライト表示されます</li>
@@ -739,13 +739,13 @@
           </ul>
         </div>
 
-        <p style="margin-top:12px;"><strong>スマートフォン・タブレットでの操作</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12"><strong>スマートフォン・タブレットでの操作</strong></p>
+        <ul class="u-lh-18">
           <li>セルを<strong>タップ</strong>してON/OFF切り替え（ドラッグ操作は非対応）</li>
           <li><strong>横スクロール</strong>で全ての日付を確認可能（グループ名・氏名は固定）</li>
           <li><strong>縦スクロール</strong>で全てのメンバーを確認可能（ボタン・日付は上部固定）</li>
           <li><strong>日付表示</strong>：画面幅に応じて自動調整されます
-            <ul style="margin:4px 0 0 20px;">
+            <ul class="u-mt-4 u-mb-0 u-ml-20">
               <li>PC/タブレット：「12月 9日 月」（横並び表示）</li>
               <li>スマホ横：「12月 / 9日 / 月」（縦3行表示）</li>
               <li>スマホ縦：「12月 / 9日 / 月」（より小さいフォントでコンパクト表示）</li>
@@ -754,8 +754,8 @@
           <li><strong>タップ領域</strong>：狭い画面でもタップしやすいようセルサイズが最適化されています</li>
         </ul>
 
-        <p style="margin-top:12px;"><strong>注意事項</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12"><strong>注意事項</strong></p>
+        <ul class="u-lh-18">
           <li>⚠️ 長期休暇ボタンが表示されない場合は、管理者が長期休暇を「表示する」設定にしていません</li>
           <li>⚠️ 備考欄に既に内容がある場合、長期休暇タイトルで上書きされます（既存の内容は消えます）</li>
           <li>⚠️ 長期休暇カレンダーでの選択を変更した場合は、<strong>必ず「保存」ボタンをクリック</strong>してください</li>
@@ -764,49 +764,49 @@
         </ul>
 
         <h5>❓ よくある質問（長期休暇機能）</h5>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 長期休暇（イベント）ボタンが表示されません</summary>
-          <p style="margin:8px 0 8px 20px;">A. 管理者が「表示する」にチェックを入れた長期休暇がある場合のみ表示されます。ボタンが表示されない場合は、管理者に確認してください。</p>
+        <details class="manual-details">
+          <summary>Q. 長期休暇（イベント）ボタンが表示されません</summary>
+          <p>A. 管理者が「表示する」にチェックを入れた長期休暇がある場合のみ表示されます。ボタンが表示されない場合は、管理者に確認してください。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 長期休暇（イベント）を新規作成したい</summary>
-          <p style="margin:8px 0 8px 20px;">A.
+        <details class="manual-details">
+          <summary>Q. 長期休暇（イベント）を新規作成したい</summary>
+          <p>A.
             長期休暇の登録・編集・削除は<strong>管理者のみ</strong>が行えます。夏季休暇、年末年始、GWなどのイベントを設定したい場合は、管理者に問い合わせてください。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 長期休暇で選択した日を変更したい</summary>
-          <p style="margin:8px 0 8px 20px;">A. 長期休暇ボタンをクリックしてカレンダーを開き、選択を変更して「保存」ボタンをクリックしてください。変更はすぐに在席確認表に反映されます。</p>
+        <details class="manual-details">
+          <summary>Q. 長期休暇で選択した日を変更したい</summary>
+          <p>A. 長期休暇ボタンをクリックしてカレンダーを開き、選択を変更して「保存」ボタンをクリックしてください。変更はすぐに在席確認表に反映されます。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 長期休暇カレンダーで自分の名前が見つからない</summary>
-          <p style="margin:8px 0 8px 20px;">A. 横スクロールまたは縦スクロールで探してください。グループ名と氏名は固定表示されているため、スクロールしても常に見えます。</p>
+        <details class="manual-details">
+          <summary>Q. 長期休暇カレンダーで自分の名前が見つからない</summary>
+          <p>A. 横スクロールまたは縦スクロールで探してください。グループ名と氏名は固定表示されているため、スクロールしても常に見えます。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 長期休暇の選択を解除したい（通常のステータスに戻したい）</summary>
-          <p style="margin:8px 0 8px 20px;">A.
+        <details class="manual-details">
+          <summary>Q. 長期休暇の選択を解除したい（通常のステータスに戻したい）</summary>
+          <p>A.
             長期休暇カレンダーを開き、青色になっているセルをクリックして解除し、「保存」ボタンをクリックしてください。または、長期休暇カレンダー上部の「表示クリア」ボタンをクリックすると、全ての選択が解除されます。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 長期休暇を保存したのに反映されない</summary>
-          <p style="margin:8px 0 8px 20px;">A.
+        <details class="manual-details">
+          <summary>Q. 長期休暇を保存したのに反映されない</summary>
+          <p>A.
             ブラウザの画面を更新（F5キー）してください。保存された休暇は自動的に適用されるはずですが、反映されない場合は再度長期休暇カレンダーを開いて「表示」ボタンをクリックしてください。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 複数のイベントを同時に選択できますか？</summary>
-          <p style="margin:8px 0 8px 20px;">A.
+        <details class="manual-details">
+          <summary>Q. 複数のイベントを同時に選択できますか？</summary>
+          <p>A.
             いいえ、<strong>1つのイベントしか選択できません</strong>。別のイベントを選択すると、前のイベントで選択した内容は上書きされます。複数のイベント期間にまたがる休暇を取る場合は、それぞれのイベントで個別に選択してください。
           </p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 日付が縦に表示されて読みにくい</summary>
-          <p style="margin:8px 0 8px 20px;">A. スマートフォンなど狭い画面では、日付が縦3行表示（「12月 / 9日 /
+        <details class="manual-details">
+          <summary>Q. 日付が縦に表示されて読みにくい</summary>
+          <p>A. スマートフォンなど狭い画面では、日付が縦3行表示（「12月 / 9日 /
             月」）になります。これは限られたスペースに多くの情報を表示するための仕様です。PCやタブレットでは横並び表示になります。</p>
         </details>
 
-        <p style="margin-top:16px;font-size:0.95em;">
+        <p class="u-mt-16 u-font-095em">
           <strong>📚 さらに詳しく知りたい方へ</strong><br>
           より詳細な情報は <a href="USER_MANUAL.md" target="_blank"
-            style="color:#0073bb;text-decoration:underline;">詳細マニュアル（USER_MANUAL.md）</a> をご覧ください。
+            class="u-link-blue">詳細マニュアル（USER_MANUAL.md）</a> をご覧ください。
         </p>
       </section>
 
@@ -821,7 +821,7 @@
 
         <h5>📂 1. CSVエクスポート - データのバックアップ</h5>
         <p><strong>用途</strong>：現在の名簿と在席データをExcelで編集できる形式でダウンロードします</p>
-        <ol style="line-height:1.8;">
+        <ol class="u-lh-18">
           <li>画面上部の「管理」ボタンをクリック</li>
           <li>管理パネルが開きます</li>
           <li>「CSVエクスポート」セクションの「ダウンロード」ボタンをクリック</li>
@@ -832,8 +832,8 @@
         <h5>📥 2. CSVインポート - 名簿の一括登録・更新</h5>
         <p><strong>用途</strong>：Excelで編集した名簿を一括で取り込みます（名簿全体が置き換わります）</p>
 
-        <p style="margin:12px 0 8px 0;"><strong>対応しているCSV形式</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>対応しているCSV形式</strong></p>
+        <ul class="u-lh-18">
           <li>
             <strong>最新形式（推奨）</strong>：<code>1行目: 在席管理CSV / 2行目: グループ番号,グループ名,表示順,id,氏名,内線,携帯番号,Email,業務時間,ステータス,戻り時間,備考</code>
           </li>
@@ -842,8 +842,8 @@
           <li><strong>旧形式</strong>：<code>グループ番号,グループ名,表示順,id,氏名,内線,ステータス,戻り時間,備考</code>（業務時間列なし。既存データから引き継ぎます）</li>
         </ul>
 
-        <p style="margin:12px 0 8px 0;"><strong>操作手順</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>操作手順</strong></p>
+        <ol class="u-lh-18">
           <li><strong class="u-text-red">【重要】まずエクスポートでバックアップを取る</strong></li>
           <li>ダウンロードしたCSVファイルをExcelで開いて編集</li>
           <li>管理パネルの「CSVインポート」セクションで「ファイルを選択」をクリック</li>
@@ -854,7 +854,7 @@
 
         <div class="manual-alert manual-alert-danger">
           <strong>⚠️ 注意事項</strong>
-          <ul style="margin:8px 0;line-height:1.8;">
+          <ul class="u-my-8 u-lh-18">
             <li>インポートすると<strong>名簿全体が置き換わります</strong>（部分更新はできません）</li>
             <li>CSVに含まれないメンバーは削除されます</li>
             <li>元に戻すにはバックアップのCSVを再インポートしてください</li>
@@ -863,7 +863,7 @@
         </div>
 
         <h5>🏢 3. 拠点名の変更</h5>
-        <ol style="line-height:1.8;">
+        <ol class="u-lh-18">
           <li>管理パネルの「拠点名の変更」セクションに新しい拠点名を入力</li>
           <li>「変更」ボタンをクリック</li>
           <li>✅ 画面タイトルとログイン画面の拠点名が変更されます</li>
@@ -871,16 +871,16 @@
 
         <h5>🔑 4. パスワード変更</h5>
         <p>2種類のパスワードを個別に変更できます：</p>
-        <ul style="line-height:1.8;">
+        <ul class="u-lh-18">
           <li><strong>新パスワード</strong>：一般ユーザーがログインするときのパスワード</li>
           <li><strong>新管理者PW</strong>：管理者権限でログインするときのパスワード</li>
         </ul>
-        <ol style="line-height:1.8;">
+        <ol class="u-lh-18">
           <li>変更したいパスワード欄に新しいパスワードを入力（両方でも片方でもOK）</li>
           <li>「更新」ボタンをクリック</li>
           <li>✅「パスワードを更新しました」と表示されたら成功です</li>
         </ol>
-        <p style="margin:8px 0;color:#666;font-size:0.9em;">
+        <p class="u-my-8 u-text-666 u-font-09em">
           💡 パスワードは平文で保存されます。<strong>強固なパスワード</strong>を使用してください。
         </p>
 
@@ -893,8 +893,8 @@
           「現在のお知らせを読み込み」ボタンを押す必要はありません。
         </div>
 
-        <p style="margin:12px 0 8px 0;"><strong>お知らせの追加</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>お知らせの追加</strong></p>
+        <ol class="u-lh-18">
           <li>管理パネルを開く（現在のお知らせが自動表示されます）</li>
           <li>「➕ お知らせを追加」ボタンをクリック → 入力欄が追加されます</li>
           <li><strong>タイトル</strong>（最大200文字）と<strong>内容</strong>（最大2000文字）を入力</li>
@@ -902,22 +902,22 @@
           <li>✅ お知らせが即座に保存され、約30秒以内に全ユーザーの画面に表示されます</li>
         </ol>
 
-        <p style="margin:12px 0 8px 0;"><strong>お知らせの編集</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>お知らせの編集</strong></p>
+        <ol class="u-lh-18">
           <li>編集したいお知らせの「編集」ボタンをクリック</li>
           <li>入力欄に内容が表示されるので、修正します</li>
           <li>「保存」ボタンをクリック</li>
         </ol>
 
-        <p style="margin:12px 0 8px 0;"><strong>お知らせの削除</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>お知らせの削除</strong></p>
+        <ol class="u-lh-18">
           <li>削除したいお知らせの「削除」ボタンをクリック</li>
           <li>確認ダイアログで「OK」をクリック</li>
         </ol>
 
         <div class="manual-alert manual-alert-teal">
           <strong>💡 お知らせ機能のポイント</strong>
-          <ul style="margin:8px 0;line-height:1.8;">
+          <ul class="u-my-8 u-lh-18">
             <li>お知らせは<strong>拠点ごと</strong>に独立して管理されます</li>
             <li>1拠点あたり<strong>最大20件</strong>まで登録できます</li>
             <li>お知らせは<strong>追加した順</strong>（古い順）に表示されます</li>
@@ -926,8 +926,8 @@
           </ul>
         </div>
 
-        <p style="margin:12px 0 8px 0;"><strong>お知らせの用途例</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>お知らせの用途例</strong></p>
+        <ul class="u-lh-18">
           <li>🔧 システムメンテナンスの予定</li>
           <li>📅 全体会議やイベントの案内</li>
           <li>⚠️ 業務上の注意事項</li>
@@ -940,7 +940,7 @@
 
         <div class="manual-alert manual-alert-success">
           <strong>✨ イベント機能の特長</strong>
-          <ul style="margin:8px 0;line-height:1.8;">
+          <ul class="u-my-8 u-lh-18">
             <li>ガントチャート形式で休暇期間とメンバーを視覚的に管理できます</li>
             <li>対象メンバーの在席状況が自動的にハイライト表示されます</li>
             <li>ユーザーは登録されたイベントを選択して表示できます</li>
@@ -948,8 +948,8 @@
           </ul>
         </div>
 
-        <p style="margin:12px 0 8px 0;"><strong>イベントの作成</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>イベントの作成</strong></p>
+        <ol class="u-lh-18">
           <li>管理パネルを開き、<strong>「📅 イベント管理」</strong>タブをクリック</li>
           <li><strong>対象拠点</strong>を選択（スーパー管理者の場合）</li>
           <li><strong>タイトル</strong>を入力（例：「GW期間休暇」「年末年始休暇」）</li>
@@ -961,23 +961,23 @@
           <li>✅「イベントを保存しました」と表示されたら成功です</li>
         </ol>
 
-        <p style="margin:12px 0 8px 0;"><strong>イベントの編集</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>イベントの編集</strong></p>
+        <ol class="u-lh-18">
           <li>管理パネルの「登録済みのイベント」一覧から、編集したい項目の<strong>「編集」</strong>ボタンをクリック</li>
           <li>入力欄に現在の設定が表示されます</li>
           <li>必要な項目を修正します</li>
           <li><strong>「💾 作成/更新」</strong>ボタンをクリック</li>
         </ol>
 
-        <p style="margin:12px 0 8px 0;"><strong>イベントの削除</strong></p>
-        <ol style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>イベントの削除</strong></p>
+        <ol class="u-lh-18">
           <li>編集したいイベントを選択（編集ボタンをクリック）</li>
           <li><strong>「🗑️ 削除」</strong>ボタンをクリック</li>
           <li>確認ダイアログで「OK」をクリック</li>
         </ol>
 
-        <p style="margin:12px 0 8px 0;"><strong>ガントチャートの操作方法</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>ガントチャートの操作方法</strong></p>
+        <ul class="u-lh-18">
           <li><strong>セルをクリック</strong>：休暇のON/OFFを切り替え</li>
           <li><strong>ドラッグ</strong>：連続した日付やメンバーを一度に設定</li>
           <li><strong>スマートフォン</strong>：タップで操作可能</li>
@@ -985,9 +985,9 @@
           <li><strong>色分け</strong>：土日・祝日は自動的に色付けされます</li>
         </ul>
 
-        <p style="margin:12px 0 8px 0;"><strong>イベントの並び替え</strong></p>
+        <p class="u-mt-12 u-mb-8"><strong>イベントの並び替え</strong></p>
         <p>「登録済みのイベント」一覧では、複数のイベントの表示順序を変更できます。</p>
-        <ol style="line-height:1.8;">
+        <ol class="u-lh-18">
           <li>一覧の「並び」列にある<strong>「↑」「↓」ボタン</strong>をクリックすると、イベントの順序が入れ替わります</li>
           <li>上にあるイベントほど優先度が高く、ユーザーが選択する際のリストの上位に表示されます</li>
           <li>並び替え後、<strong>自動的に保存</strong>されます（保存ボタンを押す必要はありません）</li>
@@ -996,9 +996,9 @@
           <strong>💡 ヒント</strong>：現在進行中のイベント（例：GW、年末年始）を上位に配置すると、ユーザーが選択しやすくなります。
         </div>
 
-        <p style="margin:12px 0 8px 0;"><strong>休暇種別（休暇固定）の設定</strong></p>
+        <p class="u-mt-12 u-mb-8"><strong>休暇種別（休暇固定）の設定</strong></p>
         <p>各イベントに対して、ステータスとして表示される「休暇種別」を設定できます。</p>
-        <ul style="line-height:1.8;">
+        <ul class="u-lh-18">
           <li><strong>設定場所</strong>：「登録済みのイベント」一覧の<strong>「休暇固定（種別）」</strong>列</li>
           <li><strong>操作方法</strong>：該当の列をクリックすると、ドロップダウンから種別を選択できます</li>
           <li><strong>選択肢</strong>：「休み」「休暇」「特休」「有給」「代休」などから選択可能</li>
@@ -1006,7 +1006,7 @@
         </ul>
         <div class="manual-alert manual-alert-success">
           <strong>使用例</strong>
-          <ul style="margin:4px 0;line-height:1.6;">
+          <ul class="u-my-4 u-lh-16">
             <li>「GW期間休暇」→ 種別：<strong>「休暇」</strong>（通常の長期休暇）</li>
             <li>「年末年始休暇」→ 種別：<strong>「休み」</strong>（会社休業日）</li>
             <li>「夏季休暇」→ 種別：<strong>「有給」</strong>（有給休暇推奨期間）</li>
@@ -1014,12 +1014,12 @@
           </ul>
         </div>
 
-        <p style="margin:12px 0 8px 0;"><strong>色/カテゴリーの設定</strong></p>
+        <p class="u-mt-12 u-mb-8"><strong>色/カテゴリーの設定</strong></p>
         <p>イベントに色を設定することで、視覚的に区別しやすくなります。</p>
-        <ul style="line-height:1.8;">
+        <ul class="u-lh-18">
           <li><strong>設定場所</strong>：イベント作成/更新フォームの「色/カテゴリー」ドロップダウン</li>
           <li><strong>選択肢</strong>：
-            <ul style="margin:4px 0 4px 20px;">
+            <ul class="u-my-4 u-ml-20">
               <li>🟡 <strong>サニー（amber）</strong>：明るい黄色系（夏季休暇など）</li>
               <li>🔵 <strong>ブルー（blue）</strong>：青系（通常の休暇）</li>
               <li>🟢 <strong>グリーン（green）</strong>：緑系（有給推奨期間など）</li>
@@ -1032,9 +1032,9 @@
           <li><strong>効果</strong>：一覧表示やカレンダー表示時に、設定した色でイベントが識別されます</li>
         </ul>
 
-        <p style="margin:12px 0 8px 0;"><strong>管理者によるユーザー休暇日の編集</strong></p>
+        <p class="u-mt-12 u-mb-8"><strong>管理者によるユーザー休暇日の編集</strong></p>
         <p>管理者は、イベント作成時のガントチャートで全ユーザーの休暇日を一括設定できます。</p>
-        <ol style="line-height:1.8;">
+        <ol class="u-lh-18">
           <li>イベント作成/更新フォームで<strong>開始日と終了日</strong>を入力すると、ガントチャートが表示されます</li>
           <li>ガントチャート上で、<strong>各メンバーの休暇日をクリック/ドラッグ</strong>してON（青色）に設定します</li>
           <li>複数のメンバーを一度に設定する場合は、<strong>ドラッグ操作</strong>が便利です</li>
@@ -1046,8 +1046,8 @@
           管理者が後からガントチャートを編集しても、既にユーザーが保存した個人設定は上書きされません。
         </div>
 
-        <p style="margin:12px 0 8px 0;"><strong>表示/非表示の切り替え</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>表示/非表示の切り替え</strong></p>
+        <ul class="u-lh-18">
           <li>「登録済みのイベント」一覧の<strong>「表示」チェックボックス</strong>で切り替えられます</li>
           <li>チェックON：ユーザーがイベントボタンから選択できます</li>
           <li>チェックOFF：管理者のみ閲覧可能（ユーザーには表示されません）</li>
@@ -1056,7 +1056,7 @@
 
         <div class="manual-alert manual-alert-teal">
           <strong>💡 イベント機能のポイント</strong>
-          <ul style="margin:8px 0;line-height:1.8;">
+          <ul class="u-my-8 u-lh-18">
             <li>イベントは<strong>拠点ごと</strong>に独立して管理されます</li>
             <li>ユーザーがイベントを選択すると、該当メンバーの行が<strong>ハイライト表示</strong>されます</li>
             <li>ステータス欄にイベントのタイトルが表示され、内部的には「休み」として扱われます</li>
@@ -1065,8 +1065,8 @@
           </ul>
         </div>
 
-        <p style="margin:12px 0 8px 0;"><strong>イベントの用途例</strong></p>
-        <ul style="line-height:1.8;">
+        <p class="u-mt-12 u-mb-8"><strong>イベントの用途例</strong></p>
+        <ul class="u-lh-18">
           <li>🎌 <strong>GW（ゴールデンウィーク）</strong>：5月の連休期間</li>
           <li>🎆 <strong>夏季休暇</strong>：8月のお盆休み期間</li>
           <li>🎄 <strong>年末年始休暇</strong>：12月末〜1月初旬</li>
@@ -1075,7 +1075,7 @@
         </ul>
 
         <h5>📋 運用上の注意事項</h5>
-        <ul style="line-height:1.8;">
+        <ul class="u-lh-18">
           <li>💾 <strong>バックアップは必須</strong>：重要な操作の前に必ずCSVエクスポートでバックアップを取ってください</li>
           <li>👥 <strong>複数管理者の同時操作は避ける</strong>：競合してデータが失われる可能性があります</li>
           <li>🔄 <strong>定期バックアップ</strong>：週1回程度、定期的にCSVエクスポートすることを推奨します</li>
@@ -1083,69 +1083,69 @@
         </ul>
 
         <h5>❓ よくある質問（管理者向け）</h5>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. CSVインポートで「CSVヘッダが不正です」と出る</summary>
-          <p style="margin:8px 0 8px 20px;">A. ヘッダー行（最新形式では2行目）が正しい形式か確認してください。エクスポートしたCSVのヘッダー行をそのまま使うのが確実です。</p>
+        <details class="manual-details">
+          <summary>Q. CSVインポートで「CSVヘッダが不正です」と出る</summary>
+          <p>A. ヘッダー行（最新形式では2行目）が正しい形式か確認してください。エクスポートしたCSVのヘッダー行をそのまま使うのが確実です。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 誤ってメンバーを削除してしまった</summary>
-          <p style="margin:8px 0 8px 20px;">A. 削除前のバックアップCSVを再インポートしてください。バックアップがない場合は手動でCSVを作成する必要があります。</p>
+        <details class="manual-details">
+          <summary>Q. 誤ってメンバーを削除してしまった</summary>
+          <p>A. 削除前のバックアップCSVを再インポートしてください。バックアップがない場合は手動でCSVを作成する必要があります。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. メニュー設定のJSONが正しいか不安</summary>
-          <p style="margin:8px 0 8px 20px;">A.
+        <details class="manual-details">
+          <summary>Q. メニュー設定のJSONが正しいか不安</summary>
+          <p>A.
             オンラインのJSONバリデーター（例：jsonlint.com）で確認できます。保存時にエラーが出た場合は「現在の設定を読み込み」で元に戻してください。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. イベントのガントチャートが表示されません</summary>
-          <p style="margin:8px 0 8px 20px;">A. 開始日と終了日を入力してから、ガントチャートが生成されます。日付を入力していることを確認してください。</p>
+        <details class="manual-details">
+          <summary>Q. イベントのガントチャートが表示されません</summary>
+          <p>A. 開始日と終了日を入力してから、ガントチャートが生成されます。日付を入力していることを確認してください。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. イベントを保存したのにユーザーに表示されない</summary>
-          <p style="margin:8px 0 8px 20px;">A. 「表示する」チェックボックスがONになっているか確認してください。チェックOFFの場合、管理者のみ閲覧可能でユーザーには表示されません。</p>
+        <details class="manual-details">
+          <summary>Q. イベントを保存したのにユーザーに表示されない</summary>
+          <p>A. 「表示する」チェックボックスがONになっているか確認してください。チェックOFFの場合、管理者のみ閲覧可能でユーザーには表示されません。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. イベントの表示をやめたい</summary>
-          <p style="margin:8px 0 8px 20px;">A. イベント管理で該当する休暇の「表示」チェックボックスをOFFにしてください。または、休暇を削除することもできます。</p>
+        <details class="manual-details">
+          <summary>Q. イベントの表示をやめたい</summary>
+          <p>A. イベント管理で該当する休暇の「表示」チェックボックスをOFFにしてください。または、休暇を削除することもできます。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. イベントの並び順を変更したい</summary>
-          <p style="margin:8px 0 8px 20px;">A. 「登録済みのイベント」一覧の「並び」列にある↑↓ボタンをクリックすると順序を変更できます。変更は自動保存されます。</p>
+        <details class="manual-details">
+          <summary>Q. イベントの並び順を変更したい</summary>
+          <p>A. 「登録済みのイベント」一覧の「並び」列にある↑↓ボタンをクリックすると順序を変更できます。変更は自動保存されます。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 休暇種別（休暇固定）を変更したい</summary>
-          <p style="margin:8px 0 8px 20px;">A.
+        <details class="manual-details">
+          <summary>Q. 休暇種別（休暇固定）を変更したい</summary>
+          <p>A.
             「登録済みのイベント」一覧の「休暇固定（種別）」列をクリックすると、ドロップダウンから種別（休み、休暇、特休、有給、代休など）を選択できます。選択すると即座に保存されます。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. イベントの色を変更したい</summary>
-          <p style="margin:8px 0 8px 20px;">A. イベント編集画面の「色/カテゴリー」ドロップダウンから、サニー、ブルー、グリーン、ピンク、パープル、ティール、グレーの中から選択できます。</p>
+        <details class="manual-details">
+          <summary>Q. イベントの色を変更したい</summary>
+          <p>A. イベント編集画面の「色/カテゴリー」ドロップダウンから、サニー、ブルー、グリーン、ピンク、パープル、ティール、グレーの中から選択できます。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. 複数のイベントを同時に表示できますか？</summary>
-          <p style="margin:8px 0 8px 20px;">A.
+        <details class="manual-details">
+          <summary>Q. 複数のイベントを同時に表示できますか？</summary>
+          <p>A.
             管理者は複数のイベントを「表示する」に設定できますが、ユーザーが実際に選択できるのは1つだけです。ユーザーはイベントボタンから選択して切り替えることができます。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. ユーザーが個別に変更した休暇日を管理者が確認できますか？</summary>
-          <p style="margin:8px 0 8px 20px;">A.
+        <details class="manual-details">
+          <summary>Q. ユーザーが個別に変更した休暇日を管理者が確認できますか？</summary>
+          <p>A.
             ユーザーが長期休暇カレンダーで変更した内容は、そのユーザーの「メンバーの休暇指定ビット（membersBits）」として保存されています。管理者はCSVエクスポートで確認できますが、直接編集する機能は現在ありません。各ユーザーが自分で長期休暇カレンダーから変更してください。
           </p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. ガントチャートで設定した休暇日が反映されない</summary>
-          <p style="margin:8px 0 8px 20px;">A. ガントチャートでセルをクリック/ドラッグした後、必ず「💾
+        <details class="manual-details">
+          <summary>Q. ガントチャートで設定した休暇日が反映されない</summary>
+          <p>A. ガントチャートでセルをクリック/ドラッグした後、必ず「💾
             作成/更新」ボタンをクリックして保存してください。また、ユーザー側で該当イベントを選択していない場合は、休暇日として反映されません。</p>
         </details>
-        <details style="margin:8px 0;">
-          <summary style="cursor:pointer;font-weight:bold;padding:4px 0;">Q. イベントの対象拠点を変更したい</summary>
-          <p style="margin:8px 0 8px 20px;">A. イベント編集画面の「対象拠点」ドロップダウンから変更できます（スーパー管理者のみ）。変更後「💾 作成/更新」ボタンで保存してください。</p>
+        <details class="manual-details">
+          <summary>Q. イベントの対象拠点を変更したい</summary>
+          <p>A. イベント編集画面の「対象拠点」ドロップダウンから変更できます（スーパー管理者のみ）。変更後「💾 作成/更新」ボタンで保存してください。</p>
         </details>
 
-        <p style="margin-top:16px;font-size:0.95em;">
+        <p class="u-mt-16 u-font-095em">
           <strong>📚 さらに詳しく知りたい方へ</strong><br>
           より詳細な情報は <a href="ADMIN_MANUAL.md" target="_blank"
-            style="color:#0073bb;text-decoration:underline;">管理者向け詳細マニュアル（ADMIN_MANUAL.md）</a> をご覧ください。
+            class="u-link-blue">管理者向け詳細マニュアル（ADMIN_MANUAL.md）</a> をご覧ください。
         </p>
       </section>
     </div>

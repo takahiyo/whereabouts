@@ -3668,6 +3668,10 @@
     color: #6b7280;
   }
 
+  .u-text-666 {
+    color: #666;
+  }
+
   .u-text-red {
     color: #d00;
   }
@@ -3848,8 +3852,20 @@
     margin: 8px 0;
   }
 
+  .u-my-6 {
+    margin: 6px 0;
+  }
+
+  .u-my-4 {
+    margin: 4px 0;
+  }
+
   .u-pl-20 {
     padding-left: 20px;
+  }
+
+  .u-ml-20 {
+    margin-left: 20px;
   }
 
   .u-visually-hidden {
@@ -3901,6 +3917,10 @@
 
   .u-text-gray {
     color: #6b7280;
+  }
+
+  .u-text-666 {
+    color: #666;
   }
 
   .u-text-red {
