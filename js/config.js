@@ -29,6 +29,17 @@ function initFirebase() {
     }
     // 初期化を実行
     firebase.initializeApp(CONFIG.firebaseConfig);
+
+    // ★追加: オフライン永続化（キャッシュ）を有効にする
+    firebase.firestore().enablePersistence({ synchronizeTabs: true })
+        .catch((err) => {
+            if (err.code == 'failed-precondition') {
+                console.warn('複数タブで開かれているため、永続化は1つのタブでのみ有効です');
+            } else if (err.code == 'unimplemented') {
+                console.warn('このブラウザは永続化をサポートしていません');
+            }
+        });
+
     return true;
 }
 
