@@ -1035,14 +1035,15 @@ async function refreshEventDataSilent(officeId) {
       selectedEventIds = savedIds;
     }
     const visibleItems = filteredList.filter(item => item.visible === true);
-    if (eventModal && eventModal.classList.contains('show')) {
+if (eventModal && eventModal.classList.contains('show')) {
       renderVacationRadioList(filteredList, {
         selectedIds: selectedEventIds,
         onSelectChange: (ids) => {
           selectedEventIds = ids;
           saveEventIds(targetOfficeId, ids);
         },
-        onFocus: handleEventSelection
+        // ▼ 修正: 自動更新時は、詳細データの再読み込み（上書き）を行わないようにするため null を指定
+        onFocus: null 
       });
     }
     updateEventButtonVisibility(targetOfficeId, normalizedList);
