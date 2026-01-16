@@ -18,6 +18,9 @@ let useSdkMode = false;         // 現在SDKモードで動いているか
 let unsubscribeSnapshot = null; // Firestoreのリスナー解除用関数
 let fallbackTimer = null;       // フォールバック（Plan B切替）判定タイマー
 
+// ★追加: 最新の状態を保持するキャッシュ
+let STATE_CACHE = {};
+
 function defaultMenus() {
   return {
     timeStepMinutes: 30,
@@ -230,13 +233,13 @@ function startRemoteSync(immediate) {
         changes[change.doc.id] = change.doc.data();
       });
 
-      if (needsConfigRefetch) {
-        fetchConfigOnce();
-      }
-
       // 変更があった場合のみ適用
       if (Object.keys(changes).length > 0) {
         applyState(changes);
+      }
+
+      if (needsConfigRefetch) {
+        fetchConfigOnce();
       }
     }, (error) => {
       console.error("Plan A Error (SDK):", error);
@@ -267,7 +270,13 @@ async function fetchConfigOnce() {
       GROUPS = normalizeConfigClient({ groups });
       CONFIG_UPDATED = updated || Date.now();
       setupMenus(menus);
-      render();
+      render(); // DOM再描画（ここで画面が一度リセットされる）
+
+      // ★追加: DOM再描画後に、保持している最新の状態を再適用する
+      if (Object.keys(STATE_CACHE).length > 0) {
+        console.log('Restoring state after render');
+        applyState(STATE_CACHE);
+      }
     }
   }
 }
@@ -360,5 +369,43 @@ async function pushRowDelta(key) {
       });
     }
   }
+}
 
+// applyState関数の定義（下部に移動または既存を置換）
+function applyState(data) {
+  if (!data) return;
+  
+  // ★追加: 受信した最新データをキャッシュにマージ
+  Object.assign(STATE_CACHE, data);
+
+  Object.entries(data).forEach(([k, v]) => {
+    if (PENDING_ROWS.has(k)) return;
+
+    const tr = document.getElementById(`row-${k}`);
+    const s = tr?.querySelector('select[name="status"]'), t = tr?.querySelector('select[name="time"]'), w = tr?.querySelector('input[name="workHours"]'), n = tr?.querySelector('input[name="note"]');
+    if (!tr || !s || !t || !w) { ensureRowControls(tr); }
+    const extTd = tr?.querySelector('td.ext');
+    if (extTd && v && v.ext !== undefined) {
+      const extVal = String(v.ext || '').replace(/[^0-9]/g, '');
+      extTd.textContent = extVal;
+    }
+    if (tr) {
+      if (v && v.mobile !== undefined) { tr.dataset.mobile = String(v.mobile ?? '').trim(); }
+      if (v && v.email !== undefined) { tr.dataset.email = String(v.email ?? '').trim(); }
+    }
+    if (v.status && STATUSES.some(x => x.value === v.status)) setIfNeeded(s, v.status);
+    setIfNeeded(w, (v && typeof v.workHours === 'string') ? v.workHours : (v && v.workHours == null ? '' : String(v?.workHours ?? '')));
+    setIfNeeded(t, v.time || ""); setIfNeeded(n, v.note || "");
+    if (s && t) toggleTimeEnable(s, t);
+
+    // rev/serverUpdated 反映（無ければ0扱い）
+    const remoteRev = Number(v.rev || 0);
+    const localRev = Number(tr?.dataset.rev || 0);
+    if (tr && remoteRev > localRev) { tr.dataset.rev = String(remoteRev); tr.dataset.serverUpdated = String(v.serverUpdated || 0); }
+
+    ensureTimePrompt(tr);
+  });
+  recolor();
+  updateStatusFilterCounts();
+  applyFilters();
 }
