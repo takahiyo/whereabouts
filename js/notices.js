@@ -160,6 +160,7 @@ function renderNotices(notices) {
   }
 
   noticesList.innerHTML = '';
+  const frag = document.createDocumentFragment();
 
   list.forEach((notice) => {
     const title = notice && notice.title != null ? String(notice.title) : '';
@@ -191,8 +192,9 @@ function renderNotices(notices) {
     }
     if (noticeId) item.dataset.noticeId = String(noticeId);
     if (noticeKey) item.dataset.noticeKey = normalizeNoticeKey(noticeKey);
-    noticesList.appendChild(item);
+    frag.appendChild(item);
   });
+  noticesList.appendChild(frag);
 
   // サマリー更新
   if (noticesSummary) {

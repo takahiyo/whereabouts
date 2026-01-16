@@ -122,51 +122,7 @@ function resolveContactInfo(tr, fallback) {
   };
 }
 
-function attachContactLongPress(tdName, tr, fallbackMember) {
-  if (!tdName) return;
-  const HOLD_DELAY_MS = 900;
-  const MOVE_TOLERANCE_PX = 10;
-  let startTouchPoint = null;
 
-  const startHold = (touchPoint) => {
-    clearContactHoldTimer();
-    startTouchPoint = touchPoint ? { x: touchPoint.clientX, y: touchPoint.clientY } : null;
-    contactHoldTimer = setTimeout(() => {
-      contactHoldTimer = null;
-      const payload = resolveContactInfo(tr, fallbackMember);
-      showContactPopup(payload);
-    }, HOLD_DELAY_MS);
-  };
-  const cancelHold = () => {
-    startTouchPoint = null;
-    clearContactHoldTimer();
-  };
-  const handleTouchStart = (e) => {
-    e.preventDefault();
-    const touch = e.touches?.[0];
-    startHold(touch);
-  };
-  const handleTouchMove = (e) => {
-    if (!startTouchPoint) return;
-    const touch = e.touches?.[0];
-    if (!touch) return cancelHold();
-    const dx = Math.abs(touch.clientX - startTouchPoint.x);
-    const dy = Math.abs(touch.clientY - startTouchPoint.y);
-    if (dx > MOVE_TOLERANCE_PX || dy > MOVE_TOLERANCE_PX) {
-      cancelHold();
-    }
-  };
-  const handleMouseDown = (e) => { if (e.button === 0) startHold(); };
-
-  tdName.addEventListener('touchstart', handleTouchStart, { passive: false });
-  tdName.addEventListener('touchend', cancelHold, { passive: false });
-  tdName.addEventListener('touchcancel', cancelHold);
-  tdName.addEventListener('touchmove', handleTouchMove, { passive: false });
-  tdName.addEventListener('mousedown', handleMouseDown);
-  tdName.addEventListener('mouseup', cancelHold);
-  tdName.addEventListener('mouseleave', cancelHold);
-  bindContactScrollClearer();
-}
 
 function toggleCandidatePanel(wrapper) {
   if (!wrapper) return;
@@ -252,7 +208,6 @@ function buildRow(member) {
   tr.dataset.email = member.email ? String(member.email) : '';
 
   const tdName = el('td', { class: 'name', 'data-label': '氏名' }); tdName.textContent = name;
-  attachContactLongPress(tdName, tr, member);
 
   const tdExt = el('td', { class: 'ext', 'data-label': '内線' }, [ext]); /* 表示のみ */
 
@@ -348,12 +303,14 @@ function buildPanel(group, idx) {
 }
 function render() {
   board.replaceChildren();
-  GROUPS.forEach((g, i) => board.appendChild(buildPanel(g, i)));
-  
+  const frag = document.createDocumentFragment();
+  GROUPS.forEach((g, i) => frag.appendChild(buildPanel(g, i)));
+  board.appendChild(frag);
+
   // 修正箇所: u-hidden クラスを削除し、確実に表示されるようにする
   board.classList.remove('u-hidden');
   board.style.display = '';
-  
+
   // 自己修復
   board.querySelectorAll('tbody tr').forEach(ensureRowControls);
   wireEvents(); recolor();
@@ -499,6 +456,69 @@ function clearPendingRows() {
 /* 入力イベント（IME配慮・デバウンス） */
 function wireEvents() {
   bindCandidatePanelGlobals();
+
+  // 連絡先ロングプレス（Event Delegation）
+  const HOLD_DELAY_MS = 900;
+  const MOVE_TOLERANCE_PX = 10;
+  let startTouchPoint = null;
+  let currentTargetTd = null;
+
+  const startHold = (touchPoint, td) => {
+    clearContactHoldTimer();
+    currentTargetTd = td;
+    startTouchPoint = touchPoint ? { x: touchPoint.clientX, y: touchPoint.clientY } : null;
+    contactHoldTimer = setTimeout(() => {
+      contactHoldTimer = null;
+      if (!currentTargetTd) return;
+      const tr = currentTargetTd.closest('tr');
+      const payload = resolveContactInfo(tr, null);
+      showContactPopup(payload);
+      currentTargetTd = null;
+    }, HOLD_DELAY_MS);
+  };
+
+  const cancelHold = () => {
+    startTouchPoint = null;
+    currentTargetTd = null;
+    clearContactHoldTimer();
+  };
+
+  board.addEventListener('touchstart', (e) => {
+    const td = e.target.closest('td.name');
+    if (!td) return;
+    // e.preventDefault(); // ここではpreventDefaultしない（スクロールやタップ判定に影響するため）
+    const touch = e.touches?.[0];
+    startHold(touch, td);
+  }, { passive: true }); // passive: true にしてスクロール性能を確保
+
+  board.addEventListener('touchend', cancelHold);
+  board.addEventListener('touchcancel', cancelHold);
+
+  board.addEventListener('touchmove', (e) => {
+    if (!startTouchPoint || !contactHoldTimer) return;
+    const touch = e.touches?.[0];
+    if (!touch) {
+      cancelHold();
+      return;
+    }
+    const dx = Math.abs(touch.clientX - startTouchPoint.x);
+    const dy = Math.abs(touch.clientY - startTouchPoint.y);
+    if (dx > MOVE_TOLERANCE_PX || dy > MOVE_TOLERANCE_PX) {
+      cancelHold();
+    }
+  }, { passive: true });
+
+  board.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const td = e.target.closest('td.name');
+    if (!td) return;
+    startHold(null, td);
+  });
+
+  board.addEventListener('mouseup', cancelHold);
+  board.addEventListener('mouseleave', cancelHold);
+
+  bindContactScrollClearer();
 
   board.addEventListener('click', (e) => {
     const candidateBtn = e.target.closest('.candidate-btn');
