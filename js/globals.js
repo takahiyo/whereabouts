@@ -1345,8 +1345,11 @@ function applyEventHighlightForItems(eventItems, targetDate) {
   // 同日に複数のイベントが重複する場合、配列先頭（上位）を優先して色や休暇固定の適用を行う。
   const colorClasses = getEventColorClasses();
   const effectMap = new Map();
-  (eventItems || []).forEach(item => {
+(eventItems || []).forEach(item => {
     const { memberIds } = getEventMembersForDate(item, targetDate);
+    
+    // ▼ ログ抑制のためコメントアウト
+    /*
     if (!memberIds.length) {
       console.warn('applyEventHighlight: memberIds empty', {
         id: item.id || item.vacationId || '',
@@ -1357,6 +1360,9 @@ function applyEventHighlightForItems(eventItems, targetDate) {
         end: item.endDate || item.end || item.to || ''
       });
     }
+    */
+    // ▲ ここまで
+
     memberIds.forEach(id => {
       const key = String(id);
       const ref = effectMap.get(key) || { vacations: [], highlights: [] };
