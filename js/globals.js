@@ -1,5 +1,5 @@
 /* ===== 接続設定 ===== */
-/* config.js で REMOTE_ENDPOINT などを定義 */
+/* config.js で CONFIG を定義 */
 
 /* セッションキー */
 const SESSION_KEY = "presence-session-token";
@@ -64,7 +64,10 @@ let eventGanttController=null;
 let eventSelectedId='';
 let selectedEventIds=[];
 let eventDateColorState={ officeId:'', map:new Map(), lastSaved:new Map(), autoSaveTimer:null, saveInFlight:false, queued:false, statusEl:null, loaded:false };
-const EVENT_SYNC_INTERVAL_MS = Math.max(typeof REMOTE_POLL_MS==='number'?REMOTE_POLL_MS:10000, 15000);
+const eventSyncBase = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.remotePollMs))
+  ? CONFIG.remotePollMs
+  : 10000;
+const EVENT_SYNC_INTERVAL_MS = Math.max(eventSyncBase, 15000);
 
 /* 認証状態 */
 let SESSION_TOKEN=""; let CURRENT_OFFICE_NAME=""; let CURRENT_OFFICE_ID=""; let CURRENT_ROLE="user";
