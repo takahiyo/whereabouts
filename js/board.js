@@ -604,12 +604,12 @@ function wireEvents() {
       const noteInp = tr.querySelector('input[name="note"]');
       const isEditingTime = timeSel?.dataset?.editingTime === '1';
       const timeDisabled = timeSel?.getAttribute('aria-disabled') === 'true';
-      console.log('[status change] before toggle', { key, prev: prevVal, next: t.value, timeDisabled });
+
       if (!isEditingTime) {
         toggleTimeEnable(t, timeSel);
       }
       const timeDisabledAfter = timeSel?.getAttribute('aria-disabled') === 'true';
-      console.log('[status change] time disabled after toggle', { key, status: t.value, timeDisabled: timeDisabledAfter });
+
 
       if (!isEditingTime && clearOnSet.has(t.value)) {
         if (timeSel) timeSel.value = '';
@@ -626,7 +626,7 @@ function wireEvents() {
 
     if (t.name === 'time') {
       t.dataset.editing = '1';
-      console.log('[time change]', { key, prev: prevVal, next: t.value });
+
       ensureTimePrompt(tr);
       if (t.dataset) t.dataset.lastCommittedValue = t.value;
       debounceRowPush(key);

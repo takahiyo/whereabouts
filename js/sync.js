@@ -151,7 +151,7 @@ function normalizeConfigClient(cfg) {
 
 // Plan B: Workers経由のポーリング（フォールバック用）
 async function startLegacyPolling(immediate) {
-  console.log("Fallback to Workers Polling (Plan B)");
+
   useSdkMode = false;
 
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
@@ -194,7 +194,7 @@ function startRemoteSync(immediate) {
     return;
   }
 
-  console.log("Attempting Plan A: Firebase SDK connection...");
+
 
   // タイムアウト設定: 5秒以内にSDKでデータが取れなければPlan Bへ移行
   fallbackTimer = setTimeout(() => {
@@ -214,7 +214,7 @@ function startRemoteSync(immediate) {
       if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
 
       if (!useSdkMode) {
-        console.log("Plan A Connected: Using Firebase SDK Realtime Listener");
+
         useSdkMode = true;
 
         // 1. Configポーリング停止
@@ -277,7 +277,7 @@ async function fetchConfigOnce() {
 
       // ★追加: DOM再描画後に、保持している最新の状態を再適用する
       if (Object.keys(STATE_CACHE).length > 0) {
-        console.log('Restoring state after render');
+
         applyState(STATE_CACHE);
       }
     }
@@ -386,7 +386,7 @@ async function pushRowDelta(key) {
 // applyState関数の定義（下部に移動または既存を置換）
 function applyState(data) {
   if (!data) return;
-  
+
   // ★追加: 受信した最新データをキャッシュにマージ
   Object.assign(STATE_CACHE, data);
 

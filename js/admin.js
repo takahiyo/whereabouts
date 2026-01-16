@@ -459,7 +459,7 @@ function renderMemberTable() {
   memberTableBody.appendChild(fragment);
 }
 
-// function enableMemberDrag() { ... } // 不要になったため削除
+
 
 
 function openMemberEditor(member) {
@@ -642,7 +642,7 @@ btnLoadNotices.addEventListener('click', async () => {
   try {
     const params = { action: 'getNotices', token: SESSION_TOKEN, nocache: '1', office };
     const res = await apiPost(params);
-    console.log('getNotices response:', res);
+
     if (res && res.notices) {
       noticesEditor.innerHTML = '';
       if (res.notices.length === 0) {
@@ -678,7 +678,7 @@ btnSaveNotices.addEventListener('click', async () => {
     }
   });
 
-  console.log('Saving notices:', notices, 'for office:', office);
+
   const success = await saveNotices(notices, office);
   if (success) toast('お知らせを保存しました');
   else toast('お知らせの保存に失敗', false);

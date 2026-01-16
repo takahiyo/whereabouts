@@ -310,7 +310,7 @@ function startToolsPolling(officeId) {
 
   // Plan A: SDKリスナー
   if (db) {
-    console.log('Tools: Starting Firestore listener (Plan A)');
+
     // ツールは 'tools' コレクション内の 'config' ドキュメントにある
     const docRef = db.collection('offices').doc(targetOffice).collection('tools').doc('config');
 
