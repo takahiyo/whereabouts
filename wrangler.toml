@@ -1,4 +1,4 @@
-name = "presence-proxy-test"
+name = "whereabouts"
 main = "CloudflareWorkers_worker.js"
 compatibility_date = "2024-01-14"
 
