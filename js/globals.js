@@ -1442,6 +1442,11 @@ async function saveEventFromModal() {
   if ('visible' in item) adminPayload.visible = item.visible;
   if (id) adminPayload.id = id;
   try {
+    if (eventSyncTimer) {
+      clearInterval(eventSyncTimer);
+      eventSyncTimer = null;
+    }
+
     let res = null;
     if (typeof saveVacationBits === 'function') {
       res = await saveVacationBits(officeId, bitsPayload);
@@ -1462,10 +1467,22 @@ async function saveEventFromModal() {
         await applyEventDisplay(selectedEventIds.length ? selectedEventIds : [id]);
         await loadEvents(officeId, false, { visibleOnly: true, onSelect: handleEventSelection });
       }
+
+      if (SESSION_TOKEN) {
+        setTimeout(() => {
+          if (!eventSyncTimer) {
+             startEventSync(false);
+          }
+        }, 5000); 
+      }
+
       return true;
     }
     throw new Error(res && res.error ? String(res.error) : 'save_failed');
   } catch (err) {
+    if (!eventSyncTimer && SESSION_TOKEN) {
+        startEventSync(false);
+    }
     console.error('saveEventFromModal error', err);
     toast('イベントの保存に失敗しました', false);
     throw err;
