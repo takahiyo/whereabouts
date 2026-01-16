@@ -1,5 +1,5 @@
 // Service Worker for Whereabouts (Optimized v2)
-const CACHE_NAME = 'whereabouts-v2-optimized';
+const CACHE_NAME = 'whereabouts-v3-cleanup';
 const URLS_TO_CACHE = [
   './',
   './index.html',
