@@ -1428,6 +1428,8 @@ async function saveEventFromModal() {
   const membersBits = ctrl ? ctrl.getBitsString() : (eventBitsInput?.value || '');
   const id = item.id || item.vacationId || selectedId;
   const bitsPayload = { id, membersBits };
+
+  // ▼ 修正: 管理者用ペイロード作成（必要であれば使うが、今回は専用APIを使う）
   const adminPayload = {
     office: officeId,
     title: item.title || '',
@@ -1442,6 +1444,7 @@ async function saveEventFromModal() {
   };
   if ('visible' in item) adminPayload.visible = item.visible;
   if (id) adminPayload.id = id;
+
   try {
     if (eventSyncTimer) {
       clearInterval(eventSyncTimer);
@@ -1449,16 +1452,18 @@ async function saveEventFromModal() {
     }
 
     let res = null;
-    if (typeof saveVacationBits === 'function') {
-      res = await saveVacationBits(officeId, bitsPayload);
-      if (res?.error === 'forbidden' && typeof adminSetVacation === 'function' && isOfficeAdmin()) {
-        res = await adminSetVacation(officeId, adminPayload);
-      }
-    } else if (typeof adminSetVacation === 'function') {
-      res = await adminSetVacation(officeId, adminPayload);
-    }
-    if (res && res.ok !== false) {
-      toast('イベントを自動保存しました');
+
+    // ★修正: ユーザー権限でも保存できる専用API (setVacationBits) を使用
+    res = await apiPost({
+      action: 'setVacationBits',
+      token: SESSION_TOKEN,
+      office: officeId,
+      data: JSON.stringify(bitsPayload)
+    });
+
+    // ★修正: 成功判定を厳密にする (res.ok が true であること)
+    if (res && res.ok === true) {
+      toast('イベントを保存しました');
       updateCachedMembersBits(officeId, id, membersBits);
       if (Array.isArray(res.vacations)) {
         cachedEvents = { officeId, list: res.vacations };
@@ -1479,7 +1484,10 @@ async function saveEventFromModal() {
 
       return true;
     }
+
+    // エラーの場合
     throw new Error(res && res.error ? String(res.error) : 'save_failed');
+
   } catch (err) {
     if (!eventSyncTimer && SESSION_TOKEN) {
       startEventSync(false);

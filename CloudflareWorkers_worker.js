@@ -718,6 +718,66 @@ export default {
         return new Response(JSON.stringify({ vacations, updated: Date.now() }), { headers: corsHeaders });
       }
 
+      if (action === 'setVacationBits') {
+        const requestedOffice = formData.get('office') || '';
+        const officeId = resolveOffice(requestedOffice);
+        // 権限チェック: ログインしていればOK（officeAdminでなくても良い）
+        if (!tokenRole) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
+        let payload;
+        try {
+          payload = JSON.parse(formData.get('data') || '{}') || {};
+        } catch (e) {
+          return new Response(JSON.stringify({ error: 'bad_json' }), { headers: corsHeaders });
+        }
+
+        const id = payload.id;
+        const membersBits = String(payload.membersBits || '').trim();
+
+        if (!id) {
+          return new Response(JSON.stringify({ error: 'bad_request' }), { headers: corsHeaders });
+        }
+
+        // 既存データの取得（存在確認）
+        const docPath = `offices/${officeId}/vacations/${encodeURIComponent(id)}`;
+        const existing = await firestoreFetchOptional(docPath);
+        if (!existing) {
+          return new Response(JSON.stringify({ error: 'not_found' }), { headers: corsHeaders });
+        }
+
+        // membersBits と updated のみを更新
+        const nowTs = Date.now();
+        await firestorePatch(docPath, {
+          fields: {
+            membersBits: toFirestoreValue(membersBits),
+            updated: toFirestoreValue(nowTs)
+          }
+        }, ['membersBits', 'updated']);
+
+        // 更新後のリストを返却（キャッシュ更新用）
+        const json = await firestoreFetchOptional(`offices/${officeId}/vacations?pageSize=200`);
+        let vacations = (json?.documents || []).map(doc => normalizeVacationItem({
+          id: doc.name.split('/').pop(),
+          ...fromFirestoreDoc(doc)
+        }, officeId)).filter(Boolean);
+
+        // 並び替え
+        vacations = vacations.map((v, idx) => {
+          const orderVal = Number(v.order || 0);
+          return { ...v, order: orderVal > 0 ? orderVal : (idx + 1) };
+        }).sort((a, b) => {
+          const ao = Number(a.order || 0);
+          const bo = Number(b.order || 0);
+          if (ao !== bo) return ao - bo;
+          return Number(a.updated || 0) - Number(b.updated || 0);
+        });
+
+        const savedItem = vacations.find(v => v.id === id) || null;
+        return new Response(JSON.stringify({ ok: true, id, vacation: savedItem, vacations }), { headers: corsHeaders });
+      }
+
       if (action === 'setVacation') {
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
