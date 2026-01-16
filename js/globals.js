@@ -23,6 +23,7 @@ const eventStartInput = document.getElementById('eventStart');
 const eventEndInput = document.getElementById('eventEnd');
 const eventBitsInput = document.getElementById('eventBits');
 const btnEventPrint = document.getElementById('btnEventPrint');
+const btnEventSave = document.getElementById('btnEventSave');
 const btnExport = document.getElementById('btnExport'), csvFile = document.getElementById('csvFile'), btnImport = document.getElementById('btnImport');
 const renameOfficeName = document.getElementById('renameOfficeName'), btnRenameOffice = document.getElementById('btnRenameOffice');
 const setPw = document.getElementById('setPw'), setAdminPw = document.getElementById('setAdminPw'), btnSetPw = document.getElementById('btnSetPw');
@@ -1471,9 +1472,9 @@ async function saveEventFromModal() {
       if (SESSION_TOKEN) {
         setTimeout(() => {
           if (!eventSyncTimer) {
-             startEventSync(false);
+            startEventSync(false);
           }
-        }, 5000); 
+        }, 5000);
       }
 
       return true;
@@ -1481,7 +1482,7 @@ async function saveEventFromModal() {
     throw new Error(res && res.error ? String(res.error) : 'save_failed');
   } catch (err) {
     if (!eventSyncTimer && SESSION_TOKEN) {
-        startEventSync(false);
+      startEventSync(false);
     }
     console.error('saveEventFromModal error', err);
     toast('イベントの保存に失敗しました', false);
@@ -1549,6 +1550,23 @@ function startEventSync(immediate = false) {
   eventSyncTimer = setInterval(() => {
     runSync().catch(err => console.error('eventSync failed', err));
   }, EVENT_SYNC_INTERVAL_MS);
+}
+
+/* イベントカレンダー保存ボタン（手動保存） */
+if (btnEventSave) {
+  btnEventSave.addEventListener('click', async () => {
+    btnEventSave.disabled = true;
+    try {
+      const success = await saveEventFromModal();
+      if (!success) {
+        // saveEventFromModal handles toast errors
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setTimeout(() => { btnEventSave.disabled = false; }, 1000);
+    }
+  });
 }
 
 /* イベントカレンダー印刷 */

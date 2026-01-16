@@ -568,7 +568,7 @@
       arr[memberIdx] = on;
       bitsByDate.set(date, arr);
       updateBitsInput();
-      scheduleAutoSave('cell');
+      // scheduleAutoSave('cell');
     }
 
     function applyBitsToCells() {
@@ -1006,7 +1006,7 @@
           bitsInput.addEventListener('input', () => {
             parseBitsString(bitsInput.value);
             applyBitsToCells();
-            scheduleAutoSave('bits-input');
+            // scheduleAutoSave('bits-input');
           });
         }
       }
