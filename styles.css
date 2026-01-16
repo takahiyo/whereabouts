@@ -3863,3 +3863,78 @@
     color: #666;
     font-size: 0.9em;
   }
+
+  /* --- Refactored Utility Classes (Utility / Helper) --- */
+  .u-flex-between-center {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .u-mb-8 {
+    margin-bottom: 8px !important;
+  }
+
+  .u-mt-6 {
+    margin-top: 6px;
+  }
+
+  .u-mt-12 {
+    margin-top: 12px;
+  }
+
+  .u-mt-16 {
+    margin-top: 16px;
+  }
+
+  .u-mr-4 {
+    margin-right: 4px;
+  }
+
+  .u-mb-0 {
+    margin-bottom: 0 !important;
+  }
+
+  .u-text-center {
+    text-align: center;
+  }
+
+  .u-text-gray {
+    color: #6b7280;
+  }
+
+  .u-text-red {
+    color: #d00;
+  }
+
+  .u-font-sm {
+    font-size: 11px;
+  }
+
+  .u-font-13 {
+    font-size: 13px;
+  }
+
+  .u-font-09em {
+    font-size: 0.9em;
+  }
+
+  .u-font-095em {
+    font-size: 0.95em;
+  }
+
+  .u-w-44 {
+    width: 44px;
+  }
+
+  .u-w-64 {
+    width: 64px;
+  }
+
+  .u-w-160 {
+    width: 160px;
+  }
+
+  .u-hidden {
+    display: none;
+  }
