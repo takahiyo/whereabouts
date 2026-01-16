@@ -538,11 +538,25 @@
     opacity: 0.45;
   }
 
-  td.time.need-time select {
+td.time.need-time select {
     border-color: #ef4444 !important;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, .25);
     animation: pulseRing 1.2s ease-in-out infinite;
   }
+
+  /* ▼ 追加箇所ここから ▼ */
+  /* 修正: タッチ/選択操作中（フォーカス時）はアニメーションを止める */
+  td.time.need-time select:focus {
+    animation: none;
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, .25);
+  }
+
+  /* 修正: タッチ/選択操作中（フォーカス時）はヒント文字を消す */
+  td.time.need-time select:focus ~ .time-hint {
+    display: none;
+  }
+  /* ▲ 追加箇所ここまで ▲ */
 
   .time-hint {
     position: absolute;
