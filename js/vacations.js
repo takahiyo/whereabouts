@@ -2,40 +2,12 @@
   const HOLIDAY_API_URL = window.HOLIDAY_API_URL || 'https://holidays-jp.github.io/api/v1/date.json';
   const MANUAL_HOLIDAYS = Array.isArray(window.MANUAL_HOLIDAYS) ? window.MANUAL_HOLIDAYS : [];
   const holidayCache = new Map(); // year -> Set<string>
-  const COLOR_PALETTE = [
-    { key: 'none', className: 'vac-color-none' },
-    { key: 'saturday', className: 'vac-color-sat' },
-    { key: 'sunday', className: 'vac-color-sun' },
-    { key: 'holiday', className: 'vac-color-holiday' },
-    { key: 'amber', className: 'vac-color-amber' },
-    { key: 'mint', className: 'vac-color-mint' },
-    { key: 'lavender', className: 'vac-color-lavender' },
-    { key: 'slate', className: 'vac-color-slate' }
-  ];
-  const PALETTE_EVENT_COLOR_MAP = {
-    none: '',
-    saturday: 'blue',
-    sunday: 'sunday',
-    holiday: 'holiday',
-    amber: 'amber',
-    mint: 'green',
-    lavender: 'purple',
-    slate: 'slate'
-  };
-  const EVENT_COLOR_TO_PALETTE_MAP = {
-    amber: 'amber',
-    none: 'none',
-    blue: 'saturday',
-    green: 'mint',
-    purple: 'lavender',
-    sunday: 'sunday',
-    saturday: 'saturday',
-    holiday: 'holiday',
-    teal: 'mint',
-    pink: 'sunday',
-    gray: 'slate',
-    slate: 'slate'
-  };
+
+  // ★修正: CONFIG からパレット定義を取得 (SSOT)
+  const COLOR_PALETTE = (typeof CONFIG !== 'undefined' && CONFIG.colorPalette) ? CONFIG.colorPalette : [];
+  const PALETTE_EVENT_COLOR_MAP = (typeof CONFIG !== 'undefined' && CONFIG.paletteToEventColor) ? CONFIG.paletteToEventColor : {};
+  const EVENT_COLOR_TO_PALETTE_MAP = (typeof CONFIG !== 'undefined' && CONFIG.eventColorToPalette) ? CONFIG.eventColorToPalette : {};
+
 
   const FALLBACK_DAYS = 7;
 

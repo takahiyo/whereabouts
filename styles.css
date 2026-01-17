@@ -34,17 +34,86 @@
     --head: #f1ece6;
     --bg: #fafafa;
     --header-height: 56px;
+
+    /* === カラーパレット (SSOT) === */
+    --color-white: #ffffff;
+    --color-black: #000000;
+    --color-gray-50: #f9fafb;
+    --color-gray-100: #f3f4f6;
+    --color-gray-200: #e5e7eb;
+    --color-gray-300: #d1d5db;
+    --color-gray-400: #9ca3af;
+    --color-gray-500: #6b7280;
+    --color-gray-600: #4b5563;
+    --color-gray-700: #374151;
+    --color-gray-800: #1f2937;
+    --color-gray-900: #111827;
+
+    --color-blue-50: #eff6ff;
+    --color-blue-100: #dbeafe;
+    --color-blue-200: #bfdbfe;
+    --color-blue-500: #3b82f6;
+    --color-blue-600: #2563eb;
+    --color-blue-700: #1d4ed8;
+
+    --color-green-50: #f0fdf4;
+    --color-green-100: #dcfce7;
+    --color-green-500: #22c55e;
+
+    --color-red-50: #fef2f2;
+    --color-red-100: #fee2e2;
+    --color-red-200: #fecaca;
+    --color-red-500: #ef4444;
+    --color-red-600: #dc2626;
+
+    --color-amber-50: #fffbeb;
+    --color-amber-100: #fef3c7;
+    --color-amber-400: #fbbf24;
+
+    --color-pink-50: #fdf2f8;
+    --color-pink-100: #fce7f3;
+    --color-pink-200: #fbcfe8;
+
+    --color-indigo-50: #eef2ff;
+    --color-indigo-100: #e0e7ff;
+    --color-indigo-200: #c7d2fe;
+
+    /* 機能別カラー */
+    --color-border: var(--line);
+    --color-panel-bg: var(--bg);
+    --color-header-bg: var(--color-white);
+    --color-body-bg: var(--color-white);
+    --color-text-main: var(--color-gray-900);
+    --color-text-muted: var(--color-gray-500);
+
+    --color-btn-group-bg: #dff1ff;
+    /* 従来色維持 */
+    --color-btn-group-border: #bfe4ff;
+    --color-btn-notices-bg: var(--color-amber-50);
+    --color-btn-notices-border: var(--color-amber-400);
+    --color-btn-admin-bg: #e7f8e7;
+    /* 従来色維持 */
+    --color-btn-admin-border: #b7e6b7;
+    --color-btn-event-bg: var(--color-pink-50);
+    --color-btn-event-border: var(--color-pink-200);
+    --color-btn-logout-bg: var(--color-red-100);
+    --color-btn-logout-border: var(--color-red-200);
+    --color-btn-tools-bg: #e0f2fe;
+    /* 従来色維持 */
+    --color-btn-tools-border: #bae6fd;
+    --color-btn-manual-bg: var(--color-indigo-50);
+    --color-btn-manual-border: var(--color-indigo-200);
   }
 
   body {
     font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
-    background: #fff;
-    margin: 16px
+    background: var(--color-body-bg);
+    margin: 16px;
+    color: var(--color-text-main);
   }
 
   /* ヘッダ */
   header {
-    position: relative;
     position: sticky;
     top: 0;
     z-index: 1500;
@@ -54,7 +123,7 @@
     justify-content: center;
     margin-bottom: 12px;
     flex-wrap: wrap;
-    background: #fff;
+    background: var(--color-header-bg);
     padding: 6px 0;
     box-shadow: 0 1px 0 rgba(0, 0, 0, .06);
   }
@@ -72,7 +141,7 @@
   header .tools-btn {
     font-size: 14px;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--color-gray-800);
     padding: .35rem .9rem;
     border-radius: 999px;
     line-height: 1.2;
@@ -81,43 +150,43 @@
   }
 
   header .title-btn {
-    background: #dff1ff;
-    border-color: #bfe4ff;
+    background: var(--color-btn-group-bg);
+    border-color: var(--color-btn-group-border);
   }
 
   header .notices-btn {
-    background: #fffbeb;
-    border-color: #fbbf24;
+    background: var(--color-btn-notices-bg);
+    border-color: var(--color-btn-notices-border);
     display: none;
   }
 
   header .admin-btn {
-    background: #e7f8e7;
-    border-color: #b7e6b7;
+    background: var(--color-btn-admin-bg);
+    border-color: var(--color-btn-admin-border);
     display: none;
   }
 
   header .event-btn {
-    background: #fdf2f8;
-    border-color: #fbcfe8;
+    background: var(--color-btn-event-bg);
+    border-color: var(--color-btn-event-border);
     display: none;
   }
 
   header .logout-btn {
-    background: #fee2e2;
-    border-color: #fecaca;
+    background: var(--color-btn-logout-bg);
+    border-color: var(--color-btn-logout-border);
     display: none;
   }
 
   header .tools-btn {
-    background: #e0f2fe;
-    border-color: #bae6fd;
+    background: var(--color-btn-tools-bg);
+    border-color: var(--color-btn-tools-border);
     display: none;
   }
 
   header .manual-btn {
-    background: #eef2ff;
-    border-color: #c7d2fe;
+    background: var(--color-btn-manual-bg);
+    border-color: var(--color-btn-manual-border);
     display: none;
   }
 
@@ -126,7 +195,7 @@
   .status-filter {
     display: none;
     padding: .35rem .6rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--color-border);
     border-radius: 999px;
     font-size: 14px;
   }

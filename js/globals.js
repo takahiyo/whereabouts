@@ -68,7 +68,9 @@ let eventDateColorState = { officeId: '', map: new Map(), lastSaved: new Map(), 
 const eventSyncBase = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.remotePollMs))
   ? CONFIG.remotePollMs
   : 10000;
-const EVENT_SYNC_INTERVAL_MS = Math.max(eventSyncBase, 15000);
+const EVENT_SYNC_INTERVAL_MS = (typeof CONFIG !== 'undefined' && CONFIG.eventSyncIntervalMs)
+  ? CONFIG.eventSyncIntervalMs
+  : Math.max(eventSyncBase, 15000);
 
 /* 認証状態 */
 let SESSION_TOKEN = ""; let CURRENT_OFFICE_NAME = ""; let CURRENT_OFFICE_ID = ""; let CURRENT_ROLE = "user";
@@ -161,44 +163,16 @@ function renderVacationRadioMessage(message) {
   const div = document.createElement('div');
   div.style.textAlign = 'center';
   div.style.padding = '20px';
-  div.style.color = '#6b7280';
+  div.style.color = 'var(--color-text-muted)';
   div.textContent = message;
   vacationRadioList.appendChild(div);
 }
 
-const EVENT_COLOR_KEYS = ['amber', 'blue', 'green', 'pink', 'purple', 'teal', 'gray', 'sunday', 'holiday', 'slate'];
-const EVENT_COLOR_LABELS = {
-  amber: 'サニー',
-  blue: 'ブルー',
-  green: 'グリーン',
-  pink: 'ピンク',
-  purple: 'パープル',
-  teal: 'ティール',
-  gray: 'グレー',
-  sunday: '日曜',
-  holiday: '祝日',
-  slate: 'スレート'
-};
-const EVENT_COLOR_LEGACY_FALLBACKS = {
-  pink: 'sunday',
-  gray: 'slate',
-  grey: 'slate'
-};
-const EVENT_COLOR_TRANSPORT_FALLBACKS = {
-  sunday: 'pink',
-  holiday: 'pink',
-  slate: 'gray'
-};
-const PALETTE_TO_EVENT_COLOR_MAP = {
-  none: '',
-  saturday: 'blue',
-  sunday: 'sunday',
-  holiday: 'holiday',
-  amber: 'amber',
-  mint: 'green',
-  lavender: 'purple',
-  slate: 'slate'
-};
+// ★修正: CONFIG から設定を取得 (SSOT)
+const EVENT_COLOR_LABELS = (typeof CONFIG !== 'undefined' && CONFIG.eventColorLabels) ? CONFIG.eventColorLabels : {};
+const PALETTE_TO_EVENT_COLOR_MAP = (typeof CONFIG !== 'undefined' && CONFIG.paletteToEventColor) ? CONFIG.paletteToEventColor : {};
+const EVENT_COLOR_KEYS = Object.keys(EVENT_COLOR_LABELS);
+
 const EVENT_COLOR_TO_PALETTE_MAP = {
   amber: 'amber',
   blue: 'saturday',
