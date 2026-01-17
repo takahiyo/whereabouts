@@ -686,16 +686,23 @@
     }
 
     function createBodyRows() {
-      const tbody = document.createElement('tbody');
+      const fragment = document.createDocumentFragment();
       groupAnchors = [];
       let cursor = 0;
       const grouped = (typeof getRosterOrdering === 'function') ? getRosterOrdering() : [];
+
       grouped.forEach((group, gi) => {
         const members = group.members || [];
         if (members.length === 0) return;
+
+        // ★修正: グループごとに tbody を分ける
+        const groupTbody = document.createElement('tbody');
+        groupTbody.className = 'gantt-group';
+
         const groupTitle = getGroupTitle(group, gi);
         const anchorId = `${(ganttRoot && ganttRoot.id) ? `${ganttRoot.id}-` : ''}group-${gi}`;
         groupAnchors.push({ id: anchorId, title: groupTitle, memberCount: members.length });
+
         members.forEach((member, mi) => {
           const tr = document.createElement('tr');
           // グループの最後の行にクラスを追加
@@ -716,6 +723,7 @@
           nameTh.className = 'member-name';
           nameTh.dataset.memberIndex = String(cursor);
           tr.appendChild(nameTh);
+
           dateSlots.forEach(date => {
             const td = document.createElement('td');
             td.className = 'vac-cell';
@@ -730,11 +738,12 @@
             td.setAttribute('aria-pressed', 'false');
             tr.appendChild(td);
           });
-          tbody.appendChild(tr);
+          groupTbody.appendChild(tr);
           cursor += 1;
         });
+        fragment.appendChild(groupTbody);
       });
-      return tbody;
+      return fragment;
     }
 
     function applyHolidayColor(holidays) {

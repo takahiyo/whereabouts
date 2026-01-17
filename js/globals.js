@@ -1035,7 +1035,7 @@ async function refreshEventDataSilent(officeId) {
       selectedEventIds = savedIds;
     }
     const visibleItems = filteredList.filter(item => item.visible === true);
-if (eventModal && eventModal.classList.contains('show')) {
+    if (eventModal && eventModal.classList.contains('show')) {
       renderVacationRadioList(filteredList, {
         selectedIds: selectedEventIds,
         onSelectChange: (ids) => {
@@ -1043,11 +1043,11 @@ if (eventModal && eventModal.classList.contains('show')) {
           saveEventIds(targetOfficeId, ids);
         },
         // ▼ 修正: 自動更新時は、詳細データの再読み込み（上書き）を行わないようにするため null を指定
-        onFocus: null 
+        onFocus: null
       });
     }
     updateEventButtonVisibility(targetOfficeId, normalizedList);
-const firstSelected = selectedEventIds?.[0] || '';
+    const firstSelected = selectedEventIds?.[0] || '';
     if (firstSelected) {
       const selectedItem = findCachedEvent(targetOfficeId, firstSelected);
       // ▼ 修正: 編集中（未保存）の内容が上書きされて消えるのを防ぐためコメントアウト
@@ -1348,9 +1348,9 @@ function applyEventHighlightForItems(eventItems, targetDate) {
   // 同日に複数のイベントが重複する場合、配列先頭（上位）を優先して色や休暇固定の適用を行う。
   const colorClasses = getEventColorClasses();
   const effectMap = new Map();
-(eventItems || []).forEach(item => {
+  (eventItems || []).forEach(item => {
     const { memberIds } = getEventMembersForDate(item, targetDate);
-    
+
     // ▼ ログ抑制のためコメントアウト
     /*
     if (!memberIds.length) {
@@ -1601,43 +1601,16 @@ if (btnEventPrint) {
       return;
     }
 
-    // 印刷用イベント情報を更新
+    // 印刷用タイトルを更新
     const selectedOption = dropdown.options[dropdown.selectedIndex];
     const eventTitle = selectedOption ? selectedOption.textContent : '';
     const printInfo = document.getElementById('eventPrintInfo');
     if (printInfo && eventTitle) {
       printInfo.textContent = `イベントカレンダー: ${eventTitle}`;
-      printInfo.style.display = 'block';
     }
 
-    // イベントモーダルとその親要素を強制表示
-    const eventModal = document.getElementById('eventModal');
-    if (eventModal) {
-      eventModal.style.display = 'block';
-      eventModal.style.visibility = 'visible';
-      eventModal.classList.add('print-mode');
-    }
-
-    // ガントチャートを強制表示し、タイトルを設定
-    const ganttWrap = document.getElementById('eventGanttWrap');
-    if (ganttWrap) {
-      ganttWrap.style.display = 'block';
-      ganttWrap.style.visibility = 'visible';
-      ganttWrap.setAttribute('data-event-title', `イベントカレンダー: ${eventTitle}`);
-    }
-    if (gantt) {
-      gantt.style.display = 'block';
-      gantt.style.visibility = 'visible';
-    }
-
-    // 印刷実行
-    setTimeout(() => {
-      window.print();
-      // 印刷後にスタイルをリセット
-      if (eventModal) {
-        eventModal.classList.remove('print-mode');
-      }
-    }, 200);
+    // 印刷実行（スタイル制御は CSS の visibility: visible に任せる）
+    window.print();
   });
 }
 
