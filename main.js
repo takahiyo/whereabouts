@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // モーダルを表示するクラスを付与
       eventModal.classList.add('show');
       // 必要であれば display も明示的に操作
-      eventModal.style.display = 'block';
+      eventModal.style.display = 'flex';
     });
   }
 
