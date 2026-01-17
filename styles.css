@@ -1080,7 +1080,7 @@
     background: #f8fafc;
   }
 
-  .admin-tabs {}
+  /* .admin-tabs {} -- Removed empty rule set */
 
   .tab-buttons {
     display: flex;
@@ -1842,50 +1842,50 @@
   .vacation-gantt .vac-day-header.vac-color-none,
   .vacation-gantt .vac-cell.vac-color-none,
   .vac-color-option.vac-color-none {
-    background: #fff;
+    background: var(--color-white);
   }
 
   .vacation-gantt .vac-day-header.vac-color-sat,
   .vacation-gantt .vac-cell.vac-color-sat,
   .vac-color-option.vac-color-sat {
-    background: #e0f2fe;
+    background: var(--color-blue-100);
   }
 
   .vacation-gantt .vac-day-header.vac-color-sun,
   .vacation-gantt .vac-cell.vac-color-sun,
   .vac-color-option.vac-color-sun {
-    background: #fee2e2;
+    background: var(--color-red-100);
   }
 
   .vacation-gantt .vac-day-header.vac-color-holiday,
   .vacation-gantt .vac-cell.vac-color-holiday,
   .vac-color-option.vac-color-holiday {
-    background: #ffe4e6;
-    color: #b91c1c;
+    background: var(--color-red-100);
+    color: var(--color-red-600);
   }
 
   .vacation-gantt .vac-day-header.vac-color-amber,
   .vacation-gantt .vac-cell.vac-color-amber,
   .vac-color-option.vac-color-amber {
-    background: #fef3c7;
+    background: var(--color-amber-100);
   }
 
   .vacation-gantt .vac-day-header.vac-color-mint,
   .vacation-gantt .vac-cell.vac-color-mint,
   .vac-color-option.vac-color-mint {
-    background: #dcfce7;
+    background: var(--color-green-100);
   }
 
   .vacation-gantt .vac-day-header.vac-color-lavender,
   .vacation-gantt .vac-cell.vac-color-lavender,
   .vac-color-option.vac-color-lavender {
-    background: #ede9fe;
+    background: var(--color-indigo-50);
   }
 
   .vacation-gantt .vac-day-header.vac-color-slate,
   .vacation-gantt .vac-cell.vac-color-slate,
   .vac-color-option.vac-color-slate {
-    background: #e5e7eb;
+    background: var(--color-gray-200);
   }
 
   .vacation-gantt .vac-cell.on {
@@ -3421,86 +3421,7 @@
     opacity: 0.5;
   }
 
-  /* 印刷用CSS */
-  @media print {
-
-    /* 在席確認表などイベントカレンダー以外を非表示 */
-    header,
-    .wrap,
-    #board,
-    #noticesArea,
-    #adminModal,
-    #manualModal,
-    #noticeModal {
-      display: none !important;
-    }
-
-    /* イベントモーダルを強制表示 */
-    #eventModal {
-      display: block !important;
-      position: static !important;
-      background: white !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      width: 100% !important;
-      height: auto !important;
-    }
-
-    /* イベントモーダル内の不要な要素を非表示 */
-    #eventModal .event-modal-header,
-    #eventModal .event-select-toolbar,
-    #eventModal .event-toolbar,
-    #eventModal .vacation-actions,
-    #eventModal .vacation-group-jumps,
-    #eventModal .event-legend,
-    #eventModal button {
-      display: none !important;
-    }
-
-    /* ページ設定 */
-    @page {
-      size: A4 landscape;
-      margin: 15mm;
-    }
-
-    body {
-      margin: 0 !important;
-      padding: 0 !important;
-      background: white !important;
-      overflow: visible !important;
-    }
-
-    /* すべての親要素を表示 */
-    html,
-    body {
-      display: block !important;
-      visibility: visible !important;
-    }
-
-    /* admin-cardを全画面表示 */
-    #eventModal .admin-card {
-      display: block !important;
-      max-height: none !important;
-      max-width: none !important;
-      width: 100%;
-      border: none;
-      box-shadow: none;
-      overflow: visible;
-      position: static !important;
-    }
-
-    #eventModal .admin-card-body {
-      overflow: visible !important;
-      padding: 0 !important;
-      max-height: none !important;
-    }
-
-    #eventModal .tab-panel {
-      display: block !important;
-    }
-  }
-
-  /* === 印刷用スタイル（トップレベル） === */
+  /* === 印刷用スタイル (SSOT: JS注入変数の利用) === */
   @media print {
 
     /* (1) 全体を非表示にしてターゲットだけを表示 */
@@ -3542,6 +3463,7 @@
     .vacation-actions,
     .vacation-group-jumps,
     .event-legend,
+    .vac-color-palette,
     button {
       display: none !important;
     }
@@ -3556,12 +3478,11 @@
       visibility: visible !important;
     }
 
-    /* (2) レイアウト制約の解除 */
+    /* (2) レイアウト制約の解除（スクロールを解除して全体を表示） */
     .vacation-gantt,
     .vacation-gantt-head,
     #eventGanttWrap,
-    #eventGantt,
-    .vacation-gantt * {
+    #eventGantt {
       overflow: visible !important;
       max-height: none !important;
     }
@@ -3570,7 +3491,8 @@
     .vacation-gantt table {
       display: table !important;
       width: 100% !important;
-      table-layout: auto !important;
+      table-layout: fixed !important;
+      /* 幅固定のためにfixed推奨 */
       border-collapse: collapse !important;
     }
 
@@ -3578,42 +3500,91 @@
       display: table-header-group !important;
     }
 
+    .vacation-gantt tbody {
+      display: table-row-group !important;
+    }
+
+    .vacation-gantt tr {
+      page-break-inside: avoid;
+    }
+
+    /* config.js -> vacations.js から注入された変数を使用 */
     .vacation-gantt th,
     .vacation-gantt td {
       display: table-cell !important;
       visibility: visible !important;
-      border: 1px solid #ccc !important;
-      padding: 2px 4px !important;
-      font-size: 8pt !important;
+      border: 1px solid #000 !important;
+      /* 印刷は見やすく黒枠 */
+
+      font-size: var(--print-font-size, 10pt) !important;
+      height: var(--print-header-height, 30px) !important;
+      padding: 0 2px !important;
+
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    /* (3) 改ページ制御: グループ単位で改ページを避ける */
-    .gantt-group {
-      display: table-row-group !important;
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
+    /* セル幅の制御 */
+    .vacation-gantt th.member-name {
+      width: var(--print-name-width, 120px) !important;
+      min-width: var(--print-name-width, 120px) !important;
+      max-width: var(--print-name-width, 120px) !important;
     }
 
-    /* 色の強制出力 */
+    .vacation-gantt th.vac-day-header,
+    .vacation-gantt td.vac-cell {
+      width: var(--print-cell-width, 30px) !important;
+      min-width: var(--print-cell-width, 30px) !important;
+      max-width: var(--print-cell-width, 30px) !important;
+    }
+
+    /* 色設定も変数を利用 */
+    .vacation-gantt .vac-day-header.vac-color-sat,
+    .vacation-gantt .vac-cell.vac-color-sat {
+      background: var(--color-blue-100) !important;
+    }
+
+    .vacation-gantt .vac-day-header.vac-color-sun,
+    .vacation-gantt .vac-cell.vac-color-sun {
+      background: var(--color-red-100) !important;
+    }
+
+    .vacation-gantt .vac-day-header.vac-color-holiday,
+    .vacation-gantt .vac-cell.vac-color-holiday {
+      background: var(--color-red-100) !important;
+      color: var(--color-red-600) !important;
+    }
+
+    .vacation-gantt .vac-day-header.vac-color-amber,
+    .vacation-gantt .vac-cell.vac-color-amber {
+      background: var(--color-amber-100) !important;
+    }
+
+    .vacation-gantt .vac-day-header.vac-color-mint,
+    .vacation-gantt .vac-cell.vac-color-mint {
+      background: var(--color-green-100) !important;
+    }
+
+    .vacation-gantt .vac-day-header.vac-color-lavender,
+    .vacation-gantt .vac-cell.vac-color-lavender {
+      background: var(--color-indigo-50) !important;
+    }
+
+    .vacation-gantt .vac-day-header.vac-color-slate,
+    .vacation-gantt .vac-cell.vac-color-slate {
+      background: var(--color-gray-200) !important;
+    }
+
+    /* On状態の色 */
     .vacation-gantt .vac-cell.on {
-      background-color: #0ea5e9 !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+      background-color: var(--color-blue-500) !important;
+      color: var(--color-white) !important;
     }
 
-    .vacation-gantt .weekend-sat {
-      background-color: #e8f4f8 !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    .vacation-gantt .weekend-sun,
-    .vacation-gantt .holiday {
-      background-color: #ffe8e8 !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+    /* 休日背景でのOn状態 */
+    .vacation-gantt .vac-cell.on.weekend-sun,
+    .vacation-gantt .vac-cell.on.holiday {
+      background-color: var(--color-red-500) !important;
     }
 
     /* 用紙設定 */
@@ -3874,83 +3845,4 @@
     margin: 8px 0 16px 0;
     color: #666;
     font-size: 0.9em;
-  }
-
-  /* --- Refactored Utility Classes (Utility / Helper) --- */
-  .u-flex-between-center {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .u-mb-8 {
-    margin-bottom: 8px !important;
-  }
-
-  .u-mt-6 {
-    margin-top: 6px;
-  }
-
-  .u-mt-12 {
-    margin-top: 12px;
-  }
-
-  .u-mt-16 {
-    margin-top: 16px;
-  }
-
-  .u-mr-4 {
-    margin-right: 4px;
-  }
-
-  .u-mb-0 {
-    margin-bottom: 0 !important;
-  }
-
-  .u-text-center {
-    text-align: center;
-  }
-
-  .u-text-gray {
-    color: #6b7280;
-  }
-
-  .u-text-666 {
-    color: #666;
-  }
-
-  .u-text-red {
-    color: #d00;
-  }
-
-  .u-font-sm {
-    font-size: 11px;
-  }
-
-  .u-font-13 {
-    font-size: 13px;
-  }
-
-  .u-font-09em {
-    font-size: 0.9em;
-  }
-
-  .u-font-095em {
-    font-size: 0.95em;
-  }
-
-  .u-w-44 {
-    width: 44px;
-  }
-
-  .u-w-64 {
-    width: 64px;
-  }
-
-  .u-w-160 {
-    width: 160px;
-  }
-
-  .u-hidden {
-    display: none;
   }
