@@ -3423,13 +3423,23 @@
 
   /* === 印刷用スタイル (SSOT: JS注入変数の利用) === */
 @media print {
-  /* 1. ページ設定 */
+  /* 1. 用紙と全体設定 */
   @page {
-    size: A4 landscape; /* 横向き */
-    margin: 10mm;
+    size: A4 landscape;
+    margin: 5mm; /* 余白を少し詰めて広く使えるように */
   }
 
-  /* 2. 不要な要素を完全に非表示 (display: none で詰める) */
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 2. 不要な要素を非表示 */
   body > *:not(#eventModal) {
     display: none !important;
   }
@@ -3450,17 +3460,12 @@
     display: none !important;
   }
 
-  /* 3. モーダルを印刷のルートとして再構成 */
-  body, html {
-    width: 100% !important;
-    height: auto !important;
-    overflow: visible !important;
-    background: #fff !important;
-  }
-
+  /* 3. モーダルを印刷キャンバスとしてリセット */
   #eventModal {
-    display: block !important; /* flexからblockへ */
-    position: static !important; /* absoluteをやめ、フロー配置にする */
+    display: block !important;
+    position: absolute !important; /* staticだと余白等の影響を受けることがあるためabsoluteで左上に固定 */
+    top: 0 !important;
+    left: 0 !important;
     width: 100% !important;
     height: auto !important;
     background: #fff !important;
@@ -3468,49 +3473,37 @@
     margin: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: visible !important; /* スクロールさせず全展開 */
-    visibility: visible !important;
-    z-index: auto !important;
+    overflow: visible !important;
+    z-index: 9999 !important;
   }
 
-  #eventModal .admin-card {
+  /* 内部コンテナのリセット */
+  #eventModal .admin-card, 
+  #eventModal .admin-card-body,
+  #eventModal .vacation-table-wrap,
+  #eventModal .vacation-gantt {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-  }
-
-  #eventModal .admin-card-body {
-    padding: 0 !important;
-    overflow: visible !important;
-  }
-
-  /* 4. ガントチャートの Webレイアウト再現 (SSOT維持) */
-  
-  /* スクロール領域の解除 */
-  .vacation-gantt,
-  #eventGanttWrap,
-  #eventGantt {
-    overflow: visible !important;
-    max-height: none !important;
-    border: none !important; /* 外枠はテーブル側に任せる */
     background: transparent !important;
   }
 
-  /* テーブル構造の最適化 */
+  /* 4. ガントチャートテーブルの構造を強制 */
   .vacation-gantt table {
     display: table !important;
     width: 100% !important;
     table-layout: fixed !important;
     border-collapse: collapse !important;
-    font-size: var(--print-font-size, 10pt) !important; /* config.jsの値 */
+    border-spacing: 0 !important;
+    font-size: var(--print-font-size, 9pt) !important;
   }
 
-  /* ヘッダーの繰り返し表示設定 */
   .vacation-gantt thead {
     display: table-header-group !important;
   }
@@ -3520,55 +3513,56 @@
   }
 
   .vacation-gantt tr {
-    page-break-inside: avoid; /* 行の途中での改ページ禁止 */
+    display: table-row !important;
+    page-break-inside: avoid;
+    height: auto !important;
   }
 
-  /* セル設定 (SSOT: config.js の値を適用) */
   .vacation-gantt th,
   .vacation-gantt td {
     display: table-cell !important;
-    border: 1px solid #ccc !important; /* Web画面に近いグレー枠 */
-    padding: 0 2px !important;
-    height: var(--print-header-height, 30px) !important;
+    border: 1px solid #ccc !important;
+    padding: 1px 2px !important;
     vertical-align: middle !important;
-    
-    /* 背景色・文字色を強制出力 */
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    height: var(--print-header-height, 28px) !important;
+    background-clip: padding-box !important;
   }
 
-  /* 列幅設定 (SSOT) */
+  /* 5. 列幅とレイアウトの再現 (SSOT) */
+  
+  /* グループ名 (縦書き) */
   .vacation-gantt th.group-name {
-    width: 30px !important; /* グループ名は狭く */
+    width: 30px !important;
     background-color: #f3f4f6 !important;
     writing-mode: vertical-rl;
     text-orientation: mixed;
-    position: static !important; /* sticky解除 */
+    white-space: nowrap !important;
+    position: static !important;
   }
 
+  /* 氏名 */
   .vacation-gantt th.member-name {
     width: var(--print-name-width, 120px) !important;
     background-color: #fff !important;
-    text-align: left;
+    text-align: left !important;
     padding-left: 4px !important;
-    position: static !important; /* sticky解除 */
-    
-    /* 文字あふれ対策 */
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    position: static !important;
   }
 
+  /* 日付セル（ビットマス部分） */
   .vacation-gantt th.vac-day-header,
   .vacation-gantt td.vac-cell {
     width: var(--print-cell-width, 30px) !important;
     min-width: var(--print-cell-width, 30px) !important;
-    text-align: center;
+    text-align: center !important;
   }
 
-  /* 5. 色の再現 (Web画面と同じ配色ルール) */
+  /* 6. 配色の再現 (背景色を強制) */
   
-  /* 土日祝の背景色 */
+  /* ヘッダー・デフォルト背景 */
   .vacation-gantt .vac-day-header.weekend-sat,
   .vacation-gantt .vac-cell.weekend-sat {
     background-color: #e0f2fe !important;
@@ -3583,33 +3577,33 @@
     color: #b91c1c !important;
   }
 
-  /* ユーザー選択カラー (SSOT: 変数利用) */
-  .vacation-gantt .vac-cell.vac-color-sat { background: var(--color-blue-100) !important; }
-  .vacation-gantt .vac-cell.vac-color-sun { background: var(--color-red-100) !important; }
-  .vacation-gantt .vac-cell.vac-color-holiday { background: var(--color-red-100) !important; color: var(--color-red-600) !important; }
-  .vacation-gantt .vac-cell.vac-color-amber { background: var(--color-amber-100) !important; }
-  .vacation-gantt .vac-cell.vac-color-mint { background: var(--color-green-100) !important; }
-  .vacation-gantt .vac-cell.vac-color-lavender { background: var(--color-indigo-50) !important; }
-  .vacation-gantt .vac-cell.vac-color-slate { background: var(--color-gray-200) !important; }
+  /* ユーザー選択カラー (変数を優先適用) */
+  .vacation-gantt .vac-cell.vac-color-sat { background-color: var(--color-blue-100) !important; }
+  .vacation-gantt .vac-cell.vac-color-sun { background-color: var(--color-red-100) !important; }
+  .vacation-gantt .vac-cell.vac-color-holiday { background-color: var(--color-red-100) !important; color: var(--color-red-600) !important; }
+  .vacation-gantt .vac-cell.vac-color-amber { background-color: var(--color-amber-100) !important; }
+  .vacation-gantt .vac-cell.vac-color-mint { background-color: var(--color-green-100) !important; }
+  .vacation-gantt .vac-cell.vac-color-lavender { background-color: var(--color-indigo-50) !important; }
+  .vacation-gantt .vac-cell.vac-color-slate { background-color: var(--color-gray-200) !important; }
 
   /* ON状態（ハイライト） */
   .vacation-gantt .vac-cell.on {
-    background-color: #0ea5e9 !important; /* Webと同じ青 */
+    background-color: #0ea5e9 !important;
     color: #fff !important;
+    /* 白黒印刷でもわかるようにボーダーかパターンを入れるのも手ですが、今回はWeb再現優先 */
   }
-  /* 休日上のON */
   .vacation-gantt .vac-cell.on.weekend-sun,
   .vacation-gantt .vac-cell.on.holiday {
-    background-color: #e11d48 !important; /* Webと同じ赤 */
+    background-color: #e11d48 !important;
   }
 
-  /* 印刷タイトル（任意で表示、不要ならdisplay:none） */
+  /* 印刷タイトル */
   #eventPrintInfo {
     display: block !important;
     text-align: center;
     font-size: 14pt;
     font-weight: bold;
-    margin-bottom: 10px;
+    margin-bottom: 5mm;
     color: #000;
   }
 }
