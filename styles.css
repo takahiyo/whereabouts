@@ -3475,39 +3475,53 @@
         .vacation-gantt table {
           display: table !important;
           width: 100% !important;
-          table-layout: fixed !important;
-          /* 幅を固定して崩れを防止 */
+          table-layout: auto !important;
+          /* 自動調整で用紙に収める */
           border-collapse: collapse !important;
           margin-top: 0 !important;
         }
 
-        /* セル幅の強制固定 (SSOT: CSS変数を参照) */
+        /* セル幅の調整 (SSOT: CSS変数を参照、フォールバックあり) */
         .vacation-gantt th,
         .vacation-gantt td {
           border: 1px solid #000 !important;
-          padding: 2px !important;
-          height: var(--print-header-height, 30px) !important;
-          /* 行の高さを揃える */
-          font-size: var(--print-font-size, 10pt) !important;
+          padding: 1px 2px !important;
+          /* パディングを削減 */
+          height: auto !important;
+          /* 高さを自動調整 */
+          font-size: 8pt !important;
+          /* フォントサイズを縮小 */
+          line-height: 1.2 !important;
+          white-space: nowrap !important;
+          /* テキストを折り返さない */
         }
 
         /* 固定列の解除（印刷時はスクロール不要なため） */
         .vacation-gantt th.member-name {
           position: static !important;
           background: #fff !important;
-          width: var(--print-name-width, 100px) !important;
-          /* メンバー名の幅を固定 */
+          min-width: 60px !important;
+          /* 最小幅を指定 */
+          max-width: 100px !important;
+          /* 最大幅を制限 */
         }
 
         .vacation-gantt th.group-name {
           position: static !important;
           background: #f5f5f5 !important;
+          min-width: 50px !important;
+          max-width: 80px !important;
         }
 
-        /* 日付列の幅固定 */
+        /* 日付列のサイズ調整 */
         .vacation-gantt td.vac-cell,
         .vacation-gantt th.vac-day-header {
-          width: var(--print-cell-width, 30px) !important;
+          min-width: 20px !important;
+          /* 最小幅を指定 */
+          max-width: 30px !important;
+          /* 最大幅を制限 */
+          font-size: 7pt !important;
+          /* さらに小さく */
         }
 
         /* 印刷時も色を出すための設定 */
