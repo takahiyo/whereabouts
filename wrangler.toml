@@ -1,0 +1,9 @@
+name = "whereabouts"
+main = "CloudflareWorkers_worker.js"
+compatibility_date = "2024-01-14"
+
+# FIREBASE_PRIVATE_KEY は `wrangler secret put` で設定してください
+
+[vars]
+FIREBASE_PROJECT_ID = "whereabouts-f3388"
+FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gserviceaccount.com"

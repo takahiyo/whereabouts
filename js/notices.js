@@ -9,10 +9,10 @@ let noticeCollapsePreference = loadNoticeCollapsePreference();
 // URLを自動リンク化する関数
 function linkifyText(text) {
   if (!text) return '';
-  
+
   // URL正規表現（http, https, ftp対応）
   const urlRegex = /(https?:\/\/[^\s]+|ftps?:\/\/[^\s]+)/gi;
-  
+
   return text.replace(urlRegex, (url) => {
     return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`;
   });
@@ -131,7 +131,7 @@ function renderNotices(notices) {
   const noticesList = document.getElementById('noticesList');
   const noticesSummary = document.getElementById('noticesSummary');
   const noticesBtn = document.getElementById('noticesBtn');
-  
+
   if (!noticesArea || !noticesList) return;
 
   const normalizedList = Array.isArray(notices)
@@ -160,6 +160,7 @@ function renderNotices(notices) {
   }
 
   noticesList.innerHTML = '';
+  const frag = document.createDocumentFragment();
 
   list.forEach((notice) => {
     const title = notice && notice.title != null ? String(notice.title) : '';
@@ -191,8 +192,9 @@ function renderNotices(notices) {
     }
     if (noticeId) item.dataset.noticeId = String(noticeId);
     if (noticeKey) item.dataset.noticeKey = normalizeNoticeKey(noticeKey);
-    noticesList.appendChild(item);
+    frag.appendChild(item);
   });
+  noticesList.appendChild(frag);
 
   // サマリー更新
   if (noticesSummary) {
@@ -209,15 +211,15 @@ function renderNotices(notices) {
   if (noticesBtn) noticesBtn.style.display = 'inline-block';
 
   applyNoticeCollapsedState(noticesArea);
-  
+
   // お知らせヘッダーをクリックで開閉できるようにする
   const noticesHeader = noticesArea.querySelector('.notices-header');
-  if(noticesHeader){
+  if (noticesHeader) {
     // 既存のリスナーを削除するため、一度クローンして置き換え
     const newHeader = noticesHeader.cloneNode(true);
     noticesHeader.parentNode.replaceChild(newHeader, noticesHeader);
-    
-    newHeader.addEventListener('click', ()=>{
+
+    newHeader.addEventListener('click', () => {
       toggleNoticesArea();
     });
   }
@@ -235,7 +237,7 @@ function toggleNoticesArea() {
 // お知らせを取得
 async function fetchNotices(requestedOfficeId) {
   if (!SESSION_TOKEN) {
-    console.log('fetchNotices: SESSION_TOKEN is not set');
+
     return;
   }
 
@@ -250,12 +252,12 @@ async function fetchNotices(requestedOfficeId) {
       params.office = targetOfficeId;
     }
 
-    console.log('fetchNotices params:', params);
+
     const res = await apiPost(params);
-    console.log('fetchNotices response:', res);
-    
+
+
     if (res && Object.prototype.hasOwnProperty.call(res, 'notices')) {
-      console.log('Applying notices:', res.notices);
+
       applyNotices(res.notices);
     } else if (res && res.error) {
       if (res.error === 'unauthorized') {
@@ -279,30 +281,30 @@ async function saveNotices(notices, office) {
     console.error('saveNotices: SESSION_TOKEN is not set');
     return false;
   }
-  
-  console.log('saveNotices called with:', {notices, office, SESSION_TOKEN: SESSION_TOKEN ? 'set' : 'not set'});
-  
+
+
+
   try {
     const payload = normalizeNoticeEntries(notices);
-    console.log('saveNotices: normalized payload:', payload);
-    
+
+
     const params = {
       action: 'setNotices',
       token: SESSION_TOKEN,
       notices: JSON.stringify(payload)
     };
-    
+
     const targetOffice = office || CURRENT_OFFICE_ID || '';
     if (targetOffice) {
       params.office = targetOffice;
     }
-    
-    console.log('saveNotices: sending params:', {action: params.action, office: targetOffice, noticesLength: payload.length});
-    
+
+
+
     const res = await apiPost(params);
-    
-    console.log('setNotices response:', res);
-    
+
+
+
     if (res && res.ok) {
       const nextNotices = Object.prototype.hasOwnProperty.call(res, 'notices')
         ? res.notices
@@ -328,7 +330,7 @@ async function saveNotices(notices, office) {
       console.error('setNotices error details:', res);
       return false;
     }
-    
+
     // レスポンスが不明な場合
     console.error('Unexpected setNotices response:', res);
     toast('お知らせの保存に失敗しました（不明なレスポンス）');
@@ -337,34 +339,58 @@ async function saveNotices(notices, office) {
     console.error('お知らせ保存エラー:', e);
     toast('通信エラーが発生しました: ' + e.message);
   }
-  
+
   return false;
 }
 
-// お知らせの自動更新（ポーリング）
+// お知らせの自動更新（ポーリング -> Firestore Listener）
 let noticesPollingTimer = null;
 
 function startNoticesPolling() {
+  // すでにSDKリスナーが動いていれば何もしない
+  if (window.noticesUnsubscribe) return;
+
+  const db = (typeof firebase !== 'undefined' && firebase.apps.length) ? firebase.firestore() : null;
+
+  // Plan A: SDKが使えるならリスナー登録
+  if (db && CURRENT_OFFICE_ID) {
+
+    const colRef = db.collection('offices').doc(CURRENT_OFFICE_ID).collection('notices');
+
+    // リアルタイム監視開始
+    window.noticesUnsubscribe = colRef.onSnapshot((snapshot) => {
+      const notices = [];
+      snapshot.forEach(doc => {
+        notices.push({ id: doc.id, ...doc.data() });
+      });
+      // 既存の描画関数を再利用
+      // ※Firestoreのデータは正規化済み前提だが、念のため applyNotices を通す
+      applyNotices(notices);
+    }, (error) => {
+      console.warn('Notices listener failed, falling back to polling:', error);
+      startLegacyNoticesPolling(); // 失敗時のみPlan Bへ
+    });
+  } else {
+    // Plan B: SDK不可なら従来のポーリング
+    startLegacyNoticesPolling();
+  }
+}
+
+// 従来のポーリングロジックを別名関数に退避
+function startLegacyNoticesPolling() {
   if (noticesPollingTimer) return;
-  
-  // 初回取得
   fetchNotices();
-  
-  // 30秒ごとに更新
   noticesPollingTimer = setInterval(() => {
-    if (SESSION_TOKEN) {
-      fetchNotices();
-    } else {
-      stopNoticesPolling();
-    }
+    if (SESSION_TOKEN) fetchNotices();
+    else stopNoticesPolling();
   }, 30000);
 }
 
 function stopNoticesPolling() {
-  if (noticesPollingTimer) {
-    clearInterval(noticesPollingTimer);
-    noticesPollingTimer = null;
-  }
+  // ポーリング停止
+  if (noticesPollingTimer) { clearInterval(noticesPollingTimer); noticesPollingTimer = null; }
+  // リスナー解除
+  if (window.noticesUnsubscribe) { window.noticesUnsubscribe(); window.noticesUnsubscribe = null; }
 }
 
 function loadNoticeCollapsePreference() {
@@ -384,7 +410,7 @@ function saveNoticeCollapsePreference(collapsed) {
   try {
     const officeKey = `${NOTICE_COLLAPSE_STORAGE_KEY}_${CURRENT_OFFICE_ID || 'default'}`;
     localStorage.setItem(officeKey, noticeCollapsePreference ? 'true' : 'false');
-    console.log('Notice collapse state saved:', officeKey, noticeCollapsePreference);
+
   } catch (e) {
     console.warn('Failed to save notice collapse preference', e);
   }

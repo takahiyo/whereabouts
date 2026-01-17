@@ -1211,47 +1211,11 @@ function doGet(e){
   return ContentService.createTextOutput('unsupported');
 
 }
-/* ===== メンテナンス用：期限切れトークンの削除 ===== */
-function maintenance_cleanTokens() {
-  const prop = PropertiesService.getScriptProperties();
-  const data = prop.getProperties(); // 全データを取得
-  const now = Date.now();
-  let count = 0;
-  
-  // 削除対象のキーをリストアップ
-  const keysToDelete = [];
-  
-  for (let key in data) {
-    // トークン期限キー ('tok_' で始まるもの) を探す
-    if (key.indexOf('tok_') === 0) {
-      const exp = Number(data[key]);
-      // 期限切れ、または無効な値であれば削除対象にする
-      if (!exp || exp < now) {
-        const token = key.substring(4); // 'tok_' を除いたID部分
-        keysToDelete.push(key);                // tok_...
-        keysToDelete.push('toff_' + token);    // toff_...
-        keysToDelete.push('trole_' + token);   // trole_...
-        count++;
-      }
-    }
-  }
 
-  if (keysToDelete.length > 0) {
-    console.log(`削除対象のトークン数: ${count} (キー総数: ${keysToDelete.length})`);
-    
-    // まとめて削除（APIの制限を考慮し、ループで削除）
-    // ※件数が多いとタイムアウトする可能性があるため、その場合は何度か実行してください
-    const start = Date.now();
-    for (let i = 0; i < keysToDelete.length; i++) {
-      prop.deleteProperty(keysToDelete[i]);
-      // 実行時間が長すぎたら中断（3分経過でストップ）
-      if (Date.now() - start > 180000) {
-        console.log('タイムアウト回避のため中断しました。再度実行してください。');
-        break;
-      }
-    }
-    console.log('削除完了しました。');
-  } else {
-    console.log('削除対象の期限切れトークンはありませんでした。');
-  }
-}
+
+
+
+
+
+
+
