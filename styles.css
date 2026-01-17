@@ -3434,7 +3434,7 @@
   /* === 印刷用スタイル（トップレベル） === */
   @media print {
 
-    /* (1) 全体を非表示にしてターゲットだけを表示 (要件2) */
+    /* (1) 全体を非表示にしてターゲットだけを表示 */
     body * {
       visibility: hidden !important;
     }
@@ -3465,7 +3465,7 @@
       margin: 0 !important;
     }
 
-    /* 印刷時に不要なUI（ボタン類）を物理的に消す */
+    /* 印刷時に不要なUI（ボタン類）を非表示 */
     #eventClose,
     .event-modal-header,
     .event-select-toolbar,
@@ -3484,79 +3484,48 @@
       font-weight: bold !important;
       margin-bottom: 5mm !important;
       text-align: center !important;
+      visibility: visible !important;
     }
 
-    /* (2) レイアウト制約の完全解除 (要件1) */
+    /* (2) レイアウト制約の解除（スクロールを解除して全体を表示） */
     .vacation-gantt,
     .vacation-gantt-head,
     #eventGanttWrap,
-    #eventGantt,
-    .vacation-gantt * {
+    #eventGantt {
       overflow: visible !important;
       max-height: none !important;
-      display: block !important;
-      /* flex解除 */
     }
 
+    /* テーブル構造の復元 */
     .vacation-gantt table {
       display: table !important;
       width: 100% !important;
       table-layout: auto !important;
-      /* 用紙にフィットさせる */
-      border-collapse: collapse !important;
-      margin-top: 0 !important;
-    }
-
-    .vacation-gantt th,
-    .vacation-gantt td {
-      border: 1px solid #000 !important;
-      padding: 1px 2px !important;
-      font-size: 7pt !important;
-      font-weight: normal !important;
-      color: #000 !important;
-      background-color: transparent !important;
-      visibility: visible !important;
-      display: table-cell !important;
-    }
-
-    /* ヘッダーセルの調整 */
-    .vacation-gantt thead th {
-      background-color: #f0f0f0 !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    /* (3) 改ページ制御 (要件3) */
-    .gantt-group {
-      display: table-row-group !important;
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
     }
 
     .vacation-gantt thead {
       display: table-header-group !important;
     }
 
-    /* 用紙設定 (要件4) */
-    @page {
-      size: A4 landscape;
-      margin: 10mm;
-    }
-
-    /* 色の強制出力 */
-    .vacation-gantt .vac-cell.on {
-      background-color: #0ea5e9 !important;
+    .vacation-gantt th,
+    .vacation-gantt td {
+      display: table-cell !important;
+      visibility: visible !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    .vacation-gantt .weekend-sat {
-      background-color: #e8f4f8 !important;
+    /* (3) 改ページ制御: グループ単位で改ページを避ける */
+    .gantt-group {
+      display: table-row-group !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
     }
 
-    .vacation-gantt .weekend-sun,
-    .vacation-gantt .holiday {
-      background-color: #ffe8e8 !important;
+    /* 用紙設定 */
+    @page {
+      size: A4 landscape;
+      margin: 10mm;
     }
   }
 
