@@ -33,4 +33,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       }, 100);
     });
   }
+
+  /* === ▼ 追加箇所: イベントボタンの処理 ▼ === */
+  const eventBtn = document.querySelector('header .event-btn');
+  const eventModal = document.getElementById('eventModal');
+  // モーダル内の閉じるボタン（ID指定またはクラス指定）
+  const eventCloseBtn = document.getElementById('eventClose') || (eventModal ? eventModal.querySelector('.close-btn') : null);
+
+  if (eventBtn && eventModal) {
+    eventBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      // モーダルを表示するクラスを付与
+      eventModal.classList.add('show');
+      // 必要であれば display も明示的に操作
+      eventModal.style.display = 'block';
+    });
+  }
+
+  // 閉じるボタンの処理
+  if (eventCloseBtn && eventModal) {
+    eventCloseBtn.addEventListener('click', () => {
+      eventModal.classList.remove('show');
+      eventModal.style.display = 'none';
+    });
+  }
+  /* === ▲ 追加箇所ここまで ▲ === */
 });
