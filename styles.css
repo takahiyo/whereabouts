@@ -3487,11 +3487,12 @@
       visibility: visible !important;
     }
 
-    /* (2) レイアウト制約の解除（スクロールを解除して全体を表示） */
+    /* (2) レイアウト制約の解除 */
     .vacation-gantt,
     .vacation-gantt-head,
     #eventGanttWrap,
-    #eventGantt {
+    #eventGantt,
+    .vacation-gantt * {
       overflow: visible !important;
       max-height: none !important;
     }
@@ -3501,6 +3502,7 @@
       display: table !important;
       width: 100% !important;
       table-layout: auto !important;
+      border-collapse: collapse !important;
     }
 
     .vacation-gantt thead {
@@ -3511,6 +3513,9 @@
     .vacation-gantt td {
       display: table-cell !important;
       visibility: visible !important;
+      border: 1px solid #ccc !important;
+      padding: 2px 4px !important;
+      font-size: 8pt !important;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
@@ -3520,6 +3525,26 @@
       display: table-row-group !important;
       page-break-inside: avoid !important;
       break-inside: avoid !important;
+    }
+
+    /* 色の強制出力 */
+    .vacation-gantt .vac-cell.on {
+      background-color: #0ea5e9 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .vacation-gantt .weekend-sat {
+      background-color: #e8f4f8 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .vacation-gantt .weekend-sun,
+    .vacation-gantt .holiday {
+      background-color: #ffe8e8 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     /* 用紙設定 */
