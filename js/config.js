@@ -13,6 +13,12 @@ const CONFIG = {
         messagingSenderId: "578171146712",
         appId: "1:578171146712:web:b36ba48f99eae97f6ba2ad",
         measurementId: "G-SLXCBCX483"
+    },
+    printSettings: {
+        cellWidth: '30px',
+        memberNameWidth: '120px',
+        fontSize: '10pt',
+        headerHeight: '30px'
     }
 };
 

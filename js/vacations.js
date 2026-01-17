@@ -59,6 +59,16 @@
     const groupJumpMode = opts.groupJumpMode || 'buttons';
     const scrollContainer = opts.scrollContainer || null;
     let tableEl = null;
+
+    // ★追加: 印刷用CSS変数の注入 (SSOT)
+    if (ganttRoot && typeof CONFIG !== 'undefined' && CONFIG.printSettings) {
+      const ps = CONFIG.printSettings;
+      ganttRoot.style.setProperty('--print-cell-width', ps.cellWidth);
+      ganttRoot.style.setProperty('--print-name-width', ps.memberNameWidth);
+      ganttRoot.style.setProperty('--print-font-size', ps.fontSize);
+      ganttRoot.style.setProperty('--print-header-height', ps.headerHeight);
+    }
+
     let orderedMembers = [];
     let dateSlots = [];
     let bitsByDate = new Map(); // date -> Array<boolean>
