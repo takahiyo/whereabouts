@@ -199,6 +199,79 @@ export default {
       }
 
       /* =========================================================
+         publicListOffices（公開拠点一覧）
+      ========================================================= */
+      if (action === 'publicListOffices') {
+        try {
+          const json = await firestoreFetch('offices?pageSize=300');
+          const offices = [];
+          
+          (json.documents || []).forEach(doc => {
+            const f = doc.fields || {};
+            const officeId = doc.name.split('/').pop();
+            const isPublic = f.public?.booleanValue === true;
+            
+            // 公開設定されている拠点のみ返す
+            if (isPublic) {
+              offices.push({
+                id: officeId,
+                name: f.name?.stringValue || officeId
+              });
+            }
+          });
+
+          return new Response(
+            JSON.stringify({ ok: true, offices }),
+            { headers: corsHeaders }
+          );
+        } catch (err) {
+          console.error('publicListOffices error:', err);
+          return new Response(
+            JSON.stringify({ ok: false, error: err.message, offices: [] }),
+            { headers: corsHeaders }
+          );
+        }
+      }
+
+      /* =========================================================
+         listOffices（全拠点一覧 - 管理者用）
+      ========================================================= */
+      if (action === 'listOffices') {
+        // スーパー管理者のみアクセス可能
+        if (tokenRole !== 'superAdmin') {
+          return new Response(
+            JSON.stringify({ ok: false, error: 'unauthorized' }),
+            { headers: corsHeaders }
+          );
+        }
+
+        try {
+          const json = await firestoreFetch('offices?pageSize=300');
+          const offices = [];
+          
+          (json.documents || []).forEach(doc => {
+            const f = doc.fields || {};
+            const officeId = doc.name.split('/').pop();
+            offices.push({
+              id: officeId,
+              name: f.name?.stringValue || officeId
+            });
+          });
+
+          return new Response(
+            JSON.stringify({ ok: true, offices }),
+            { headers: corsHeaders }
+          );
+        } catch (err) {
+          console.error('listOffices error:', err);
+          return new Response(
+            JSON.stringify({ ok: false, error: err.message, offices: [] }),
+            { headers: corsHeaders }
+          );
+        }
+      }
+
+      /* =========================================================
          get（在席データ）
       ========================================================= */
       if (action === 'get') {
