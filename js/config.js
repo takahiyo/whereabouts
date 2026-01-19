@@ -85,7 +85,8 @@ function initFirebase() {
     firebase.initializeApp(CONFIG.firebaseConfig);
 
     // ★追加: オフライン永続化（キャッシュ）を有効にする
-    firebase.firestore().enablePersistence({ synchronizeTabs: true })
+    // ※警告回避と安定性のため synchronizeTabs: true を削除（デフォルト設定を使用）
+    firebase.firestore().enablePersistence()
         .catch((err) => {
             if (err.code == 'failed-precondition') {
                 console.warn('複数タブで開かれているため、永続化は1つのタブでのみ有効です');
