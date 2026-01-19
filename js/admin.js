@@ -59,53 +59,89 @@ btnImport.addEventListener('click', async () => {
   const headerOk = hdr.length === expectedHeader.length && expectedHeader.every((h, i) => hdr[i] === h);
   if (!headerOk) { toast('CSVヘッダが不正です', false); return; }
 
-  const recs = [];
-  for (const r of rows.slice(2)) {
-    if (!r.some(x => (x || '').trim() !== '')) continue;
-    if (r.length !== expectedHeader.length) { toast('CSVデータ行が不正です', false); return; }
-    const [gi, gt, mi, id, name, ext, mobile, email, workHours, status, time, note] = r;
-    recs.push({
-      gi: Number(gi) || 0,
-      gt: (gt || ''),
-      mi: Number(mi) || 0,
-      id: (id || ''),
-      name: (name || ''),
-      ext: (ext || ''),
-      mobile: (mobile || ''),
-      email: (email || ''),
-      workHours: workHours == null ? '' : String(workHours),
-      status: (status || (STATUSES[0]?.value || '在席')),
-      time: (time || ''),
-      note: (note || '')
-    });
-  }
+const recs = [];
+const makeCsvId = (() => {
+  let seq = 0;
+  return () => `csv_${Date.now()}_${(seq++)}_${Math.random().toString(36).slice(2, 6)}`;
+})();
 
-  const groupsMap = new Map();
-  for (const r of recs) {
-    if (!r.gi || !r.mi || !r.name) continue;
-    if (!groupsMap.has(r.gi)) groupsMap.set(r.gi, { title: r.gt || '', members: [] });
-    const g = groupsMap.get(r.gi);
-    g.title = r.gt || '';
-    const memberId = r.id || '';
-    g.members.push({ _mi: r.mi, name: r.name, ext: r.ext || '', mobile: r.mobile || '', email: r.email || '', workHours: r.workHours || '', id: memberId || undefined });
-  }
-  const groups = Array.from(groupsMap.entries()).sort((a, b) => a[0] - b[0]).map(([gi, g]) => { g.members.sort((a, b) => (a._mi || 0) - (b._mi || 0)); g.members.forEach(m => delete m._mi); return g; });
-  const cfgToSet = { version: 2, updated: Date.now(), groups, menus: MENUS || undefined };
-  const r1 = await adminSetConfigFor(office, cfgToSet);
-  if (!r1 || r1.error) {
-    console.error('adminSetConfigFor failed:', r1);
-    toast(`名簿の設定に失敗: ${r1?.error || 'unknown'}`, false);
-    return;
-  }
+// まず recs を作る（この段階で id を必ず埋める）
+for (const r of rows.slice(2)) {
+  if (!r.some(x => (x || '').trim() !== '')) continue;
+  if (r.length !== expectedHeader.length) { toast('CSVデータ行が不正です', false); return; }
+  const [gi, gt, mi, id, name, ext, mobile, email, workHours, status, time, note] = r;
 
-  const dataObj = {};
-  for (const r of recs) {
-    const id = r.id || null;
-    if (!id) continue;
-    const workHours = r.workHours || '';
-    dataObj[id] = { ext: r.ext || '', mobile: r.mobile || '', email: r.email || '', workHours, status: STATUSES.some(s => s.value === r.status) ? r.status : (STATUSES[0]?.value || '在席'), time: r.time || '', note: r.note || '' };
-  }
-  const r2 = await adminSetForChunked(office, dataObj);
+  const fixedId = (id || '').trim() || makeCsvId();
+
+  recs.push({
+    gi: Number(gi) || 0,
+    gt: (gt || ''),
+    mi: Number(mi) || 0,
+    id: fixedId,
+    name: (name || ''),
+    ext: (ext || ''),
+    mobile: (mobile || ''),
+    email: (email || ''),
+    workHours: workHours == null ? '' : String(workHours),
+    status: (status || (STATUSES[0]?.value || '在席')),
+    time: (time || ''),
+    note: (note || '')
+  });
+}
+
+// groups を作る（id は必ず入っている前提）
+const groupsMap = new Map();
+for (const r of recs) {
+  if (!r.gi || !r.mi || !r.name) continue;
+  if (!groupsMap.has(r.gi)) groupsMap.set(r.gi, { title: r.gt || '', members: [] });
+  const g = groupsMap.get(r.gi);
+  g.title = r.gt || '';
+  g.members.push({
+    _mi: r.mi,
+    name: r.name,
+    ext: r.ext || '',
+    mobile: r.mobile || '',
+    email: r.email || '',
+    workHours: r.workHours || '',
+    id: r.id
+  });
+}
+
+const groups = Array.from(groupsMap.entries())
+  .sort((a, b) => a[0] - b[0])
+  .map(([gi, g]) => {
+    g.members.sort((a, b) => (a._mi || 0) - (b._mi || 0));
+    g.members.forEach(m => delete m._mi);
+    return g;
+  });
+
+const cfgToSet = { version: 2, updated: Date.now(), groups, menus: MENUS || undefined };
+const r1 = await adminSetConfigFor(office, cfgToSet);
+if (!r1 || r1.error) {
+  console.error('adminSetConfigFor failed:', r1);
+  toast(`名簿の設定に失敗: ${r1?.error || 'unknown'}`, false);
+  return;
+}
+
+// dataObj も「全行」必ず作る（id は必ずある）
+const dataObj = {};
+for (const r of recs) {
+  const workHours = r.workHours || '';
+  dataObj[r.id] = {
+    ext: r.ext || '',
+    mobile: r.mobile || '',
+    email: r.email || '',
+    workHours,
+    status: STATUSES.some(s => s.value === r.status) ? r.status : (STATUSES[0]?.value || '在席'),
+    time: r.time || '',
+    note: r.note || ''
+  };
+}
+
+const r2 = await adminSetForChunked(office, dataObj);
+if (!(r2 && r2.ok)) { toast('在席データ更新に失敗', false); return; }
+toast('インポート完了', true);
+
   if (!(r2 && r2.ok)) { toast('在席データ更新に失敗', false); return; }
   toast('インポート完了', true);
 });

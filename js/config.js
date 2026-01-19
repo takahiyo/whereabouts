@@ -71,31 +71,37 @@ const CONFIG = {
 };
 
 // Initialize Firebase (Compat版)
+// Initialize Firebase (Compat版) - Firestore前提で安全に初期化
 function initFirebase() {
     // SDKが正しく読み込まれているかチェック
     if (typeof firebase === 'undefined') {
         console.error("Firebase SDK not loaded.");
         return false;
     }
+
     // すでに初期化済みなら何もしない
     if (firebase.apps && firebase.apps.length > 0) {
         return true;
     }
+
     // 初期化を実行
     firebase.initializeApp(CONFIG.firebaseConfig);
 
-    // ★追加: オフライン永続化（キャッシュ）を有効にする
-    firebase.firestore().enablePersistence({ synchronizeTabs: true })
+    // Auth を確実に初期化（ログインに必要）
+    firebase.auth();
+
+    // Firestore を初期化
+    const db = firebase.firestore();
+
+    // ✅ compatで使える唯一の永続化API（settings/localCacheは使わない）
+    db.enablePersistence({ synchronizeTabs: true })
         .catch((err) => {
-            if (err.code == 'failed-precondition') {
-                console.warn('複数タブで開かれているため、永続化は1つのタブでのみ有効です');
-            } else if (err.code == 'unimplemented') {
-                console.warn('このブラウザは永続化をサポートしていません');
-            }
+            console.warn("Firestore persistence disabled:", err.code);
         });
 
     return true;
 }
+
 
 // 即座に初期化を試み、失敗したらロード完了を待って再試行
 if (!initFirebase()) {
