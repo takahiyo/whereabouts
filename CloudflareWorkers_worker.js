@@ -98,7 +98,40 @@ export default {
         }
         return json;
       };
+      const firestoreRunQuery = async (parentPath, structuredQuery) => {
+        const parent = `projects/${projectId}/databases/(default)/documents/${parentPath}`;
+        const url = `${baseUrl}:runQuery`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parent, structuredQuery })
+        });
+        const json = await res.json();
+        if (res.status !== 200) {
+          throw new Error(`Firestore Error (${res.status}): ${JSON.stringify(json.error || json)}`);
+        }
+        return Array.isArray(json) ? json : [];
+      };
       const BATCH_WRITE_SIZE = 200;
+      const MEMBER_UPDATED_FIELD = 'updated';
+      const MEMBER_STATUS_FIELDS = ['status', 'time', 'note'];
+      const MEMBER_STATUS_FIELDS_WITH_WORK_HOURS = [...MEMBER_STATUS_FIELDS, 'workHours'];
+      const getMemberUpdatedTimestamp = (doc) => {
+        const updatedField = doc?.fields?.[MEMBER_UPDATED_FIELD];
+        const updatedValue = Number(
+          updatedField?.integerValue
+          || updatedField?.doubleValue
+          || updatedField?.stringValue
+          || 0
+        );
+        return Number.isFinite(updatedValue) ? updatedValue : 0;
+      };
+      const buildMemberStatusFields = (status, nowTs) => ({
+        status: toFirestoreValue(status.status == null ? '' : String(status.status)),
+        time: toFirestoreValue(status.time == null ? '' : String(status.time)),
+        note: toFirestoreValue(status.note == null ? '' : String(status.note)),
+        updated: toFirestoreValue(nowTs)
+      });
       const firestoreDelete = async (path) => {
         const url = `${baseUrl}/${path}`;
         const res = await fetch(url, {
@@ -165,11 +198,9 @@ export default {
         });
 
         const updatedCandidates = (json.documents || [])
-          .map(doc => doc.updateTime)
-          .filter(Boolean)
-          .map(v => Date.parse(v))
-          .filter(v => Number.isFinite(v));
-        const updated = updatedCandidates.length ? Math.max(...updatedCandidates) : Date.now();
+          .map(getMemberUpdatedTimestamp)
+          .filter(v => Number.isFinite(v) && v > 0);
+        const updated = updatedCandidates.length ? Math.max(...updatedCandidates) : 0;
 
         return new Response(JSON.stringify({
           ok: true,
@@ -183,11 +214,9 @@ export default {
         const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
         const dataMap = {};
         const updatedCandidates = (json.documents || [])
-          .map(doc => doc.updateTime)
-          .filter(Boolean)
-          .map(v => Date.parse(v))
-          .filter(v => Number.isFinite(v));
-        const updated = updatedCandidates.length ? Math.max(...updatedCandidates) : Date.now();
+          .map(getMemberUpdatedTimestamp)
+          .filter(v => Number.isFinite(v) && v > 0);
+        const updated = updatedCandidates.length ? Math.max(...updatedCandidates) : 0;
         (json.documents || []).forEach(doc => {
           const f = doc.fields || {};
           dataMap[doc.name.split('/').pop()] = {
@@ -388,6 +417,7 @@ export default {
         const incomingData = incoming.data || {};
         const full = !!incoming.full;
         const writes = [];
+        const nowTs = Date.now();
 
         if (full) {
           const existing = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
@@ -402,22 +432,19 @@ export default {
                   status: toFirestoreValue(''),
                   time: toFirestoreValue(''),
                   note: toFirestoreValue(''),
-                  workHours: toFirestoreValue('')
+                  workHours: toFirestoreValue(''),
+                  updated: toFirestoreValue(nowTs)
                 }
               },
-              updateMask: { fieldPaths: ['status', 'time', 'note', 'workHours'] }
+              updateMask: { fieldPaths: [...MEMBER_STATUS_FIELDS_WITH_WORK_HOURS, MEMBER_UPDATED_FIELD] }
             }));
           writes.push(...clears);
         }
 
         Object.keys(incomingData).forEach((userId) => {
           const s = incomingData[userId] || {};
-          const fields = {
-            status: toFirestoreValue(s.status == null ? '' : String(s.status)),
-            time: toFirestoreValue(s.time == null ? '' : String(s.time)),
-            note: toFirestoreValue(s.note == null ? '' : String(s.note))
-          };
-          const updateMask = ['status', 'time', 'note'];
+          const fields = buildMemberStatusFields(s, nowTs);
+          const updateMask = [...MEMBER_STATUS_FIELDS, MEMBER_UPDATED_FIELD];
           if (Object.prototype.hasOwnProperty.call(s, 'workHours')) {
             fields.workHours = toFirestoreValue(s.workHours == null ? '' : String(s.workHours));
             updateMask.push('workHours');
@@ -444,9 +471,31 @@ export default {
       // get: ステータスのみ取得
       if (action === 'get') {
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
-        const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
+        const sinceRaw = formData.get('since');
+        const since = Number(sinceRaw);
+        const hasSince = Number.isFinite(since) && since > 0;
+        const nowTs = Date.now();
+        let documents = [];
+        if (hasSince) {
+          const structuredQuery = {
+            from: [{ collectionId: 'members' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: MEMBER_UPDATED_FIELD },
+                op: 'GREATER_THAN',
+                value: toFirestoreValue(since)
+              }
+            },
+            orderBy: [{ field: { fieldPath: MEMBER_UPDATED_FIELD }, direction: 'ASCENDING' }]
+          };
+          const results = await firestoreRunQuery(`offices/${officeId}`, structuredQuery);
+          documents = results.map(r => r.document).filter(Boolean);
+        } else {
+          const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
+          documents = json.documents || [];
+        }
         const dataMap = {};
-        (json.documents || []).forEach(doc => {
+        documents.forEach(doc => {
           const f = doc.fields || {};
           dataMap[doc.name.split('/').pop()] = {
             status: f.status?.stringValue || '',
@@ -455,29 +504,32 @@ export default {
             workHours: f.workHours?.stringValue || ''
           };
         });
-        return new Response(JSON.stringify({ ok: true, data: dataMap }), { headers: corsHeaders });
+        const updatedCandidates = documents
+          .map(getMemberUpdatedTimestamp)
+          .filter(v => Number.isFinite(v) && v > 0);
+        const maxUpdated = updatedCandidates.length
+          ? Math.max(...updatedCandidates)
+          : (hasSince ? since : 0);
+        return new Response(JSON.stringify({
+          ok: true,
+          data: dataMap,
+          maxUpdated,
+          serverNow: nowTs
+        }), { headers: corsHeaders });
       }
 
       // set: ステータス更新
       if (action === 'set') {
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
         const updates = JSON.parse(formData.get('data')).data || {};
+        const nowTs = Date.now();
+        const updateMask = [...MEMBER_STATUS_FIELDS_WITH_WORK_HOURS, MEMBER_UPDATED_FIELD];
 
         const promises = Object.keys(updates).map(async (userId) => {
           const s = updates[userId];
-          const url = `${baseUrl}/offices/${officeId}/members/${userId}?updateMask.fieldPaths=status&updateMask.fieldPaths=time&updateMask.fieldPaths=note&updateMask.fieldPaths=workHours`;
-          return fetch(url, {
-            method: 'PATCH',
-            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fields: {
-                status: { stringValue: s.status || '' },
-                time: { stringValue: s.time || '' },
-                note: { stringValue: s.note || '' },
-                workHours: { stringValue: s.workHours || '' }
-              }
-            })
-          });
+          const fields = buildMemberStatusFields(s, nowTs);
+          fields.workHours = toFirestoreValue(s.workHours == null ? '' : String(s.workHours));
+          return firestorePatch(`offices/${officeId}/members/${encodeURIComponent(userId)}`, { fields }, updateMask);
         });
         await Promise.all(promises);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });

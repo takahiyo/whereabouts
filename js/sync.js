@@ -20,6 +20,7 @@ let fallbackTimer = null;       // フォールバック（Plan B切替）判定
 
 // ★追加: 最新の状態を保持するキャッシュ
 let STATE_CACHE = {};
+let lastSyncTimestamp = 0;
 
 function defaultMenus() {
   return {
@@ -153,17 +154,26 @@ function normalizeConfigClient(cfg) {
 async function startLegacyPolling(immediate) {
 
   useSdkMode = false;
+  lastSyncTimestamp = 0;
 
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
 
   const pollAction = async () => {
-    const r = await apiPost({ action: 'get', token: SESSION_TOKEN });
+    const r = await apiPost({ action: 'get', token: SESSION_TOKEN, since: lastSyncTimestamp });
     if (r?.error === 'unauthorized') {
       if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
       await logout();
       return;
     }
-    if (r && r.data) applyState(r.data);
+    const maxUpdated = Number.isFinite(Number(r?.maxUpdated)) ? Number(r.maxUpdated) : 0;
+    const serverNow = Number.isFinite(Number(r?.serverNow)) ? Number(r.serverNow) : 0;
+    const nextSyncTimestamp = Math.max(lastSyncTimestamp, maxUpdated, serverNow);
+    if (nextSyncTimestamp > lastSyncTimestamp) {
+      lastSyncTimestamp = nextSyncTimestamp;
+    }
+    if (r && r.data && Object.keys(r.data).length > 0) {
+      applyState(r.data);
+    }
   };
 
   if (immediate) {
