@@ -204,7 +204,7 @@ function startRemoteSync(immediate) {
     }
   }, 5000);
 
-  // 匿名認証してFirestoreに接続
+// 匿名認証してFirestoreに接続
   firebase.auth().signInAnonymously().then(() => {
     const db = firebase.firestore();
     const docRef = db.collection('offices').doc(CURRENT_OFFICE_ID).collection('members');
@@ -216,6 +216,9 @@ function startRemoteSync(immediate) {
       if (!useSdkMode) {
 
         useSdkMode = true;
+
+        // ★追加: 既に動いているPlan Bのポーリングタイマーを確実に停止する
+        if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
 
         // 1. Configポーリング停止
         if (configWatchTimer) { clearInterval(configWatchTimer); configWatchTimer = null; }
