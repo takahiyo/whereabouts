@@ -116,6 +116,10 @@ export default {
       const MEMBER_UPDATED_FIELD = 'updated';
       const MEMBER_STATUS_FIELDS = ['status', 'time', 'note'];
       const MEMBER_STATUS_FIELDS_WITH_WORK_HOURS = [...MEMBER_STATUS_FIELDS, 'workHours'];
+      const parsePositiveNumber = (value) => {
+        const num = Number(value);
+        return Number.isFinite(num) && num > 0 ? num : null;
+      };
       const getMemberUpdatedTimestamp = (doc) => {
         const updatedField = doc?.fields?.[MEMBER_UPDATED_FIELD];
         const updatedValue = Number(
@@ -132,6 +136,115 @@ export default {
         note: toFirestoreValue(status.note == null ? '' : String(status.note)),
         updated: toFirestoreValue(nowTs)
       });
+      const normalizeStatusValue = (value) => (value == null ? '' : String(value));
+      const statusCache = env.STATUS_CACHE;
+      const statusCacheTtlSec = parsePositiveNumber(env.STATUS_CACHE_TTL_SEC);
+      const statusCacheTtlMs = statusCacheTtlSec ? statusCacheTtlSec * 1000 : null;
+      const statusCacheWarmOnWrite = String(env.STATUS_CACHE_WARM_ON_WRITE || '').toLowerCase();
+      const shouldWarmStatusCacheOnWrite = statusCacheWarmOnWrite === 'true' || statusCacheWarmOnWrite === '1';
+      const statusCacheKey = (officeId) => `status:${officeId}`;
+      const readStatusCacheRaw = async (officeId) => {
+        if (!statusCache) return null;
+        const cached = await statusCache.get(statusCacheKey(officeId));
+        if (!cached) return null;
+        try {
+          return JSON.parse(cached);
+        } catch (e) {
+          return null;
+        }
+      };
+      const readStatusCacheFresh = async (officeId, nowTs) => {
+        if (!statusCache || !statusCacheTtlMs) return null;
+        const cached = await readStatusCacheRaw(officeId);
+        if (!cached || !cached.cachedAt) return null;
+        if (nowTs - cached.cachedAt > statusCacheTtlMs) return null;
+        return cached;
+      };
+      const writeStatusCache = async (officeId, entry) => {
+        if (!statusCache || !statusCacheTtlSec) return;
+        await statusCache.put(statusCacheKey(officeId), JSON.stringify(entry), {
+          expirationTtl: statusCacheTtlSec
+        });
+      };
+      const buildStatusCacheMembers = (documents) => {
+        const members = {};
+        documents.forEach(doc => {
+          const f = doc.fields || {};
+          const id = doc.name.split('/').pop();
+          if (!id) return;
+          members[id] = {
+            status: f.status?.stringValue || '',
+            time: f.time?.stringValue || '',
+            note: f.note?.stringValue || '',
+            workHours: f.workHours?.stringValue || '',
+            updated: getMemberUpdatedTimestamp(doc)
+          };
+        });
+        return members;
+      };
+      const buildStatusCacheEntry = (documents, nowTs, fallbackMaxUpdated = 0) => {
+        const members = buildStatusCacheMembers(documents);
+        const updatedCandidates = documents
+          .map(getMemberUpdatedTimestamp)
+          .filter(v => Number.isFinite(v) && v > 0);
+        const maxUpdated = updatedCandidates.length
+          ? Math.max(...updatedCandidates)
+          : fallbackMaxUpdated;
+        return {
+          cachedAt: nowTs,
+          maxUpdated,
+          members
+        };
+      };
+      const refreshStatusCacheFromFirestore = async (officeId, nowTs) => {
+        if (!statusCache || !statusCacheTtlSec) return null;
+        const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
+        const documents = json.documents || [];
+        const entry = buildStatusCacheEntry(documents, nowTs);
+        await writeStatusCache(officeId, entry);
+        return entry;
+      };
+      const updateStatusCacheAfterWrite = async (officeId, updates, nowTs, options = {}) => {
+        if (!statusCache || !statusCacheTtlSec) return;
+        let cacheEntry = await readStatusCacheRaw(officeId);
+        if (!cacheEntry || !cacheEntry.members) {
+          if (!shouldWarmStatusCacheOnWrite) return;
+          cacheEntry = await refreshStatusCacheFromFirestore(officeId, nowTs);
+        }
+        if (!cacheEntry || !cacheEntry.members) return;
+        const members = { ...cacheEntry.members };
+        const { preserveWorkHours = false, clearIds = [] } = options;
+        Object.keys(updates || {}).forEach((userId) => {
+          const status = updates[userId] || {};
+          const existing = members[userId] || {};
+          members[userId] = {
+            status: normalizeStatusValue(status.status),
+            time: normalizeStatusValue(status.time),
+            note: normalizeStatusValue(status.note),
+            workHours: preserveWorkHours && !Object.prototype.hasOwnProperty.call(status, 'workHours')
+              ? normalizeStatusValue(existing.workHours)
+              : normalizeStatusValue(status.workHours),
+            updated: nowTs
+          };
+        });
+        clearIds.forEach((id) => {
+          if (!id) return;
+          members[id] = {
+            status: '',
+            time: '',
+            note: '',
+            workHours: '',
+            updated: nowTs
+          };
+        });
+        const maxUpdated = Math.max(cacheEntry.maxUpdated || 0, nowTs);
+        await writeStatusCache(officeId, {
+          cachedAt: nowTs,
+          maxUpdated,
+          members
+        });
+      };
+      const buildStatusEtag = (officeId, maxUpdated, since) => `W/"${officeId}-${maxUpdated}-${since || 0}"`;
       const firestoreDelete = async (path) => {
         const url = `${baseUrl}/${path}`;
         const res = await fetch(url, {
@@ -418,14 +531,16 @@ export default {
         const full = !!incoming.full;
         const writes = [];
         const nowTs = Date.now();
+        const clearIds = [];
 
         if (full) {
           const existing = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
           const incomingIds = new Set(Object.keys(incomingData));
-          const clears = (existing.documents || [])
+          const missingIds = (existing.documents || [])
             .map(doc => doc.name.split('/').pop())
             .filter(id => id && !incomingIds.has(id))
-            .map(id => ({
+          clearIds.push(...missingIds);
+          const clears = missingIds.map(id => ({
               update: {
                 name: `projects/${projectId}/databases/(default)/documents/offices/${officeId}/members/${encodeURIComponent(id)}`,
                 fields: {
@@ -465,6 +580,10 @@ export default {
         for (let i = 0; i < writes.length; i += BATCH_WRITE_SIZE) {
           await firestoreBatchWrite(writes.slice(i, i + BATCH_WRITE_SIZE));
         }
+        await updateStatusCacheAfterWrite(officeId, incomingData, nowTs, {
+          preserveWorkHours: true,
+          clearIds
+        });
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -475,6 +594,40 @@ export default {
         const since = Number(sinceRaw);
         const hasSince = Number.isFinite(since) && since > 0;
         const nowTs = Date.now();
+        const cachedEntry = await readStatusCacheFresh(officeId, nowTs);
+        if (cachedEntry && cachedEntry.members) {
+          const members = cachedEntry.members;
+          const dataMap = {};
+          const updatedCandidates = [];
+          Object.keys(members).forEach((id) => {
+            const member = members[id] || {};
+            const updated = Number(member.updated || 0);
+            if (hasSince && updated <= since) return;
+            dataMap[id] = {
+              status: member.status || '',
+              time: member.time || '',
+              note: member.note || '',
+              workHours: member.workHours || ''
+            };
+            if (Number.isFinite(updated) && updated > 0) {
+              updatedCandidates.push(updated);
+            }
+          });
+          const maxUpdated = hasSince
+            ? (updatedCandidates.length ? Math.max(...updatedCandidates) : since)
+            : (cachedEntry.maxUpdated || 0);
+          const etag = buildStatusEtag(officeId, maxUpdated, hasSince ? since : 0);
+          if (req.headers.get('if-none-match') === etag) {
+            return new Response(null, { status: 304, headers: { ...corsHeaders, ETag: etag } });
+          }
+          return new Response(JSON.stringify({
+            ok: true,
+            data: dataMap,
+            maxUpdated,
+            serverNow: nowTs
+          }), { headers: { ...corsHeaders, ETag: etag } });
+        }
+
         let documents = [];
         if (hasSince) {
           const structuredQuery = {
@@ -510,12 +663,42 @@ export default {
         const maxUpdated = updatedCandidates.length
           ? Math.max(...updatedCandidates)
           : (hasSince ? since : 0);
+        if (!hasSince) {
+          const entry = buildStatusCacheEntry(documents, nowTs, maxUpdated);
+          await writeStatusCache(officeId, entry);
+        } else {
+          const existingCache = await readStatusCacheRaw(officeId);
+          if (existingCache && existingCache.members) {
+            const members = { ...existingCache.members };
+            documents.forEach(doc => {
+              const f = doc.fields || {};
+              const id = doc.name.split('/').pop();
+              if (!id) return;
+              members[id] = {
+                status: f.status?.stringValue || '',
+                time: f.time?.stringValue || '',
+                note: f.note?.stringValue || '',
+                workHours: f.workHours?.stringValue || '',
+                updated: getMemberUpdatedTimestamp(doc)
+              };
+            });
+            await writeStatusCache(officeId, {
+              cachedAt: nowTs,
+              maxUpdated: Math.max(existingCache.maxUpdated || 0, maxUpdated),
+              members
+            });
+          }
+        }
+        const etag = buildStatusEtag(officeId, maxUpdated, hasSince ? since : 0);
+        if (req.headers.get('if-none-match') === etag) {
+          return new Response(null, { status: 304, headers: { ...corsHeaders, ETag: etag } });
+        }
         return new Response(JSON.stringify({
           ok: true,
           data: dataMap,
           maxUpdated,
           serverNow: nowTs
-        }), { headers: corsHeaders });
+        }), { headers: { ...corsHeaders, ETag: etag } });
       }
 
       // set: ステータス更新
@@ -532,6 +715,7 @@ export default {
           return firestorePatch(`offices/${officeId}/members/${encodeURIComponent(userId)}`, { fields }, updateMask);
         });
         await Promise.all(promises);
+        await updateStatusCacheAfterWrite(officeId, updates, nowTs);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 

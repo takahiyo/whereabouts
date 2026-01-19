@@ -4,6 +4,12 @@ compatibility_date = "2024-01-14"
 
 # FIREBASE_PRIVATE_KEY は `wrangler secret put` で設定してください
 
+kv_namespaces = [
+  { binding = "STATUS_CACHE", id = "STATUS_CACHE_KV_ID" }
+]
+
 [vars]
 FIREBASE_PROJECT_ID = "whereabouts-f3388"
 FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gserviceaccount.com"
+STATUS_CACHE_TTL_SEC = "30"
+STATUS_CACHE_WARM_ON_WRITE = "true"
