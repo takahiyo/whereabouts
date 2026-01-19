@@ -160,7 +160,6 @@ function normalizeConfigClient(cfg) {
 // Plan B: Workers経由のポーリング
 async function startLegacyPolling(immediate) {
   useSdkMode = false;
-  // localStorageがある場合、lastSyncTimestamp は 0 のままでOK（初回は全取得して整合させる）
   lastSyncTimestamp = 0; 
 
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
@@ -228,8 +227,7 @@ async function fetchConfigOnce() {
       setupMenus(menus);
       render(); 
 
-      // ★ここで localStorage から復元した STATE_CACHE を適用する
-      // これにより、初回描画直後（ポーリング完了前）に最新状態が表示される
+      // ★追加: DOM描画直後に最新キャッシュを適用
       if (Object.keys(STATE_CACHE).length > 0) {
         applyState(STATE_CACHE);
       }
@@ -313,6 +311,16 @@ async function pushRowDelta(key) {
       const rev = Number((r.rev && r.rev[key]) || 0);
       const ts = Number((r.serverUpdated && r.serverUpdated[key]) || 0);
       if (rev) { tr.dataset.rev = String(rev); tr.dataset.serverUpdated = String(ts || 0); }
+      
+      // ★修正: 送信成功時、ローカルキャッシュ(STATE_CACHE)とLocalStorageを即座に更新する
+      if (!STATE_CACHE[key]) STATE_CACHE[key] = {};
+      Object.assign(STATE_CACHE[key], st);
+      try {
+        localStorage.setItem('whereabouts_state_cache', JSON.stringify(STATE_CACHE));
+      } catch (e) {
+        console.error("Failed to update local cache:", e);
+      }
+
       saveLocal();
       return;
     }
@@ -335,7 +343,7 @@ function applyState(data) {
   // キャッシュにマージ
   Object.assign(STATE_CACHE, data);
 
-  // ★修正: 最新状態をlocalStorageに保存（ここが重要）
+  // ★修正: 最新状態をlocalStorageに保存（サーバーからの受信時）
   try {
     localStorage.setItem('whereabouts_state_cache', JSON.stringify(STATE_CACHE));
   } catch (e) {
