@@ -25,7 +25,35 @@ export default {
     if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'method_not_allowed' }), { status: 405, headers: corsHeaders });
 
     try {
-      const formData = await req.formData();
+      // --- Content-Type 判定によるリクエストボディのパース ---
+      // request.json() 単独使用は禁止（content-type で分岐）
+      const contentType = (req.headers.get('content-type') || '').toLowerCase();
+      let formData;
+      
+      try {
+        if (contentType.includes('application/json')) {
+          // JSON形式: { action: "xxx", ... } を FormData風オブジェクトに変換
+          const jsonBody = await req.json();
+          formData = {
+            get: (key) => jsonBody[key] !== undefined ? String(jsonBody[key]) : null,
+            _raw: jsonBody
+          };
+        } else if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+          // フォーム形式: そのまま formData() を使用
+          formData = await req.formData();
+        } else {
+          // デフォルト: formData() を試行（後方互換性）
+          formData = await req.formData();
+        }
+      } catch (parseError) {
+        console.error('[Request Parse Error]', parseError.message, 'Content-Type:', contentType);
+        return new Response(JSON.stringify({ 
+          error: 'invalid_request_body',
+          message: 'Failed to parse request body. Expected JSON or form data.',
+          contentType: contentType
+        }), { status: 400, headers: corsHeaders });
+      }
+      
       const action = formData.get('action');
 
       // 1. Google認証トークンの取得
@@ -1429,8 +1457,13 @@ export default {
       return new Response(JSON.stringify({ error: 'unknown_action' }), { headers: corsHeaders });
 
     } catch (e) {
-      // エラーハンドリング
-      return new Response(JSON.stringify({ error: e.message, ok: false }), { status: 500, headers: corsHeaders });
+      // エラーハンドリング（詳細ログ付き）
+      console.error('[Worker Error]', e.message, e.stack);
+      return new Response(JSON.stringify({ 
+        error: e.message, 
+        ok: false,
+        timestamp: Date.now()
+      }), { status: 500, headers: corsHeaders });
     }
   }
 };
