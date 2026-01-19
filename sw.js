@@ -1,5 +1,6 @@
 // Service Worker for Whereabouts (Optimized v2)
-const CACHE_NAME = 'whereabouts-v3-cleanup';
+// [2026-01-20] Fixed: Firebase connection issue by ignoring cross-origin requests
+const CACHE_NAME = 'whereabouts-v4-firebase-fix';
 const URLS_TO_CACHE = [
   './',
   './index.html',
@@ -48,6 +49,12 @@ self.addEventListener('activate', (e) => {
 // ネットワーク優先（HTMLは常に no-store で最新取得を試みる）
 self.addEventListener('fetch', (e) => {
   const req = e.request;
+
+  // ★追加: Firebaseや外部APIへのリクエストはService Workerを経由させず、ブラウザに直接任せる
+  // （自分のドメイン以外の通信は無視することで、Firestoreへの接続が切れるのを防ぐ）
+  if (!req.url.startsWith(self.location.origin)) {
+    return;
+  }
 
   // HTMLナビゲーションは常に最新
   if (req.mode === 'navigate' || (req.method === 'GET' && req.headers.get('accept')?.includes('text/html'))) {
