@@ -288,6 +288,16 @@ export default {
         return true;
       };
 
+      // --- Logging Helper ---
+      const LOG_PREFIX = '[KV-Cache]';
+      const logKvHit = (action, key) => console.log(`${LOG_PREFIX} HIT - action=${action}, key=${key}`);
+      const logKvMiss = (action, key) => console.log(`${LOG_PREFIX} MISS - action=${action}, key=${key}`);
+      const logKvWrite = (action, key) => console.log(`${LOG_PREFIX} WRITE - action=${action}, key=${key}`);
+      const logKvDelete = (action, key) => console.log(`${LOG_PREFIX} DELETE - action=${action}, key=${key}`);
+      const logFirestoreRead = (action, path) => console.log(`${LOG_PREFIX} FIRESTORE_READ - action=${action}, path=${path}`);
+      const logStart = (action) => console.log(`${LOG_PREFIX} START - action=${action}`);
+      const logEnd = (action) => console.log(`${LOG_PREFIX} END - action=${action}`);
+
       // 2. アクションごとの処理
 
       // LOGIN: パスワード照合
@@ -311,22 +321,44 @@ export default {
       }
 
       // getConfig: 名簿構造の取得
+      // 【フェーズ3+4実装】
+      // 設計原則:
+      //   1. KV を読む
+      //   2. KV hit の場合は即 return（Firestore 処理禁止）
+      //   3. KV miss の場合のみ Firestore を 1 回読む
+      //   4. 読んだデータを KV に保存
+      //   5. nocache=1 は管理者のみ有効（フェーズ4）
       if (action === 'getConfig') {
+        logStart('getConfig');
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
-        const noCache = formData.get('nocache') === '1'; // ★追加: nocache判定
+        
+        // ★フェーズ4: nocache=1 は管理者のみ有効
+        const noCacheRequested = formData.get('nocache') === '1';
+        const isAdmin = roleIsOfficeAdmin(tokenRole);
+        const useNoCache = noCacheRequested && isAdmin;
+        
+        if (useNoCache) {
+          console.log(`${LOG_PREFIX} NOCACHE_ADMIN - action=getConfig, officeId=${officeId}`);
+        }
         
         // --- 設定データのKVキャッシュ確認 ---
         const configCacheKey = `config_v2:${officeId}`;
-        // ★修正: noCacheフラグがある場合はキャッシュ取得をスキップ
-        if (!noCache && statusCache) {
+        // KV を読む（管理者のnocache時はスキップ）
+        if (!useNoCache && statusCache) {
           try {
             const cached = await statusCache.get(configCacheKey);
+            // KV hit の場合は即 return（Firestore 処理禁止）
             if (cached) {
+              logKvHit('getConfig', configCacheKey);
+              logEnd('getConfig');
               return new Response(cached, { headers: corsHeaders });
             }
+            logKvMiss('getConfig', configCacheKey);
           } catch (e) { console.error('Config Cache Read Error', e); }
         }
 
+        // KV miss の場合のみ Firestore を 1 回読む（または管理者のnocache時）
+        logFirestoreRead('getConfig', `offices/${officeId}/members`);
         const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
 
         const members = (json.documents || []).map(doc => {
@@ -365,10 +397,12 @@ export default {
         if (statusCache) {
           const ttl = statusCacheTtlSec || 60;
           try {
+            logKvWrite('getConfig', configCacheKey);
             ctx.waitUntil(statusCache.put(configCacheKey, responseBody, { expirationTtl: ttl }));
           } catch (e) { console.error('Config Cache Write Error', e); }
         }
 
+        logEnd('getConfig');
         return new Response(responseBody, { headers: corsHeaders });
       }
 
@@ -628,7 +662,9 @@ export default {
         // ★修正: データの整合性を保証するため、キャッシュを削除して次回Firestoreから再取得させる
         if (statusCache) {
           try {
-            await statusCache.delete(`status:${officeId}`);
+            const key = `status:${officeId}`;
+            logKvDelete('setFor', key);
+            await statusCache.delete(key);
           } catch (e) {
             console.error("Cache invalidation failed (setFor):", e);
           }
@@ -638,20 +674,45 @@ export default {
       }
 
       // get: ステータスのみ取得
+      // 【フェーズ1+4実装】
+      // 設計原則:
+      //   1. SSOT は Firestore
+      //   2. Workers KV は Read キャッシュ専用
+      //   3. Firestore Read は KV ミス時のみ・1 回だけ許容
+      //   4. TTL は 60 秒固定
+      //   5. nocache=1 は管理者のみ有効（フェーズ4）
       if (action === 'get') {
+        logStart('get');
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
         const sinceRaw = formData.get('since');
         const since = Number(sinceRaw);
         const hasSince = Number.isFinite(since) && since > 0;
-        const noCache = formData.get('nocache') === '1'; // ★追加: nocache判定
         const nowTs = Date.now();
+        const statusKey = statusCacheKey(officeId);
 
-        // ★修正: noCacheフラグがある場合はキャッシュ読み込みをスキップ
-        let cachedEntry = null;
-        if (!noCache && !hasSince) {
-          cachedEntry = await readStatusCacheFresh(officeId, nowTs);
+        // ★フェーズ4: nocache=1 は管理者のみ有効
+        const noCacheRequested = formData.get('nocache') === '1';
+        const isAdmin = roleIsOfficeAdmin(tokenRole);
+        const useNoCache = noCacheRequested && isAdmin;
+        
+        if (useNoCache) {
+          console.log(`${LOG_PREFIX} NOCACHE_ADMIN - action=get, officeId=${officeId}`);
         }
 
+        // KV を読む（TTL内のキャッシュを確認）
+        // ★フェーズ4: 管理者のnocache時はキャッシュをスキップ
+        let cachedEntry = null;
+        if (!useNoCache) {
+          cachedEntry = await readStatusCacheFresh(officeId, nowTs);
+          if (cachedEntry) {
+            logKvHit('get', statusKey);
+          } else {
+            logKvMiss('get', statusKey);
+          }
+        }
+
+        // KV hit の場合は即 return（Firestore 処理禁止）
+        // ★フェーズ4: 管理者のnocache時はこのブロックをスキップ
         if (cachedEntry && cachedEntry.members) {
           const members = cachedEntry.members;
           const dataMap = {};
@@ -659,6 +720,7 @@ export default {
           Object.keys(members).forEach((id) => {
             const member = members[id] || {};
             const updated = Number(member.updated || 0);
+            // since がある場合はフィルタリング
             if (hasSince && updated <= since) return;
             dataMap[id] = {
               status: member.status || '',
@@ -675,8 +737,10 @@ export default {
             : (cachedEntry.maxUpdated || 0);
           const etag = buildStatusEtag(officeId, maxUpdated, hasSince ? since : 0);
           if (req.headers.get('if-none-match') === etag) {
+            logEnd('get');
             return new Response(null, { status: 304, headers: { ...corsHeaders, ETag: etag } });
           }
+          logEnd('get');
           return new Response(JSON.stringify({
             ok: true,
             data: dataMap,
@@ -685,75 +749,50 @@ export default {
           }), { headers: { ...corsHeaders, ETag: etag } });
         }
 
-        let documents = [];
-        if (hasSince) {
-          const structuredQuery = {
-            from: [{ collectionId: 'members' }],
-            select: {
-              fields: MEMBER_STATUS_FIELDS_FOR_GET.map(fieldPath => ({ fieldPath }))
-            },
-            where: {
-              fieldFilter: {
-                field: { fieldPath: MEMBER_UPDATED_FIELD },
-                op: 'GREATER_THAN',
-                value: toFirestoreValue(since)
-              }
-            },
-            orderBy: [{ field: { fieldPath: MEMBER_UPDATED_FIELD }, direction: 'ASCENDING' }]
-          };
-          const results = await firestoreRunQuery(`offices/${officeId}`, structuredQuery);
-          documents = results.map(r => r.document).filter(Boolean);
-        } else {
-          const membersPath = withFieldMask(`offices/${officeId}/members?pageSize=300`, MEMBER_STATUS_FIELDS_FOR_GET);
-          const json = await firestoreFetch(membersPath);
-          documents = json.documents || [];
-        }
+        // KV miss の場合のみ Firestore を 1 回読む
+        // ★フェーズ1: since の有無に関わらず、常に全件取得してキャッシュに保存
+        logFirestoreRead('get', `offices/${officeId}/members (full)`);
+        const membersPath = withFieldMask(`offices/${officeId}/members?pageSize=300`, MEMBER_STATUS_FIELDS_FOR_GET);
+        const json = await firestoreFetch(membersPath);
+        const documents = json.documents || [];
+
         const dataMap = {};
         documents.forEach(doc => {
           const f = doc.fields || {};
-          dataMap[doc.name.split('/').pop()] = {
+          const id = doc.name.split('/').pop();
+          const updated = getMemberUpdatedTimestamp(doc);
+          // since がある場合はフィルタリング（レスポンス用）
+          if (hasSince && updated <= since) return;
+          dataMap[id] = {
             status: f.status?.stringValue || '',
             time: f.time?.stringValue || '',
             note: f.note?.stringValue || '',
             workHours: f.workHours?.stringValue || ''
           };
         });
-        const updatedCandidates = documents
+
+        // 全ドキュメントから maxUpdated を計算
+        const allUpdatedCandidates = documents
           .map(getMemberUpdatedTimestamp)
           .filter(v => Number.isFinite(v) && v > 0);
-        const maxUpdated = updatedCandidates.length
-          ? Math.max(...updatedCandidates)
-          : (hasSince ? since : 0);
-        if (!hasSince) {
-          const entry = buildStatusCacheEntry(documents, nowTs, maxUpdated);
-          await writeStatusCache(officeId, entry);
-        } else {
-          const existingCache = await readStatusCacheRaw(officeId);
-          if (existingCache && existingCache.members) {
-            const members = { ...existingCache.members };
-            documents.forEach(doc => {
-              const f = doc.fields || {};
-              const id = doc.name.split('/').pop();
-              if (!id) return;
-              members[id] = {
-                status: f.status?.stringValue || '',
-                time: f.time?.stringValue || '',
-                note: f.note?.stringValue || '',
-                workHours: f.workHours?.stringValue || '',
-                updated: getMemberUpdatedTimestamp(doc)
-              };
-            });
-            await writeStatusCache(officeId, {
-              cachedAt: nowTs,
-              maxUpdated: Math.max(existingCache.maxUpdated || 0, maxUpdated),
-              members
-            });
-          }
-        }
+        const maxUpdatedFromDocs = allUpdatedCandidates.length
+          ? Math.max(...allUpdatedCandidates)
+          : 0;
+        const maxUpdated = hasSince
+          ? (Object.keys(dataMap).length > 0 ? maxUpdatedFromDocs : since)
+          : maxUpdatedFromDocs;
+
+        // 読んだデータを KV に保存（TTL 60秒固定）
+        logKvWrite('get', statusKey);
+        const entry = buildStatusCacheEntry(documents, nowTs, maxUpdatedFromDocs);
+        await writeStatusCache(officeId, entry);
+
         const etag = buildStatusEtag(officeId, maxUpdated, hasSince ? since : 0);
         if (req.headers.get('if-none-match') === etag) {
+          logEnd('get');
           return new Response(null, { status: 304, headers: { ...corsHeaders, ETag: etag } });
         }
+        logEnd('get');
         return new Response(JSON.stringify({
           ok: true,
           data: dataMap,
@@ -764,6 +803,7 @@ export default {
 
       // set: ステータス更新
       if (action === 'set') {
+        logStart('set');
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
         const updates = JSON.parse(formData.get('data')).data || {};
         const nowTs = Date.now();
@@ -780,10 +820,12 @@ export default {
         // ★修正: ctx.waitUntil を使用して削除を確実にする
         if (statusCache) {
           const key = `status:${officeId}`;
+          logKvDelete('set', key);
           const deletePromise = statusCache.delete(key).catch(e => console.error("Cache invalidation failed (set):", e));
           ctx.waitUntil(deletePromise);
         }
 
+        logEnd('set');
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -851,19 +893,29 @@ export default {
       }
 
       // getNotices: お知らせ取得
+      // 【フェーズ3実装】フェーズ1と同一ロジック
       if (action === 'getNotices') {
+        logStart('getNotices');
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
 
-        // --- キャッシュ確認 ---
+        // --- KV を読む ---
         const cacheKey = `notices:${officeId}`;
         if (statusCache) {
           try {
             const cached = await statusCache.get(cacheKey);
-            if (cached) return new Response(cached, { headers: corsHeaders });
+            // KV hit の場合は即 return（Firestore 処理禁止）
+            if (cached) {
+              logKvHit('getNotices', cacheKey);
+              logEnd('getNotices');
+              return new Response(cached, { headers: corsHeaders });
+            }
+            logKvMiss('getNotices', cacheKey);
           } catch (e) {}
         }
 
+        // KV miss の場合のみ Firestore を 1 回読む
+        logFirestoreRead('getNotices', `offices/${officeId}/notices`);
         const json = await firestoreFetchOptional(`offices/${officeId}/notices?pageSize=${MAX_NOTICES_PER_OFFICE}`);
         const normalized = normalizeNoticesArray((json?.documents || []).map(doc => ({
           id: doc.name.split('/').pop(),
@@ -880,12 +932,14 @@ export default {
           updated: Date.now()
         });
 
-        // --- キャッシュ保存 ---
+        // --- 読んだデータを KV に保存 ---
         if (statusCache) {
            const ttl = statusCacheTtlSec || 60;
+           logKvWrite('getNotices', cacheKey);
            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
         }
 
+        logEnd('getNotices');
         return new Response(responseBody, { headers: corsHeaders });
       }
 
@@ -950,19 +1004,30 @@ export default {
         return new Response(JSON.stringify({ ok: true, notices: normalized, updated: nowTs }), { headers: corsHeaders });
       }
 
+      // getTools: ツール一覧取得
+      // 【フェーズ3実装】フェーズ1と同一ロジック
       if (action === 'getTools') {
+        logStart('getTools');
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
 
-        // --- キャッシュ確認 ---
+        // --- KV を読む ---
         const cacheKey = `tools:${officeId}`;
         if (statusCache) {
           try {
             const cached = await statusCache.get(cacheKey);
-            if (cached) return new Response(cached, { headers: corsHeaders });
+            // KV hit の場合は即 return（Firestore 処理禁止）
+            if (cached) {
+              logKvHit('getTools', cacheKey);
+              logEnd('getTools');
+              return new Response(cached, { headers: corsHeaders });
+            }
+            logKvMiss('getTools', cacheKey);
           } catch (e) {}
         }
 
+        // KV miss の場合のみ Firestore を 1 回読む
+        logFirestoreRead('getTools', `offices/${officeId}/tools/config`);
         const toolsDoc = await firestoreFetchOptional(`offices/${officeId}/tools/config`);
         const stored = toolsDoc ? fromFirestoreDoc(toolsDoc) : {};
         const normalized = normalizeToolsArray(stored.tools || []);
@@ -975,12 +1040,14 @@ export default {
           updated: Number(stored.updated || 0) || Date.now()
         });
 
-        // --- キャッシュ保存 ---
+        // --- 読んだデータを KV に保存 ---
         if (statusCache) {
            const ttl = statusCacheTtlSec || 60;
+           logKvWrite('getTools', cacheKey);
            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
         }
 
+        logEnd('getTools');
         return new Response(responseBody, { headers: corsHeaders });
       }
 
@@ -1018,19 +1085,30 @@ export default {
         return new Response(JSON.stringify({ ok: true, tools: normalized.list, warnings: normalized.warnings, updated: nowTs }), { headers: corsHeaders });
       }
 
+      // getEventColorMap: イベントカラーマップ取得
+      // 【フェーズ3実装】フェーズ1と同一ロジック
       if (action === 'getEventColorMap') {
+        logStart('getEventColorMap');
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
 
-        // --- キャッシュ確認 ---
+        // --- KV を読む ---
         const cacheKey = `eventColors:${officeId}`;
         if (statusCache) {
           try {
             const cached = await statusCache.get(cacheKey);
-            if (cached) return new Response(cached, { headers: corsHeaders });
+            // KV hit の場合は即 return（Firestore 処理禁止）
+            if (cached) {
+              logKvHit('getEventColorMap', cacheKey);
+              logEnd('getEventColorMap');
+              return new Response(cached, { headers: corsHeaders });
+            }
+            logKvMiss('getEventColorMap', cacheKey);
           } catch (e) {}
         }
 
+        // KV miss の場合のみ Firestore を 1 回読む
+        logFirestoreRead('getEventColorMap', `offices/${officeId}/eventColors/config`);
         const colorDoc = await firestoreFetchOptional(`offices/${officeId}/eventColors/config`);
         const stored = colorDoc ? fromFirestoreDoc(colorDoc) : {};
         const normalized = normalizeEventColorMap(stored);
@@ -1040,12 +1118,14 @@ export default {
         
         const responseBody = JSON.stringify(normalized);
 
-        // --- キャッシュ保存 ---
+        // --- 読んだデータを KV に保存 ---
         if (statusCache) {
            const ttl = statusCacheTtlSec || 60;
+           logKvWrite('getEventColorMap', cacheKey);
            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
         }
 
+        logEnd('getEventColorMap');
         return new Response(responseBody, { headers: corsHeaders });
       }
 
@@ -1083,19 +1163,45 @@ export default {
         return new Response(JSON.stringify({ ok: true, colors: normalized.colors || {}, updated: nowTs }), { headers: corsHeaders });
       }
 
+      // getVacation: 休暇データの取得
+      // 【フェーズ3+4実装】
+      // 設計原則:
+      //   1. KV を読む
+      //   2. KV hit の場合は即 return（Firestore 処理禁止）
+      //   3. KV miss の場合のみ Firestore を 1 回読む
+      //   4. 読んだデータを KV に保存
+      //   5. nocache=1 は管理者のみ有効（フェーズ4）
       if (action === 'getVacation') {
+        logStart('getVacation');
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
+        
+        // ★フェーズ4: nocache=1 は管理者のみ有効
+        const noCacheRequested = formData.get('nocache') === '1';
+        const isAdmin = roleIsOfficeAdmin(tokenRole);
+        const useNoCache = noCacheRequested && isAdmin;
+        
+        if (useNoCache) {
+          console.log(`${LOG_PREFIX} NOCACHE_ADMIN - action=getVacation, officeId=${officeId}`);
+        }
 
-        // --- キャッシュ確認 ---
+        // --- KV を読む（管理者のnocache時はスキップ） ---
         const cacheKey = `vacations:${officeId}`;
-        if (statusCache) {
+        if (!useNoCache && statusCache) {
           try {
             const cached = await statusCache.get(cacheKey);
-            if (cached) return new Response(cached, { headers: corsHeaders });
+            // KV hit の場合は即 return（Firestore 処理禁止）
+            if (cached) {
+              logKvHit('getVacation', cacheKey);
+              logEnd('getVacation');
+              return new Response(cached, { headers: corsHeaders });
+            }
+            logKvMiss('getVacation', cacheKey);
           } catch (e) {}
         }
 
+        // KV miss の場合のみ Firestore を 1 回読む（または管理者のnocache時）
+        logFirestoreRead('getVacation', `offices/${officeId}/vacations`);
         const json = await firestoreFetchOptional(`offices/${officeId}/vacations?pageSize=200`);
         let vacations = (json?.documents || []).map(doc => normalizeVacationItem({
           id: doc.name.split('/').pop(),
@@ -1116,9 +1222,11 @@ export default {
         // --- キャッシュ保存 ---
         if (statusCache) {
            const ttl = statusCacheTtlSec || 60;
+           logKvWrite('getVacation', cacheKey);
            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
         }
 
+        logEnd('getVacation');
         return new Response(responseBody, { headers: corsHeaders });
       }
 

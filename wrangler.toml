@@ -11,5 +11,6 @@ kv_namespaces = [
 [vars]
 FIREBASE_PROJECT_ID = "whereabouts-f3388"
 FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gserviceaccount.com"
-STATUS_CACHE_TTL_SEC = "30"
-STATUS_CACHE_WARM_ON_WRITE = "true"
+STATUS_CACHE_TTL_SEC = "60"
+# STATUS_CACHE_WARM_ON_WRITE は使用しない（フェーズ2: Write後はinvalidateのみ）
+# STATUS_CACHE_WARM_ON_WRITE = "false"
