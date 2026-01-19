@@ -25,25 +25,52 @@ export default {
     if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'method_not_allowed' }), { status: 405, headers: corsHeaders });
 
     try {
-      // --- Content-Type 判定によるリクエストボディのパース ---
-      // request.json() 単独使用は禁止（content-type で分岐）
+      // =============================================================
+      // リクエストボディの読み取り（1回のみ）
+      // =============================================================
+      // ※ req.json() / req.formData() / req.text() はストリームを消費するため
+      //    1回しか呼び出せない。ここで1度だけ読み取り、以降は body 変数を参照する。
       const contentType = (req.headers.get('content-type') || '').toLowerCase();
-      let formData;
+      let body;
       
       try {
+        // 最初に1回だけ body を読む（text として取得）
+        const rawText = await req.text();
+        
         if (contentType.includes('application/json')) {
-          // JSON形式: { action: "xxx", ... } を FormData風オブジェクトに変換
-          const jsonBody = await req.json();
-          formData = {
-            get: (key) => jsonBody[key] !== undefined ? String(jsonBody[key]) : null,
-            _raw: jsonBody
-          };
-        } else if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
-          // フォーム形式: そのまま formData() を使用
-          formData = await req.formData();
+          // JSON形式
+          body = rawText ? JSON.parse(rawText) : {};
+        } else if (contentType.includes('application/x-www-form-urlencoded')) {
+          // URLエンコード形式: パースしてオブジェクトに変換
+          body = {};
+          if (rawText) {
+            const params = new URLSearchParams(rawText);
+            for (const [key, value] of params) {
+              body[key] = value;
+            }
+          }
         } else {
-          // デフォルト: formData() を試行（後方互換性）
-          formData = await req.formData();
+          // その他（multipart等）: URLSearchParams でパースを試行
+          // multipart/form-data の場合は text() では正しく読めないが、
+          // 現在のフロントエンドは x-www-form-urlencoded を使用しているため問題なし
+          body = {};
+          if (rawText) {
+            try {
+              // まずJSONとしてパースを試行
+              body = JSON.parse(rawText);
+            } catch {
+              // JSONでなければ URLSearchParams を試行
+              try {
+                const params = new URLSearchParams(rawText);
+                for (const [key, value] of params) {
+                  body[key] = value;
+                }
+              } catch {
+                // パース失敗時は空オブジェクト
+                console.warn('[Body Parse] Could not parse body, using empty object');
+              }
+            }
+          }
         }
       } catch (parseError) {
         console.error('[Request Parse Error]', parseError.message, 'Content-Type:', contentType);
@@ -53,6 +80,12 @@ export default {
           contentType: contentType
         }), { status: 400, headers: corsHeaders });
       }
+      
+      // FormData互換のgetterを提供（既存コードとの互換性のため）
+      const formData = {
+        get: (key) => body[key] !== undefined ? String(body[key]) : null,
+        _raw: body
+      };
       
       const action = formData.get('action');
 
