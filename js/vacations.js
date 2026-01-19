@@ -1055,11 +1055,12 @@
     };
   }
 
+  // ★修正: DOM要素の取得を安全に行う
   const defaultController = createVacationGanttController({
     rootEl: document.getElementById('vacationGantt'),
-    startInput: vacationStartInput,
-    endInput: vacationEndInput,
-    bitsInput: vacationMembersBitsInput
+    startInput: document.getElementById('vacationStartInput'),
+    endInput: document.getElementById('vacationEndInput'),
+    bitsInput: document.getElementById('vacationMembersBitsInput')
   });
 
   window.createVacationGantt = createVacationGanttController;
