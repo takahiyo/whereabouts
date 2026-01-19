@@ -185,7 +185,7 @@ async function startLegacyPolling(immediate) {
   remotePullTimer = setInterval(pollAction, remotePollMs);
 }
 
-// ★修正箇所: データ同期開始（KVキャッシュ有効化のため、常にWorkerポーリングを使用）
+// ★修正箇所: データ同期開始（ツール・お知らせ等のポーリング呼び出しを追加）
 function startRemoteSync(immediate) {
   // 既存のタイマー/リスナーをクリア
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
@@ -201,7 +201,21 @@ function startRemoteSync(immediate) {
   // Firestore SDK (onSnapshot) は読み取りコストが高いため使用せず、
   // WorkerのKVキャッシュを活用できるポーリングモードを強制的に使用する
   console.log("Starting sync via Cloudflare Worker (KV Cache enabled).");
+  
+  // 1. メンバー状態のポーリング開始
   startLegacyPolling(immediate);
+
+  // 2. ツール・お知らせ・休暇のポーリングも開始
+  // （以前はonSnapshotの接続成功時に呼ばれていましたが、SDK無効化に伴いここで明示的に呼び出します）
+  if (typeof startToolsPolling === 'function') {
+      startToolsPolling(); 
+  }
+  if (typeof startNoticesPolling === 'function') {
+      startNoticesPolling();
+  }
+  if (typeof startVacationsPolling === 'function') {
+      startVacationsPolling();
+  }
 }
 
 async function fetchConfigOnce() {
