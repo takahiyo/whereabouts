@@ -1,3 +1,6 @@
+/* =========================================
+   Part 1: ガントチャートUI制御 (既存コード)
+   ========================================= */
 (function () {
   const HOLIDAY_API_URL = window.HOLIDAY_API_URL || 'https://holidays-jp.github.io/api/v1/date.json';
   const MANUAL_HOLIDAYS = Array.isArray(window.MANUAL_HOLIDAYS) ? window.MANUAL_HOLIDAYS : [];
@@ -1067,3 +1070,116 @@
     syncInput: () => { }
   };
 })();
+
+/* =========================================
+   Part 2: データ通信・リスト制御 (追加部分)
+   ========================================= */
+
+let CURRENT_VACATIONS = [];
+window.CURRENT_VACATIONS = CURRENT_VACATIONS;
+let vacationsPollTimer = null;
+
+// 休暇データの取得
+async function fetchVacations(requestedOfficeId) {
+  if (!SESSION_TOKEN) return;
+  
+  const targetOffice = requestedOfficeId || CURRENT_OFFICE_ID || '';
+  if (!targetOffice) return;
+
+  try {
+    const res = await apiPost({
+      action: 'getVacation',
+      token: SESSION_TOKEN,
+      office: targetOffice,
+      nocache: '1' // ポーリング時はWorkerキャッシュを利用するため、ここではnocache=1でも問題ない(Worker側で制御)
+    });
+
+    if (res && res.vacations) {
+      applyVacations(res.vacations);
+    } else if (res && res.error === 'unauthorized') {
+      await logout();
+    }
+  } catch (err) {
+    console.error('fetchVacations error:', err);
+  }
+}
+
+// 休暇データの適用・リスト描画
+function applyVacations(list) {
+  CURRENT_VACATIONS = Array.isArray(list) ? list : [];
+  window.CURRENT_VACATIONS = CURRENT_VACATIONS;
+  renderVacationList(CURRENT_VACATIONS);
+}
+
+// 休暇リストのHTML描画
+function renderVacationList(list) {
+  const container = document.getElementById('vacationList');
+  if (!container) return;
+
+  container.innerHTML = '';
+  if (!list || list.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'vacation-empty';
+    empty.textContent = '予定は登録されていません';
+    container.appendChild(empty);
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  list.forEach(v => {
+    // visible=false のものは表示しない (管理画面ではないため)
+    // ※もし管理画面兼用ならフラグチェックで分岐する
+    if (v.visible === false) return;
+
+    const item = document.createElement('div');
+    item.className = 'vacation-item';
+    if (v.color) item.classList.add(`vac-color-${v.color}`);
+    
+    // 日付整形
+    const startStr = v.startDate ? v.startDate.replace(/-/g, '/') : '';
+    const endStr = v.endDate ? v.endDate.replace(/-/g, '/') : '';
+    const dateRange = (startStr === endStr || !endStr) 
+      ? startStr 
+      : `${startStr} ～ ${endStr}`;
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'vacation-item-title';
+    titleDiv.textContent = v.title || '(名称なし)';
+    
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'vacation-item-meta';
+    metaDiv.textContent = dateRange;
+
+    // クリックで詳細などを表示したい場合はイベントリスナーを追加
+    // item.addEventListener('click', () => { ... });
+
+    item.appendChild(titleDiv);
+    item.appendChild(metaDiv);
+    frag.appendChild(item);
+  });
+  container.appendChild(frag);
+}
+
+// ポーリング開始 (sync.jsから呼ばれる)
+function startVacationsPolling() {
+  if (vacationsPollTimer) { clearInterval(vacationsPollTimer); vacationsPollTimer = null; }
+  
+  // 初回即時実行
+  fetchVacations();
+
+  // 60秒間隔で更新
+  vacationsPollTimer = setInterval(() => {
+    fetchVacations();
+  }, 60000);
+}
+
+function stopVacationsPolling() {
+  if (vacationsPollTimer) { clearInterval(vacationsPollTimer); vacationsPollTimer = null; }
+}
+
+// グローバル公開
+window.fetchVacations = fetchVacations;
+window.startVacationsPolling = startVacationsPolling;
+window.stopVacationsPolling = stopVacationsPolling;
+window.renderVacationList = renderVacationList;
+window.applyVacations = applyVacations;
