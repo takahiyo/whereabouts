@@ -209,10 +209,10 @@ export default {
           (json.documents || []).forEach(doc => {
             const f = doc.fields || {};
             const officeId = doc.name.split('/').pop();
-            const isPublic = f.public?.booleanValue === true;
+            const isPublic = f.public?.booleanValue;
             
-            // 公開設定されている拠点のみ返す
-            if (isPublic) {
+            // publicフィールドが明示的にfalseの場合のみ除外、それ以外は全て表示
+            if (isPublic !== false) {
               offices.push({
                 id: officeId,
                 name: f.name?.stringValue || officeId
