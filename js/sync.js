@@ -14,9 +14,9 @@ const DEFAULT_BUSINESS_HOURS = [
 ];
 
 // ハイブリッド同期用の状態管理
-let useSdkMode = false;         // 現在SDKモードで動いているか
+let useSdkMode = false;         // 現在SDKモードで動いているか（本修正により常にfalseとなります）
 let unsubscribeSnapshot = null; // Firestoreのリスナー解除用関数
-let fallbackTimer = null;       // フォールバック（Plan B切替）判定タイマー
+let fallbackTimer = null;       // フォールバック判定タイマー
 
 // ★追加: 最新の状態を保持するキャッシュ
 let STATE_CACHE = {};
@@ -185,7 +185,7 @@ async function startLegacyPolling(immediate) {
   remotePullTimer = setInterval(pollAction, remotePollMs);
 }
 
-// データ同期開始（Graceful Degradation: Plan A -> Plan B）
+// ★修正箇所: データ同期開始（KVキャッシュ有効化のため、常にWorkerポーリングを使用）
 function startRemoteSync(immediate) {
   // 既存のタイマー/リスナーをクリア
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
@@ -198,77 +198,10 @@ function startRemoteSync(immediate) {
     return;
   }
 
-  // SDKが利用できない、または初期化失敗時は即Plan Bへ
-  if (typeof firebase === 'undefined' || !firebase.apps.length) {
-    startLegacyPolling(immediate);
-    return;
-  }
-
-
-
-  // タイムアウト設定: 5秒以内にSDKでデータが取れなければPlan Bへ移行
-  fallbackTimer = setTimeout(() => {
-    if (!useSdkMode) {
-      console.warn("Plan A timeout (5s). Switching to Plan B.");
-      startLegacyPolling(immediate);
-    }
-  }, 5000);
-
-// 匿名認証してFirestoreに接続
-  firebase.auth().signInAnonymously().then(() => {
-    const db = firebase.firestore();
-    const docRef = db.collection('offices').doc(CURRENT_OFFICE_ID).collection('members');
-
-    unsubscribeSnapshot = docRef.onSnapshot((snapshot) => {
-      // 成功: Plan Bへのフォールバックタイマーを解除
-      if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-
-      if (!useSdkMode) {
-
-        useSdkMode = true;
-
-        // ★追加: 既に動いているPlan Bのポーリングタイマーを確実に停止する
-        if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
-
-        // 1. Configポーリング停止
-        if (configWatchTimer) { clearInterval(configWatchTimer); configWatchTimer = null; }
-
-        // 2. お知らせ・ツールの監視もSDKモードで開始（既存のタイマーがあればリセットされるロジックにする）
-        if (typeof startNoticesPolling === 'function') startNoticesPolling();
-        if (typeof startToolsPolling === 'function') startToolsPolling();
-      }
-
-      const changes = {};
-      let needsConfigRefetch = false;
-
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added' || change.type === 'removed') {
-          needsConfigRefetch = true;
-        }
-        // Firestoreのデータをアプリ形式に変換
-        changes[change.doc.id] = change.doc.data();
-      });
-
-      // 変更があった場合のみ適用
-      if (Object.keys(changes).length > 0) {
-        applyState(changes);
-      }
-
-      if (needsConfigRefetch) {
-        fetchConfigOnce();
-      }
-    }, (error) => {
-      console.error("Plan A Error (SDK):", error);
-      // 権限エラーやネットワークエラー時はPlan Bへ
-      if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
-      if (!useSdkMode) {
-        startLegacyPolling(immediate);
-      }
-    });
-  }).catch((e) => {
-    console.error("Auth/Init Error:", e);
-    startLegacyPolling(immediate);
-  });
+  // Firestore SDK (onSnapshot) は読み取りコストが高いため使用せず、
+  // WorkerのKVキャッシュを活用できるポーリングモードを強制的に使用する
+  console.log("Starting sync via Cloudflare Worker (KV Cache enabled).");
+  startLegacyPolling(immediate);
 }
 
 async function fetchConfigOnce() {
@@ -396,7 +329,7 @@ async function pushRowDelta(key) {
   }
 }
 
-// applyState関数の定義（下部に移動または既存を置換）
+// applyState関数の定義
 function applyState(data) {
   if (!data) return;
 
