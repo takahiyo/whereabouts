@@ -1,6 +1,6 @@
 // Service Worker for Whereabouts (Optimized v2)
 // [2026-01-20] Fixed: Firebase connection issue by ignoring cross-origin requests
-const CACHE_NAME = 'whereabouts-v4-firebase-fix';
+const CACHE_NAME = 'whereabouts-v5-firebase-fix';
 const URLS_TO_CACHE = [
   './',
   './index.html',
