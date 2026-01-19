@@ -14,12 +14,21 @@ const DEFAULT_BUSINESS_HOURS = [
 ];
 
 // ハイブリッド同期用の状態管理
-let useSdkMode = false;         // 現在SDKモードで動いているか（本修正により常にfalseとなります）
-let unsubscribeSnapshot = null; // Firestoreのリスナー解除用関数
-let fallbackTimer = null;       // フォールバック判定タイマー
+let useSdkMode = false;
+let unsubscribeSnapshot = null;
+let fallbackTimer = null;
 
-// ★追加: 最新の状態を保持するキャッシュ
+// ★修正: STATE_CACHE を localStorage から初期化（リロード対策）
 let STATE_CACHE = {};
+try {
+  const cached = localStorage.getItem('whereabouts_state_cache');
+  if (cached) {
+    STATE_CACHE = JSON.parse(cached);
+  }
+} catch (e) {
+  console.error("Local cache restore failed:", e);
+}
+
 let lastSyncTimestamp = 0;
 
 function defaultMenus() {
@@ -78,7 +87,6 @@ function buildWorkHourOptions(hours) {
 function setupMenus(m) {
   const base = defaultMenus();
   MENUS = (m && typeof m === 'object') ? Object.assign({}, base, m) : base;
-  // --- compatibility: accept legacy keys for business-hours ---
   if (!Array.isArray(MENUS.businessHours)) {
     const legacy1 = Array.isArray(MENUS.workHourOptions) ? MENUS.workHourOptions : null;
     const legacy2 = Array.isArray(MENUS.workHoursOptions) ? MENUS.workHoursOptions : null;
@@ -95,7 +103,6 @@ function setupMenus(m) {
   clearOnSet = new Set(sts.filter(s => s.clearOnSet).map(s => String(s.value)));
   statusClassMap = new Map(sts.map(s => [String(s.value), String(s.class || "")]));
 
-  // 備考候補 datalist（先頭は空白のラベル付き）
   let dl = document.getElementById('noteOptions');
   if (!dl) { dl = document.createElement('datalist'); dl.id = 'noteOptions'; document.body.appendChild(dl); }
   dl.replaceChildren();
@@ -150,11 +157,11 @@ function normalizeConfigClient(cfg) {
   });
 }
 
-// Plan B: Workers経由のポーリング（フォールバック用）
+// Plan B: Workers経由のポーリング
 async function startLegacyPolling(immediate) {
-
   useSdkMode = false;
-  lastSyncTimestamp = 0;
+  // localStorageがある場合、lastSyncTimestamp は 0 のままでOK（初回は全取得して整合させる）
+  lastSyncTimestamp = 0; 
 
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
 
@@ -185,37 +192,23 @@ async function startLegacyPolling(immediate) {
   remotePullTimer = setInterval(pollAction, remotePollMs);
 }
 
-// ★修正箇所: データ同期開始（ツール・お知らせ等のポーリング呼び出しを追加）
 function startRemoteSync(immediate) {
-  // 既存のタイマー/リスナーをクリア
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
   if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
   if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
 
-  // ログイン済みチェック（CURRENT_OFFICE_IDが必要）
   if (typeof CURRENT_OFFICE_ID === 'undefined' || !CURRENT_OFFICE_ID) {
     console.error("Office ID not found. Cannot start sync.");
     return;
   }
 
-  // Firestore SDK (onSnapshot) は読み取りコストが高いため使用せず、
-  // WorkerのKVキャッシュを活用できるポーリングモードを強制的に使用する
   console.log("Starting sync via Cloudflare Worker (KV Cache enabled).");
   
-  // 1. メンバー状態のポーリング開始
   startLegacyPolling(immediate);
 
-  // 2. ツール・お知らせ・休暇のポーリングも開始
-  // （以前はonSnapshotの接続成功時に呼ばれていましたが、SDK無効化に伴いここで明示的に呼び出します）
-  if (typeof startToolsPolling === 'function') {
-      startToolsPolling(); 
-  }
-  if (typeof startNoticesPolling === 'function') {
-      startNoticesPolling();
-  }
-  if (typeof startVacationsPolling === 'function') {
-      startVacationsPolling();
-  }
+  if (typeof startToolsPolling === 'function') { startToolsPolling(); }
+  if (typeof startNoticesPolling === 'function') { startNoticesPolling(); }
+  if (typeof startVacationsPolling === 'function') { startVacationsPolling(); }
 }
 
 async function fetchConfigOnce() {
@@ -233,11 +226,11 @@ async function fetchConfigOnce() {
       GROUPS = normalizeConfigClient({ groups });
       CONFIG_UPDATED = updated || Date.now();
       setupMenus(menus);
-      render(); // DOM再描画（ここで画面が一度リセットされる）
+      render(); 
 
-      // ★追加: DOM再描画後に、保持している最新の状態を再適用する
+      // ★ここで localStorage から復元した STATE_CACHE を適用する
+      // これにより、初回描画直後（ポーリング完了前）に最新状態が表示される
       if (Object.keys(STATE_CACHE).length > 0) {
-
         applyState(STATE_CACHE);
       }
     }
@@ -246,17 +239,15 @@ async function fetchConfigOnce() {
 
 function startConfigWatch(immediate = true) {
   if (configWatchTimer) { clearInterval(configWatchTimer); configWatchTimer = null; }
-
-  // 引数がtrueなら即座に実行
   if (immediate) {
     fetchConfigOnce().catch(console.error);
   }
-
   const configPollMs = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.configPollMs))
     ? CONFIG.configPollMs
     : 30000;
   configWatchTimer = setInterval(fetchConfigOnce, configPollMs);
 }
+
 function scheduleRenew(ttlMs) {
   if (tokenRenewTimer) { clearTimeout(tokenRenewTimer); tokenRenewTimer = null; }
   const tokenDefaultTtl = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.tokenDefaultTtl))
@@ -270,13 +261,11 @@ function scheduleRenew(ttlMs) {
       await logout();
       return;
     }
-
     if (!me.ok) {
       toast('ログイン状態を再確認してください', false);
       await logout();
       return;
     }
-
     if (me.ok) {
       const prevRole = CURRENT_ROLE;
       CURRENT_ROLE = me.role || CURRENT_ROLE;
@@ -293,7 +282,6 @@ function scheduleRenew(ttlMs) {
   }, delay);
 }
 
-/* 送信（CAS: baseRev 同梱） */
 async function pushRowDelta(key) {
   const tr = document.getElementById(`row-${key}`);
   try {
@@ -303,19 +291,16 @@ async function pushRowDelta(key) {
     const baseRev = {}; baseRev[key] = Number(tr.dataset.rev || 0);
     const payload = { updated: Date.now(), data: { [key]: st } };
 
-    // 書き込みは整合性のため、常にWorkers経由（apiPost）で行う
     const r = await apiPost({ action: 'set', token: SESSION_TOKEN, data: JSON.stringify(payload), baseRev: JSON.stringify(baseRev) });
 
     if (!r) { toast('通信エラー', false); return; }
 
     if (r.error === 'conflict') {
-      // サーバ側の値で上書き
       const c = (r.conflicts && r.conflicts.find(x => x.id === key)) || null;
       if (c && c.server) {
         applyState({ [key]: c.server });
         toast('他端末と競合しました（サーバ値で更新）', false);
       } else {
-        // 競合配列が無い場合でも rev マップがあれば反映
         const rev = Number((r.rev && r.rev[key]) || 0);
         const ts = Number((r.serverUpdated && r.serverUpdated[key]) || 0);
         if (rev) { tr.dataset.rev = String(rev); tr.dataset.serverUpdated = String(ts || 0); }
@@ -347,8 +332,15 @@ async function pushRowDelta(key) {
 function applyState(data) {
   if (!data) return;
 
-  // ★追加: 受信した最新データをキャッシュにマージ
+  // キャッシュにマージ
   Object.assign(STATE_CACHE, data);
+
+  // ★修正: 最新状態をlocalStorageに保存（ここが重要）
+  try {
+    localStorage.setItem('whereabouts_state_cache', JSON.stringify(STATE_CACHE));
+  } catch (e) {
+    // quota exceededなどは無視
+  }
 
   Object.entries(data).forEach(([k, v]) => {
     if (PENDING_ROWS.has(k)) return;
@@ -370,7 +362,6 @@ function applyState(data) {
     setIfNeeded(t, v.time || ""); setIfNeeded(n, v.note || "");
     if (s && t) toggleTimeEnable(s, t);
 
-    // rev/serverUpdated 反映（無ければ0扱い）
     const remoteRev = Number(v.rev || 0);
     const localRev = Number(tr?.dataset.rev || 0);
     if (tr && remoteRev > localRev) { tr.dataset.rev = String(remoteRev); tr.dataset.serverUpdated = String(v.serverUpdated || 0); }
