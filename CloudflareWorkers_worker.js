@@ -590,10 +590,17 @@ export default {
         for (let i = 0; i < writes.length; i += BATCH_WRITE_SIZE) {
           await firestoreBatchWrite(writes.slice(i, i + BATCH_WRITE_SIZE));
         }
-        await updateStatusCacheAfterWrite(officeId, incomingData, nowTs, {
-          preserveWorkHours: true,
-          clearIds
-        });
+
+        // ★修正: キャッシュ更新エラーはクライアントに返さずログ出力のみにする
+        try {
+          await updateStatusCacheAfterWrite(officeId, incomingData, nowTs, {
+            preserveWorkHours: true,
+            clearIds
+          });
+        } catch (e) {
+          console.error("Cache update failed (setFor):", e);
+        }
+
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -729,7 +736,14 @@ export default {
           return firestorePatch(`offices/${officeId}/members/${encodeURIComponent(userId)}`, { fields }, updateMask);
         });
         await Promise.all(promises);
-        await updateStatusCacheAfterWrite(officeId, updates, nowTs);
+
+        // ★修正: キャッシュ更新エラーはクライアントに返さずログ出力のみにする
+        try {
+          await updateStatusCacheAfterWrite(officeId, updates, nowTs);
+        } catch (e) {
+          console.error("Cache update failed (set):", e);
+        }
+
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
