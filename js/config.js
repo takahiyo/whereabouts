@@ -84,16 +84,29 @@ function initFirebase() {
     // 初期化を実行
     firebase.initializeApp(CONFIG.firebaseConfig);
 
-    // ★追加: オフライン永続化（キャッシュ）を有効にする
-    // ※警告回避と安定性のため synchronizeTabs: true を削除（デフォルト設定を使用）
-    firebase.firestore().enablePersistence()
-        .catch((err) => {
+    const db = firebase.firestore();
+
+    // ★修正: 警告回避のため、新しい settings API を使用して永続化を有効化
+    if (typeof firebase.firestore.persistentLocalCache !== 'undefined') {
+        try {
+            db.settings({
+                localCache: firebase.firestore.persistentLocalCache()
+            });
+            // console.log("Persistence enabled via new API");
+        } catch (e) {
+            console.warn("New persistence API failed, fallback to enablePersistence", e);
+            db.enablePersistence().catch(err => console.warn(err));
+        }
+    } else {
+        // フォールバック（古いブラウザ等）
+        db.enablePersistence().catch((err) => {
             if (err.code == 'failed-precondition') {
                 console.warn('複数タブで開かれているため、永続化は1つのタブでのみ有効です');
             } else if (err.code == 'unimplemented') {
                 console.warn('このブラウザは永続化をサポートしていません');
             }
         });
+    }
 
     return true;
 }
