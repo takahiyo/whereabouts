@@ -120,6 +120,16 @@ npx wrangler secret put FIREBASE_SERVICE_ACCOUNT
 
 ```
 
+#### KVキャッシュの設定
+
+`action === "get"` のレスポンスをKVにキャッシュするため、KVネームスペースを作成して `wrangler.toml` の `kv_namespaces` にIDを設定します。
+
+```bash
+npx wrangler kv:namespace create STATUS_CACHE
+```
+
+`wrangler.toml` の `STATUS_CACHE_TTL_SEC` と `STATUS_CACHE_WARM_ON_WRITE` でキャッシュのTTLと書き込み時のウォームアップを制御します。
+
 #### デプロイ
 
 ```bash
