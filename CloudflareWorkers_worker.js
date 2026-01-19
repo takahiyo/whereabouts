@@ -98,6 +98,20 @@ export default {
         }
         return json;
       };
+      const firestoreRunQuery = async (parentPath, structuredQuery) => {
+        const parent = `projects/${projectId}/databases/(default)/documents/${parentPath}`;
+        const url = `${baseUrl}:runQuery`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parent, structuredQuery })
+        });
+        const json = await res.json();
+        if (res.status !== 200) {
+          throw new Error(`Firestore Error (${res.status}): ${JSON.stringify(json.error || json)}`);
+        }
+        return Array.isArray(json) ? json : [];
+      };
       const BATCH_WRITE_SIZE = 200;
       const MEMBER_UPDATED_FIELD = 'updated';
       const MEMBER_STATUS_FIELDS = ['status', 'time', 'note'];
@@ -457,9 +471,31 @@ export default {
       // get: ステータスのみ取得
       if (action === 'get') {
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
-        const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
+        const sinceRaw = formData.get('since');
+        const since = Number(sinceRaw);
+        const hasSince = Number.isFinite(since) && since > 0;
+        const nowTs = Date.now();
+        let documents = [];
+        if (hasSince) {
+          const structuredQuery = {
+            from: [{ collectionId: 'members' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: MEMBER_UPDATED_FIELD },
+                op: 'GREATER_THAN',
+                value: toFirestoreValue(since)
+              }
+            },
+            orderBy: [{ field: { fieldPath: MEMBER_UPDATED_FIELD }, direction: 'ASCENDING' }]
+          };
+          const results = await firestoreRunQuery(`offices/${officeId}`, structuredQuery);
+          documents = results.map(r => r.document).filter(Boolean);
+        } else {
+          const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
+          documents = json.documents || [];
+        }
         const dataMap = {};
-        (json.documents || []).forEach(doc => {
+        documents.forEach(doc => {
           const f = doc.fields || {};
           dataMap[doc.name.split('/').pop()] = {
             status: f.status?.stringValue || '',
@@ -468,7 +504,18 @@ export default {
             workHours: f.workHours?.stringValue || ''
           };
         });
-        return new Response(JSON.stringify({ ok: true, data: dataMap }), { headers: corsHeaders });
+        const updatedCandidates = documents
+          .map(getMemberUpdatedTimestamp)
+          .filter(v => Number.isFinite(v) && v > 0);
+        const maxUpdated = updatedCandidates.length
+          ? Math.max(...updatedCandidates)
+          : (hasSince ? since : 0);
+        return new Response(JSON.stringify({
+          ok: true,
+          data: dataMap,
+          maxUpdated,
+          serverNow: nowTs
+        }), { headers: corsHeaders });
       }
 
       // set: ステータス更新
