@@ -313,10 +313,12 @@ export default {
       // getConfig: 名簿構造の取得
       if (action === 'getConfig') {
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
+        const noCache = formData.get('nocache') === '1'; // ★追加: nocache判定
         
         // --- 設定データのKVキャッシュ確認 ---
         const configCacheKey = `config_v2:${officeId}`;
-        if (statusCache) {
+        // ★修正: noCacheフラグがある場合はキャッシュ取得をスキップ
+        if (!noCache && statusCache) {
           try {
             const cached = await statusCache.get(configCacheKey);
             if (cached) {
@@ -641,8 +643,15 @@ export default {
         const sinceRaw = formData.get('since');
         const since = Number(sinceRaw);
         const hasSince = Number.isFinite(since) && since > 0;
+        const noCache = formData.get('nocache') === '1'; // ★追加: nocache判定
         const nowTs = Date.now();
-        const cachedEntry = await readStatusCacheFresh(officeId, nowTs);
+
+        // ★修正: noCacheフラグがある場合はキャッシュ読み込みをスキップ
+        let cachedEntry = null;
+        if (!noCache && !hasSince) {
+          cachedEntry = await readStatusCacheFresh(officeId, nowTs);
+        }
+
         if (cachedEntry && cachedEntry.members) {
           const members = cachedEntry.members;
           const dataMap = {};
@@ -768,13 +777,11 @@ export default {
         });
         await Promise.all(promises);
 
-        // ★修正: データの整合性を保証するため、キャッシュを削除して次回Firestoreから再取得させる
+        // ★修正: ctx.waitUntil を使用して削除を確実にする
         if (statusCache) {
-          try {
-            await statusCache.delete(`status:${officeId}`);
-          } catch (e) {
-            console.error("Cache invalidation failed (set):", e);
-          }
+          const key = `status:${officeId}`;
+          const deletePromise = statusCache.delete(key).catch(e => console.error("Cache invalidation failed (set):", e));
+          ctx.waitUntil(deletePromise);
         }
 
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });

@@ -158,14 +158,23 @@ function normalizeConfigClient(cfg) {
 }
 
 // Plan B: Workers経由のポーリング
+// ★修正: 引数 isInitial を追加し、初回のみ nocache を送る
 async function startLegacyPolling(immediate) {
   useSdkMode = false;
   lastSyncTimestamp = 0; 
 
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
 
-  const pollAction = async () => {
-    const r = await apiPost({ action: 'get', token: SESSION_TOKEN, since: lastSyncTimestamp });
+  // ポーリング実行関数
+  const pollAction = async (isFirstRun = false) => {
+    const payload = { action: 'get', token: SESSION_TOKEN, since: lastSyncTimestamp };
+    
+    // ★追加: 初回実行時はキャッシュを無視させる
+    if (isFirstRun) {
+      payload.nocache = '1';
+    }
+
+    const r = await apiPost(payload);
     if (r?.error === 'unauthorized') {
       if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
       await logout();
@@ -183,11 +192,13 @@ async function startLegacyPolling(immediate) {
   };
 
   if (immediate) {
-    pollAction().catch(() => { });
+    // ★修正: 初回実行フラグを true に
+    pollAction(true).catch(() => { });
   }
   const remotePollMs = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.remotePollMs))
     ? CONFIG.remotePollMs
     : 10000;
+  // 定期実行時はキャッシュ利用 (isFirstRun = undefined/false)
   remotePullTimer = setInterval(pollAction, remotePollMs);
 }
 
