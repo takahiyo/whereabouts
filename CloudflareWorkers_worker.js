@@ -318,6 +318,101 @@ export default {
       }
 
       /* =========================================================
+         set（在席データの更新）
+      ========================================================= */
+      if (action === 'set') {
+        // 認証チェック（ログイン済みユーザーのみ）
+        if (!tokenOffice) {
+          return new Response(
+            JSON.stringify({ error: 'unauthorized' }),
+            { headers: corsHeaders }
+          );
+        }
+
+        const officeId = tokenOffice;
+        
+        // リクエストからデータを取得
+        let payload;
+        try {
+          const dataStr = formData.get('data');
+          if (!dataStr) {
+            throw new Error('data parameter is required');
+          }
+          payload = JSON.parse(dataStr);
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ error: 'invalid_data', message: err.message }),
+            { headers: corsHeaders }
+          );
+        }
+
+        // payloadの構造: { updated: timestamp, data: { memberId: { status, time, note, workHours } } }
+        const updates = payload.data || {};
+        const rev = {};
+        const serverUpdated = {};
+
+        try {
+          // 各メンバーのステータスを更新
+          for (const [memberId, memberData] of Object.entries(updates)) {
+            const docPath = `offices/${officeId}/members/${memberId}`;
+            
+            // Firestoreのフィールド形式に変換
+            const fields = {
+              status: { stringValue: String(memberData.status || '') },
+              time: { stringValue: String(memberData.time || '') },
+              note: { stringValue: String(memberData.note || '') },
+              workHours: { stringValue: String(memberData.workHours || '') },
+              updated: { integerValue: String(Date.now()) }
+            };
+
+            // PATCHリクエストでFirestoreを更新
+            const updateRes = await fetch(`${baseUrl}/${docPath}?updateMask.fieldPaths=status&updateMask.fieldPaths=time&updateMask.fieldPaths=note&updateMask.fieldPaths=workHours&updateMask.fieldPaths=updated`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ fields })
+            });
+
+            if (updateRes.status !== 200) {
+              const errorData = await updateRes.json();
+              console.error('Firestore update error:', errorData);
+              throw new Error(`Failed to update member ${memberId}`);
+            }
+
+            // レスポンスデータ
+            rev[memberId] = Date.now(); // 簡易的なリビジョン番号
+            serverUpdated[memberId] = Date.now();
+          }
+
+          // キャッシュを無効化
+          if (statusCache) {
+            const cacheKey = statusCacheKey(officeId);
+            ctx.waitUntil(statusCache.delete(cacheKey));
+          }
+
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              rev,
+              serverUpdated
+            }),
+            { headers: corsHeaders }
+          );
+        } catch (err) {
+          console.error('set action error:', err);
+          return new Response(
+            JSON.stringify({ 
+              error: 'update_failed', 
+              message: err.message 
+            }),
+            { headers: corsHeaders }
+          );
+        }
+      }
+
+      /* =========================================================
          fallback
       ========================================================= */
       return new Response(
