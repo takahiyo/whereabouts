@@ -118,6 +118,7 @@ export default {
       const MEMBER_STATUS_FIELDS_WITH_WORK_HOURS = [...MEMBER_STATUS_FIELDS, 'workHours'];
       const MEMBER_STATUS_FIELDS_FOR_GET = [...MEMBER_STATUS_FIELDS_WITH_WORK_HOURS, MEMBER_UPDATED_FIELD];
       const MEMBER_STATUS_FIELDS_FOR_GET_FOR = [...MEMBER_STATUS_FIELDS_FOR_GET, 'ext'];
+      
       const buildFieldMaskQuery = (fieldPaths) => {
         const uniquePaths = Array.from(new Set(fieldPaths));
         if (!uniquePaths.length) return '';
@@ -149,12 +150,15 @@ export default {
         updated: toFirestoreValue(nowTs)
       });
       const normalizeStatusValue = (value) => (value == null ? '' : String(value));
+      
+      // --- KV Cache Helpers ---
       const statusCache = env.STATUS_CACHE;
       const statusCacheTtlSec = parsePositiveNumber(env.STATUS_CACHE_TTL_SEC);
       const statusCacheTtlMs = statusCacheTtlSec ? statusCacheTtlSec * 1000 : null;
       const statusCacheWarmOnWrite = String(env.STATUS_CACHE_WARM_ON_WRITE || '').toLowerCase();
       const shouldWarmStatusCacheOnWrite = statusCacheWarmOnWrite === 'true' || statusCacheWarmOnWrite === '1';
       const statusCacheKey = (officeId) => `status:${officeId}`;
+      
       const readStatusCacheRaw = async (officeId) => {
         if (!statusCache) return null;
         const cached = await statusCache.get(statusCacheKey(officeId));
@@ -295,7 +299,7 @@ export default {
         }), { headers: corsHeaders });
       }
 
-      // getConfig: 名簿構造の取得（最重要）
+      // getConfig: 名簿構造の取得
       if (action === 'getConfig') {
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
         const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
@@ -448,19 +452,15 @@ export default {
         const nowTs = Date.now();
         const parsed = normalizeConfig({ ...incoming, updated: nowTs });
 
-
-        // Helper: Sanitize document ID to be Firestore-compatible
         const sanitizeDocId = (id) => {
           if (!id) return '';
-          // Remove or replace invalid characters: /, .., and anything that might cause issues
           return String(id)
-            .replace(/\//g, '_')  // Replace slashes with underscores
-            .replace(/\.\./g, '__')  // Replace double dots
-            .replace(/^__/, 'id_')  // Firestore doesn't allow IDs starting with __
+            .replace(/\//g, '_')
+            .replace(/\.\./g, '__')
+            .replace(/^__/, 'id_')
             .trim();
         };
 
-        // --- Fix: Assign IDs to members missing them ---
         let newIdCounter = 0;
         const randomSuffix = () => Math.random().toString(36).substring(2, 6);
         (parsed.groups || []).forEach(group => {
@@ -469,12 +469,10 @@ export default {
               newIdCounter++;
               member.id = `mem_${nowTs}_${newIdCounter}_${randomSuffix()}`;
             } else {
-              // Sanitize existing IDs
               member.id = sanitizeDocId(member.id);
             }
           });
         });
-
 
         const configFields = {
           version: toFirestoreValue(parsed.version),
@@ -513,7 +511,6 @@ export default {
           });
         });
 
-        // --- Fix: Batch writes to avoid subrequest limits ---
         for (let i = 0; i < memberWrites.length; i += BATCH_WRITE_SIZE) {
           await firestoreBatchWrite(memberWrites.slice(i, i + BATCH_WRITE_SIZE));
         }
@@ -600,7 +597,7 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      // get: ステータスのみ取得
+      // get: ステータスのみ取得（★差分更新ロジック適用済み）
       if (action === 'get') {
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
         const sinceRaw = formData.get('since');
