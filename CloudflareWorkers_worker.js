@@ -6,12 +6,10 @@
  * - getNotices: Notice data caching (60s TTL)
  * - getTools: Tools data caching (60s TTL)
  * - getEventColorMap: Event color mapping caching (60s TTL)
- * 
- * Cache invalidation on write operations:
+ * * Cache invalidation on write operations:
+ * - set, setFor: INVALIDATE status cache (delete) to prevent stale data
  * - setNotices, setTools, setEventColorMap
  * - setVacation, setVacationBits, deleteVacation
- * 
- * This significantly reduces Firestore read costs for polling operations.
  */
 
 export default {
@@ -232,6 +230,7 @@ export default {
         await writeStatusCache(officeId, entry);
         return entry;
       };
+      // ※ 今回の修正では使用しませんが、ヘルパーとして残しておきます
       const updateStatusCacheAfterWrite = async (officeId, updates, nowTs, options = {}) => {
         if (!statusCache || !statusCacheTtlSec) return;
         let cacheEntry = await readStatusCacheRaw(officeId);
@@ -315,8 +314,7 @@ export default {
       if (action === 'getConfig') {
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
         
-        // --- ★追加: 設定データのKVキャッシュ確認 ---
-        // 名簿構造は頻繁に変わらないためキャッシュする
+        // --- 設定データのKVキャッシュ確認 ---
         const configCacheKey = `config_v2:${officeId}`;
         if (statusCache) {
           try {
@@ -326,7 +324,6 @@ export default {
             }
           } catch (e) { console.error('Config Cache Read Error', e); }
         }
-        // ------------------------------------------
 
         const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
 
@@ -345,7 +342,6 @@ export default {
           };
         });
 
-        // グループ分け
         const groupsMap = {};
         members.sort((a, b) => a.order - b.order).forEach(m => {
           if (!groupsMap[m.group]) groupsMap[m.group] = { title: m.group, members: [] };
@@ -363,16 +359,13 @@ export default {
           updated
         });
 
-        // --- ★追加: 設定データのKV保存 ---
+        // --- 設定データのKV保存 ---
         if (statusCache) {
-          // 有効期限: 設定ファイルなので60秒（またはそれ以上）でOK
           const ttl = statusCacheTtlSec || 60;
           try {
-            // waitUntilを使ってレスポンスをブロックせずに保存
             ctx.waitUntil(statusCache.put(configCacheKey, responseBody, { expirationTtl: ttl }));
           } catch (e) { console.error('Config Cache Write Error', e); }
         }
-        // --------------------------------
 
         return new Response(responseBody, { headers: corsHeaders });
       }
@@ -630,20 +623,19 @@ export default {
           await firestoreBatchWrite(writes.slice(i, i + BATCH_WRITE_SIZE));
         }
 
-        // ★修正: キャッシュ更新エラーはクライアントに返さずログ出力のみにする
-        try {
-          await updateStatusCacheAfterWrite(officeId, incomingData, nowTs, {
-            preserveWorkHours: true,
-            clearIds
-          });
-        } catch (e) {
-          console.error("Cache update failed (setFor):", e);
+        // ★修正: データの整合性を保証するため、キャッシュを削除して次回Firestoreから再取得させる
+        if (statusCache) {
+          try {
+            await statusCache.delete(`status:${officeId}`);
+          } catch (e) {
+            console.error("Cache invalidation failed (setFor):", e);
+          }
         }
 
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      // get: ステータスのみ取得（★差分更新ロジック適用済み）
+      // get: ステータスのみ取得
       if (action === 'get') {
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
         const sinceRaw = formData.get('since');
@@ -776,11 +768,13 @@ export default {
         });
         await Promise.all(promises);
 
-        // ★修正: キャッシュ更新エラーはクライアントに返さずログ出力のみにする
-        try {
-          await updateStatusCacheAfterWrite(officeId, updates, nowTs);
-        } catch (e) {
-          console.error("Cache update failed (set):", e);
+        // ★修正: データの整合性を保証するため、キャッシュを削除して次回Firestoreから再取得させる
+        if (statusCache) {
+          try {
+            await statusCache.delete(`status:${officeId}`);
+          } catch (e) {
+            console.error("Cache invalidation failed (set):", e);
+          }
         }
 
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -854,7 +848,7 @@ export default {
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
 
-        // ★追加: キャッシュ確認
+        // --- キャッシュ確認 ---
         const cacheKey = `notices:${officeId}`;
         if (statusCache) {
           try {
@@ -879,7 +873,7 @@ export default {
           updated: Date.now()
         });
 
-        // ★追加: キャッシュ保存
+        // --- キャッシュ保存 ---
         if (statusCache) {
            const ttl = statusCacheTtlSec || 60;
            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
@@ -939,7 +933,7 @@ export default {
           await firestoreBatchWrite(deletions.slice(i, i + BATCH_WRITE_SIZE));
         }
 
-        // ★追加: キャッシュ無効化
+        // --- キャッシュ無効化 ---
         if (statusCache) {
           try {
             await statusCache.delete(`notices:${officeId}`);
@@ -953,7 +947,7 @@ export default {
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
 
-        // ★追加: キャッシュ確認
+        // --- キャッシュ確認 ---
         const cacheKey = `tools:${officeId}`;
         if (statusCache) {
           try {
@@ -974,7 +968,7 @@ export default {
           updated: Number(stored.updated || 0) || Date.now()
         });
 
-        // ★追加: キャッシュ保存
+        // --- キャッシュ保存 ---
         if (statusCache) {
            const ttl = statusCacheTtlSec || 60;
            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
@@ -1007,7 +1001,7 @@ export default {
           }
         });
 
-        // ★追加: キャッシュ無効化
+        // --- キャッシュ無効化 ---
         if (statusCache) {
           try {
             await statusCache.delete(`tools:${officeId}`);
@@ -1021,7 +1015,7 @@ export default {
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
 
-        // ★追加: キャッシュ確認
+        // --- キャッシュ確認 ---
         const cacheKey = `eventColors:${officeId}`;
         if (statusCache) {
           try {
@@ -1039,7 +1033,7 @@ export default {
         
         const responseBody = JSON.stringify(normalized);
 
-        // ★追加: キャッシュ保存
+        // --- キャッシュ保存 ---
         if (statusCache) {
            const ttl = statusCacheTtlSec || 60;
            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
@@ -1072,7 +1066,7 @@ export default {
           }
         });
 
-        // ★追加: キャッシュ無効化
+        // --- キャッシュ無効化 ---
         if (statusCache) {
           try {
             await statusCache.delete(`eventColors:${officeId}`);
@@ -1086,7 +1080,7 @@ export default {
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
 
-        // ★追加: キャッシュ確認
+        // --- キャッシュ確認 ---
         const cacheKey = `vacations:${officeId}`;
         if (statusCache) {
           try {
@@ -1112,7 +1106,7 @@ export default {
         
         const responseBody = JSON.stringify({ vacations, updated: Date.now() });
 
-        // ★追加: キャッシュ保存
+        // --- キャッシュ保存 ---
         if (statusCache) {
            const ttl = statusCacheTtlSec || 60;
            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
@@ -1179,7 +1173,7 @@ export default {
 
         const savedItem = vacations.find(v => v.id === id) || null;
 
-        // ★追加: キャッシュ無効化
+        // --- キャッシュ無効化 ---
         if (statusCache) {
           try {
             await statusCache.delete(`vacations:${officeId}`);
@@ -1272,7 +1266,7 @@ export default {
 
         const savedItem = vacations.find(v => v.id === id) || newItem;
 
-        // ★追加: キャッシュ無効化
+        // --- キャッシュ無効化 ---
         if (statusCache) {
           try {
             await statusCache.delete(`vacations:${officeId}`);
@@ -1297,7 +1291,7 @@ export default {
         }
         await firestoreDelete(`offices/${officeId}/vacations/${encodeURIComponent(id)}`);
 
-        // ★追加: キャッシュ無効化
+        // --- キャッシュ無効化 ---
         if (statusCache) {
           try {
             await statusCache.delete(`vacations:${officeId}`);
@@ -1320,7 +1314,7 @@ export default {
       return new Response(JSON.stringify({ error: 'unknown_action' }), { headers: corsHeaders });
 
     } catch (e) {
-      // ★エラーが起きた場合、その内容をブラウザに返す
+      // エラーハンドリング
       return new Response(JSON.stringify({ error: e.message, ok: false }), { status: 500, headers: corsHeaders });
     }
   }
