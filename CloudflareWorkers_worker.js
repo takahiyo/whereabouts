@@ -1,6 +1,17 @@
 /**
  * Cloudflare Worker for Whereabouts Board (Firestore Backend)
- * Fix: Added caching for 'getConfig' to prevent high read costs.
+ * KV Cache Implementation:
+ * - getConfig: Configuration data caching (60s TTL)
+ * - getVacation: Vacation data caching (60s TTL)
+ * - getNotices: Notice data caching (60s TTL)
+ * - getTools: Tools data caching (60s TTL)
+ * - getEventColorMap: Event color mapping caching (60s TTL)
+ * 
+ * Cache invalidation on write operations:
+ * - setNotices, setTools, setEventColorMap
+ * - setVacation, setVacationBits, deleteVacation
+ * 
+ * This significantly reduces Firestore read costs for polling operations.
  */
 
 export default {
@@ -842,6 +853,16 @@ export default {
       if (action === 'getNotices') {
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
+
+        // ★追加: キャッシュ確認
+        const cacheKey = `notices:${officeId}`;
+        if (statusCache) {
+          try {
+            const cached = await statusCache.get(cacheKey);
+            if (cached) return new Response(cached, { headers: corsHeaders });
+          } catch (e) {}
+        }
+
         const json = await firestoreFetchOptional(`offices/${officeId}/notices?pageSize=${MAX_NOTICES_PER_OFFICE}`);
         const normalized = normalizeNoticesArray((json?.documents || []).map(doc => ({
           id: doc.name.split('/').pop(),
@@ -851,11 +872,20 @@ export default {
         const notices = isAdmin
           ? normalized
           : normalized.filter(n => coerceNoticeVisibleFlag(n.visible != null ? n.visible : (n.display != null ? n.display : true)));
-        return new Response(JSON.stringify({
+        
+        const responseBody = JSON.stringify({
           ok: true,
           notices,
           updated: Date.now()
-        }), { headers: corsHeaders });
+        });
+
+        // ★追加: キャッシュ保存
+        if (statusCache) {
+           const ttl = statusCacheTtlSec || 60;
+           ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
+        }
+
+        return new Response(responseBody, { headers: corsHeaders });
       }
 
       if (action === 'setNotices') {
@@ -908,22 +938,49 @@ export default {
         for (let i = 0; i < deletions.length; i += BATCH_WRITE_SIZE) {
           await firestoreBatchWrite(deletions.slice(i, i + BATCH_WRITE_SIZE));
         }
+
+        // ★追加: キャッシュ無効化
+        if (statusCache) {
+          try {
+            await statusCache.delete(`notices:${officeId}`);
+          } catch (e) { console.error('Cache invalidation failed (setNotices):', e); }
+        }
+
         return new Response(JSON.stringify({ ok: true, notices: normalized, updated: nowTs }), { headers: corsHeaders });
       }
 
       if (action === 'getTools') {
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
+
+        // ★追加: キャッシュ確認
+        const cacheKey = `tools:${officeId}`;
+        if (statusCache) {
+          try {
+            const cached = await statusCache.get(cacheKey);
+            if (cached) return new Response(cached, { headers: corsHeaders });
+          } catch (e) {}
+        }
+
         const toolsDoc = await firestoreFetchOptional(`offices/${officeId}/tools/config`);
         const stored = toolsDoc ? fromFirestoreDoc(toolsDoc) : {};
         const normalized = normalizeToolsArray(stored.tools || []);
         const isAdmin = roleIsOfficeAdmin(tokenRole);
         const tools = isAdmin ? normalized.list : filterVisibleTools(normalized.list);
-        return new Response(JSON.stringify({
+        
+        const responseBody = JSON.stringify({
           tools,
           warnings: normalized.warnings,
           updated: Number(stored.updated || 0) || Date.now()
-        }), { headers: corsHeaders });
+        });
+
+        // ★追加: キャッシュ保存
+        if (statusCache) {
+           const ttl = statusCacheTtlSec || 60;
+           ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
+        }
+
+        return new Response(responseBody, { headers: corsHeaders });
       }
 
       if (action === 'setTools') {
@@ -949,19 +1006,46 @@ export default {
             updated: toFirestoreValue(nowTs)
           }
         });
+
+        // ★追加: キャッシュ無効化
+        if (statusCache) {
+          try {
+            await statusCache.delete(`tools:${officeId}`);
+          } catch (e) { console.error('Cache invalidation failed (setTools):', e); }
+        }
+
         return new Response(JSON.stringify({ ok: true, tools: normalized.list, warnings: normalized.warnings, updated: nowTs }), { headers: corsHeaders });
       }
 
       if (action === 'getEventColorMap') {
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
+
+        // ★追加: キャッシュ確認
+        const cacheKey = `eventColors:${officeId}`;
+        if (statusCache) {
+          try {
+            const cached = await statusCache.get(cacheKey);
+            if (cached) return new Response(cached, { headers: corsHeaders });
+          } catch (e) {}
+        }
+
         const colorDoc = await firestoreFetchOptional(`offices/${officeId}/eventColors/config`);
         const stored = colorDoc ? fromFirestoreDoc(colorDoc) : {};
         const normalized = normalizeEventColorMap(stored);
         if (!normalized.updated) {
           normalized.updated = Date.now();
         }
-        return new Response(JSON.stringify(normalized), { headers: corsHeaders });
+        
+        const responseBody = JSON.stringify(normalized);
+
+        // ★追加: キャッシュ保存
+        if (statusCache) {
+           const ttl = statusCacheTtlSec || 60;
+           ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
+        }
+
+        return new Response(responseBody, { headers: corsHeaders });
       }
 
       if (action === 'setEventColorMap') {
@@ -987,12 +1071,30 @@ export default {
             updated: toFirestoreValue(nowTs)
           }
         });
+
+        // ★追加: キャッシュ無効化
+        if (statusCache) {
+          try {
+            await statusCache.delete(`eventColors:${officeId}`);
+          } catch (e) { console.error('Cache invalidation failed (setEventColorMap):', e); }
+        }
+
         return new Response(JSON.stringify({ ok: true, colors: normalized.colors || {}, updated: nowTs }), { headers: corsHeaders });
       }
 
       if (action === 'getVacation') {
         const requestedOffice = formData.get('office') || '';
         const officeId = resolveOffice(requestedOffice);
+
+        // ★追加: キャッシュ確認
+        const cacheKey = `vacations:${officeId}`;
+        if (statusCache) {
+          try {
+            const cached = await statusCache.get(cacheKey);
+            if (cached) return new Response(cached, { headers: corsHeaders });
+          } catch (e) {}
+        }
+
         const json = await firestoreFetchOptional(`offices/${officeId}/vacations?pageSize=200`);
         let vacations = (json?.documents || []).map(doc => normalizeVacationItem({
           id: doc.name.split('/').pop(),
@@ -1007,7 +1109,16 @@ export default {
           if (ao !== bo) return ao - bo;
           return Number(a.updated || 0) - Number(b.updated || 0);
         });
-        return new Response(JSON.stringify({ vacations, updated: Date.now() }), { headers: corsHeaders });
+        
+        const responseBody = JSON.stringify({ vacations, updated: Date.now() });
+
+        // ★追加: キャッシュ保存
+        if (statusCache) {
+           const ttl = statusCacheTtlSec || 60;
+           ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: ttl }));
+        }
+
+        return new Response(responseBody, { headers: corsHeaders });
       }
 
       if (action === 'setVacationBits') {
@@ -1067,6 +1178,14 @@ export default {
         });
 
         const savedItem = vacations.find(v => v.id === id) || null;
+
+        // ★追加: キャッシュ無効化
+        if (statusCache) {
+          try {
+            await statusCache.delete(`vacations:${officeId}`);
+          } catch (e) { console.error('Cache invalidation failed (setVacationBits):', e); }
+        }
+
         return new Response(JSON.stringify({ ok: true, id, vacation: savedItem, vacations }), { headers: corsHeaders });
       }
 
@@ -1152,6 +1271,14 @@ export default {
         }
 
         const savedItem = vacations.find(v => v.id === id) || newItem;
+
+        // ★追加: キャッシュ無効化
+        if (statusCache) {
+          try {
+            await statusCache.delete(`vacations:${officeId}`);
+          } catch (e) { console.error('Cache invalidation failed (setVacation):', e); }
+        }
+
         return new Response(JSON.stringify({ ok: true, id, vacation: savedItem, vacations }), { headers: corsHeaders });
       }
 
@@ -1169,6 +1296,14 @@ export default {
           return new Response(JSON.stringify({ error: 'bad_request' }), { headers: corsHeaders });
         }
         await firestoreDelete(`offices/${officeId}/vacations/${encodeURIComponent(id)}`);
+
+        // ★追加: キャッシュ無効化
+        if (statusCache) {
+          try {
+            await statusCache.delete(`vacations:${officeId}`);
+          } catch (e) { console.error('Cache invalidation failed (deleteVacation):', e); }
+        }
+
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
