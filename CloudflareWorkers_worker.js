@@ -1,5 +1,6 @@
 /**
  * Cloudflare Worker for Whereabouts Board (Firestore Backend)
+ * Fix: Added caching for 'getConfig' to prevent high read costs.
  */
 
 export default {
@@ -302,6 +303,20 @@ export default {
       // getConfig: 名簿構造の取得
       if (action === 'getConfig') {
         const officeId = formData.get('tokenOffice') || 'nagoya_chuo';
+        
+        // --- ★追加: 設定データのKVキャッシュ確認 ---
+        // 名簿構造は頻繁に変わらないためキャッシュする
+        const configCacheKey = `config_v2:${officeId}`;
+        if (statusCache) {
+          try {
+            const cached = await statusCache.get(configCacheKey);
+            if (cached) {
+              return new Response(cached, { headers: corsHeaders });
+            }
+          } catch (e) { console.error('Config Cache Read Error', e); }
+        }
+        // ------------------------------------------
+
         const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
 
         const members = (json.documents || []).map(doc => {
@@ -331,11 +346,24 @@ export default {
           .filter(v => Number.isFinite(v) && v > 0);
         const updated = updatedCandidates.length ? Math.max(...updatedCandidates) : 0;
 
-        return new Response(JSON.stringify({
+        const responseBody = JSON.stringify({
           ok: true,
           groups: Object.values(groupsMap),
           updated
-        }), { headers: corsHeaders });
+        });
+
+        // --- ★追加: 設定データのKV保存 ---
+        if (statusCache) {
+          // 有効期限: 設定ファイルなので60秒（またはそれ以上）でOK
+          const ttl = statusCacheTtlSec || 60;
+          try {
+            // waitUntilを使ってレスポンスをブロックせずに保存
+            ctx.waitUntil(statusCache.put(configCacheKey, responseBody, { expirationTtl: ttl }));
+          } catch (e) { console.error('Config Cache Write Error', e); }
+        }
+        // --------------------------------
+
+        return new Response(responseBody, { headers: corsHeaders });
       }
 
       if (action === 'getFor') {
