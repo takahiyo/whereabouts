@@ -5,7 +5,7 @@ compatibility_date = "2024-01-14"
 # FIREBASE_PRIVATE_KEY は `wrangler secret put` で設定してください
 
 kv_namespaces = [
-  { binding = "STATUS_CACHE", id = "STATUS_CACHE_KV_ID" }
+  { binding = "STATUS_CACHE", id = "cc4d3c16d44e4f299d9395c3c8ecde89" }
 ]
 
 [vars]
