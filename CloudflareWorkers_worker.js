@@ -116,6 +116,18 @@ export default {
       const MEMBER_UPDATED_FIELD = 'updated';
       const MEMBER_STATUS_FIELDS = ['status', 'time', 'note'];
       const MEMBER_STATUS_FIELDS_WITH_WORK_HOURS = [...MEMBER_STATUS_FIELDS, 'workHours'];
+      const MEMBER_STATUS_FIELDS_FOR_GET = [...MEMBER_STATUS_FIELDS_WITH_WORK_HOURS, MEMBER_UPDATED_FIELD];
+      const MEMBER_STATUS_FIELDS_FOR_GET_FOR = [...MEMBER_STATUS_FIELDS_FOR_GET, 'ext'];
+      const buildFieldMaskQuery = (fieldPaths) => {
+        const uniquePaths = Array.from(new Set(fieldPaths));
+        if (!uniquePaths.length) return '';
+        return uniquePaths.map(f => `mask.fieldPaths=${encodeURIComponent(f)}`).join('&');
+      };
+      const withFieldMask = (path, fieldPaths) => {
+        const maskQuery = buildFieldMaskQuery(fieldPaths);
+        if (!maskQuery) return path;
+        return path.includes('?') ? `${path}&${maskQuery}` : `${path}?${maskQuery}`;
+      };
       const parsePositiveNumber = (value) => {
         const num = Number(value);
         return Number.isFinite(num) && num > 0 ? num : null;
@@ -324,7 +336,8 @@ export default {
 
       if (action === 'getFor') {
         const officeId = formData.get('office') || formData.get('tokenOffice') || 'nagoya_chuo';
-        const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
+        const membersPath = withFieldMask(`offices/${officeId}/members?pageSize=300`, MEMBER_STATUS_FIELDS_FOR_GET_FOR);
+        const json = await firestoreFetch(membersPath);
         const dataMap = {};
         const updatedCandidates = (json.documents || [])
           .map(getMemberUpdatedTimestamp)
@@ -632,6 +645,9 @@ export default {
         if (hasSince) {
           const structuredQuery = {
             from: [{ collectionId: 'members' }],
+            select: {
+              fields: MEMBER_STATUS_FIELDS_FOR_GET.map(fieldPath => ({ fieldPath }))
+            },
             where: {
               fieldFilter: {
                 field: { fieldPath: MEMBER_UPDATED_FIELD },
@@ -644,7 +660,8 @@ export default {
           const results = await firestoreRunQuery(`offices/${officeId}`, structuredQuery);
           documents = results.map(r => r.document).filter(Boolean);
         } else {
-          const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
+          const membersPath = withFieldMask(`offices/${officeId}/members?pageSize=300`, MEMBER_STATUS_FIELDS_FOR_GET);
+          const json = await firestoreFetch(membersPath);
           documents = json.documents || [];
         }
         const dataMap = {};
