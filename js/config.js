@@ -1,5 +1,12 @@
+// ドメインが 'dev' を含むか、localhost の場合は開発環境とみなす
+const isDev = window.location.hostname.includes('dev') || window.location.hostname.includes('localhost');
+
 const CONFIG = {
-    remoteEndpoint: "https://whereabouts-dev.taka-hiyo.workers.dev",
+    // 環境に応じてエンドポイントを自動切り替え
+    remoteEndpoint: isDev 
+        ? "https://whereabouts-dev.taka-hiyo.workers.dev" 
+        : "https://whereabouts.taka-hiyo.workers.dev",
+
     remotePollMs: 60000,       // 10秒 -> 60秒へ変更（リクエスト数 1/6）
     configPollMs: 300000,      // 30秒 -> 5分へ変更
     eventSyncIntervalMs: 10 * 60 * 1000, // 5分 -> 10分へ変更
@@ -76,7 +83,6 @@ const CONFIG = {
 };
 
 // Initialize Firebase (Compat版)
-// Initialize Firebase (Compat版) - Firestore前提で安全に初期化
 function initFirebase() {
     // SDKが正しく読み込まれているかチェック
     if (typeof firebase === 'undefined') {
@@ -89,6 +95,16 @@ function initFirebase() {
         return true;
     }
 
+    // ★追加: コンソールの警告フィルター（Firestoreの将来的な非推奨通知を非表示にする）
+    // 現行のCompat環境では enablePersistence が正解のため、この警告は無視して良い
+    const originalWarn = console.warn;
+    console.warn = (...args) => {
+        if (args[0] && typeof args[0] === 'string' && args[0].includes('enableMultiTabIndexedDbPersistence')) {
+            return;
+        }
+        originalWarn.apply(console, args);
+    };
+
     // 初期化を実行
     firebase.initializeApp(CONFIG.firebaseConfig);
 
@@ -98,33 +114,16 @@ function initFirebase() {
     // Firestore を初期化
     const db = firebase.firestore();
 
-    // ✅ Firestoreキャッシュ設定の最適化
-    // 新しいSDK(v9以降のcompat)ではFirestoreSettings.cacheを使用することが推奨されています。
-    try {
-        if (firebase.firestore.persistentLocalCache) {
-            // モダンな設定方法 (警告対策)
-            db.settings({
-                cache: firebase.firestore.persistentLocalCache({
-                    tabManager: firebase.firestore.persistentMultipleTabManager()
-                })
-            });
-        } else {
-            // 古い設定方法 (フォールバック)
-            db.enablePersistence({ synchronizeTabs: true })
-                .catch((err) => {
-                    if (err.code === 'failed-precondition') {
-                         console.warn("Firestore persistence: Multiple tabs open, persistence can only be enabled in one tab at a a time.");
-                    } else if (err.code === 'unimplemented') {
-                         console.warn("Firestore persistence: Browser doesn't support persistence.");
-                    }
-                });
-        }
-    } catch (e) {
-        // 設定に失敗してもアプリ自体は動くようにする
-        console.warn("Firestore settings check failed, proceeding with defaults:", e);
-        // 念のため旧方式を試行
-        db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-    }
+    // Compat版の標準的な永続化設定
+    // ※ 警告フィルターがあるので、ここではシンプルな記述でOK
+    db.enablePersistence({ synchronizeTabs: true })
+        .catch((err) => {
+            if (err.code === 'failed-precondition') {
+                console.warn("Firestore persistence: Multiple tabs open, persistence can only be enabled in one tab at a a time.");
+            } else if (err.code === 'unimplemented') {
+                console.warn("Firestore persistence: Browser doesn't support persistence.");
+            }
+        });
 
     return true;
 }
