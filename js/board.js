@@ -368,39 +368,10 @@ function getState() { const data = {}; board.querySelectorAll("tbody tr").forEac
 /* 編集適用 */
 function isEditingField(el) { return !!(el && ((el.dataset && el.dataset.editing === '1') || (el.dataset && el.dataset.composing === '1') || el === document.activeElement)); }
 function setIfNeeded(el, v) { if (!el) return; if (isEditingField(el)) return; if (el.value !== (v ?? "")) el.value = v ?? ""; }
-function applyState(data) {
-  if (!data) return;
-  Object.entries(data).forEach(([k, v]) => {
-    if (PENDING_ROWS.has(k)) return;
 
-    const tr = document.getElementById(`row-${k}`);
-    const s = tr?.querySelector('select[name="status"]'), t = tr?.querySelector('select[name="time"]'), w = tr?.querySelector('input[name="workHours"]'), n = tr?.querySelector('input[name="note"]');
-    if (!tr || !s || !t || !w) { ensureRowControls(tr); }
-    const extTd = tr?.querySelector('td.ext');
-    if (extTd && v && v.ext !== undefined) {
-      const extVal = String(v.ext || '').replace(/[^0-9]/g, '');
-      extTd.textContent = extVal;
-    }
-    if (tr) {
-      if (v && v.mobile !== undefined) { tr.dataset.mobile = String(v.mobile ?? '').trim(); }
-      if (v && v.email !== undefined) { tr.dataset.email = String(v.email ?? '').trim(); }
-    }
-    if (v.status && STATUSES.some(x => x.value === v.status)) setIfNeeded(s, v.status);
-    setIfNeeded(w, (v && typeof v.workHours === 'string') ? v.workHours : (v && v.workHours == null ? '' : String(v?.workHours ?? '')));
-    setIfNeeded(t, v.time || ""); setIfNeeded(n, v.note || "");
-    if (s && t) toggleTimeEnable(s, t);
+// ★修正: applyState は js/sync.js 側に移動（キャッシュ処理集約のため）
+// ここにあった重複定義を削除しました
 
-    // rev/serverUpdated 反映（無ければ0扱い）
-    const remoteRev = Number(v.rev || 0);
-    const localRev = Number(tr?.dataset.rev || 0);
-    if (tr && remoteRev > localRev) { tr.dataset.rev = String(remoteRev); tr.dataset.serverUpdated = String(v.serverUpdated || 0); }
-
-    ensureTimePrompt(tr);
-  });
-  recolor();
-  updateStatusFilterCounts();
-  applyFilters();
-}
 function recolor() { board.querySelectorAll("tbody tr").forEach(tr => { const st = tr.querySelector('select[name="status"]')?.value || ""; statusClassMap.forEach(cls => tr.classList.remove(cls)); const cls = statusClassMap.get(st); if (cls) tr.classList.add(cls); tr.dataset.status = st; }); }
 function toggleTimeEnable(statusEl, timeEl) {
   const needsTime = requiresTimeSet.has(statusEl.value);
