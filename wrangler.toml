@@ -2,6 +2,9 @@ name = "whereabouts"
 main = "CloudflareWorkers_worker.js"
 compatibility_date = "2024-01-14"
 
+# ▼▼▼ 下の行を必ず追加してください！ ▼▼▼
+account_id = "6059c9ba4dc224361f0612e02e26db22"
+
 # FIREBASE_PRIVATE_KEY は `wrangler secret put` で設定してください
 
 kv_namespaces = [
