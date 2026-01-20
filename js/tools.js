@@ -3,7 +3,7 @@ let CURRENT_TOOLS = [];
 let CURRENT_TOOLS_WARNINGS = [];
 let toolsPollTimer = null;
 let toolsPollOfficeId = '';
-const TOOLS_POLL_INTERVAL = 60 * 1000;
+const TOOLS_POLL_INTERVAL = 300 * 1000; // 1分 -> 5分に変更
 
 function coerceToolArray(raw) {
   if (raw == null) return [];
@@ -299,30 +299,48 @@ async function saveTools(tools, officeId) {
   return false;
 }
 
+// ★修正: Visibility API対応
 function startToolsPolling(officeId) {
   const targetOffice = officeId || CURRENT_OFFICE_ID || '';
   if (!targetOffice) return;
 
+  // 再開用にIDを保持
+  toolsPollOfficeId = targetOffice;
+
+  // Visibility Handlerの登録（重複防止）
+  if (!window._toolsVisibilityHandler) {
+    window._toolsVisibilityHandler = () => {
+      if (document.hidden) {
+        // 非表示になったら停止（リスナー解除・タイマー停止）
+        stopToolsPolling(false); // false = ハンドラ自体は解除しない
+      } else {
+        // 表示されたら再開
+        startToolsPolling(toolsPollOfficeId);
+      }
+    };
+    document.addEventListener('visibilitychange', window._toolsVisibilityHandler);
+  }
+
+  // 画面が非表示なら起動しない
+  if (document.hidden) return;
+
   // すでに監視中なら何もしない
   if (window.toolsUnsubscribe) return;
+  if (toolsPollTimer) return;
 
   const db = (typeof firebase !== 'undefined' && firebase.apps.length) ? firebase.firestore() : null;
 
   // Plan A: SDKリスナー
   if (db) {
-
-    // ツールは 'tools' コレクション内の 'config' ドキュメントにある
     const docRef = db.collection('offices').doc(targetOffice).collection('tools').doc('config');
 
     window.toolsUnsubscribe = docRef.onSnapshot((doc) => {
       if (doc.exists) {
         const data = doc.data();
-        const toolsList = data.tools || []; // フィールド名は Workerの実装に合わせる
-        // normalizeToolsWithMeta は既存の関数
+        const toolsList = data.tools || [];
         const meta = normalizeToolsWithMeta(toolsList);
         applyToolsData(meta.list, meta.warnings);
       } else {
-        // ドキュメントが無い場合（初期状態など）
         applyToolsData([], []);
       }
     }, (error) => {
@@ -339,17 +357,25 @@ function startLegacyToolsPolling(officeId) {
   if (toolsPollTimer) { clearInterval(toolsPollTimer); toolsPollTimer = null; }
   if (!SESSION_TOKEN) return;
   toolsPollOfficeId = officeId || CURRENT_OFFICE_ID || '';
+  
   // 初回取得
   fetchTools(toolsPollOfficeId).catch(() => { });
+  
   // 定期実行
   toolsPollTimer = setInterval(() => {
     fetchTools(toolsPollOfficeId).catch(() => { });
   }, TOOLS_POLL_INTERVAL);
 }
 
-function stopToolsPolling() {
+// ★修正: Visibility Handlerの解除制御を追加
+function stopToolsPolling(removeHandler = true) {
   if (toolsPollTimer) { clearInterval(toolsPollTimer); toolsPollTimer = null; }
   if (window.toolsUnsubscribe) { window.toolsUnsubscribe(); window.toolsUnsubscribe = null; }
+  
+  if (removeHandler && window._toolsVisibilityHandler) {
+    document.removeEventListener('visibilitychange', window._toolsVisibilityHandler);
+    window._toolsVisibilityHandler = null;
+  }
 }
 
 window.applyToolsData = applyToolsData;
