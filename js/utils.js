@@ -42,3 +42,24 @@ async function apiPost(params, timeout = 20000) {
 /* セッションメタ(F5耐性) */
 function saveSessionMeta() { try { sessionStorage.setItem(SESSION_ROLE_KEY, CURRENT_ROLE || 'user'); sessionStorage.setItem(SESSION_OFFICE_KEY, CURRENT_OFFICE_ID || ''); sessionStorage.setItem(SESSION_OFFICE_NAME_KEY, CURRENT_OFFICE_NAME || ''); } catch { } }
 function loadSessionMeta() { try { CURRENT_ROLE = sessionStorage.getItem(SESSION_ROLE_KEY) || 'user'; CURRENT_OFFICE_ID = sessionStorage.getItem(SESSION_OFFICE_KEY) || ''; CURRENT_OFFICE_NAME = sessionStorage.getItem(SESSION_OFFICE_NAME_KEY) || ''; } catch { } }
+
+// ★追加: キャッシュクリア用ヘルパー
+function clearLocalCache() {
+  try {
+    const k1 = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.stateCache : 'whereabouts_state_cache';
+    const k2 = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.lastSync : 'whereabouts_last_sync';
+    localStorage.removeItem(k1);
+    localStorage.removeItem(k2);
+    // メモリ上のキャッシュもリセット（sync.jsがグローバルスコープにある前提）
+    if (typeof STATE_CACHE !== 'undefined') {
+        // STATE_CACHE は let 宣言されているため再代入可能なら空にする、または中身を削除
+        for (const key in STATE_CACHE) delete STATE_CACHE[key];
+    }
+    if (typeof lastSyncTimestamp !== 'undefined') {
+        lastSyncTimestamp = 0;
+    }
+    console.log("Local cache cleared.");
+  } catch (e) {
+    console.error("Cache clear failed:", e);
+  }
+}
