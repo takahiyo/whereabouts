@@ -14,3 +14,11 @@ FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gservicea
 STATUS_CACHE_TTL_SEC = "60"
 # STATUS_CACHE_WARM_ON_WRITE は使用しない（フェーズ2: Write後はinvalidateのみ）
 # STATUS_CACHE_WARM_ON_WRITE = "false"
+# ▼▼▼ 開発環境 (dev) の設定 ▼▼▼
+[env.dev]
+name = "whereabouts-dev"
+workers_dev = true
+
+[[env.dev.kv_namespaces]]
+binding = "STATUS_CACHE"
+id = "695bec76282e488c8d7b76fd5f0a1f4f"
