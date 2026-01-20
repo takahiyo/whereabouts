@@ -1212,5 +1212,3 @@ window.startVacationsPolling = startVacationsPolling;
 window.stopVacationsPolling = stopVacationsPolling;
 window.renderVacationList = renderVacationList;
 window.applyVacations = applyVacations;
-
-}
