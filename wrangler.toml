@@ -11,6 +11,7 @@ kv_namespaces = [
   { binding = "STATUS_CACHE", id = "cc4d3c16d44e4f299d9395c3c8ecde89" }
 ]
 
+# 本番用 (default) の変数
 [vars]
 FIREBASE_PROJECT_ID = "whereabouts-f3388"
 FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gserviceaccount.com"
@@ -24,3 +25,9 @@ workers_dev = true
 [[env.dev.kv_namespaces]]
 binding = "STATUS_CACHE"
 id = "695bec76282e488c8d7b76fd5f0a1f4f"
+
+# ★追加: dev環境用の変数を定義（これがないとdev環境で変数が空になります）
+[env.dev.vars]
+FIREBASE_PROJECT_ID = "whereabouts-f3388"
+FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gserviceaccount.com"
+STATUS_CACHE_TTL_SEC = "60"
