@@ -18,18 +18,30 @@ let useSdkMode = false;
 let unsubscribeSnapshot = null;
 let fallbackTimer = null;
 
-// ★修正: STATE_CACHE を localStorage から初期化（リロード対策）
+// ★修正: STATE_CACHE と lastSyncTimestamp を localStorage から初期化
 let STATE_CACHE = {};
+let lastSyncTimestamp = 0;
+
+// Configからキーを取得（読み込み順序に依存するため安全策をとる）
+const STORAGE_KEY_CACHE = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.stateCache : 'whereabouts_state_cache';
+const STORAGE_KEY_SYNC = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.lastSync : 'whereabouts_last_sync';
+
 try {
-  const cached = localStorage.getItem('whereabouts_state_cache');
+  const cached = localStorage.getItem(STORAGE_KEY_CACHE);
   if (cached) {
     STATE_CACHE = JSON.parse(cached);
+  }
+  // ★追加: 最終同期時刻も復元する
+  const cachedTs = localStorage.getItem(STORAGE_KEY_SYNC);
+  if (cachedTs) {
+    const ts = Number(cachedTs);
+    if (Number.isFinite(ts)) {
+      lastSyncTimestamp = ts;
+    }
   }
 } catch (e) {
   console.error("Local cache restore failed:", e);
 }
-
-let lastSyncTimestamp = 0;
 
 function defaultMenus() {
   return {
@@ -161,7 +173,7 @@ function normalizeConfigClient(cfg) {
 // ★修正: 引数 isInitial を追加し、初回のみ nocache を送る
 async function startLegacyPolling(immediate) {
   useSdkMode = false;
-  lastSyncTimestamp = 0; 
+  // ★削除: lastSyncTimestamp = 0; を削除し、以前の同期時刻を維持する
 
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
 
@@ -183,9 +195,15 @@ async function startLegacyPolling(immediate) {
     const maxUpdated = Number.isFinite(Number(r?.maxUpdated)) ? Number(r.maxUpdated) : 0;
     const serverNow = Number.isFinite(Number(r?.serverNow)) ? Number(r.serverNow) : 0;
     const nextSyncTimestamp = Math.max(lastSyncTimestamp, maxUpdated, serverNow);
+    
     if (nextSyncTimestamp > lastSyncTimestamp) {
       lastSyncTimestamp = nextSyncTimestamp;
+      // ★追加: 同期時刻が進んだらローカルストレージに保存
+      try {
+        localStorage.setItem(STORAGE_KEY_SYNC, String(lastSyncTimestamp));
+      } catch (e) { /* 無視 */ }
     }
+    
     if (r && r.data && Object.keys(r.data).length > 0) {
       applyState(r.data);
     }
@@ -327,7 +345,7 @@ async function pushRowDelta(key) {
       if (!STATE_CACHE[key]) STATE_CACHE[key] = {};
       Object.assign(STATE_CACHE[key], st);
       try {
-        localStorage.setItem('whereabouts_state_cache', JSON.stringify(STATE_CACHE));
+        localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(STATE_CACHE));
       } catch (e) {
         console.error("Failed to update local cache:", e);
       }
@@ -356,7 +374,7 @@ function applyState(data) {
 
   // ★修正: 最新状態をlocalStorageに保存（サーバーからの受信時）
   try {
-    localStorage.setItem('whereabouts_state_cache', JSON.stringify(STATE_CACHE));
+    localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(STATE_CACHE));
   } catch (e) {
     // quota exceededなどは無視
   }

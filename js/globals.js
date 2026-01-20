@@ -190,6 +190,20 @@ const EVENT_COLOR_TO_PALETTE_MAP = {
 };
 const PALETTE_KEYS = ['none', 'saturday', 'sunday', 'holiday', 'amber', 'mint', 'lavender', 'slate'];
 
+// レガシーカラーキーの正規化マッピング
+const EVENT_COLOR_LEGACY_FALLBACKS = {
+  gray: 'slate',
+  grey: 'slate',
+  teal: 'green',
+  pink: 'sunday'
+};
+
+// トランスポート用カラーキーのフォールバック
+const EVENT_COLOR_TRANSPORT_FALLBACKS = {
+  slate: 'gray',
+  green: 'teal'
+};
+
 function getEventColorClass(color) {
   const key = (color || '').toString().trim().toLowerCase();
   if (!key) return '';

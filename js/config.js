@@ -1,5 +1,5 @@
 const CONFIG = {
-    remoteEndpoint: "https://whereabouts.taka-hiyo.workers.dev",
+    remoteEndpoint: "https://whereabouts-dev.taka-hiyo.workers.dev",
     remotePollMs: 10000,
     configPollMs: 30000,
     eventSyncIntervalMs: 5 * 60 * 1000,
@@ -19,6 +19,11 @@ const CONFIG = {
         memberNameWidth: '120px',
         fontSize: '10pt',
         headerHeight: '30px'
+    },
+    /* === ストレージキー設定 (SSOT) === */
+    storageKeys: {
+        stateCache: 'whereabouts_state_cache',
+        lastSync: 'whereabouts_last_sync'
     },
     /* === カラーパレット設定 (SSOT) === */
     colorPalette: [

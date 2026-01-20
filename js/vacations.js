@@ -1168,10 +1168,14 @@ function startVacationsPolling() {
   // 初回即時実行
   fetchVacations();
 
-  // 60秒間隔で更新
+// 設定値を利用（なければ60秒）
+  const interval = (typeof CONFIG !== 'undefined' && CONFIG.eventSyncIntervalMs) 
+    ? CONFIG.eventSyncIntervalMs 
+    : 60000;
+
   vacationsPollTimer = setInterval(() => {
     fetchVacations();
-  }, 60000);
+  }, interval);
 }
 
 function stopVacationsPolling() {

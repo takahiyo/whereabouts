@@ -1,6 +1,6 @@
 /**
  * Cloudflare Worker for Whereabouts Board (Firestore Backend)
- * FIXED VERSION
+ * OPTIMIZED VERSION: Supports Incremental Sync & KV Cache
  */
 
 export default {
@@ -25,7 +25,7 @@ export default {
 
     try {
       /* =========================================================
-         Request body parsing（1回のみ）
+         Request body parsing
       ========================================================= */
       const contentType = (req.headers.get('content-type') || '').toLowerCase();
       let body = {};
@@ -33,7 +33,7 @@ export default {
 
       if (rawText) {
         if (contentType.includes('application/json')) {
-          body = JSON.parse(rawText);
+          try { body = JSON.parse(rawText); } catch { }
         } else if (contentType.includes('application/x-www-form-urlencoded')) {
           const params = new URLSearchParams(rawText);
           for (const [k, v] of params) body[k] = v;
@@ -53,8 +53,7 @@ export default {
       };
 
       /* =========================================================
-         ★★ ここが最重要修正点 ★★
-         tokenOffice / tokenRole を action 分岐前に定義
+         Parameters
       ========================================================= */
       const action = formData.get('action');
       const tokenOffice = formData.get('tokenOffice') || '';
@@ -65,20 +64,38 @@ export default {
       ========================================================= */
       const accessToken = await getGoogleAuthToken(env);
       const projectId = env.FIREBASE_PROJECT_ID;
-      const baseUrl =
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
+      const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
 
+      // GET用
       const firestoreFetch = async (path) => {
         const res = await fetch(`${baseUrl}/${path}`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         if (res.status !== 200) {
           const j = await res.json();
-          throw new Error(`Firestore Error ${res.status}: ${JSON.stringify(j)}`);
+          throw new Error(`Firestore Fetch Error ${res.status}: ${JSON.stringify(j)}`);
         }
         return res.json();
       };
 
+      // POST用 (runQuery等)
+      const firestorePost = async (path, payload) => {
+        const res = await fetch(`${baseUrl}/${path}`, {
+          method: 'POST',
+          headers: { 
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res.status !== 200) {
+          const j = await res.json();
+          throw new Error(`Firestore Post Error ${res.status}: ${JSON.stringify(j)}`);
+        }
+        return res.json();
+      };
+
+      // 404許容
       const firestoreFetchOptional = async (path) => {
         const res = await fetch(`${baseUrl}/${path}`, {
           headers: { Authorization: `Bearer ${accessToken}` }
@@ -86,32 +103,23 @@ export default {
         if (res.status === 404) return null;
         if (res.status !== 200) {
           const j = await res.json();
-          throw new Error(`Firestore Error ${res.status}: ${JSON.stringify(j)}`);
+          throw new Error(`Firestore Opt Error ${res.status}: ${JSON.stringify(j)}`);
         }
         return res.json();
       };
 
       /* =========================================================
-         KV
+         KV Cache
       ========================================================= */
       const statusCache = env.STATUS_CACHE;
       const statusCacheTtlSec = Number(env.STATUS_CACHE_TTL_SEC || 60);
-
       const statusCacheKey = (office) => `status:${office}`;
 
       /* =========================================================
-         Helpers
+         Actions
       ========================================================= */
-      const roleIsOfficeAdmin = (role) =>
-        role === 'officeAdmin' || role === 'superAdmin';
 
-      const canAdminOffice = (role, tokenOffice, office) =>
-        role === 'superAdmin' ||
-        (role === 'officeAdmin' && tokenOffice === office);
-
-      /* =========================================================
-         LOGIN
-      ========================================================= */
+      /* --- LOGIN --- */
       if (action === 'login') {
         const officeId = formData.get('office');
         const password = formData.get('password');
@@ -123,10 +131,7 @@ export default {
         if (password === f.adminPassword?.stringValue) role = 'officeAdmin';
         else if (password === f.password?.stringValue) role = 'user';
         else {
-          return new Response(
-            JSON.stringify({ error: 'unauthorized' }),
-            { headers: corsHeaders }
-          );
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
         return new Response(
@@ -140,24 +145,18 @@ export default {
         );
       }
 
-      /* =========================================================
-         getConfig（メイン画面構成）
-      ========================================================= */
+      /* --- GET CONFIG --- */
       if (action === 'getConfig') {
         const officeId = tokenOffice || 'nagoya_chuo';
-
+        const nocache = formData.get('nocache') === '1';
         const cacheKey = `config_v2:${officeId}`;
-        if (statusCache) {
+
+        if (!nocache && statusCache) {
           const cached = await statusCache.get(cacheKey);
-          if (cached) {
-            return new Response(cached, { headers: corsHeaders });
-          }
+          if (cached) return new Response(cached, { headers: corsHeaders });
         }
 
-        const json = await firestoreFetch(
-          `offices/${officeId}/members?pageSize=300`
-        );
-
+        const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
         const members = (json.documents || []).map(doc => {
           const f = doc.fields || {};
           return {
@@ -175,9 +174,7 @@ export default {
 
         const groupsMap = {};
         members.sort((a, b) => a.order - b.order).forEach(m => {
-          if (!groupsMap[m.group]) {
-            groupsMap[m.group] = { title: m.group, members: [] };
-          }
+          if (!groupsMap[m.group]) groupsMap[m.group] = { title: m.group, members: [] };
           groupsMap[m.group].members.push(m);
         });
 
@@ -188,151 +185,207 @@ export default {
         });
 
         if (statusCache) {
-          ctx.waitUntil(
-            statusCache.put(cacheKey, responseBody, {
-              expirationTtl: statusCacheTtlSec
-            })
-          );
+          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: statusCacheTtlSec }));
         }
 
         return new Response(responseBody, { headers: corsHeaders });
       }
 
-      /* =========================================================
-         publicListOffices（公開拠点一覧）
-      ========================================================= */
+      /* --- PUBLIC LIST OFFICES --- */
       if (action === 'publicListOffices') {
-        try {
-          const json = await firestoreFetch('offices?pageSize=300');
-          const offices = [];
-          
-          (json.documents || []).forEach(doc => {
-            const f = doc.fields || {};
-            const officeId = doc.name.split('/').pop();
-            const isPublic = f.public?.booleanValue;
-            
-            // publicフィールドが明示的にfalseの場合のみ除外、それ以外は全て表示
-            if (isPublic !== false) {
-              offices.push({
-                id: officeId,
-                name: f.name?.stringValue || officeId
-              });
-            }
-          });
-
-          return new Response(
-            JSON.stringify({ ok: true, offices }),
-            { headers: corsHeaders }
-          );
-        } catch (err) {
-          console.error('publicListOffices error:', err);
-          return new Response(
-            JSON.stringify({ ok: false, error: err.message, offices: [] }),
-            { headers: corsHeaders }
-          );
-        }
-      }
-
-      /* =========================================================
-         listOffices（全拠点一覧 - 管理者用）
-      ========================================================= */
-      if (action === 'listOffices') {
-        // スーパー管理者のみアクセス可能
-        if (tokenRole !== 'superAdmin') {
-          return new Response(
-            JSON.stringify({ ok: false, error: 'unauthorized' }),
-            { headers: corsHeaders }
-          );
-        }
-
-        try {
-          const json = await firestoreFetch('offices?pageSize=300');
-          const offices = [];
-          
-          (json.documents || []).forEach(doc => {
-            const f = doc.fields || {};
-            const officeId = doc.name.split('/').pop();
-            offices.push({
-              id: officeId,
-              name: f.name?.stringValue || officeId
-            });
-          });
-
-          return new Response(
-            JSON.stringify({ ok: true, offices }),
-            { headers: corsHeaders }
-          );
-        } catch (err) {
-          console.error('listOffices error:', err);
-          return new Response(
-            JSON.stringify({ ok: false, error: err.message, offices: [] }),
-            { headers: corsHeaders }
-          );
-        }
-      }
-
-      /* =========================================================
-         get（在席データ）
-      ========================================================= */
-      if (action === 'get') {
-        const officeId = tokenOffice || 'nagoya_chuo';
-        const cacheKey = statusCacheKey(officeId);
-
-        if (statusCache) {
-          const cached = await statusCache.get(cacheKey);
-          if (cached) {
-            return new Response(cached, { headers: corsHeaders });
-          }
-        }
-
-        const json = await firestoreFetch(
-          `offices/${officeId}/members?pageSize=300`
-        );
-
-        const data = {};
+        const json = await firestoreFetch('offices?pageSize=300');
+        const offices = [];
         (json.documents || []).forEach(doc => {
           const f = doc.fields || {};
-          data[doc.name.split('/').pop()] = {
-            status: f.status?.stringValue || '',
-            time: f.time?.stringValue || '',
-            note: f.note?.stringValue || '',
-            workHours: f.workHours?.stringValue || ''
-          };
+          const isPublic = f.public?.booleanValue;
+          if (isPublic !== false) {
+            offices.push({ id: doc.name.split('/').pop(), name: f.name?.stringValue || '' });
+          }
         });
-
-        const responseBody = JSON.stringify({
-          ok: true,
-          data,
-          maxUpdated: Date.now()
-        });
-
-        if (statusCache) {
-          ctx.waitUntil(
-            statusCache.put(cacheKey, responseBody, {
-              expirationTtl: statusCacheTtlSec
-            })
-          );
-        }
-
-        return new Response(responseBody, { headers: corsHeaders });
+        return new Response(JSON.stringify({ ok: true, offices }), { headers: corsHeaders });
       }
 
-      /* =========================================================
-         fallback
-      ========================================================= */
-      return new Response(
-        JSON.stringify({ error: 'unknown_action', action }),
-        { headers: corsHeaders }
-      );
+      /* --- ADMIN LIST OFFICES --- */
+      if (action === 'listOffices') {
+        if (tokenRole !== 'superAdmin') {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
+        }
+        const json = await firestoreFetch('offices?pageSize=300');
+        const offices = (json.documents || []).map(doc => ({
+          id: doc.name.split('/').pop(),
+          name: doc.fields?.name?.stringValue || ''
+        }));
+        return new Response(JSON.stringify({ ok: true, offices }), { headers: corsHeaders });
+      }
+
+      /* --- GET (Differential Sync) --- */
+      if (action === 'get') {
+        const officeId = tokenOffice || 'nagoya_chuo';
+        const since = Number(formData.get('since') || 0);
+        const nocache = formData.get('nocache') === '1';
+
+        // 1. Full Fetch (初回ロード、または強制リロード)
+        if (since === 0) {
+          const cacheKey = statusCacheKey(officeId);
+          if (!nocache && statusCache) {
+            const cached = await statusCache.get(cacheKey);
+            if (cached) return new Response(cached, { headers: corsHeaders });
+          }
+
+          // 全件取得
+          const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
+          const data = {};
+          (json.documents || []).forEach(doc => {
+            const f = doc.fields || {};
+            data[doc.name.split('/').pop()] = {
+              status: f.status?.stringValue || '',
+              time: f.time?.stringValue || '',
+              note: f.note?.stringValue || '',
+              workHours: f.workHours?.stringValue || '',
+              updated: Number(f.updated?.integerValue || 0),
+              serverUpdated: Number(f.updated?.integerValue || 0)
+            };
+          });
+
+          const responseBody = JSON.stringify({
+            ok: true,
+            data,
+            maxUpdated: Date.now(),
+            serverNow: Date.now()
+          });
+
+          if (statusCache) {
+            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: statusCacheTtlSec }));
+          }
+          return new Response(responseBody, { headers: corsHeaders });
+        }
+
+        // 2. Differential Fetch (差分取得 - readOps削減)
+        // KVキャッシュは使わず、Firestoreに直接「更新分だけ」を問い合わせる
+        // runQuery を使用
+        const queryPayload = {
+          structuredQuery: {
+            from: [{ collectionId: 'members' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'updated' },
+                op: 'GREATER_THAN',
+                value: { integerValue: String(since) }
+              }
+            }
+          }
+        };
+
+        // runQueryのエンドポイントは :runQuery
+        // 相対パス: offices/${officeId}:runQuery
+        // firestoreFetchのbaseUrlは .../documents なので、
+        // documents/offices/${officeId}:runQuery となるように結合される
+        const jsonArr = await firestorePost(`offices/${officeId}:runQuery`, queryPayload);
+
+        const data = {};
+        let maxUpdated = 0;
+
+        // runQueryのレスポンスは配列: [{document: {...}}, {readTime: ...}]
+        if (Array.isArray(jsonArr)) {
+          jsonArr.forEach(item => {
+            if (item.document) {
+              const doc = item.document;
+              const f = doc.fields || {};
+              const mId = doc.name.split('/').pop();
+              const up = Number(f.updated?.integerValue || 0);
+              data[mId] = {
+                status: f.status?.stringValue || '',
+                time: f.time?.stringValue || '',
+                note: f.note?.stringValue || '',
+                workHours: f.workHours?.stringValue || '',
+                updated: up,
+                serverUpdated: up
+              };
+              if (up > maxUpdated) maxUpdated = up;
+            }
+          });
+        }
+
+        return new Response(JSON.stringify({
+          ok: true,
+          data, // 差分のみ
+          maxUpdated,
+          serverNow: Date.now()
+        }), { headers: corsHeaders });
+      }
+
+      /* --- GET VACATION --- */
+      if (action === 'getVacation') {
+        const officeId = formData.get('office') || tokenOffice;
+        if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
+
+        const json = await firestoreFetchOptional(`offices/${officeId}/vacations?pageSize=300`);
+        let vacations = [];
+        if (json && json.documents) {
+          vacations = json.documents.map(doc => {
+            const f = doc.fields || {};
+            return {
+              id: doc.name.split('/').pop(),
+              title: f.title?.stringValue || '',
+              startDate: f.startDate?.stringValue || '',
+              endDate: f.endDate?.stringValue || '',
+              color: f.color?.stringValue || '',
+              visible: f.visible?.booleanValue ?? true
+            };
+          });
+          vacations.sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
+        }
+        return new Response(JSON.stringify({ ok: true, vacations }), { headers: corsHeaders });
+      }
+
+      /* --- SET --- */
+      if (action === 'set') {
+        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = tokenOffice;
+        const dataStr = formData.get('data');
+        if (!dataStr) throw new Error('data parameter is required');
+        
+        const payload = JSON.parse(dataStr);
+        const updates = payload.data || {};
+        const rev = {};
+        const serverUpdated = {};
+
+        for (const [memberId, memberData] of Object.entries(updates)) {
+          const docPath = `offices/${officeId}/members/${memberId}`;
+          const nowTs = Date.now();
+          const fields = {
+            status: { stringValue: String(memberData.status || '') },
+            time: { stringValue: String(memberData.time || '') },
+            note: { stringValue: String(memberData.note || '') },
+            workHours: { stringValue: String(memberData.workHours || '') },
+            updated: { integerValue: String(nowTs) } // 更新時刻を保存
+          };
+
+          await fetch(`${baseUrl}/${docPath}?updateMask.fieldPaths=status&updateMask.fieldPaths=time&updateMask.fieldPaths=note&updateMask.fieldPaths=workHours&updateMask.fieldPaths=updated`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ fields })
+          });
+          
+          rev[memberId] = nowTs;
+          serverUpdated[memberId] = nowTs;
+        }
+
+        // キャッシュ無効化
+        if (statusCache) ctx.waitUntil(statusCache.delete(statusCacheKey(officeId)));
+
+        return new Response(JSON.stringify({ ok: true, rev, serverUpdated }), { headers: corsHeaders });
+      }
+
+      return new Response(JSON.stringify({ error: 'unknown_action', action }), { headers: corsHeaders });
 
     } catch (e) {
       console.error('[Worker Error]', e.message, e.stack);
       return new Response(
-        JSON.stringify({
-          ok: false,
-          error: e.message,
-          timestamp: Date.now()
-        }),
+        JSON.stringify({ ok: false, error: e.message, timestamp: Date.now() }),
         { status: 500, headers: corsHeaders }
       );
     }
@@ -340,17 +393,14 @@ export default {
 };
 
 /* =========================================================
-   Google Auth
+   Google Auth Helper
 ========================================================= */
 async function getGoogleAuthToken(env) {
   const pem = env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
   const clientEmail = env.FIREBASE_CLIENT_EMAIL;
-
-  const binaryDer = Uint8Array.from(
-    atob(pem.split('-----')[2].replace(/\s/g, '')),
-    c => c.charCodeAt(0)
-  );
-
+  
+  // PEM Parsing
+  const binaryDer = Uint8Array.from(atob(pem.split('-----')[2].replace(/\s/g, '')), c => c.charCodeAt(0));
   const key = await crypto.subtle.importKey(
     'pkcs8',
     binaryDer.buffer,
@@ -360,36 +410,34 @@ async function getGoogleAuthToken(env) {
   );
 
   const now = Math.floor(Date.now() / 1000);
-  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claim = btoa(JSON.stringify({
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const claim = {
     iss: clientEmail,
     scope: 'https://www.googleapis.com/auth/datastore',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now
-  }));
+  };
 
+  const headerB64 = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const claimB64 = btoa(JSON.stringify(claim)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  
   const signature = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
     key,
-    new TextEncoder().encode(`${header}.${claim}`)
+    new TextEncoder().encode(`${headerB64}.${claimB64}`)
   );
+  
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-  const strSig = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${headerB64}.${claimB64}.${sigB64}`
+  });
 
-  const res = await fetch(
-    'https://oauth2.googleapis.com/token',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:
-        `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer` +
-        `&assertion=${header}.${claim}.${strSig}`
-    }
-  );
-
+  if (res.status !== 200) {
+    throw new Error(`Google Auth Failed: ${await res.text()}`);
+  }
   return (await res.json()).access_token;
 }

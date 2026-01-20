@@ -2,15 +2,32 @@ name = "whereabouts"
 main = "CloudflareWorkers_worker.js"
 compatibility_date = "2024-01-14"
 
+# ▼▼▼ エラーログに基づいて修正したID ▼▼▼
+account_id = "01f96b532d61f9cebe2c01bd3e4082f2"
+
 # FIREBASE_PRIVATE_KEY は `wrangler secret put` で設定してください
 
 kv_namespaces = [
   { binding = "STATUS_CACHE", id = "cc4d3c16d44e4f299d9395c3c8ecde89" }
 ]
 
+# 本番用 (default) の変数
 [vars]
 FIREBASE_PROJECT_ID = "whereabouts-f3388"
 FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gserviceaccount.com"
 STATUS_CACHE_TTL_SEC = "60"
-# STATUS_CACHE_WARM_ON_WRITE は使用しない（フェーズ2: Write後はinvalidateのみ）
-# STATUS_CACHE_WARM_ON_WRITE = "false"
+
+# ▼▼▼ 開発環境 (dev) の設定 ▼▼▼
+[env.dev]
+name = "whereabouts-dev"
+workers_dev = true
+
+[[env.dev.kv_namespaces]]
+binding = "STATUS_CACHE"
+id = "695bec76282e488c8d7b76fd5f0a1f4f"
+
+# ★追加: dev環境用の変数を定義（これがないとdev環境で変数が空になります）
+[env.dev.vars]
+FIREBASE_PROJECT_ID = "whereabouts-f3388"
+FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gserviceaccount.com"
+STATUS_CACHE_TTL_SEC = "60"

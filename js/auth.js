@@ -122,6 +122,11 @@ async function login(officeInput, passwordInput) {
 
 async function logout() {
   try {
+    // ★追加: キャッシュと同期時刻をクリア
+    if (typeof clearLocalCache === 'function') {
+      clearLocalCache();
+    }
+
     if (typeof firebase !== 'undefined') {
       await firebase.auth().signOut();
     }
