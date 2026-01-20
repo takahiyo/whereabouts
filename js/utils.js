@@ -50,6 +50,7 @@ function clearLocalCache() {
     const k2 = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.lastSync : 'whereabouts_last_sync';
     localStorage.removeItem(k1);
     localStorage.removeItem(k2);
+    
     // メモリ上のキャッシュもリセット（sync.jsがグローバルスコープにある前提）
     if (typeof STATE_CACHE !== 'undefined') {
         // STATE_CACHE は let 宣言されているため再代入可能なら空にする、または中身を削除
