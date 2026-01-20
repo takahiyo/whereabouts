@@ -324,33 +324,8 @@ function startToolsPolling(officeId) {
   // 画面が非表示なら起動しない
   if (document.hidden) return;
 
-  // すでに監視中なら何もしない
-  if (window.toolsUnsubscribe) return;
-  if (toolsPollTimer) return;
-
-  const db = (typeof firebase !== 'undefined' && firebase.apps.length) ? firebase.firestore() : null;
-
-  // Plan A: SDKリスナー
-  if (db) {
-    const docRef = db.collection('offices').doc(targetOffice).collection('tools').doc('config');
-
-    window.toolsUnsubscribe = docRef.onSnapshot((doc) => {
-      if (doc.exists) {
-        const data = doc.data();
-        const toolsList = data.tools || [];
-        const meta = normalizeToolsWithMeta(toolsList);
-        applyToolsData(meta.list, meta.warnings);
-      } else {
-        applyToolsData([], []);
-      }
-    }, (error) => {
-      console.warn('Tools listener failed, falling back to polling:', error);
-      startLegacyToolsPolling(targetOffice);
-    });
-  } else {
-    // Plan B: ポーリング
-    startLegacyToolsPolling(targetOffice);
-  }
+  // ★修正: Firestore直接接続(Plan A)を廃止し、Workerポーリング(Plan B)に一本化
+  startLegacyToolsPolling(targetOffice);
 }
 
 function startLegacyToolsPolling(officeId) {
