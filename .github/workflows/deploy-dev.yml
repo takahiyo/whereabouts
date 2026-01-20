@@ -3,7 +3,7 @@ name: Deploy Dev Environment
 on:
   push:
     branches:
-      - dev
+      - Dev_Firestore
 
 jobs:
   deploy:
