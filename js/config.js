@@ -101,9 +101,9 @@ function initFirebase() {
     // Auth を確実に初期化（ログインに必要）
     firebase.auth();
 
-    // Firestore を初期化 (Admin機能などで必要な場合のためにインスタンスだけ作成)
-    // ★重要: enablePersistence は削除しました（Listenエラー回避のため）
-    const db = firebase.firestore();
+    // ★修正: FirestoreはWorker経由になったため、SDKの初期化自体を行わないようにする
+    // これによりクライアントからの直接接続（Listen）が物理的に発生しなくなる
+    // const db = firebase.firestore(); 
 
     return true;
 }
