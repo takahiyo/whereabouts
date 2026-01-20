@@ -99,7 +99,9 @@ function initFirebase() {
     // 現行のCompat環境では enablePersistence が正解のため、この警告は無視して良い
     const originalWarn = console.warn;
     console.warn = (...args) => {
-        if (args[0] && typeof args[0] === 'string' && args[0].includes('enableMultiTabIndexedDbPersistence')) {
+        // 引数をすべて結合してチェックする（オブジェクトや配列が含まれる場合もあるため）
+        const msg = args.map(String).join(' ');
+        if (msg.includes('enableMultiTabIndexedDbPersistence') || msg.includes('enablePersistence')) {
             return;
         }
         originalWarn.apply(console, args);
@@ -115,7 +117,6 @@ function initFirebase() {
     const db = firebase.firestore();
 
     // Compat版の標準的な永続化設定
-    // ※ 警告フィルターがあるので、ここではシンプルな記述でOK
     db.enablePersistence({ synchronizeTabs: true })
         .catch((err) => {
             if (err.code === 'failed-precondition') {
