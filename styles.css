@@ -1,4 +1,4 @@
-  :root {
+:root {
     /* === v1.42 の幅パラメータを踏襲 === */
     --base-name: 110px;
     --base-ext: 70px;
@@ -209,10 +209,10 @@
     min-width: 170px;
   }
 
-  /* ヘッダ内の検索ボックスの固定幅 */
+  /* ヘッダ内の検索ボックスの固定幅 - 初期表示を非表示(none)に変更しチラつき防止 */
   header #nameFilter,
   header .name-filter {
-    display: inline-block;
+    display: none;
     width: clamp(220px, 32vw, 360px) !important;
     min-width: 220px;
     max-width: 50vw;
@@ -221,7 +221,7 @@
 
   header #statusFilter,
   header .status-filter {
-    display: inline-block;
+    display: none;
     width: clamp(170px, 22vw, 240px) !important;
     min-width: 170px;
     flex: 0 0 auto;
@@ -613,7 +613,6 @@
     animation: pulseRing 1.2s ease-in-out infinite;
   }
 
-  /* ▼ 追加箇所ここから ▼ */
   /* 修正: タッチ/選択操作中（フォーカス時）はアニメーションを止める */
   td.time.need-time select:focus {
     animation: none;
@@ -625,8 +624,6 @@
   td.time.need-time select:focus~.time-hint {
     display: none;
   }
-
-  /* ▲ 追加箇所ここまで ▲ */
 
   .time-hint {
     position: absolute;
@@ -1080,8 +1077,6 @@
     background: #f8fafc;
   }
 
-  /* .admin-tabs {} -- Removed empty rule set */
-
   .tab-buttons {
     display: flex;
     gap: 8px;
@@ -1256,8 +1251,6 @@
     justify-content: center;
     align-items: center;
   }
-
-  /* .member-drag-handle{...} // 廃止 */
 
   /* --- 順番列のスタイル --- */
   .member-order-cell {
@@ -1460,17 +1453,6 @@
     width: 180px;
     text-align: center;
   }
-
-
-
-
-
-
-
-
-
-
-
 
   .member-email {
     display: flex;
