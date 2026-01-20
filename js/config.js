@@ -2,7 +2,7 @@ const CONFIG = {
     remoteEndpoint: "https://whereabouts.taka-hiyo.workers.dev",
     remotePollMs: 10000,
     configPollMs: 30000,
-    eventSyncIntervalMs: 15000,
+    eventSyncIntervalMs: 5 * 60 * 1000,
     tokenDefaultTtl: 3600000,
     publicOfficeFallbacks: [],
     firebaseConfig: {
