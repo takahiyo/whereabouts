@@ -98,11 +98,33 @@ function initFirebase() {
     // Firestore を初期化
     const db = firebase.firestore();
 
-    // ✅ compatで使える唯一の永続化API（settings/localCacheは使わない）
-    db.enablePersistence({ synchronizeTabs: true })
-        .catch((err) => {
-            console.warn("Firestore persistence disabled:", err.code);
-        });
+    // ✅ Firestoreキャッシュ設定の最適化
+    // 新しいSDK(v9以降のcompat)ではFirestoreSettings.cacheを使用することが推奨されています。
+    try {
+        if (firebase.firestore.persistentLocalCache) {
+            // モダンな設定方法 (警告対策)
+            db.settings({
+                cache: firebase.firestore.persistentLocalCache({
+                    tabManager: firebase.firestore.persistentMultipleTabManager()
+                })
+            });
+        } else {
+            // 古い設定方法 (フォールバック)
+            db.enablePersistence({ synchronizeTabs: true })
+                .catch((err) => {
+                    if (err.code === 'failed-precondition') {
+                         console.warn("Firestore persistence: Multiple tabs open, persistence can only be enabled in one tab at a a time.");
+                    } else if (err.code === 'unimplemented') {
+                         console.warn("Firestore persistence: Browser doesn't support persistence.");
+                    }
+                });
+        }
+    } catch (e) {
+        // 設定に失敗してもアプリ自体は動くようにする
+        console.warn("Firestore settings check failed, proceeding with defaults:", e);
+        // 念のため旧方式を試行
+        db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+    }
 
     return true;
 }
