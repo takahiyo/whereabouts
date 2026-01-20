@@ -1,5 +1,5 @@
 const CONFIG = {
-    remoteEndpoint: "https://whereabouts.taka-hiyo.workers.dev",
+    remoteEndpoint: "https://whereabouts-dev.taka-hiyo.workers.dev",
     remotePollMs: 10000,
     configPollMs: 30000,
     eventSyncIntervalMs: 5 * 60 * 1000,
