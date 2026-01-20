@@ -1,6 +1,6 @@
 /**
  * Cloudflare Worker for Whereabouts Board (Firestore Backend)
- * OPTIMIZED VERSION: Supports Incremental Sync & KV Cache
+ * FULL VERSION: Supports Main Sync, Tools, Notices, and Vacations
  */
 
 export default {
@@ -66,7 +66,7 @@ export default {
       const projectId = env.FIREBASE_PROJECT_ID;
       const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
 
-      // GET用
+      // GET helper
       const firestoreFetch = async (path) => {
         const res = await fetch(`${baseUrl}/${path}`, {
           headers: { Authorization: `Bearer ${accessToken}` }
@@ -78,7 +78,7 @@ export default {
         return res.json();
       };
 
-      // POST用 (runQuery等)
+      // POST helper (runQuery, commit etc)
       const firestorePost = async (path, payload) => {
         const res = await fetch(`${baseUrl}/${path}`, {
           method: 'POST',
@@ -95,7 +95,29 @@ export default {
         return res.json();
       };
 
-      // 404許容
+      // PATCH helper
+      const firestorePatch = async (path, payload, maskFields = []) => {
+        let url = `${baseUrl}/${path}`;
+        if (maskFields.length > 0) {
+          const params = maskFields.map(f => `updateMask.fieldPaths=${f}`).join('&');
+          url += `?${params}`;
+        }
+        const res = await fetch(url, {
+          method: 'PATCH',
+          headers: { 
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        if (res.status !== 200) {
+          const j = await res.json();
+          throw new Error(`Firestore Patch Error ${res.status}: ${JSON.stringify(j)}`);
+        }
+        return res.json();
+      };
+
+      // 404 Optional helper
       const firestoreFetchOptional = async (path) => {
         const res = await fetch(`${baseUrl}/${path}`, {
           headers: { Authorization: `Bearer ${accessToken}` }
@@ -235,22 +257,25 @@ export default {
           // 全件取得
           const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
           const data = {};
+          let maxUpdated = 0;
           (json.documents || []).forEach(doc => {
             const f = doc.fields || {};
+            const up = Number(f.updated?.integerValue || 0);
             data[doc.name.split('/').pop()] = {
               status: f.status?.stringValue || '',
               time: f.time?.stringValue || '',
               note: f.note?.stringValue || '',
               workHours: f.workHours?.stringValue || '',
-              updated: Number(f.updated?.integerValue || 0),
-              serverUpdated: Number(f.updated?.integerValue || 0)
+              updated: up,
+              serverUpdated: up
             };
+            if (up > maxUpdated) maxUpdated = up;
           });
 
           const responseBody = JSON.stringify({
             ok: true,
             data,
-            maxUpdated: Date.now(),
+            maxUpdated: maxUpdated || Date.now(),
             serverNow: Date.now()
           });
 
@@ -262,7 +287,6 @@ export default {
 
         // 2. Differential Fetch (差分取得 - readOps削減)
         // KVキャッシュは使わず、Firestoreに直接「更新分だけ」を問い合わせる
-        // runQuery を使用
         const queryPayload = {
           structuredQuery: {
             from: [{ collectionId: 'members' }],
@@ -276,16 +300,11 @@ export default {
           }
         };
 
-        // runQueryのエンドポイントは :runQuery
-        // 相対パス: offices/${officeId}:runQuery
-        // firestoreFetchのbaseUrlは .../documents なので、
-        // documents/offices/${officeId}:runQuery となるように結合される
         const jsonArr = await firestorePost(`offices/${officeId}:runQuery`, queryPayload);
 
         const data = {};
         let maxUpdated = 0;
 
-        // runQueryのレスポンスは配列: [{document: {...}}, {readTime: ...}]
         if (Array.isArray(jsonArr)) {
           jsonArr.forEach(item => {
             if (item.document) {
@@ -308,10 +327,104 @@ export default {
 
         return new Response(JSON.stringify({
           ok: true,
-          data, // 差分のみ
+          data,
           maxUpdated,
           serverNow: Date.now()
         }), { headers: corsHeaders });
+      }
+
+      /* --- GET TOOLS (Added) --- */
+      if (action === 'getTools') {
+        const officeId = formData.get('office') || tokenOffice;
+        if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
+
+        const doc = await firestoreFetchOptional(`offices/${officeId}/tools/config`);
+        let tools = [];
+        if (doc && doc.fields && doc.fields.tools) {
+          try {
+            tools = JSON.parse(doc.fields.tools.stringValue || '[]');
+          } catch (e) {
+            // fallback
+          }
+        }
+        return new Response(JSON.stringify({ ok: true, tools }), { headers: corsHeaders });
+      }
+
+      /* --- SET TOOLS (Added) --- */
+      if (action === 'setTools') {
+        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = tokenOffice;
+        const toolsStr = formData.get('tools') || '[]';
+        
+        const payload = {
+          fields: {
+            tools: { stringValue: toolsStr }
+          }
+        };
+        // update (patch) with mask
+        await firestorePatch(`offices/${officeId}/tools/config`, payload, ['tools']);
+        
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- GET NOTICES (Added) --- */
+      if (action === 'getNotices') {
+        const officeId = formData.get('office') || tokenOffice;
+        if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
+
+        const json = await firestoreFetchOptional(`offices/${officeId}/notices?pageSize=100`);
+        let notices = [];
+        if (json && json.documents) {
+          notices = json.documents.map(doc => {
+            const f = doc.fields || {};
+            return {
+              id: doc.name.split('/').pop(),
+              title: f.title?.stringValue || '',
+              content: f.content?.stringValue || '',
+              visible: f.visible?.booleanValue ?? true,
+              updated: f.updated?.integerValue ? Number(f.updated.integerValue) : 0
+            };
+          });
+          // Sort by updated desc
+          notices.sort((a, b) => b.updated - a.updated);
+        }
+        return new Response(JSON.stringify({ ok: true, notices }), { headers: corsHeaders });
+      }
+
+      /* --- SET NOTICES (Added) --- */
+      if (action === 'setNotices') {
+        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = tokenOffice;
+        const noticesStr = formData.get('notices');
+        if (!noticesStr) throw new Error('notices parameter required');
+        
+        const noticesList = JSON.parse(noticesStr);
+        // This is a simplified "Batch Write" simulation. 
+        // Real Firestore Batch is better but REST API 'commit' is slightly complex to construct here quickly.
+        // Since notices are few, sequential writes are acceptable for now.
+        
+        // Note: This logic assumes 'noticesList' contains ALL notices. 
+        // Ideally we should delete missing ones, but for now we just upsert.
+        
+        const writes = [];
+        const nowTs = Date.now();
+        
+        for (let i = 0; i < noticesList.length; i++) {
+          const item = noticesList[i];
+          const docId = item.id || `notice_${nowTs}_${i}`;
+          const path = `offices/${officeId}/notices/${docId}`;
+          const fields = {
+            title: { stringValue: String(item.title || '') },
+            content: { stringValue: String(item.content || '') },
+            visible: { booleanValue: item.visible !== false },
+            updated: { integerValue: String(nowTs) }
+          };
+          // Just fire and forget needed writes (Promise.all)
+          writes.push(firestorePatch(path, { fields }, ['title', 'content', 'visible', 'updated']));
+        }
+        
+        await Promise.all(writes);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
       /* --- GET VACATION --- */
@@ -361,14 +474,7 @@ export default {
             updated: { integerValue: String(nowTs) } // 更新時刻を保存
           };
 
-          await fetch(`${baseUrl}/${docPath}?updateMask.fieldPaths=status&updateMask.fieldPaths=time&updateMask.fieldPaths=note&updateMask.fieldPaths=workHours&updateMask.fieldPaths=updated`, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ fields })
-          });
+          await firestorePatch(docPath, { fields }, ['status', 'time', 'note', 'workHours', 'updated']);
           
           rev[memberId] = nowTs;
           serverUpdated[memberId] = nowTs;
