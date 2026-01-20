@@ -20,6 +20,11 @@ const CONFIG = {
         fontSize: '10pt',
         headerHeight: '30px'
     },
+    /* === ストレージキー設定 (SSOT) === */
+    storageKeys: {
+        stateCache: 'whereabouts_state_cache',
+        lastSync: 'whereabouts_last_sync'
+    },
     /* === カラーパレット設定 (SSOT) === */
     colorPalette: [
         { key: 'none', className: 'vac-color-none', label: 'なし' },
