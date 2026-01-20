@@ -1,6 +1,6 @@
 /**
  * Cloudflare Worker for Whereabouts Board (Firestore Backend)
- * FIXED VERSION
+ * FIXED VERSION (with getVacation)
  */
 
 export default {
@@ -53,7 +53,6 @@ export default {
       };
 
       /* =========================================================
-         ★★ ここが最重要修正点 ★★
          tokenOffice / tokenRole を action 分岐前に定義
       ========================================================= */
       const action = formData.get('action');
@@ -79,6 +78,7 @@ export default {
         return res.json();
       };
 
+      // 404を許容するフェッチ関数（サブリソース取得用）
       const firestoreFetchOptional = async (path) => {
         const res = await fetch(`${baseUrl}/${path}`, {
           headers: { Authorization: `Bearer ${accessToken}` }
@@ -315,6 +315,60 @@ export default {
         }
 
         return new Response(responseBody, { headers: corsHeaders });
+      }
+
+      /* =========================================================
+         getVacation（休暇データ取得 - 追加）
+      ========================================================= */
+      if (action === 'getVacation') {
+        // officeパラメータがあればそれを使う（指定がなければトークンの拠点）
+        const officeId = formData.get('office') || tokenOffice;
+        
+        if (!officeId) {
+           return new Response(
+             JSON.stringify({ ok: false, error: 'office_required' }),
+             { headers: corsHeaders }
+           );
+        }
+
+        try {
+          // 404許容のFetchを使用 (コレクションが無い場合も想定)
+          const json = await firestoreFetchOptional(`offices/${officeId}/vacations?pageSize=300`);
+          
+          let vacations = [];
+          if (json && json.documents) {
+            vacations = json.documents.map(doc => {
+               const f = doc.fields || {};
+               return {
+                 id: doc.name.split('/').pop(),
+                 title: f.title?.stringValue || '',
+                 startDate: f.startDate?.stringValue || '',
+                 endDate: f.endDate?.stringValue || '',
+                 color: f.color?.stringValue || '',
+                 visible: f.visible?.booleanValue ?? true
+               };
+            });
+            
+            // 日付順にソート (開始日昇順)
+            vacations.sort((a, b) => {
+              if (a.startDate < b.startDate) return -1;
+              if (a.startDate > b.startDate) return 1;
+              return 0;
+            });
+          }
+
+          return new Response(
+            JSON.stringify({ ok: true, vacations }),
+            { headers: corsHeaders }
+          );
+
+        } catch(err) {
+          console.error('getVacation error:', err);
+          return new Response(
+            JSON.stringify({ ok: false, error: err.message, vacations: [] }),
+            { headers: corsHeaders }
+          );
+        }
       }
 
       /* =========================================================
