@@ -1,8 +1,15 @@
+// ドメインが 'dev' を含むか、localhost の場合は開発環境とみなす
+const isDev = window.location.hostname.includes('dev') || window.location.hostname.includes('localhost');
+
 const CONFIG = {
-    remoteEndpoint: "https://whereabouts-dev.taka-hiyo.workers.dev",
-    remotePollMs: 10000,
-    configPollMs: 30000,
-    eventSyncIntervalMs: 5 * 60 * 1000,
+    // 環境に応じてエンドポイントを自動切り替え
+    remoteEndpoint: isDev 
+        ? "https://whereabouts-dev.taka-hiyo.workers.dev" 
+        : "https://whereabouts.taka-hiyo.workers.dev",
+
+    remotePollMs: 60000,       // 10秒 -> 60秒へ変更（リクエスト数 1/6）
+    configPollMs: 300000,      // 30秒 -> 5分へ変更
+    eventSyncIntervalMs: 10 * 60 * 1000, // 5分 -> 10分へ変更
     tokenDefaultTtl: 3600000,
     publicOfficeFallbacks: [],
     firebaseConfig: {
@@ -76,7 +83,6 @@ const CONFIG = {
 };
 
 // Initialize Firebase (Compat版)
-// Initialize Firebase (Compat版) - Firestore前提で安全に初期化
 function initFirebase() {
     // SDKが正しく読み込まれているかチェック
     if (typeof firebase === 'undefined') {
@@ -89,6 +95,18 @@ function initFirebase() {
         return true;
     }
 
+    // ★追加: コンソールの警告フィルター（Firestoreの将来的な非推奨通知を非表示にする）
+    // 現行のCompat環境では enablePersistence が正解のため、この警告は無視して良い
+    const originalWarn = console.warn;
+    console.warn = (...args) => {
+        // 引数をすべて結合してチェックする（オブジェクトや配列が含まれる場合もあるため）
+        const msg = args.map(String).join(' ');
+        if (msg.includes('enableMultiTabIndexedDbPersistence') || msg.includes('enablePersistence')) {
+            return;
+        }
+        originalWarn.apply(console, args);
+    };
+
     // 初期化を実行
     firebase.initializeApp(CONFIG.firebaseConfig);
 
@@ -98,10 +116,14 @@ function initFirebase() {
     // Firestore を初期化
     const db = firebase.firestore();
 
-    // ✅ compatで使える唯一の永続化API（settings/localCacheは使わない）
+    // Compat版の標準的な永続化設定
     db.enablePersistence({ synchronizeTabs: true })
         .catch((err) => {
-            console.warn("Firestore persistence disabled:", err.code);
+            if (err.code === 'failed-precondition') {
+                console.warn("Firestore persistence: Multiple tabs open, persistence can only be enabled in one tab at a a time.");
+            } else if (err.code === 'unimplemented') {
+                console.warn("Firestore persistence: Browser doesn't support persistence.");
+            }
         });
 
     return true;

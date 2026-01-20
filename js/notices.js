@@ -350,40 +350,45 @@ function startNoticesPolling() {
   // すでにSDKリスナーが動いていれば何もしない
   if (window.noticesUnsubscribe) return;
 
-  const db = (typeof firebase !== 'undefined' && firebase.apps.length) ? firebase.firestore() : null;
-
-  // Plan A: SDKが使えるならリスナー登録
-  if (db && CURRENT_OFFICE_ID) {
-
-    const colRef = db.collection('offices').doc(CURRENT_OFFICE_ID).collection('notices');
-
-    // リアルタイム監視開始
-    window.noticesUnsubscribe = colRef.onSnapshot((snapshot) => {
-      const notices = [];
-      snapshot.forEach(doc => {
-        notices.push({ id: doc.id, ...doc.data() });
-      });
-      // 既存の描画関数を再利用
-      // ※Firestoreのデータは正規化済み前提だが、念のため applyNotices を通す
-      applyNotices(notices);
-    }, (error) => {
-      console.warn('Notices listener failed, falling back to polling:', error);
-      startLegacyNoticesPolling(); // 失敗時のみPlan Bへ
-    });
-  } else {
-    // Plan B: SDK不可なら従来のポーリング
-    startLegacyNoticesPolling();
-  }
+  // ★修正: Firestore直接接続(Plan A)を廃止し、Workerポーリング(Plan B)に一本化
+  // これにより ERR_BLOCKED_BY_CLIENT を回避し、Read数を削減する
+  startLegacyNoticesPolling();
 }
 
 // 従来のポーリングロジックを別名関数に退避
 function startLegacyNoticesPolling() {
-  if (noticesPollingTimer) return;
-  fetchNotices();
-  noticesPollingTimer = setInterval(() => {
+  // 重複起動防止
+  if (noticesPollingTimer || window._noticesVisibilityHandler) return;
+
+  const pollInterval = 60000 * 5; // 5分に1回
+
+  const runPoll = () => {
     if (SESSION_TOKEN) fetchNotices();
     else stopNoticesPolling();
-  }, 30000);
+  };
+
+  // 初回実行
+  if (SESSION_TOKEN) fetchNotices();
+
+  // ★追加: Visibility API対応
+  window._noticesVisibilityHandler = () => {
+    if (document.hidden) {
+      if (noticesPollingTimer) {
+        clearInterval(noticesPollingTimer);
+        noticesPollingTimer = null;
+      }
+    } else {
+      if (!noticesPollingTimer && SESSION_TOKEN) {
+        runPoll(); // 復帰時実行
+        noticesPollingTimer = setInterval(runPoll, pollInterval);
+      }
+    }
+  };
+  document.addEventListener('visibilitychange', window._noticesVisibilityHandler);
+
+  if (!document.hidden && SESSION_TOKEN) {
+    noticesPollingTimer = setInterval(runPoll, pollInterval);
+  }
 }
 
 function stopNoticesPolling() {
@@ -391,6 +396,11 @@ function stopNoticesPolling() {
   if (noticesPollingTimer) { clearInterval(noticesPollingTimer); noticesPollingTimer = null; }
   // リスナー解除
   if (window.noticesUnsubscribe) { window.noticesUnsubscribe(); window.noticesUnsubscribe = null; }
+  // ★追加: Visibility Handler解除
+  if (window._noticesVisibilityHandler) {
+    document.removeEventListener('visibilitychange', window._noticesVisibilityHandler);
+    window._noticesVisibilityHandler = null;
+  }
 }
 
 function loadNoticeCollapsePreference() {

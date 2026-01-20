@@ -1162,24 +1162,48 @@ function renderVacationList(list) {
 }
 
 // ポーリング開始 (sync.jsから呼ばれる)
+// ★修正: Visibility API対応
 function startVacationsPolling() {
-  if (vacationsPollTimer) { clearInterval(vacationsPollTimer); vacationsPollTimer = null; }
+  if (vacationsPollTimer || window._vacationsVisibilityHandler) return;
   
+  // 設定値を利用（なければ10分）
+  const interval = (typeof CONFIG !== 'undefined' && CONFIG.eventSyncIntervalMs) 
+    ? CONFIG.eventSyncIntervalMs 
+    : 600000;
+
   // 初回即時実行
   fetchVacations();
 
-// 設定値を利用（なければ60秒）
-  const interval = (typeof CONFIG !== 'undefined' && CONFIG.eventSyncIntervalMs) 
-    ? CONFIG.eventSyncIntervalMs 
-    : 60000;
+  // ★追加: Visibility API対応
+  window._vacationsVisibilityHandler = () => {
+    if (document.hidden) {
+      if (vacationsPollTimer) {
+        clearInterval(vacationsPollTimer);
+        vacationsPollTimer = null;
+      }
+    } else {
+      if (!vacationsPollTimer) {
+        fetchVacations();
+        vacationsPollTimer = setInterval(fetchVacations, interval);
+      }
+    }
+  };
+  document.addEventListener('visibilitychange', window._vacationsVisibilityHandler);
 
-  vacationsPollTimer = setInterval(() => {
-    fetchVacations();
-  }, interval);
+  if (!document.hidden) {
+    vacationsPollTimer = setInterval(() => {
+        fetchVacations();
+    }, interval);
+  }
 }
 
 function stopVacationsPolling() {
   if (vacationsPollTimer) { clearInterval(vacationsPollTimer); vacationsPollTimer = null; }
+  // ★追加: Visibility Handler解除
+  if (window._vacationsVisibilityHandler) {
+    document.removeEventListener('visibilitychange', window._vacationsVisibilityHandler);
+    window._vacationsVisibilityHandler = null;
+  }
 }
 
 // グローバル公開
