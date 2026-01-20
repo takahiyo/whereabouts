@@ -95,40 +95,18 @@ function initFirebase() {
         return true;
     }
 
-    // ★追加: コンソールの警告フィルター（Firestoreの将来的な非推奨通知を非表示にする）
-    // 現行のCompat環境では enablePersistence が正解のため、この警告は無視して良い
-    const originalWarn = console.warn;
-    console.warn = (...args) => {
-        // 引数をすべて結合してチェックする（オブジェクトや配列が含まれる場合もあるため）
-        const msg = args.map(String).join(' ');
-        if (msg.includes('enableMultiTabIndexedDbPersistence') || msg.includes('enablePersistence')) {
-            return;
-        }
-        originalWarn.apply(console, args);
-    };
-
     // 初期化を実行
     firebase.initializeApp(CONFIG.firebaseConfig);
 
     // Auth を確実に初期化（ログインに必要）
     firebase.auth();
 
-    // Firestore を初期化
-    const db = firebase.firestore();
-
-    // Compat版の標準的な永続化設定
-    db.enablePersistence({ synchronizeTabs: true })
-        .catch((err) => {
-            if (err.code === 'failed-precondition') {
-                console.warn("Firestore persistence: Multiple tabs open, persistence can only be enabled in one tab at a a time.");
-            } else if (err.code === 'unimplemented') {
-                console.warn("Firestore persistence: Browser doesn't support persistence.");
-            }
-        });
+    // ★修正: FirestoreはWorker経由になったため、SDKの初期化自体を行わないようにする
+    // これによりクライアントからの直接接続（Listen）が物理的に発生しなくなる
+    // const db = firebase.firestore(); 
 
     return true;
 }
-
 
 // 即座に初期化を試み、失敗したらロード完了を待って再試行
 if (!initFirebase()) {
