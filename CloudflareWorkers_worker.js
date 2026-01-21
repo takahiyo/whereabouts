@@ -1,6 +1,7 @@
 /**
  * Cloudflare Worker for Whereabouts Board (Firestore Backend)
  * FULL VERSION: Supports Main Sync, Tools, Notices, and Vacations
+ * OPTIMIZED: Implements KV caching for all read operations to minimize Firestore costs.
  */
 
 export default {
@@ -207,6 +208,7 @@ export default {
         });
 
         if (statusCache) {
+          // ★案3: Configは滅多に変わらないため、TTLを1時間(3600秒)に固定して延長する
           ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
         }
 
@@ -240,15 +242,13 @@ export default {
         return new Response(JSON.stringify({ ok: true, offices }), { headers: corsHeaders });
       }
 
-/* --- GET (Differential Sync) --- */
+      /* --- GET (Differential Sync) --- */
       if (action === 'get') {
         const officeId = tokenOffice || 'nagoya_chuo';
         const since = Number(formData.get('since') || 0);
         const nocache = formData.get('nocache') === '1';
 
-        // ★追加: 門番チェック (KVにある最終更新時刻を確認)
-        // サーバー側の最終更新時刻が、クライアントが持っている時刻(since)以下なら
-        // Firestoreには触れずに「変更なし」として即答する（Read数: 0）
+        // ★案1: 門番チェック (KVにある最終更新時刻を確認)
         if (since > 0 && !nocache && statusCache) {
           const lastUpdateKey = `lastUpdate:${officeId}`;
           const lastUpdateVal = await statusCache.get(lastUpdateKey);
@@ -303,7 +303,6 @@ export default {
         }
 
         // 2. Differential Fetch (差分取得 - readOps削減)
-        // KVキャッシュは使わず、Firestoreに直接「更新分だけ」を問い合わせる
         const queryPayload = {
           structuredQuery: {
             from: [{ collectionId: 'members' }],
@@ -350,24 +349,36 @@ export default {
         }), { headers: corsHeaders });
       }
 
-      /* --- GET TOOLS (Added) --- */
+      /* --- GET TOOLS --- */
       if (action === 'getTools') {
         const officeId = formData.get('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
+
+        // ★案5: ツール情報もKVキャッシュ (1時間)
+        const cacheKey = `tools:${officeId}`;
+        if (statusCache) {
+          const cached = await statusCache.get(cacheKey);
+          if (cached) return new Response(cached, { headers: corsHeaders });
+        }
 
         const doc = await firestoreFetchOptional(`offices/${officeId}/tools/config`);
         let tools = [];
         if (doc && doc.fields && doc.fields.tools) {
           try {
             tools = JSON.parse(doc.fields.tools.stringValue || '[]');
-          } catch (e) {
-            // fallback
-          }
+          } catch (e) { }
         }
-        return new Response(JSON.stringify({ ok: true, tools }), { headers: corsHeaders });
+        
+        const responseBody = JSON.stringify({ ok: true, tools });
+
+        if (statusCache) {
+          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
+        }
+
+        return new Response(responseBody, { headers: corsHeaders });
       }
 
-      /* --- SET TOOLS (Added) --- */
+      /* --- SET TOOLS --- */
       if (action === 'setTools') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const officeId = tokenOffice;
@@ -380,14 +391,26 @@ export default {
         };
         // update (patch) with mask
         await firestorePatch(`offices/${officeId}/tools/config`, payload, ['tools']);
+
+        // ★案5: 更新時にキャッシュ削除
+        if (statusCache) {
+           ctx.waitUntil(statusCache.delete(`tools:${officeId}`));
+        }
         
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- GET NOTICES (Added) --- */
+      /* --- GET NOTICES --- */
       if (action === 'getNotices') {
         const officeId = formData.get('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
+
+        // ★案5: お知らせ情報もKVキャッシュ (1時間)
+        const cacheKey = `notices:${officeId}`;
+        if (statusCache) {
+          const cached = await statusCache.get(cacheKey);
+          if (cached) return new Response(cached, { headers: corsHeaders });
+        }
 
         const json = await firestoreFetchOptional(`offices/${officeId}/notices?pageSize=100`);
         let notices = [];
@@ -405,10 +428,17 @@ export default {
           // Sort by updated desc
           notices.sort((a, b) => b.updated - a.updated);
         }
-        return new Response(JSON.stringify({ ok: true, notices }), { headers: corsHeaders });
+
+        const responseBody = JSON.stringify({ ok: true, notices });
+
+        if (statusCache) {
+          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
+        }
+
+        return new Response(responseBody, { headers: corsHeaders });
       }
 
-      /* --- SET NOTICES (Added) --- */
+      /* --- SET NOTICES --- */
       if (action === 'setNotices') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const officeId = tokenOffice;
@@ -416,12 +446,6 @@ export default {
         if (!noticesStr) throw new Error('notices parameter required');
         
         const noticesList = JSON.parse(noticesStr);
-        // This is a simplified "Batch Write" simulation. 
-        // Real Firestore Batch is better but REST API 'commit' is slightly complex to construct here quickly.
-        // Since notices are few, sequential writes are acceptable for now.
-        
-        // Note: This logic assumes 'noticesList' contains ALL notices. 
-        // Ideally we should delete missing ones, but for now we just upsert.
         
         const writes = [];
         const nowTs = Date.now();
@@ -436,11 +460,16 @@ export default {
             visible: { booleanValue: item.visible !== false },
             updated: { integerValue: String(nowTs) }
           };
-          // Just fire and forget needed writes (Promise.all)
           writes.push(firestorePatch(path, { fields }, ['title', 'content', 'visible', 'updated']));
         }
         
         await Promise.all(writes);
+
+        // ★案5: 更新時にキャッシュ削除
+        if (statusCache) {
+           ctx.waitUntil(statusCache.delete(`notices:${officeId}`));
+        }
+
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -448,6 +477,13 @@ export default {
       if (action === 'getVacation') {
         const officeId = formData.get('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
+
+        // ★案5: 休暇情報もKVキャッシュ (1時間)
+        const cacheKey = `vacation:${officeId}`;
+        if (statusCache) {
+          const cached = await statusCache.get(cacheKey);
+          if (cached) return new Response(cached, { headers: corsHeaders });
+        }
 
         const json = await firestoreFetchOptional(`offices/${officeId}/vacations?pageSize=300`);
         let vacations = [];
@@ -465,7 +501,14 @@ export default {
           });
           vacations.sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
         }
-        return new Response(JSON.stringify({ ok: true, vacations }), { headers: corsHeaders });
+
+        const responseBody = JSON.stringify({ ok: true, vacations });
+
+        if (statusCache) {
+          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
+        }
+
+        return new Response(responseBody, { headers: corsHeaders });
       }
 
       /* --- SET --- */
@@ -497,10 +540,9 @@ export default {
           serverUpdated[memberId] = nowTs;
         }
 
-// キャッシュ無効化 ＆ ★追加: 最終更新時刻をKVに記録
+        // キャッシュ無効化 ＆ ★案1: 最終更新時刻をKVに記録
         if (statusCache) {
            const lastUpdateKey = `lastUpdate:${officeId}`;
-           // Promise.allで並列実行（lastUpdateKeyはTTL指定なし＝永続化して門番として機能させる）
            ctx.waitUntil(Promise.all([
              statusCache.delete(statusCacheKey(officeId)),
              statusCache.put(lastUpdateKey, String(Date.now())) 
