@@ -83,7 +83,7 @@ export default {
       const firestorePost = async (path, payload) => {
         const res = await fetch(`${baseUrl}/${path}`, {
           method: 'POST',
-          headers: { 
+          headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           },
@@ -105,7 +105,7 @@ export default {
         }
         const res = await fetch(url, {
           method: 'PATCH',
-          headers: { 
+          headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           },
@@ -252,9 +252,9 @@ export default {
         if (since > 0 && !nocache && statusCache) {
           const lastUpdateKey = `lastUpdate:${officeId}`;
           const lastUpdateVal = await statusCache.get(lastUpdateKey);
-          
+
           if (lastUpdateVal && Number(lastUpdateVal) <= since) {
-             return new Response(JSON.stringify({
+            return new Response(JSON.stringify({
               ok: true,
               data: {},
               maxUpdated: Number(lastUpdateVal),
@@ -368,7 +368,7 @@ export default {
             tools = JSON.parse(doc.fields.tools.stringValue || '[]');
           } catch (e) { }
         }
-        
+
         const responseBody = JSON.stringify({ ok: true, tools });
 
         if (statusCache) {
@@ -383,7 +383,7 @@ export default {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const officeId = tokenOffice;
         const toolsStr = formData.get('tools') || '[]';
-        
+
         const payload = {
           fields: {
             tools: { stringValue: toolsStr }
@@ -394,9 +394,9 @@ export default {
 
         // ★案5: 更新時にキャッシュ削除
         if (statusCache) {
-           ctx.waitUntil(statusCache.delete(`tools:${officeId}`));
+          ctx.waitUntil(statusCache.delete(`tools:${officeId}`));
         }
-        
+
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -444,12 +444,12 @@ export default {
         const officeId = tokenOffice;
         const noticesStr = formData.get('notices');
         if (!noticesStr) throw new Error('notices parameter required');
-        
+
         const noticesList = JSON.parse(noticesStr);
-        
+
         const writes = [];
         const nowTs = Date.now();
-        
+
         for (let i = 0; i < noticesList.length; i++) {
           const item = noticesList[i];
           const docId = item.id || `notice_${nowTs}_${i}`;
@@ -462,12 +462,12 @@ export default {
           };
           writes.push(firestorePatch(path, { fields }, ['title', 'content', 'visible', 'updated']));
         }
-        
+
         await Promise.all(writes);
 
         // ★案5: 更新時にキャッシュ削除
         if (statusCache) {
-           ctx.waitUntil(statusCache.delete(`notices:${officeId}`));
+          ctx.waitUntil(statusCache.delete(`notices:${officeId}`));
         }
 
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -496,7 +496,8 @@ export default {
               startDate: f.startDate?.stringValue || '',
               endDate: f.endDate?.stringValue || '',
               color: f.color?.stringValue || '',
-              visible: f.visible?.booleanValue ?? true
+              visible: f.visible?.booleanValue ?? true,
+              membersBits: f.membersBits?.stringValue || ''
             };
           });
           vacations.sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
@@ -517,16 +518,16 @@ export default {
         const officeId = tokenOffice;
         const vacationsStr = formData.get('vacations');
         if (!vacationsStr) throw new Error('vacations parameter required');
-        
+
         const vacationsList = JSON.parse(vacationsStr);
         const writes = [];
-        
+
         for (let i = 0; i < vacationsList.length; i++) {
           const item = vacationsList[i];
           // IDがあれば更新、なければ新規ID生成 (日時+インデックスで簡易ユニーク化)
           const docId = item.id || `vacation_${Date.now()}_${i}`;
           const path = `offices/${officeId}/vacations/${docId}`;
-          
+
           const fields = {
             title: { stringValue: String(item.title || '') },
             startDate: { stringValue: String(item.startDate || '') },
@@ -534,15 +535,43 @@ export default {
             color: { stringValue: String(item.color || '') },
             visible: { booleanValue: item.visible !== false }
           };
-          
+
           writes.push(firestorePatch(path, { fields }, ['title', 'startDate', 'endDate', 'color', 'visible']));
         }
-        
+
         await Promise.all(writes);
 
         // ★案5: 更新時にキャッシュ削除
         if (statusCache) {
-           ctx.waitUntil(statusCache.delete(`vacation:${officeId}`));
+          ctx.waitUntil(statusCache.delete(`vacation:${officeId}`));
+        }
+
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- SET VACATION BITS (membersBits のみ更新) --- */
+      if (action === 'setVacationBits') {
+        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = formData.get('office') || tokenOffice;
+        const dataStr = formData.get('data');
+        if (!dataStr) throw new Error('data parameter required');
+
+        const payload = JSON.parse(dataStr);
+        const vacationId = payload.id;
+        const membersBits = payload.membersBits || '';
+
+        if (!vacationId) throw new Error('vacation id required');
+
+        const path = `offices/${officeId}/vacations/${vacationId}`;
+        const fields = {
+          membersBits: { stringValue: String(membersBits) }
+        };
+
+        await firestorePatch(path, { fields }, ['membersBits']);
+
+        // キャッシュ削除
+        if (statusCache) {
+          ctx.waitUntil(statusCache.delete(`vacation:${officeId}`));
         }
 
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -554,7 +583,7 @@ export default {
         const officeId = tokenOffice;
         const dataStr = formData.get('data');
         if (!dataStr) throw new Error('data parameter is required');
-        
+
         const payload = JSON.parse(dataStr);
         const updates = payload.data || {};
         const rev = {};
@@ -572,18 +601,18 @@ export default {
           };
 
           await firestorePatch(docPath, { fields }, ['status', 'time', 'note', 'workHours', 'updated']);
-          
+
           rev[memberId] = nowTs;
           serverUpdated[memberId] = nowTs;
         }
 
         // キャッシュ無効化 ＆ ★案1: 最終更新時刻をKVに記録
         if (statusCache) {
-           const lastUpdateKey = `lastUpdate:${officeId}`;
-           ctx.waitUntil(Promise.all([
-             statusCache.delete(statusCacheKey(officeId)),
-             statusCache.put(lastUpdateKey, String(Date.now())) 
-           ]));
+          const lastUpdateKey = `lastUpdate:${officeId}`;
+          ctx.waitUntil(Promise.all([
+            statusCache.delete(statusCacheKey(officeId)),
+            statusCache.put(lastUpdateKey, String(Date.now()))
+          ]));
         }
 
         return new Response(JSON.stringify({ ok: true, rev, serverUpdated }), { headers: corsHeaders });
@@ -607,7 +636,7 @@ export default {
 async function getGoogleAuthToken(env) {
   const pem = env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
   const clientEmail = env.FIREBASE_CLIENT_EMAIL;
-  
+
   // PEM Parsing
   const binaryDer = Uint8Array.from(atob(pem.split('-----')[2].replace(/\s/g, '')), c => c.charCodeAt(0));
   const key = await crypto.subtle.importKey(
@@ -630,13 +659,13 @@ async function getGoogleAuthToken(env) {
 
   const headerB64 = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const claimB64 = btoa(JSON.stringify(claim)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  
+
   const signature = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
     key,
     new TextEncoder().encode(`${headerB64}.${claimB64}`)
   );
-  
+
   const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
