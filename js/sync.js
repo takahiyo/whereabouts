@@ -181,10 +181,7 @@ async function startLegacyPolling(immediate) {
   const pollAction = async (isFirstRun = false) => {
     const payload = { action: 'get', token: SESSION_TOKEN, since: lastSyncTimestamp };
     
-    // ★追加: 初回実行時はキャッシュを無視させる
-    if (isFirstRun) {
-      payload.nocache = '1';
-    }
+    // 初回でもキャッシュを活用するため nocache を付与しない
 
     const r = await apiPost(payload);
     if (r?.error === 'unauthorized') {
@@ -256,7 +253,7 @@ function startRemoteSync(immediate) {
 }
 
 async function fetchConfigOnce() {
-  const cfg = await apiPost({ action: 'getConfig', token: SESSION_TOKEN, nocache: '1' });
+  const cfg = await apiPost({ action: 'getConfig', token: SESSION_TOKEN });
   if (cfg?.error === 'unauthorized') {
     await logout();
     return;
