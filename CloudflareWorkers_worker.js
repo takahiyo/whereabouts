@@ -208,7 +208,7 @@ export default {
         });
 
         if (statusCache) {
-          // ★案3: Configは滅多に変わらないため、TTLを1時間(3600秒)に固定して延長する
+          // Configは滅多に変わらないため、TTLを1時間(3600秒)に固定して延長する
           ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
         }
 
@@ -248,7 +248,7 @@ export default {
         const since = Number(formData.get('since') || 0);
         const nocache = formData.get('nocache') === '1';
 
-        // ★案1: 門番チェック (KVにある最終更新時刻を確認)
+        // 門番チェック (KVにある最終更新時刻を確認)
         if (since > 0 && !nocache && statusCache) {
           const lastUpdateKey = `lastUpdate:${officeId}`;
           const lastUpdateVal = await statusCache.get(lastUpdateKey);
@@ -271,7 +271,6 @@ export default {
             if (cached) return new Response(cached, { headers: corsHeaders });
           }
 
-          // 全件取得
           const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
           const data = {};
           let maxUpdated = 0;
@@ -302,7 +301,7 @@ export default {
           return new Response(responseBody, { headers: corsHeaders });
         }
 
-        // 2. Differential Fetch (差分取得 - readOps削減)
+        // 2. Differential Fetch (差分取得)
         const queryPayload = {
           structuredQuery: {
             from: [{ collectionId: 'members' }],
@@ -354,7 +353,6 @@ export default {
         const officeId = formData.get('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
 
-        // ★案5: ツール情報もKVキャッシュ (1時間)
         const cacheKey = `tools:${officeId}`;
         if (statusCache) {
           const cached = await statusCache.get(cacheKey);
@@ -389,10 +387,8 @@ export default {
             tools: { stringValue: toolsStr }
           }
         };
-        // update (patch) with mask
         await firestorePatch(`offices/${officeId}/tools/config`, payload, ['tools']);
 
-        // ★案5: 更新時にキャッシュ削除
         if (statusCache) {
           ctx.waitUntil(statusCache.delete(`tools:${officeId}`));
         }
@@ -405,7 +401,6 @@ export default {
         const officeId = formData.get('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
 
-        // ★案5: お知らせ情報もKVキャッシュ (1時間)
         const cacheKey = `notices:${officeId}`;
         if (statusCache) {
           const cached = await statusCache.get(cacheKey);
@@ -425,7 +420,6 @@ export default {
               updated: f.updated?.integerValue ? Number(f.updated.integerValue) : 0
             };
           });
-          // Sort by updated desc
           notices.sort((a, b) => b.updated - a.updated);
         }
 
@@ -446,7 +440,10 @@ export default {
         if (!noticesStr) throw new Error('notices parameter required');
 
         const noticesList = JSON.parse(noticesStr);
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9f5b01e2f9bf269bb422d704243d8c6bb130c555
         const writes = [];
         const nowTs = Date.now();
 
@@ -465,7 +462,6 @@ export default {
 
         await Promise.all(writes);
 
-        // ★案5: 更新時にキャッシュ削除
         if (statusCache) {
           ctx.waitUntil(statusCache.delete(`notices:${officeId}`));
         }
@@ -478,7 +474,6 @@ export default {
         const officeId = formData.get('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
 
-        // ★案5: 休暇情報もKVキャッシュ (1時間)
         const cacheKey = `vacation:${officeId}`;
         if (statusCache) {
           const cached = await statusCache.get(cacheKey);
@@ -497,7 +492,11 @@ export default {
               endDate: f.endDate?.stringValue || '',
               color: f.color?.stringValue || '',
               visible: f.visible?.booleanValue ?? true,
+<<<<<<< HEAD
               membersBits: f.membersBits?.stringValue || ''
+=======
+              bits: f.bits?.stringValue || '' // ★修正: bits情報も含める
+>>>>>>> 9f5b01e2f9bf269bb422d704243d8c6bb130c555
             };
           });
           vacations.sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
@@ -512,7 +511,7 @@ export default {
         return new Response(responseBody, { headers: corsHeaders });
       }
 
-      /* --- SET VACATION (Added) --- */
+      /* --- SET VACATION (Full) --- */
       if (action === 'setVacation') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const officeId = tokenOffice;
@@ -524,6 +523,7 @@ export default {
 
         for (let i = 0; i < vacationsList.length; i++) {
           const item = vacationsList[i];
+<<<<<<< HEAD
           // IDがあれば更新、なければ新規ID生成 (日時+インデックスで簡易ユニーク化)
           const docId = item.id || `vacation_${Date.now()}_${i}`;
           const path = `offices/${officeId}/vacations/${docId}`;
@@ -679,3 +679,6 @@ async function getGoogleAuthToken(env) {
   }
   return (await res.json()).access_token;
 }
+=======
+          const docId = item.id || `vacation_${Date.
+>>>>>>> 9f5b01e2f9bf269bb422d704243d8c6bb130c555
