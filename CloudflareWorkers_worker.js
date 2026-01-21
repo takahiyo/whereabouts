@@ -240,11 +240,28 @@ export default {
         return new Response(JSON.stringify({ ok: true, offices }), { headers: corsHeaders });
       }
 
-      /* --- GET (Differential Sync) --- */
+/* --- GET (Differential Sync) --- */
       if (action === 'get') {
         const officeId = tokenOffice || 'nagoya_chuo';
         const since = Number(formData.get('since') || 0);
         const nocache = formData.get('nocache') === '1';
+
+        // ★追加: 門番チェック (KVにある最終更新時刻を確認)
+        // サーバー側の最終更新時刻が、クライアントが持っている時刻(since)以下なら
+        // Firestoreには触れずに「変更なし」として即答する（Read数: 0）
+        if (since > 0 && !nocache && statusCache) {
+          const lastUpdateKey = `lastUpdate:${officeId}`;
+          const lastUpdateVal = await statusCache.get(lastUpdateKey);
+          
+          if (lastUpdateVal && Number(lastUpdateVal) <= since) {
+             return new Response(JSON.stringify({
+              ok: true,
+              data: {},
+              maxUpdated: Number(lastUpdateVal),
+              serverNow: Date.now()
+            }), { headers: corsHeaders });
+          }
+        }
 
         // 1. Full Fetch (初回ロード、または強制リロード)
         if (since === 0) {
@@ -480,8 +497,15 @@ export default {
           serverUpdated[memberId] = nowTs;
         }
 
-        // キャッシュ無効化
-        if (statusCache) ctx.waitUntil(statusCache.delete(statusCacheKey(officeId)));
+// キャッシュ無効化 ＆ ★追加: 最終更新時刻をKVに記録
+        if (statusCache) {
+           const lastUpdateKey = `lastUpdate:${officeId}`;
+           // Promise.allで並列実行（lastUpdateKeyはTTL指定なし＝永続化して門番として機能させる）
+           ctx.waitUntil(Promise.all([
+             statusCache.delete(statusCacheKey(officeId)),
+             statusCache.put(lastUpdateKey, String(Date.now())) 
+           ]));
+        }
 
         return new Response(JSON.stringify({ ok: true, rev, serverUpdated }), { headers: corsHeaders });
       }
