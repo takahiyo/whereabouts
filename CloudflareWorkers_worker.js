@@ -440,10 +440,6 @@ export default {
         if (!noticesStr) throw new Error('notices parameter required');
 
         const noticesList = JSON.parse(noticesStr);
-<<<<<<< HEAD
-
-=======
->>>>>>> 9f5b01e2f9bf269bb422d704243d8c6bb130c555
         const writes = [];
         const nowTs = Date.now();
 
@@ -492,11 +488,7 @@ export default {
               endDate: f.endDate?.stringValue || '',
               color: f.color?.stringValue || '',
               visible: f.visible?.booleanValue ?? true,
-<<<<<<< HEAD
               membersBits: f.membersBits?.stringValue || ''
-=======
-              bits: f.bits?.stringValue || '' // ★修正: bits情報も含める
->>>>>>> 9f5b01e2f9bf269bb422d704243d8c6bb130c555
             };
           });
           vacations.sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
@@ -523,8 +515,6 @@ export default {
 
         for (let i = 0; i < vacationsList.length; i++) {
           const item = vacationsList[i];
-<<<<<<< HEAD
-          // IDがあれば更新、なければ新規ID生成 (日時+インデックスで簡易ユニーク化)
           const docId = item.id || `vacation_${Date.now()}_${i}`;
           const path = `offices/${officeId}/vacations/${docId}`;
 
@@ -679,6 +669,3 @@ async function getGoogleAuthToken(env) {
   }
   return (await res.json()).access_token;
 }
-=======
-          const docId = item.id || `vacation_${Date.
->>>>>>> 9f5b01e2f9bf269bb422d704243d8c6bb130c555
