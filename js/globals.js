@@ -1467,8 +1467,9 @@ async function saveEventFromModal() {
         await applyEventDisplay(selectedEventIds.length ? selectedEventIds : [id]);
         updateEventButtonVisibility(officeId, res.vacations);
       } else {
+        // ▼ 修正: loadEventsを呼ばない（KVキャッシュが古いまま返されるため）
+        // ローカルキャッシュは updateCachedMembersBits で既に更新済み
         await applyEventDisplay(selectedEventIds.length ? selectedEventIds : [id]);
-        await loadEvents(officeId, false, { visibleOnly: true, onSelect: handleEventSelection });
       }
 
       if (SESSION_TOKEN) {
