@@ -207,7 +207,7 @@ export default {
         });
 
         if (statusCache) {
-          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: statusCacheTtlSec }));
+          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
         }
 
         return new Response(responseBody, { headers: corsHeaders });
