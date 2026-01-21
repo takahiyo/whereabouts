@@ -234,7 +234,7 @@ function startRemoteSync(immediate) {
   
   startLegacyPolling(immediate);
 
-  // ▼▼▼ 追加箇所ここから ▼▼▼
+  /* ▼▼▼ 追加箇所ここから ▼▼▼ */
   // タブが非表示になったらポーリングを停止、表示されたら再開
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
@@ -247,7 +247,7 @@ function startRemoteSync(immediate) {
       }
     }
   });
-  // ▲▲▲ 追加箇所ここまで ▲▲▲
+  /* ▲▲▲ 追加箇所ここまで ▲▲▲ */
 
   if (typeof startToolsPolling === 'function') { startToolsPolling(); }
   if (typeof startNoticesPolling === 'function') { startNoticesPolling(); }
