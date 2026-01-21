@@ -511,6 +511,43 @@ export default {
         return new Response(responseBody, { headers: corsHeaders });
       }
 
+      /* --- SET VACATION (Added) --- */
+      if (action === 'setVacation') {
+        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = tokenOffice;
+        const vacationsStr = formData.get('vacations');
+        if (!vacationsStr) throw new Error('vacations parameter required');
+        
+        const vacationsList = JSON.parse(vacationsStr);
+        const writes = [];
+        
+        for (let i = 0; i < vacationsList.length; i++) {
+          const item = vacationsList[i];
+          // IDがあれば更新、なければ新規ID生成 (日時+インデックスで簡易ユニーク化)
+          const docId = item.id || `vacation_${Date.now()}_${i}`;
+          const path = `offices/${officeId}/vacations/${docId}`;
+          
+          const fields = {
+            title: { stringValue: String(item.title || '') },
+            startDate: { stringValue: String(item.startDate || '') },
+            endDate: { stringValue: String(item.endDate || '') },
+            color: { stringValue: String(item.color || '') },
+            visible: { booleanValue: item.visible !== false }
+          };
+          
+          writes.push(firestorePatch(path, { fields }, ['title', 'startDate', 'endDate', 'color', 'visible']));
+        }
+        
+        await Promise.all(writes);
+
+        // ★案5: 更新時にキャッシュ削除
+        if (statusCache) {
+           ctx.waitUntil(statusCache.delete(`vacation:${officeId}`));
+        }
+
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
       /* --- SET --- */
       if (action === 'set') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
