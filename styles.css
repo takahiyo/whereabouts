@@ -12,6 +12,7 @@
     --scale-work: 0.55;
     --scale-status: 0.75;
     --scale-time: 0.45;
+    --scale-note: 0.75;
 
     --min-name: 85px;
     --min-ext: 35px;
@@ -25,7 +26,7 @@
     --w-work: max(calc(var(--base-work) * var(--scale-work)), var(--min-work));
     --w-status: max(calc(var(--base-status) * var(--scale-status)), var(--min-status));
     --w-time: max(calc(var(--base-time) * var(--scale-time)), var(--min-time));
-    --w-note: max(var(--base-note), var(--min-note));
+    --w-note: max(calc(var(--base-note) * var(--scale-note)), var(--min-note));
 
     --status-effective: var(--status-fixed, var(--w-status));
 
