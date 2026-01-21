@@ -234,6 +234,21 @@ function startRemoteSync(immediate) {
   
   startLegacyPolling(immediate);
 
+  // ▼▼▼ 追加箇所ここから ▼▼▼
+  // タブが非表示になったらポーリングを停止、表示されたら再開
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
+      // console.log("Paused sync (background).");
+    } else {
+      if (!remotePullTimer) {
+        // 復帰時に即座に更新確認
+        startLegacyPolling(true); 
+      }
+    }
+  });
+  // ▲▲▲ 追加箇所ここまで ▲▲▲
+
   if (typeof startToolsPolling === 'function') { startToolsPolling(); }
   if (typeof startNoticesPolling === 'function') { startNoticesPolling(); }
   if (typeof startVacationsPolling === 'function') { startVacationsPolling(); }
