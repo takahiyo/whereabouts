@@ -200,14 +200,17 @@ export default {
           groupsMap[m.group].members.push(m);
         });
 
-        const responseBody = JSON.stringify({
+const responseBody = JSON.stringify({
           ok: true,
           groups: Object.values(groupsMap),
           updated: Date.now()
         });
 
         if (statusCache) {
-          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: statusCacheTtlSec }));
+          // ★修正: Configは滅多に変わらないため、TTLを1時間(3600秒)に固定して延長する
+          // これにより、5分ごとの定期リロード時のFirestore読み取りを大幅に削減できる
+          const configTtl = 3600; 
+          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: configTtl }));
         }
 
         return new Response(responseBody, { headers: corsHeaders });
