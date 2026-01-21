@@ -302,7 +302,8 @@
   }
 
   col.col-note {
-    width: var(--w-note)
+    //width: var(--w-note)
+    width: auto;
   }
 
   select,
