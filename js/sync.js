@@ -216,8 +216,22 @@ async function startLegacyPolling(immediate) {
   const remotePollMs = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.remotePollMs))
     ? CONFIG.remotePollMs
     : 10000;
-  // 定期実行時はキャッシュ利用 (isFirstRun = undefined/false)
+// 定期実行時はキャッシュ利用 (isFirstRun = undefined/false)
   remotePullTimer = setInterval(pollAction, remotePollMs);
+  
+  // ★追加: タブが非表示になったらポーリングを停止、表示されたら再開
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
+      console.log("Paused sync (background).");
+    } else {
+      if (!remotePullTimer) {
+        pollAction(false).catch(()=>{}); // 復帰時に即座に1回実行
+        remotePullTimer = setInterval(pollAction, remotePollMs);
+        console.log("Resumed sync.");
+      }
+    }
+  });
 }
 
 function startRemoteSync(immediate) {
