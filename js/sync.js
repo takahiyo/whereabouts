@@ -17,6 +17,7 @@ const DEFAULT_BUSINESS_HOURS = [
 let useSdkMode = false;
 let unsubscribeSnapshot = null;
 let fallbackTimer = null;
+let lastPollTime = 0;
 
 // ★修正: STATE_CACHE と lastSyncTimestamp を localStorage から初期化
 let STATE_CACHE = {};
@@ -179,6 +180,40 @@ async function startLegacyPolling(immediate) {
 
   // ポーリング実行関数
   const pollAction = async (isFirstRun = false) => {
+    if (!isFirstRun) {
+      const nowMs = Date.now();
+      const dateObj = new Date();
+      const hour = dateObj.getHours();
+
+      const normalInterval = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.remotePollMs))
+        ? CONFIG.remotePollMs
+        : 60000;
+      const nightInterval = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.nightPollMs))
+        ? CONFIG.nightPollMs
+        : 3600000;
+
+      let isNightMode = (hour >= 22 || hour < 7);
+
+      /* 【将来的な拡張用スペース】
+         拠点（Office ID）ごとに稼働時間が異なる場合や、24時間稼働の拠点がある場合は
+         ここで判定を行い、isNightMode を false に上書きしてください。
+
+         例:
+         const allDayOffices = ['tokyo_control_room', 'osaka_support'];
+         if (typeof CURRENT_OFFICE_ID !== 'undefined' && allDayOffices.includes(CURRENT_OFFICE_ID)) {
+           isNightMode = false; // この拠点は夜間も通常通り更新する
+         }
+      */
+
+      const requiredInterval = isNightMode ? nightInterval : normalInterval;
+
+      if (nowMs - lastPollTime < requiredInterval) {
+        return;
+      }
+
+      lastPollTime = nowMs;
+    }
+
     const payload = { action: 'get', token: SESSION_TOKEN, since: lastSyncTimestamp };
     
     // 初回でもキャッシュを活用するため nocache を付与しない
