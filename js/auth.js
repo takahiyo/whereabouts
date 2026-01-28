@@ -1,3 +1,14 @@
+/**
+ * js/auth.js - 認証・UI管理
+ *
+ * Firebase認証、ログイン/ログアウト、管理モーダル、マニュアルモーダルを管理する。
+ *
+ * 依存: js/constants/*.js, js/globals.js, js/utils.js, js/sync.js
+ * 参照元: main.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* 認証UI + 管理UI + マニュアルUI - Hybrid Auth Version */
 
 function logoutButtonsCleanup() {

@@ -1,17 +1,16 @@
+/**
+ * js/sync.js - データ同期・通信ロジック
+ *
+ * Cloudflare Workers経由のポーリングと設定監視を管理する。
+ *
+ * 依存: js/config.js, js/constants/*.js, js/globals.js, js/utils.js
+ * 参照元: js/auth.js, main.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* ===== メニュー・正規化・通信・同期 ===== */
-const DEFAULT_BUSINESS_HOURS = [
-  "07:00-15:30",
-  "07:30-16:00",
-  "08:00-16:30",
-  "08:30-17:00",
-  "09:00-17:30",
-  "09:30-18:00",
-  "10:00-18:30",
-  "10:30-19:00",
-  "11:00-19:30",
-  "11:30-20:00",
-  "12:00-20:30",
-];
+/* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */
 
 // ハイブリッド同期用の状態管理
 let useSdkMode = false;

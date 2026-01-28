@@ -1,3 +1,14 @@
+/**
+ * js/tools.js - ツール機能
+ *
+ * ツールリストの表示とポーリングを管理する。
+ *
+ * 依存: js/constants/*.js, js/globals.js, js/utils.js
+ * 参照元: js/auth.js, js/sync.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* ツールモーダル＋ポーリング */
 let CURRENT_TOOLS = [];
 let CURRENT_TOOLS_WARNINGS = [];

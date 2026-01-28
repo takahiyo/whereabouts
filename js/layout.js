@@ -1,3 +1,14 @@
+/**
+ * js/layout.js - レイアウト管理
+ *
+ * グリッドレイアウトのカラム数計算とリサイズ監視を管理する。
+ *
+ * 依存: js/constants/ui.js (PANEL_MIN_PX, GAP_PX, MAX_COLS)
+ * 参照元: js/board.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 function getContainerWidth(){ const elc=board.parentElement||document.body; const r=elc.getBoundingClientRect(); return Math.max(0,Math.round(r.width)); }
 function updateCols(){
   const w = getContainerWidth();

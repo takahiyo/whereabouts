@@ -1,3 +1,17 @@
+/**
+ * main.js - アプリケーションエントリーポイント
+ *
+ * DOMContentLoaded後の初期化処理を管理する。
+ * - 拠点リスト取得
+ * - ログイン状態確認
+ * - UIイベントハンドラ設定
+ *
+ * 依存: js/config.js, js/constants/*.js, js/globals.js, js/auth.js, js/offices.js
+ * 参照元: index.html (最後に読み込み)
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* 起動 */
 document.addEventListener('DOMContentLoaded', async () => {
   // 拠点リスト取得（public-list）

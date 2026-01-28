@@ -1,6 +1,16 @@
+/**
+ * js/board.js - ボード描画・インタラクション
+ *
+ * 在席確認表のテーブル/カード描画とユーザー操作を管理する。
+ *
+ * 依存: js/constants/*.js, js/globals.js, js/utils.js
+ * 参照元: js/sync.js (applyState), main.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* === 時刻メニュー（07:00〜22:00） === */
-const TIME_RANGE_START_MIN = 7 * 60;  // 07:00
-const TIME_RANGE_END_MIN = 22 * 60; // 22:00
+/* TIME_RANGE_START_MIN, TIME_RANGE_END_MIN は constants/timing.js で定義 */
 function buildTimeOptions(stepMin) {
   const frag = document.createDocumentFragment();
   frag.appendChild(el('option', { value: "", text: "" }));

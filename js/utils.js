@@ -1,3 +1,18 @@
+/**
+ * js/utils.js - ユーティリティ関数
+ *
+ * アプリケーション全体で使用する汎用関数を提供する。
+ * - toast: 通知表示
+ * - apiPost: API通信
+ * - セッション管理
+ * - キャッシュ管理
+ *
+ * 依存: js/constants/*.js, js/globals.js
+ * 参照元: 全JSファイル
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* ユーティリティ */
 function toast(msg, ok = true) {
   if (!toastEl) return;
@@ -25,7 +40,7 @@ function sanitizeText(s) {
 
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-const ID_RE = /^[0-9A-Za-z_-]+$/;
+/* ID_RE は constants/ui.js で定義 */
 
 function el(tag, attrs = {}, children = []) { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) { if (v == null) continue; if (k === 'class') e.className = v; else if (k === 'text') e.textContent = String(v); else e.setAttribute(k, String(v)); } (children || []).forEach(c => e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c)); return e; }
 function qsEncode(obj) { const p = new URLSearchParams(); Object.entries(obj || {}).forEach(([k, v]) => { if (v == null) return; p.append(k, String(v)); }); return p.toString(); }

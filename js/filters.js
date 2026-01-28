@@ -1,3 +1,14 @@
+/**
+ * js/filters.js - フィルター機能
+ *
+ * 氏名検索とステータスフィルターを管理する。
+ *
+ * 依存: js/globals.js (nameFilter, statusFilter, board, MENUS, STATUSES)
+ * 参照元: js/sync.js, js/board.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 function buildStatusFilterOptions(){
   statusFilter.replaceChildren();
   const optAll = document.createElement('option'); optAll.value=''; optAll.textContent='（全てのステータス）';

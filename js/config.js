@@ -1,3 +1,15 @@
+/**
+ * js/config.js - アプリケーション設定
+ *
+ * 環境設定、Firebase設定、タイミング設定、カラーパレット設定を管理する。
+ * 本ファイルの値は他の定数ファイル（js/constants/）のデフォルト値を上書きできる。
+ *
+ * 依存: なし（最初に読み込まれる）
+ * 参照元: 全JSファイル
+ *
+ * @see SSOT_GUIDE.md
+ */
+
 // ドメインが 'dev' を含むか、localhost の場合は開発環境とみなす
 const isDev = window.location.hostname.includes('dev') || window.location.hostname.includes('localhost');
 

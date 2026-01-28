@@ -1,9 +1,20 @@
+/**
+ * js/notices.js - お知らせ機能
+ *
+ * お知らせの表示・管理・ポーリングを管理する。
+ *
+ * 依存: js/constants/*.js, js/globals.js, js/utils.js
+ * 参照元: js/auth.js, js/admin.js, js/sync.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* お知らせ機能 */
 
 let CURRENT_NOTICES = [];
 window.CURRENT_NOTICES = CURRENT_NOTICES; // グローバルに公開してadmin.jsから参照可能にする
-const MAX_NOTICE_ITEMS = 100;
-const NOTICE_COLLAPSE_STORAGE_KEY = 'noticeAreaCollapsed';
+/* MAX_NOTICE_ITEMS は constants/ui.js で定義 */
+/* NOTICE_COLLAPSE_STORAGE_KEY は constants/storage.js で定義 */
 let noticeCollapsePreference = loadNoticeCollapsePreference();
 
 // URLを自動リンク化する関数
