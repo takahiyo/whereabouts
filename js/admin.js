@@ -673,6 +673,16 @@ async function handleMemberSave() {
 
 /* お知らせ管理UI */
 btnAddNotice.addEventListener('click', () => addNoticeEditorItem());
+function resolveNoticeVisibility(item) {
+  if (!item || typeof item !== 'object') return true;
+  if (Object.prototype.hasOwnProperty.call(item, 'visible')) {
+    return item.visible !== false;
+  }
+  if (Object.prototype.hasOwnProperty.call(item, 'display')) {
+    return item.display !== false;
+  }
+  return true;
+}
 btnLoadNotices.addEventListener('click', async () => {
   const office = selectedOfficeId(); if (!office) return;
   try {
@@ -685,9 +695,9 @@ btnLoadNotices.addEventListener('click', async () => {
         addNoticeEditorItem();
       } else {
         res.notices.forEach((n, idx) => {
-          const visible = (n && n.visible !== false) ? true : (n && n.display !== false);
+          const visible = resolveNoticeVisibility(n);
           const id = n && (n.id != null ? n.id : (n.noticeId != null ? n.noticeId : idx));
-          addNoticeEditorItem(n.title, n.content, visible !== false, id);
+          addNoticeEditorItem(n.title, n.content, visible, id);
         });
       }
       toast('お知らせを読み込みました');
@@ -1641,9 +1651,9 @@ async function autoLoadNoticesOnAdminOpen() {
         addNoticeEditorItem();
       } else {
         res.notices.forEach((n, idx) => {
-          const visible = (n && n.visible !== false) ? true : (n && n.display !== false);
+          const visible = resolveNoticeVisibility(n);
           const id = n && (n.id != null ? n.id : (n.noticeId != null ? n.noticeId : idx));
-          addNoticeEditorItem(n.title, n.content, visible !== false, id);
+          addNoticeEditorItem(n.title, n.content, visible, id);
         });
       }
     }

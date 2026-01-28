@@ -131,6 +131,19 @@ export default {
         return res.json();
       };
 
+      // DELETE helper
+      const firestoreDelete = async (path) => {
+        const res = await fetch(`${baseUrl}/${path}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (res.status !== 200) {
+          const j = await res.json();
+          throw new Error(`Firestore Delete Error ${res.status}: ${JSON.stringify(j)}`);
+        }
+        return res.json();
+      };
+
       /* =========================================================
          KV Cache
       ========================================================= */
@@ -442,10 +455,16 @@ export default {
         const noticesList = JSON.parse(noticesStr);
         const writes = [];
         const nowTs = Date.now();
+        const keepIds = new Set(
+          Array.isArray(noticesList)
+            ? noticesList.map(item => String(item?.id || '')).filter(Boolean)
+            : []
+        );
 
         for (let i = 0; i < noticesList.length; i++) {
           const item = noticesList[i];
           const docId = item.id || `notice_${nowTs}_${i}`;
+          keepIds.add(String(docId));
           const path = `offices/${officeId}/notices/${docId}`;
           const fields = {
             title: { stringValue: String(item.title || '') },
@@ -457,6 +476,16 @@ export default {
         }
 
         await Promise.all(writes);
+
+        const existing = await firestoreFetchOptional(`offices/${officeId}/notices?pageSize=100`);
+        if (existing?.documents?.length) {
+          const deletions = existing.documents
+            .map(doc => doc?.name?.split('/').pop())
+            .filter(id => id && !keepIds.has(String(id)));
+          if (deletions.length) {
+            await Promise.all(deletions.map(id => firestoreDelete(`offices/${officeId}/notices/${id}`)));
+          }
+        }
 
         if (statusCache) {
           ctx.waitUntil(statusCache.delete(`notices:${officeId}`));
@@ -481,6 +510,7 @@ export default {
         if (json && json.documents) {
           vacations = json.documents.map(doc => {
             const f = doc.fields || {};
+            const orderVal = f.order?.integerValue ? Number(f.order.integerValue) : 0;
             return {
               id: doc.name.split('/').pop(),
               title: f.title?.stringValue || '',
@@ -488,7 +518,13 @@ export default {
               endDate: f.endDate?.stringValue || '',
               color: f.color?.stringValue || '',
               visible: f.visible?.booleanValue ?? true,
-              membersBits: f.membersBits?.stringValue || ''
+              membersBits: f.membersBits?.stringValue || '',
+              isVacation: f.isVacation?.booleanValue ?? undefined,
+              note: f.note?.stringValue || '',
+              noticeId: f.noticeId?.stringValue || '',
+              noticeTitle: f.noticeTitle?.stringValue || '',
+              order: Number.isFinite(orderVal) ? orderVal : 0,
+              office: f.office?.stringValue || ''
             };
           });
           vacations.sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
@@ -506,32 +542,67 @@ export default {
       /* --- SET VACATION (Full) --- */
       if (action === 'setVacation') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
-        const officeId = tokenOffice;
+        const officeId = formData.get('office') || tokenOffice;
         const vacationsStr = formData.get('vacations');
-        if (!vacationsStr) throw new Error('vacations parameter required');
+        const dataStr = formData.get('data');
+        if (!vacationsStr && !dataStr) throw new Error('vacations or data parameter required');
 
-        const vacationsList = JSON.parse(vacationsStr);
+        const vacationsList = vacationsStr ? JSON.parse(vacationsStr) : [JSON.parse(dataStr)];
         const writes = [];
 
         for (let i = 0; i < vacationsList.length; i++) {
           const item = vacationsList[i];
           const docId = item.id || `vacation_${Date.now()}_${i}`;
           const path = `offices/${officeId}/vacations/${docId}`;
-
+          const startDate = item.startDate ?? item.start ?? item.from ?? '';
+          const endDate = item.endDate ?? item.end ?? item.to ?? '';
+          const note = item.note ?? item.memo ?? '';
+          const noticeId = item.noticeId ?? item.noticeKey ?? '';
+          const noticeTitle = item.noticeTitle ?? '';
+          const order = Number(item.order || 0);
           const fields = {
             title: { stringValue: String(item.title || '') },
-            startDate: { stringValue: String(item.startDate || '') },
-            endDate: { stringValue: String(item.endDate || '') },
+            startDate: { stringValue: String(startDate) },
+            endDate: { stringValue: String(endDate) },
             color: { stringValue: String(item.color || '') },
-            visible: { booleanValue: item.visible !== false }
+            visible: { booleanValue: item.visible !== false },
+            membersBits: { stringValue: String(item.membersBits || item.bits || '') },
+            isVacation: { booleanValue: item.isVacation !== false },
+            note: { stringValue: String(note) },
+            noticeId: { stringValue: String(noticeId) },
+            noticeTitle: { stringValue: String(noticeTitle) },
+            order: { integerValue: String(Number.isFinite(order) && order > 0 ? order : 0) },
+            office: { stringValue: String(item.office || officeId || '') }
           };
 
-          writes.push(firestorePatch(path, { fields }, ['title', 'startDate', 'endDate', 'color', 'visible']));
+          writes.push(
+            firestorePatch(
+              path,
+              { fields },
+              ['title', 'startDate', 'endDate', 'color', 'visible', 'membersBits', 'isVacation', 'note', 'noticeId', 'noticeTitle', 'order', 'office']
+            )
+          );
         }
 
         await Promise.all(writes);
 
         // ★案5: 更新時にキャッシュ削除
+        if (statusCache) {
+          ctx.waitUntil(statusCache.delete(`vacation:${officeId}`));
+        }
+
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- DELETE VACATION --- */
+      if (action === 'deleteVacation') {
+        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = formData.get('office') || tokenOffice;
+        const id = formData.get('id');
+        if (!id) throw new Error('vacation id required');
+
+        await firestoreDelete(`offices/${officeId}/vacations/${id}`);
+
         if (statusCache) {
           ctx.waitUntil(statusCache.delete(`vacation:${officeId}`));
         }
