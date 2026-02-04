@@ -91,6 +91,13 @@ async function login(officeInput, passwordInput) {
     // UIを即座に表示状態に切り替える
     updateAuthUI();
 
+    // ★追加: ログイン成功後、データ取得と同期を開始
+    if (typeof startRemoteSync === 'function') startRemoteSync(true);
+    if (typeof startConfigWatch === 'function') startConfigWatch();
+    if (typeof startNoticesPolling === 'function') startNoticesPolling();
+    if (typeof startEventSync === 'function') startEventSync(true);
+    if (typeof loadEvents === 'function') loadEvents(CURRENT_OFFICE_ID);
+
     if (typeof nameFilter !== 'undefined') {
       nameFilter.value = '';
       if (typeof applyFilters === 'function') {
