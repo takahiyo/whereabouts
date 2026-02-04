@@ -11,6 +11,12 @@ export default {
       'Access-Control-Allow-Headers': 'content-type',
       'Content-Type': 'application/json'
     };
+    const requestContext = {
+      action: null,
+      officeId: null,
+      contentType: '',
+      rawTextLength: 0
+    };
 
     if (req.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
@@ -37,6 +43,8 @@ export default {
       let body = {};
       let parseFailure = false;
       const rawText = await req.text();
+      requestContext.contentType = contentType;
+      requestContext.rawTextLength = rawText.length;
 
       if (rawText) {
         if (contentType.includes('application/json')) {
@@ -98,6 +106,8 @@ export default {
       const action = getParam('action');
       const tokenOffice = getParam('tokenOffice') || '';
       const tokenRole = getParam('tokenRole') || '';
+      requestContext.action = action;
+      requestContext.officeId = getParam('office') || tokenOffice || null;
 
       const statusCache = env.STATUS_CACHE;
       const statusCacheTtlSec = Number(env.STATUS_CACHE_TTL_SEC || 60);
@@ -500,6 +510,12 @@ export default {
             ? payload.data
             : (payload && typeof payload === 'object' ? payload : {});
 
+          const updatesType = Array.isArray(updates) ? 'array' : typeof updates;
+          const updatesCount = Array.isArray(updates)
+            ? updates.length
+            : (updates && typeof updates === 'object' ? Object.keys(updates).length : 0);
+          console.log(`[Set Updates] action=${action}, officeId=${officeId}, updatesType=${updatesType}, updatesCount=${updatesCount}`);
+
           const entries = updates && typeof updates === 'object' && !Array.isArray(updates)
             ? Object.entries(updates)
             : null;
@@ -675,9 +691,25 @@ export default {
       return new Response(JSON.stringify({ error: 'unknown_action', action }), { headers: corsHeaders });
 
     } catch (e) {
+      const errorCode = e?.name === 'SyntaxError'
+        ? 'parse_error'
+        : (e?.message ? 'unexpected_error' : 'unknown_error');
+      const diagnostics = {
+        action: requestContext.action,
+        officeId: requestContext.officeId,
+        contentType: requestContext.contentType || 'unknown',
+        rawTextLength: requestContext.rawTextLength
+      };
       console.error('[Worker Error]', e.message);
       return new Response(
-        JSON.stringify({ ok: false, error: e.message, stack: e.stack, timestamp: Date.now() }),
+        JSON.stringify({
+          ok: false,
+          error: e.message,
+          stack: e.stack,
+          timestamp: Date.now(),
+          errorCode,
+          diagnostics
+        }),
         { status: 500, headers: corsHeaders }
       );
     }
