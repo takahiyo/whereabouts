@@ -517,20 +517,30 @@ export default {
         }
 
         try {
-          const dataParam = (() => {
-            if (requestData && requestData.data !== undefined) {
-              const candidate = requestData.data;
-              if (candidate && typeof candidate === 'object' && !Array.isArray(candidate) && candidate.data !== undefined) {
-                return candidate.data;
-              }
-              return candidate;
+          // dataパラメータの取得（オブジェクトまたはJSON文字列）
+          let dataParam = getParamRaw('data');
+          
+          // 文字列の場合はパース
+          if (typeof dataParam === 'string') {
+            try {
+              dataParam = JSON.parse(dataParam);
+            } catch (e) {
+              console.error('[Set Data Parse Error]', e.message);
+              return new Response(JSON.stringify({ ok: false, error: 'invalid_data_format' }), { headers: corsHeaders });
             }
-            return getParam('data');
-          })();
-          const payload = parseJsonParam(dataParam, {});
+          }
+          
+          // payloadの正規化: data.data または data 自体を使用
+          const payload = dataParam && typeof dataParam === 'object' ? dataParam : {};
           const updates = payload.data && typeof payload.data === 'object'
             ? payload.data
             : (payload && typeof payload === 'object' ? payload : {});
+
+          // デバッグログ
+          console.log(`[Set Debug] dataParam type: ${typeof dataParam}, payload.data exists: ${!!payload.data}, updates type: ${typeof updates}`);
+          if (updates && typeof updates === 'object') {
+            console.log(`[Set Debug] updates keys: ${Object.keys(updates).join(', ')}, count: ${Object.keys(updates).length}`);
+          }
 
           const updatesType = Array.isArray(updates) ? 'array' : typeof updates;
           const updatesCount = Array.isArray(updates)

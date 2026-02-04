@@ -365,7 +365,7 @@ async function pushRowDelta(key) {
     const baseRev = {}; baseRev[key] = Number(tr.dataset.rev || 0);
     const payload = { updated: Date.now(), data: { [key]: st } };
 
-    const r = await apiPost({ action: 'set', token: SESSION_TOKEN, data: JSON.stringify(payload), baseRev: JSON.stringify(baseRev) });
+    const r = await apiPost({ action: 'set', token: SESSION_TOKEN, data: payload, baseRev: baseRev });
 
     if (!r) { toast('通信エラー', false); return; }
 
