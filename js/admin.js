@@ -656,6 +656,16 @@ async function handleMemberSave() {
     if (errors.includes('duplicate_id')) { toast('IDが重複しています。編集画面で修正してください', false); return; }
     toast('入力内容を確認してください', false); return;
   }
+
+  // 管理画面からの保存では、ステータス・時間・備考・勤務時間は現在値を上書きせず、
+  // DB内の最新値を維持させるため、送信データから除外する。
+  // (連絡先情報 ext, mobile, email のみ更新対象とする)
+  Object.values(dataObj).forEach(d => {
+    delete d.status;
+    delete d.time;
+    delete d.note;
+    delete d.workHours;
+  });
   try {
     const cfgToSet = { version: 2, updated: Date.now(), groups, menus: MENUS || undefined };
     const r1 = await adminSetConfigFor(office, cfgToSet);

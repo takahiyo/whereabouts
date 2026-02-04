@@ -452,12 +452,18 @@ export default {
           statements.push(
             env.DB.prepare(`
               UPDATE members SET 
-                status=?, time=?, note=?, work_hours=?, updated=?,
-                ext=COALESCE(?, ext), mobile=COALESCE(?, mobile), email=COALESCE(?, email)
+                status=COALESCE(?, status), 
+                time=COALESCE(?, time), 
+                note=COALESCE(?, note), 
+                work_hours=COALESCE(?, work_hours), 
+                updated=?,
+                ext=COALESCE(?, ext), 
+                mobile=COALESCE(?, mobile), 
+                email=COALESCE(?, email)
               WHERE office_id=? AND id=?
             `).bind(
-              m.status, m.time, m.note, m.workHours, nowTs,
-              m.ext, m.mobile, m.email,
+              m.status ?? null, m.time ?? null, m.note ?? null, m.workHours ?? null, nowTs,
+              m.ext ?? null, m.mobile ?? null, m.email ?? null,
               officeId, memberId
             )
           );
