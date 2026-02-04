@@ -214,7 +214,7 @@ async function startLegacyPolling(immediate) {
     }
 
     const payload = { action: 'get', token: SESSION_TOKEN, since: lastSyncTimestamp };
-    
+
     // 初回でもキャッシュを活用するため nocache を付与しない
 
     const r = await apiPost(payload);
@@ -226,7 +226,7 @@ async function startLegacyPolling(immediate) {
     const maxUpdated = Number.isFinite(Number(r?.maxUpdated)) ? Number(r.maxUpdated) : 0;
     const serverNow = Number.isFinite(Number(r?.serverNow)) ? Number(r.serverNow) : 0;
     const nextSyncTimestamp = Math.max(lastSyncTimestamp, maxUpdated, serverNow);
-    
+
     if (nextSyncTimestamp > lastSyncTimestamp) {
       lastSyncTimestamp = nextSyncTimestamp;
       // ★追加: 同期時刻が進んだらローカルストレージに保存
@@ -234,7 +234,7 @@ async function startLegacyPolling(immediate) {
         localStorage.setItem(STORAGE_KEY_SYNC, String(lastSyncTimestamp));
       } catch (e) { /* 無視 */ }
     }
-    
+
     if (r && r.data && Object.keys(r.data).length > 0) {
       applyState(r.data);
     }
@@ -262,7 +262,7 @@ function startRemoteSync(immediate) {
   }
 
   console.log("Starting sync via Cloudflare Worker (KV Cache enabled).");
-  
+
   startLegacyPolling(immediate);
 
   /* ▼▼▼ 追加箇所: タブが非表示になったらポーリングを停止 ▼▼▼ */
@@ -301,7 +301,7 @@ async function fetchConfigOnce() {
       GROUPS = normalizeConfigClient({ groups });
       CONFIG_UPDATED = updated || Date.now();
       setupMenus(menus);
-      render(); 
+      render();
 
       // ★追加: DOM描画直後に最新キャッシュを適用
       if (Object.keys(STATE_CACHE).length > 0) {
@@ -387,7 +387,7 @@ async function pushRowDelta(key) {
       const rev = Number((r.rev && r.rev[key]) || 0);
       const ts = Number((r.serverUpdated && r.serverUpdated[key]) || 0);
       if (rev) { tr.dataset.rev = String(rev); tr.dataset.serverUpdated = String(ts || 0); }
-      
+
       // ★修正: 送信成功時、ローカルキャッシュ(STATE_CACHE)とLocalStorageを即座に更新する
       if (!STATE_CACHE[key]) STATE_CACHE[key] = {};
       Object.assign(STATE_CACHE[key], st);
@@ -401,7 +401,8 @@ async function pushRowDelta(key) {
       return;
     }
 
-    toast('保存に失敗しました', false);
+    console.error('Push Row Error:', r);
+    toast(`保存に失敗しました: ${r.error || '不明なエラー'}`, false);
   } finally {
     PENDING_ROWS.delete(key);
     if (tr) {

@@ -585,7 +585,7 @@ export default {
     } catch (e) {
       console.error('[Worker Error]', e.message);
       return new Response(
-        JSON.stringify({ ok: false, error: e.message, timestamp: Date.now() }),
+        JSON.stringify({ ok: false, error: e.message, stack: e.stack, timestamp: Date.now() }),
         { status: 500, headers: corsHeaders }
       );
     }
