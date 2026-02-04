@@ -522,6 +522,101 @@ export default {
         return new Response(JSON.stringify({ ok: true, rev, serverUpdated: rev }), { headers: corsHeaders });
       }
 
+      /* --- SET CONFIG FOR (Admin: Update member roster structure) --- */
+      if (action === 'setConfigFor') {
+        // 管理者以外は拒否
+        if (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin') {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
+        const dataJson = getParam('data');
+        if (!dataJson) {
+          return new Response(JSON.stringify({ ok: false, error: 'no data' }), { headers: corsHeaders });
+        }
+
+        let cfg;
+        try {
+          cfg = JSON.parse(dataJson);
+        } catch (parseErr) {
+          return new Response(JSON.stringify({ ok: false, error: 'invalid JSON' }), { headers: corsHeaders });
+        }
+
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId) {
+          return new Response(JSON.stringify({ ok: false, error: 'no office' }), { headers: corsHeaders });
+        }
+
+        const nowTs = Date.now();
+        const statements = [];
+
+        // 全メンバーのステータスを保持しつつ名前・グループ・順序を更新
+        // 手順: まず既存データを取得し、削除後に再挿入で更新
+        const existingRes = await env.DB.prepare('SELECT id, status, time, note, work_hours, ext, mobile, email FROM members WHERE office_id = ?')
+          .bind(officeId)
+          .all();
+
+        const existingMap = new Map();
+        (existingRes.results || []).forEach(m => {
+          existingMap.set(m.id, {
+            status: m.status || '',
+            time: m.time || '',
+            note: m.note || '',
+            work_hours: m.work_hours || '',
+            ext: m.ext || '',
+            mobile: m.mobile || '',
+            email: m.email || ''
+          });
+        });
+
+        // 削除
+        statements.push(env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(officeId));
+
+        // 挿入（グループを跨いだ通し番号 global_idx を display_order に使用）
+        let global_idx = 0;
+        if (cfg.groups && Array.isArray(cfg.groups)) {
+          for (const g of cfg.groups) {
+            const gName = g.title || '';
+            const members = g.members || [];
+            for (const m of members) {
+              const id = m.id || `m_${nowTs}_${Math.random().toString(36).slice(2, 6)}`;
+              // 既存データがあれば status, time, note, work_hours などを引き継ぐ
+              const existing = existingMap.get(id) || {};
+              statements.push(env.DB.prepare(`
+                INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, work_hours, ext, mobile, email, updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(
+                id,
+                officeId,
+                m.name || '',
+                gName,
+                global_idx++,
+                existing.status || '',
+                existing.time || '',
+                existing.note || '',
+                m.workHours || existing.work_hours || '',
+                m.ext || existing.ext || '',
+                m.mobile || existing.mobile || '',
+                m.email || existing.email || '',
+                nowTs
+              ));
+            }
+          }
+        }
+
+        await env.DB.batch(statements);
+
+        // キャッシュクリア
+        if (statusCache) {
+          ctx.waitUntil(Promise.all([
+            statusCache.delete(`config_v2:${officeId}`),
+            statusCache.delete(`status:${officeId}`),
+            statusCache.put(`lastUpdate:${officeId}`, String(nowTs))
+          ]));
+        }
+
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
       return new Response(JSON.stringify({ error: 'unknown_action', action }), { headers: corsHeaders });
 
     } catch (e) {
