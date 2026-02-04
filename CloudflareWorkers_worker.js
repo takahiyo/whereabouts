@@ -88,7 +88,18 @@ export default {
         return rawBody;
       };
       const requestData = resolveRequestData(body);
-      const getParam = (key) => (requestData[key] !== undefined ? String(requestData[key]) : null);
+      const getParamRaw = (key) => {
+        if (requestData && requestData[key] !== undefined) return requestData[key];
+        const nested = (requestData && requestData.data && typeof requestData.data === 'object' && !Array.isArray(requestData.data))
+          ? requestData.data
+          : null;
+        if (nested && nested[key] !== undefined) return nested[key];
+        return undefined;
+      };
+      const getParam = (key) => {
+        const raw = getParamRaw(key);
+        return raw !== undefined ? String(raw) : null;
+      };
       const getPayloadSize = (value, parsedValue) => {
         if (typeof value === 'string') return value.length;
         if (parsedValue && typeof parsedValue === 'object') {
@@ -506,9 +517,16 @@ export default {
         }
 
         try {
-          const dataParam = (requestData && requestData.data !== undefined)
-            ? requestData.data
-            : getParam('data');
+          const dataParam = (() => {
+            if (requestData && requestData.data !== undefined) {
+              const candidate = requestData.data;
+              if (candidate && typeof candidate === 'object' && !Array.isArray(candidate) && candidate.data !== undefined) {
+                return candidate.data;
+              }
+              return candidate;
+            }
+            return getParam('data');
+          })();
           const payload = parseJsonParam(dataParam, {});
           const updates = payload.data && typeof payload.data === 'object'
             ? payload.data
