@@ -89,11 +89,11 @@ export default {
       };
       const requestData = resolveRequestData(body);
       const getParamRaw = (key) => {
-        if (requestData && requestData[key] !== undefined) return requestData[key];
         const nested = (requestData && requestData.data && typeof requestData.data === 'object' && !Array.isArray(requestData.data))
           ? requestData.data
           : null;
         if (nested && nested[key] !== undefined) return nested[key];
+        if (requestData && requestData[key] !== undefined) return requestData[key];
         return undefined;
       };
       const getParam = (key) => {
@@ -520,7 +520,7 @@ export default {
         try {
           // dataパラメータの取得（オブジェクトまたはJSON文字列）
           let dataParam = getParamRaw('data');
-          
+
           // 文字列の場合はパース
           if (typeof dataParam === 'string') {
             try {
@@ -530,7 +530,7 @@ export default {
               return new Response(JSON.stringify({ ok: false, error: 'invalid_data_format' }), { headers: corsHeaders });
             }
           }
-          
+
           // payloadの正規化: data.data または data 自体を使用
           const payload = dataParam && typeof dataParam === 'object' ? dataParam : {};
           const updates = payload.data && typeof payload.data === 'object'
