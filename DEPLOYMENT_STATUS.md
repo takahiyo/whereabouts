@@ -87,14 +87,14 @@ curl -X POST https://whereabouts.taka-hiyo.workers.dev \
 ### 拠点リストが表示されない
 
 1. Worker が最新版にデプロイされているか確認
-2. Firestore に拠点データが存在するか確認
-3. Firestore セキュリティルールで `offices` コレクションの読み取りが許可されているか確認
+2. D1 に拠点データが存在するか確認
+3. `offices` テーブルに拠点データが格納されているか確認
 
 ### ステータス更新が失敗する
 
 1. Worker が最新版にデプロイされているか確認
-2. Firestore に該当メンバーのドキュメントが存在するか確認
-3. Firestore セキュリティルールで `members` サブコレクションの書き込みが許可されているか確認
+2. D1 に該当メンバーのレコードが存在するか確認
+3. `members` テーブルの更新が実行できるか確認
 
 ### その他のエラー
 
@@ -105,4 +105,3 @@ curl -X POST https://whereabouts.taka-hiyo.workers.dev \
 
 - プルリクエスト: https://github.com/takahiyo/whereabouts/pull/30
 - Cloudflare Workers: https://dash.cloudflare.com/
-- Firebase Console: https://console.firebase.google.com/

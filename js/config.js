@@ -1,7 +1,7 @@
 /**
  * js/config.js - アプリケーション設定
  *
- * 環境設定、Firebase設定、タイミング設定、カラーパレット設定を管理する。
+ * 環境設定、タイミング設定、カラーパレット設定を管理する。
  * 本ファイルの値は他の定数ファイル（js/constants/）のデフォルト値を上書きできる。
  *
  * 依存: なし（最初に読み込まれる）
@@ -14,7 +14,7 @@
 const isDev = window.location.hostname.includes('dev') || window.location.hostname.includes('localhost');
 
 const CONFIG = {
-    // 認証/同期のモード設定（D1移行後は worker を推奨）
+    // 認証/同期のモード設定（D1移行後は worker を使用）
     authMode: 'worker',
     // 環境に応じてエンドポイントを自動切り替え
     remoteEndpoint: isDev 
@@ -27,15 +27,6 @@ const CONFIG = {
     eventSyncIntervalMs: 10 * 60 * 1000, // 5分 -> 10分へ変更
     tokenDefaultTtl: 3600000,
     publicOfficeFallbacks: [],
-    firebaseConfig: {
-        apiKey: "AIzaSyA_CKaAyt7aiZ0tXgv-0lHviCVV4y8urBQ",
-        authDomain: "whereabouts-f3388.firebaseapp.com",
-        projectId: "whereabouts-f3388",
-        storageBucket: "whereabouts-f3388.firebasestorage.app",
-        messagingSenderId: "578171146712",
-        appId: "1:578171146712:web:b36ba48f99eae97f6ba2ad",
-        measurementId: "G-SLXCBCX483"
-    },
     printSettings: {
         cellWidth: '30px',
         memberNameWidth: '120px',
@@ -96,39 +87,3 @@ const CONFIG = {
         slate: 'slate'
     }
 };
-
-// Initialize Firebase (Compat版)
-function initFirebase() {
-    if (CONFIG.authMode !== 'firebase') {
-        return false;
-    }
-    // SDKが正しく読み込まれているかチェック
-    if (typeof firebase === 'undefined') {
-        console.error("Firebase SDK not loaded.");
-        return false;
-    }
-
-    // すでに初期化済みなら何もしない
-    if (firebase.apps && firebase.apps.length > 0) {
-        return true;
-    }
-
-    // 初期化を実行
-    firebase.initializeApp(CONFIG.firebaseConfig);
-
-    // Auth を確実に初期化（ログインに必要）
-    firebase.auth();
-
-    // ★修正: FirestoreはWorker経由になったため、SDKの初期化自体を行わないようにする
-    // これによりクライアントからの直接接続（Listen）が物理的に発生しなくなる
-    // const db = firebase.firestore(); 
-
-    return true;
-}
-
-// 即座に初期化を試み、失敗したらロード完了を待って再試行
-if (!initFirebase()) {
-    window.addEventListener('load', () => {
-        initFirebase();
-    }, { once: true });
-}

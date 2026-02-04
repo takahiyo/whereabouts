@@ -335,7 +335,7 @@ function startToolsPolling(officeId) {
   // 画面が非表示なら起動しない
   if (document.hidden) return;
 
-  // ★修正: Firestore直接接続(Plan A)を廃止し、Workerポーリング(Plan B)に一本化
+  // ★修正: Workerポーリングに一本化
   startLegacyToolsPolling(targetOffice);
 }
 
