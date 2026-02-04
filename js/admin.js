@@ -619,18 +619,23 @@ function buildMemberSavePayload() {
     });
   });
 
+  // ★修正: メイン画面で変更された最新のステータス(STATE_CACHE)を優先的に参照
+  const liveCache = (typeof STATE_CACHE !== 'undefined') ? STATE_CACHE : {};
   const dataObj = {};
   groups.forEach(g => {
     g.members.forEach(m => {
+      // STATE_CACHE（リアルタイムの変更）を最優先、次にadminMemberData（管理画面読み込み時のデータ）
+      const live = liveCache[m.id] || {};
       const existing = adminMemberData[m.id] || {};
+      const merged = { ...existing, ...live };
       dataObj[m.id] = {
         ext: m.ext || '',
         mobile: m.mobile || '',
         email: m.email || '',
-        workHours: existing.workHours == null ? '' : String(existing.workHours || m.workHours || ''),
-        status: STATUSES.some(s => s.value === existing.status) ? existing.status : defaultStatus,
-        time: existing.time || '',
-        note: existing.note || ''
+        workHours: merged.workHours == null ? '' : String(merged.workHours || m.workHours || ''),
+        status: STATUSES.some(s => s.value === merged.status) ? merged.status : defaultStatus,
+        time: merged.time || '',
+        note: merged.note || ''
       };
     });
   });
