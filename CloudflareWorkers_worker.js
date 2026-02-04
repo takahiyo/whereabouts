@@ -504,7 +504,9 @@ export default {
         }
 
         try {
-          const dataParam = body?.data ?? getParam('data');
+          const dataParam = (requestData && requestData.data !== undefined)
+            ? requestData.data
+            : getParam('data');
           const payload = parseJsonParam(dataParam, {});
           const updates = payload.data && typeof payload.data === 'object'
             ? payload.data
