@@ -81,7 +81,9 @@ export default {
         if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) return {};
         if (rawBody.data !== undefined) {
           const parsed = parseJsonParam(rawBody.data, null);
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return { ...rawBody, data: parsed };
+          }
         }
         return rawBody;
       };
@@ -504,7 +506,9 @@ export default {
         }
 
         try {
-          const dataParam = body?.data ?? getParam('data');
+          const dataParam = (requestData && requestData.data !== undefined)
+            ? requestData.data
+            : getParam('data');
           const payload = parseJsonParam(dataParam, {});
           const updates = payload.data && typeof payload.data === 'object'
             ? payload.data
