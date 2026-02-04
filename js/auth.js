@@ -1,7 +1,7 @@
 /**
  * js/auth.js - 認証・UI管理
  *
- * Worker認証（必要に応じてFirebase認証）とログイン/ログアウト、管理モーダル、マニュアルモーダルを管理する。
+ * Worker認証とログイン/ログアウト、管理モーダル、マニュアルモーダルを管理する。
  *
  * 依存: js/constants/*.js, js/globals.js, js/utils.js, js/sync.js
  * 参照元: main.js
@@ -24,73 +24,30 @@ async function checkLogin() {
   return new Promise((resolve) => {
     const storedOffice = localStorage.getItem('presence_office');
     const storedRole = localStorage.getItem('presence_role');
-    const authMode = (typeof CONFIG !== 'undefined' && CONFIG.authMode) ? CONFIG.authMode : 'worker';
-
-    if (authMode !== 'firebase') {
-      if (storedOffice && storedRole) {
-        SESSION_TOKEN = 'worker_session';
-        CURRENT_OFFICE_ID = storedOffice;
-        CURRENT_ROLE = storedRole;
-        updateAuthUI();
-        if (typeof startRemoteSync === 'function') startRemoteSync(true);
-        if (typeof startConfigWatch === 'function') startConfigWatch();
-        if (typeof startNoticesPolling === 'function') startNoticesPolling();
-        if (typeof startEventSync === 'function') startEventSync(true);
-        if (typeof loadEvents === 'function') loadEvents(CURRENT_OFFICE_ID);
-        resolve(true);
-        return;
-      }
-      SESSION_TOKEN = '';
-      CURRENT_OFFICE_ID = '';
-      CURRENT_ROLE = '';
+    if (storedOffice && storedRole) {
+      SESSION_TOKEN = 'worker_session';
+      CURRENT_OFFICE_ID = storedOffice;
+      CURRENT_ROLE = storedRole;
       updateAuthUI();
-      resolve(false);
+      if (typeof startRemoteSync === 'function') startRemoteSync(true);
+      if (typeof startConfigWatch === 'function') startConfigWatch();
+      if (typeof startNoticesPolling === 'function') startNoticesPolling();
+      if (typeof startEventSync === 'function') startEventSync(true);
+      if (typeof loadEvents === 'function') loadEvents(CURRENT_OFFICE_ID);
+      resolve(true);
       return;
     }
-
-    if (typeof initFirebase === 'function') {
-      initFirebase();
-    }
-    if (typeof firebase === 'undefined' || !(firebase.apps && firebase.apps.length)) {
-      console.error("Firebase SDK not loaded");
-      resolve(false);
-      return;
-    }
-
-    firebase.auth().onAuthStateChanged((user) => {
-      if (user) {
-        // Firebaseログイン済みならセッション有効とみなす
-        if (storedOffice && storedRole) {
-          SESSION_TOKEN = 'firebase_session'; // ダミーでもOK
-          CURRENT_OFFICE_ID = storedOffice;
-          CURRENT_ROLE = storedRole;
-          updateAuthUI();
-          if (typeof startRemoteSync === 'function') startRemoteSync(true);
-          if (typeof startConfigWatch === 'function') startConfigWatch();
-          if (typeof startNoticesPolling === 'function') startNoticesPolling();
-          if (typeof startEventSync === 'function') startEventSync(true);
-          if (typeof loadEvents === 'function') loadEvents(CURRENT_OFFICE_ID);
-          resolve(true);
-        } else {
-          // 情報が欠落している場合は再ログインさせる
-          logout();
-          resolve(false);
-        }
-      } else {
-        // 未ログイン
-        SESSION_TOKEN = '';
-        CURRENT_OFFICE_ID = '';
-        CURRENT_ROLE = '';
-        updateAuthUI();
-        resolve(false);
-      }
-    });
+    SESSION_TOKEN = '';
+    CURRENT_OFFICE_ID = '';
+    CURRENT_ROLE = '';
+    updateAuthUI();
+    resolve(false);
+    return;
   });
 }
 
 async function login(officeInput, passwordInput) {
   try {
-    const authMode = (typeof CONFIG !== 'undefined' && CONFIG.authMode) ? CONFIG.authMode : 'worker';
     // 1. Workerへパスワード確認リクエスト
     const formData = new URLSearchParams();
     formData.append('action', 'login');
@@ -116,25 +73,13 @@ async function login(officeInput, passwordInput) {
       throw new Error("認証に失敗しました。オフィスIDまたはパスワードを確認してください。");
     }
 
-    // ★重要：Firebaseにログインする「前」に、拠点情報を保存する
+    // ★重要：ログイン処理に入る「前」に、拠点情報を保存する
     // これにより、ログイン直後に走る監視役が正しく情報を読み取れます
     localStorage.setItem('presence_office', result.office);
     localStorage.setItem('presence_role', result.role);
     localStorage.setItem('presence_office_name', result.officeName || result.office);
 
-    if (authMode === 'firebase') {
-      if (typeof initFirebase === 'function') {
-        initFirebase();
-      }
-      if (typeof firebase === 'undefined' || !(firebase.apps && firebase.apps.length)) {
-        throw new Error("Firebaseの初期化に失敗しました。ネットワーク接続を確認してください。");
-      }
-      // 2. Firebaseに匿名ログイン
-      await firebase.auth().signInAnonymously();
-      SESSION_TOKEN = 'firebase_session';
-    } else {
-      SESSION_TOKEN = 'worker_session';
-    }
+    SESSION_TOKEN = 'worker_session';
 
     // 3. グローバル変数を更新
     CURRENT_OFFICE_ID = result.office;
@@ -169,9 +114,6 @@ async function logout() {
       clearLocalCache();
     }
 
-    if (typeof firebase !== 'undefined') {
-      await firebase.auth().signOut();
-    }
     localStorage.removeItem('presence_office');
     localStorage.removeItem('presence_role');
     toast("ログオフしました");
@@ -391,12 +333,12 @@ document.querySelectorAll('.manual-tab-btn').forEach(btn => {
   });
 });
 
-/* ログインボタン（Firebase Auth） */
+/* ログインボタン（Worker Auth） */
 if (btnLogin) {
   btnLogin.addEventListener('click', async () => {
     const pw = pwInput.value;
     const office = officeSel.value;
-    // officeはFirebase Authの入力としては使わないが、拠点選択として必須ならチェック
+    // officeは認証の入力としては使わないが、拠点選択として必須ならチェック
     if (!office) { if (loginMsg) loginMsg.textContent = "拠点を選択してください"; return; }
     if (!pw) { if (loginMsg) loginMsg.textContent = "パスワードを入力してください"; return; }
 

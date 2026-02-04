@@ -2,7 +2,7 @@
 
 ## 1. 概要
 
-本システム「在席ボード（Whereabouts）」は、Cloudflare Workers をバックエンド（BFF: Backend For Frontend）、Cloudflare Workers KV をキャッシュ層、Google Cloud Firestore を永続データベースとして構成されています。
+本システム「在席ボード（Whereabouts）」は、Cloudflare Workers をバックエンド（BFF: Backend For Frontend）、Cloudflare Workers KV をキャッシュ層、Cloudflare D1 を永続データベースとして構成されています。
 
 開発の安全性と効率性を高めるため、GitHub のブランチ戦略と連携し、**本番環境（Production）** と **開発環境（Development）** が完全に分離された状態で稼働しています。
 
@@ -16,7 +16,7 @@
 graph TD
     subgraph GitHub [GitHub Repository]
         MainBranch[main branch]
-        DevBranch[Dev_Firestore branch]
+        DevBranch[Dev_D1 branch]
         Action[GitHub Actions<br/>deploy-dev.yml]
     end
 
@@ -32,8 +32,8 @@ graph TD
         end
     end
 
-    subgraph DB [Google Cloud Platform]
-        Firestore[(Firestore DB<br/>whereabouts-f3388)]
+    subgraph DB [Cloudflare D1]
+        D1[(D1 DB<br/>whereabouts-db)]
     end
 
     %% Deployment Flows
@@ -45,8 +45,8 @@ graph TD
     ProdWorker <-->|Read/Write| ProdKV
     DevWorker <-->|Read/Write| DevKV
     
-    ProdWorker <-->|REST API<br/>Auth: Service Account| Firestore
-    DevWorker <-->|REST API<br/>Auth: Service Account| Firestore
+    ProdWorker <-->|SQL/Prepared<br/>Statements| D1
+    DevWorker <-->|SQL/Prepared<br/>Statements| D1
 ```
 
 ---
@@ -57,15 +57,15 @@ graph TD
 
 | 項目 | 本番環境 (Production) | 開発環境 (Development) |
 |------|----------------------|------------------------|
-| **GitHubブランチ** | `main` | `Dev_Firestore` |
+| **GitHubブランチ** | `main` | `Dev_D1` |
 | **Cloudflare Worker名** | `whereabouts` | `whereabouts-dev` |
 | **アクセスURL** | `https://whereabouts...` | `https://whereabouts-dev...` |
 | **KV Namespace** | 本番用 (`cc4d...`) | 開発用 (`695b...`) |
 | **デプロイ契機** | Cloudflare Git連携 / 手動 | GitHub Actions (push) |
-| **接続データベース** | `whereabouts-f3388` | `whereabouts-f3388` (共有*) |
+| **接続データベース** | `whereabouts-db` | `whereabouts-db` (共有*) |
 
 > **(*) データベースの共有について**  
-> Firestore のデータベースインスタンスは共有していますが、KV（キャッシュ）が完全に分離されているため、開発中のデータ構造変更などが本番環境の表示に影響を与えることはありません。
+> D1 のデータベースインスタンスは共有していますが、KV（キャッシュ）が完全に分離されているため、開発中のデータ構造変更などが本番環境の表示に影響を与えることはありません。
 
 ---
 
@@ -78,7 +78,7 @@ graph TD
 #### 🔧 開発環境へのデプロイ
 
 - **設定ファイル**: `.github/workflows/deploy-dev.yml`
-- **トリガー**: `Dev_Firestore` ブランチへの Push
+- **トリガー**: `Dev_D1` ブランチへの Push
 - **動作**: `wrangler deploy --env dev` コマンドを実行し、`wrangler.toml` 内の `[env.dev]` ブロックの設定を適用してデプロイします
 - **認証**: GitHub Secrets に登録された `CLOUDFLARE_API_TOKEN` を使用
 
@@ -89,21 +89,14 @@ graph TD
 
 ---
 
-### B. Cloudflare ➔ Firestore (データ通信)
+### B. Cloudflare ➔ D1 (データ通信)
 
-Workers から Firestore へのアクセスは、SDK ではなく **REST API** を使用して軽量化を図っています。
-
-#### 🔐 認証フロー (`CloudflareWorkers_worker.js`)
-
-1. 環境変数 `FIREBASE_PRIVATE_KEY` (秘密鍵) と `FIREBASE_CLIENT_EMAIL` を読み込み
-2. Workers 内で JWT (JSON Web Token) を生成・署名
-3. Google OAuth2 エンドポイントでアクセストークンを取得
-4. 取得したトークンをヘッダーに付与して Firestore REST API を実行
+Workers から D1 へのアクセスは、**Prepared Statements** を使用して読み書きを行います。
 
 #### 📡 通信方式
 
-- **通常の読み書き**: `documents` エンドポイントへの `GET`/`PATCH`
-- **差分取得（実装予定）**: `runQuery` エンドポイントへの `POST` (StructuredQuery)
+- **通常の読み書き**: SQL を `prepare(...).bind(...)` で実行
+- **差分取得**: `updated` タイムスタンプによる条件付き SELECT
 
 ---
 
@@ -128,7 +121,7 @@ Workers から Firestore へのアクセスは、SDK ではなく **REST API** �
 
 ### `js/config.js`
 
-`remoteEndpoint` 変数にて接続先の Worker URL を指定。開発ブランチ (`Dev_Firestore`) では `-dev` 付きの URL が設定されています。
+`remoteEndpoint` 変数にて接続先の Worker URL を指定。開発ブランチ (`Dev_D1`) では `-dev` 付きの URL が設定されています。
 
 ```javascript
 // js/config.js (Devブランチの例)
@@ -143,7 +136,7 @@ const CONFIG = {
 ## 6. 開発ワークフロー
 
 ### 📝 実装・修正
-`Dev_Firestore` ブランチにてコードを変更
+`Dev_D1` ブランチにてコードを変更
 
 ### ⚙️ 自動デプロイ
 GitHub へ Push すると、Actions が起動し `whereabouts-dev` が更新される
@@ -153,7 +146,7 @@ GitHub へ Push すると、Actions が起動し `whereabouts-dev` が更新さ�
 
 ### 🚀 本番反映
 
-1. `Dev_Firestore` を `main` にマージ
+1. `Dev_D1` を `main` にマージ
 2. `js/config.js` の接続先が本番 URL になっていることを確認
 3. 本番環境へデプロイ
 
@@ -165,7 +158,7 @@ GitHub へ Push すると、Actions が起動し `whereabouts-dev` が更新さ�
 
 - ✅ GitHub ブランチ戦略による明確な環境分離
 - ✅ Cloudflare Workers + KV による高速かつスケーラブルなアーキテクチャ
-- ✅ Firestore REST API による軽量な認証・データアクセス
+- ✅ Cloudflare D1 によるデータアクセス
 - ✅ GitHub Actions による自動デプロイで開発効率を向上
 
 この構成により、開発者は本番環境への影響を気にすることなく、新機能の実装や実験的な変更を安心して行うことができます。
