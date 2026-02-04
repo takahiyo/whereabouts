@@ -26,22 +26,42 @@ export default {
       /* --- Request 処理 --- */
       const contentType = (req.headers.get('content-type') || '').toLowerCase();
       let body = {};
+      let parseFailure = false;
       const rawText = await req.text();
 
       if (rawText) {
         if (contentType.includes('application/json')) {
-          try { body = JSON.parse(rawText); } catch { }
+          try { body = JSON.parse(rawText); } catch { parseFailure = true; }
         } else {
           try {
             const params = new URLSearchParams(rawText);
             for (const [k, v] of params) body[k] = v;
           } catch {
-            try { body = JSON.parse(rawText); } catch { }
+            try { body = JSON.parse(rawText); } catch { parseFailure = true; }
           }
         }
       }
 
+      if (parseFailure) {
+        console.warn(`[Request Parse Failed] content-type: ${contentType || 'unknown'}, rawTextLength: ${rawText.length}`);
+      }
+
       const getParam = (key) => (body[key] !== undefined ? String(body[key]) : null);
+      const getPayloadSize = (value, parsedValue) => {
+        if (typeof value === 'string') return value.length;
+        if (parsedValue && typeof parsedValue === 'object') {
+          try {
+            return JSON.stringify(parsedValue).length;
+          } catch {
+            return 0;
+          }
+        }
+        return 0;
+      };
+      const getPayloadType = (value) => {
+        if (Array.isArray(value)) return 'array';
+        return typeof value;
+      };
       const parseJsonParam = (value, fallback = {}) => {
         if (value == null) return fallback;
         if (typeof value === 'object') return value;
@@ -465,6 +485,10 @@ export default {
           const entries = updates && typeof updates === 'object' && !Array.isArray(updates)
             ? Object.entries(updates)
             : null;
+          const payloadType = getPayloadType(payload);
+          const payloadSize = getPayloadSize(dataParam, payload);
+          const memberCount = entries ? entries.length : 0;
+          console.log(`[Set Entry] action=${action}, officeId=${officeId}, payloadSize=${payloadSize}, memberCount=${memberCount}, payloadType=${payloadType}`);
           if (!entries || entries.length === 0) {
             return new Response(JSON.stringify({ ok: false, error: 'invalid_data' }), { headers: corsHeaders });
           }
@@ -532,9 +556,10 @@ export default {
             errors: errors.length ? errors : undefined
           }), { headers: corsHeaders });
         } catch (setErr) {
+          const errorCode = setErr?.name === 'SyntaxError' ? 'parse_error' : 'db_error';
           console.error('[Set Error]', setErr?.message || setErr);
           return new Response(
-            JSON.stringify({ ok: false, error: 'set_failed', message: setErr?.message }),
+            JSON.stringify({ ok: false, error: 'set_failed', errorCode, message: setErr?.message }),
             { headers: corsHeaders }
           );
         }
