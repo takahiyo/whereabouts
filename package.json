@@ -5,8 +5,5 @@
   "main": "migrate.js",
   "scripts": {
     "migrate": "node migrate.js"
-  },
-  "dependencies": {
-    "firebase-admin": "^11.11.1"
   }
 }

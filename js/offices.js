@@ -1,3 +1,14 @@
+/**
+ * js/offices.js - 拠点管理
+ *
+ * 公開拠点一覧の取得と選択UIを管理する。
+ *
+ * 依存: js/constants/ui.js (ID_RE), js/globals.js, js/utils.js
+ * 参照元: js/auth.js, main.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* 認証UI（公開オフィス一覧） */
 function setSelectMessage(sel,msg){
   sel.textContent='';

@@ -1,17 +1,16 @@
+/**
+ * js/sync.js - データ同期・通信ロジック
+ *
+ * Cloudflare Workers経由のポーリングと設定監視を管理する。
+ *
+ * 依存: js/config.js, js/constants/*.js, js/globals.js, js/utils.js
+ * 参照元: js/auth.js, main.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* ===== メニュー・正規化・通信・同期 ===== */
-const DEFAULT_BUSINESS_HOURS = [
-  "07:00-15:30",
-  "07:30-16:00",
-  "08:00-16:30",
-  "08:30-17:00",
-  "09:00-17:30",
-  "09:30-18:00",
-  "10:00-18:30",
-  "10:30-19:00",
-  "11:00-19:30",
-  "11:30-20:00",
-  "12:00-20:30",
-];
+/* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */
 
 // ハイブリッド同期用の状態管理
 let useSdkMode = false;
@@ -215,7 +214,7 @@ async function startLegacyPolling(immediate) {
     }
 
     const payload = { action: 'get', token: SESSION_TOKEN, since: lastSyncTimestamp };
-    
+
     // 初回でもキャッシュを活用するため nocache を付与しない
 
     const r = await apiPost(payload);
@@ -227,7 +226,7 @@ async function startLegacyPolling(immediate) {
     const maxUpdated = Number.isFinite(Number(r?.maxUpdated)) ? Number(r.maxUpdated) : 0;
     const serverNow = Number.isFinite(Number(r?.serverNow)) ? Number(r.serverNow) : 0;
     const nextSyncTimestamp = Math.max(lastSyncTimestamp, maxUpdated, serverNow);
-    
+
     if (nextSyncTimestamp > lastSyncTimestamp) {
       lastSyncTimestamp = nextSyncTimestamp;
       // ★追加: 同期時刻が進んだらローカルストレージに保存
@@ -235,7 +234,7 @@ async function startLegacyPolling(immediate) {
         localStorage.setItem(STORAGE_KEY_SYNC, String(lastSyncTimestamp));
       } catch (e) { /* 無視 */ }
     }
-    
+
     if (r && r.data && Object.keys(r.data).length > 0) {
       applyState(r.data);
     }
@@ -263,7 +262,7 @@ function startRemoteSync(immediate) {
   }
 
   console.log("Starting sync via Cloudflare Worker (KV Cache enabled).");
-  
+
   startLegacyPolling(immediate);
 
   /* ▼▼▼ 追加箇所: タブが非表示になったらポーリングを停止 ▼▼▼ */
@@ -302,7 +301,7 @@ async function fetchConfigOnce() {
       GROUPS = normalizeConfigClient({ groups });
       CONFIG_UPDATED = updated || Date.now();
       setupMenus(menus);
-      render(); 
+      render();
 
       // ★追加: DOM描画直後に最新キャッシュを適用
       if (Object.keys(STATE_CACHE).length > 0) {
@@ -366,7 +365,7 @@ async function pushRowDelta(key) {
     const baseRev = {}; baseRev[key] = Number(tr.dataset.rev || 0);
     const payload = { updated: Date.now(), data: { [key]: st } };
 
-    const r = await apiPost({ action: 'set', token: SESSION_TOKEN, data: JSON.stringify(payload), baseRev: JSON.stringify(baseRev) });
+    const r = await apiPost({ action: 'set', token: SESSION_TOKEN, data: payload, baseRev: baseRev });
 
     if (!r) { toast('通信エラー', false); return; }
 
@@ -388,7 +387,7 @@ async function pushRowDelta(key) {
       const rev = Number((r.rev && r.rev[key]) || 0);
       const ts = Number((r.serverUpdated && r.serverUpdated[key]) || 0);
       if (rev) { tr.dataset.rev = String(rev); tr.dataset.serverUpdated = String(ts || 0); }
-      
+
       // ★修正: 送信成功時、ローカルキャッシュ(STATE_CACHE)とLocalStorageを即座に更新する
       if (!STATE_CACHE[key]) STATE_CACHE[key] = {};
       Object.assign(STATE_CACHE[key], st);
@@ -402,7 +401,8 @@ async function pushRowDelta(key) {
       return;
     }
 
-    toast('保存に失敗しました', false);
+    console.error('Push Row Error:', r);
+    toast(`保存に失敗しました: ${r.error || '不明なエラー'}`, false);
   } finally {
     PENDING_ROWS.delete(key);
     if (tr) {

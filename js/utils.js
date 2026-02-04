@@ -1,3 +1,18 @@
+/**
+ * js/utils.js - ユーティリティ関数
+ *
+ * アプリケーション全体で使用する汎用関数を提供する。
+ * - toast: 通知表示
+ * - apiPost: API通信
+ * - セッション管理
+ * - キャッシュ管理
+ *
+ * 依存: js/constants/*.js, js/globals.js
+ * 参照元: 全JSファイル
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* ユーティリティ */
 function toast(msg, ok = true) {
   if (!toastEl) return;
@@ -25,11 +40,21 @@ function sanitizeText(s) {
 
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-const ID_RE = /^[0-9A-Za-z_-]+$/;
+/* ID_RE は constants/ui.js で定義 */
 
 function el(tag, attrs = {}, children = []) { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) { if (v == null) continue; if (k === 'class') e.className = v; else if (k === 'text') e.textContent = String(v); else e.setAttribute(k, String(v)); } (children || []).forEach(c => e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c)); return e; }
 function qsEncode(obj) { const p = new URLSearchParams(); Object.entries(obj || {}).forEach(([k, v]) => { if (v == null) return; p.append(k, String(v)); }); return p.toString(); }
+const API_POST_CONTENT_TYPE = 'application/json';
+const API_POST_LEGACY_CONTENT_TYPE = 'application/x-www-form-urlencoded';
 async function apiPost(params, timeout = 20000) {
+  /**
+   * apiPost 送信仕様:
+   * - 現行: Content-Type: application/json
+   *   - body: { data: { ...params, tokenOffice?, tokenRole? } }
+   * - 旧仕様 (互換): application/x-www-form-urlencoded
+   *   - body: key=value&...
+   * data は常にオブジェクトとして送信する。
+   */
   const payload = { ...params };
   if (typeof CURRENT_OFFICE_ID !== 'undefined' && CURRENT_OFFICE_ID) {
     payload.tokenOffice = CURRENT_OFFICE_ID;
@@ -37,7 +62,8 @@ async function apiPost(params, timeout = 20000) {
   if (typeof CURRENT_ROLE !== 'undefined' && CURRENT_ROLE) {
     payload.tokenRole = CURRENT_ROLE;
   }
-  const controller = new AbortController(); const t = setTimeout(() => controller.abort(), timeout); try { const endpoint = (typeof CONFIG !== 'undefined' && CONFIG.remoteEndpoint) ? CONFIG.remoteEndpoint : "https://presence-proxy-prod.taka-hiyo.workers.dev"; const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: qsEncode(payload), signal: controller.signal, credentials: 'omit', cache: 'no-store' }); const ct = (res.headers.get('content-type') || '').toLowerCase(); if (!ct.includes('application/json')) return { ok: false, error: 'invalid_content_type' }; return await res.json(); } catch (err) { console.error(err); return { ok: false, error: err }; } finally { clearTimeout(t); }
+  const body = JSON.stringify({ data: payload });
+  const controller = new AbortController(); const t = setTimeout(() => controller.abort(), timeout); try { const endpoint = (typeof CONFIG !== 'undefined' && CONFIG.remoteEndpoint) ? CONFIG.remoteEndpoint : "https://presence-proxy-prod.taka-hiyo.workers.dev"; const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': API_POST_CONTENT_TYPE }, body, signal: controller.signal, credentials: 'omit', cache: 'no-store' }); const ct = (res.headers.get('content-type') || '').toLowerCase(); if (!ct.includes('application/json')) return { ok: false, error: 'invalid_content_type' }; return await res.json(); } catch (err) { console.error(err); return { ok: false, error: err }; } finally { clearTimeout(t); }
 }
 /* セッションメタ(F5耐性) */
 function saveSessionMeta() { try { sessionStorage.setItem(SESSION_ROLE_KEY, CURRENT_ROLE || 'user'); sessionStorage.setItem(SESSION_OFFICE_KEY, CURRENT_OFFICE_ID || ''); sessionStorage.setItem(SESSION_OFFICE_NAME_KEY, CURRENT_OFFICE_NAME || ''); } catch { } }

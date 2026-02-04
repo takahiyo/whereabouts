@@ -1,3 +1,14 @@
+/**
+ * js/tools.js - ツール機能
+ *
+ * ツールリストの表示とポーリングを管理する。
+ *
+ * 依存: js/constants/*.js, js/globals.js, js/utils.js
+ * 参照元: js/auth.js, js/sync.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* ツールモーダル＋ポーリング */
 let CURRENT_TOOLS = [];
 let CURRENT_TOOLS_WARNINGS = [];
@@ -324,7 +335,7 @@ function startToolsPolling(officeId) {
   // 画面が非表示なら起動しない
   if (document.hidden) return;
 
-  // ★修正: Firestore直接接続(Plan A)を廃止し、Workerポーリング(Plan B)に一本化
+  // ★修正: Workerポーリングに一本化
   startLegacyToolsPolling(targetOffice);
 }
 

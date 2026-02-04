@@ -59,88 +59,88 @@ btnImport.addEventListener('click', async () => {
   const headerOk = hdr.length === expectedHeader.length && expectedHeader.every((h, i) => hdr[i] === h);
   if (!headerOk) { toast('CSVヘッダが不正です', false); return; }
 
-const recs = [];
-const makeCsvId = (() => {
-  let seq = 0;
-  return () => `csv_${Date.now()}_${(seq++)}_${Math.random().toString(36).slice(2, 6)}`;
-})();
+  const recs = [];
+  const makeCsvId = (() => {
+    let seq = 0;
+    return () => `csv_${Date.now()}_${(seq++)}_${Math.random().toString(36).slice(2, 6)}`;
+  })();
 
-// まず recs を作る（この段階で id を必ず埋める）
-for (const r of rows.slice(2)) {
-  if (!r.some(x => (x || '').trim() !== '')) continue;
-  if (r.length !== expectedHeader.length) { toast('CSVデータ行が不正です', false); return; }
-  const [gi, gt, mi, id, name, ext, mobile, email, workHours, status, time, note] = r;
+  // まず recs を作る（この段階で id を必ず埋める）
+  for (const r of rows.slice(2)) {
+    if (!r.some(x => (x || '').trim() !== '')) continue;
+    if (r.length !== expectedHeader.length) { toast('CSVデータ行が不正です', false); return; }
+    const [gi, gt, mi, id, name, ext, mobile, email, workHours, status, time, note] = r;
 
-  const fixedId = (id || '').trim() || makeCsvId();
+    const fixedId = (id || '').trim() || makeCsvId();
 
-  recs.push({
-    gi: Number(gi) || 0,
-    gt: (gt || ''),
-    mi: Number(mi) || 0,
-    id: fixedId,
-    name: (name || ''),
-    ext: (ext || ''),
-    mobile: (mobile || ''),
-    email: (email || ''),
-    workHours: workHours == null ? '' : String(workHours),
-    status: (status || (STATUSES[0]?.value || '在席')),
-    time: (time || ''),
-    note: (note || '')
-  });
-}
+    recs.push({
+      gi: Number(gi) || 0,
+      gt: (gt || ''),
+      mi: Number(mi) || 0,
+      id: fixedId,
+      name: (name || ''),
+      ext: (ext || ''),
+      mobile: (mobile || ''),
+      email: (email || ''),
+      workHours: workHours == null ? '' : String(workHours),
+      status: (status || (STATUSES[0]?.value || '在席')),
+      time: (time || ''),
+      note: (note || '')
+    });
+  }
 
-// groups を作る（id は必ず入っている前提）
-const groupsMap = new Map();
-for (const r of recs) {
-  if (!r.gi || !r.mi || !r.name) continue;
-  if (!groupsMap.has(r.gi)) groupsMap.set(r.gi, { title: r.gt || '', members: [] });
-  const g = groupsMap.get(r.gi);
-  g.title = r.gt || '';
-  g.members.push({
-    _mi: r.mi,
-    name: r.name,
-    ext: r.ext || '',
-    mobile: r.mobile || '',
-    email: r.email || '',
-    workHours: r.workHours || '',
-    id: r.id
-  });
-}
+  // groups を作る（id は必ず入っている前提）
+  const groupsMap = new Map();
+  for (const r of recs) {
+    if (!r.gi || !r.mi || !r.name) continue;
+    if (!groupsMap.has(r.gi)) groupsMap.set(r.gi, { title: r.gt || '', members: [] });
+    const g = groupsMap.get(r.gi);
+    g.title = r.gt || '';
+    g.members.push({
+      _mi: r.mi,
+      name: r.name,
+      ext: r.ext || '',
+      mobile: r.mobile || '',
+      email: r.email || '',
+      workHours: r.workHours || '',
+      id: r.id
+    });
+  }
 
-const groups = Array.from(groupsMap.entries())
-  .sort((a, b) => a[0] - b[0])
-  .map(([gi, g]) => {
-    g.members.sort((a, b) => (a._mi || 0) - (b._mi || 0));
-    g.members.forEach(m => delete m._mi);
-    return g;
-  });
+  const groups = Array.from(groupsMap.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([gi, g]) => {
+      g.members.sort((a, b) => (a._mi || 0) - (b._mi || 0));
+      g.members.forEach(m => delete m._mi);
+      return g;
+    });
 
-const cfgToSet = { version: 2, updated: Date.now(), groups, menus: MENUS || undefined };
-const r1 = await adminSetConfigFor(office, cfgToSet);
-if (!r1 || r1.error) {
-  console.error('adminSetConfigFor failed:', r1);
-  toast(`名簿の設定に失敗: ${r1?.error || 'unknown'}`, false);
-  return;
-}
+  const cfgToSet = { version: 2, updated: Date.now(), groups, menus: MENUS || undefined };
+  const r1 = await adminSetConfigFor(office, cfgToSet);
+  if (!r1 || r1.error) {
+    console.error('adminSetConfigFor failed:', r1);
+    toast(`名簿の設定に失敗: ${r1?.error || 'unknown'}`, false);
+    return;
+  }
 
-// dataObj も「全行」必ず作る（id は必ずある）
-const dataObj = {};
-for (const r of recs) {
-  const workHours = r.workHours || '';
-  dataObj[r.id] = {
-    ext: r.ext || '',
-    mobile: r.mobile || '',
-    email: r.email || '',
-    workHours,
-    status: STATUSES.some(s => s.value === r.status) ? r.status : (STATUSES[0]?.value || '在席'),
-    time: r.time || '',
-    note: r.note || ''
-  };
-}
+  // dataObj も「全行」必ず作る（id は必ずある）
+  const dataObj = {};
+  for (const r of recs) {
+    const workHours = r.workHours || '';
+    dataObj[r.id] = {
+      ext: r.ext || '',
+      mobile: r.mobile || '',
+      email: r.email || '',
+      workHours,
+      status: STATUSES.some(s => s.value === r.status) ? r.status : (STATUSES[0]?.value || '在席'),
+      time: r.time || '',
+      note: r.note || ''
+    };
+  }
 
-const r2 = await adminSetForChunked(office, dataObj);
-if (!(r2 && r2.ok)) { toast('在席データ更新に失敗', false); return; }
-toast('インポート完了', true);
+  const r2 = await adminSetForChunked(office, dataObj);
+  if (!(r2 && r2.ok)) { toast('在席データ更新に失敗', false); return; }
+  toast('インポート完了', true);
 
   if (!(r2 && r2.ok)) { toast('在席データ更新に失敗', false); return; }
   toast('インポート完了', true);
@@ -619,18 +619,23 @@ function buildMemberSavePayload() {
     });
   });
 
+  // ★修正: メイン画面で変更された最新のステータス(STATE_CACHE)を優先的に参照
+  const liveCache = (typeof STATE_CACHE !== 'undefined') ? STATE_CACHE : {};
   const dataObj = {};
   groups.forEach(g => {
     g.members.forEach(m => {
+      // STATE_CACHE（リアルタイムの変更）を最優先、次にadminMemberData（管理画面読み込み時のデータ）
+      const live = liveCache[m.id] || {};
       const existing = adminMemberData[m.id] || {};
+      const merged = { ...existing, ...live };
       dataObj[m.id] = {
         ext: m.ext || '',
         mobile: m.mobile || '',
         email: m.email || '',
-        workHours: existing.workHours == null ? '' : String(existing.workHours || m.workHours || ''),
-        status: STATUSES.some(s => s.value === existing.status) ? existing.status : defaultStatus,
-        time: existing.time || '',
-        note: existing.note || ''
+        workHours: merged.workHours == null ? '' : String(merged.workHours || m.workHours || ''),
+        status: STATUSES.some(s => s.value === merged.status) ? merged.status : defaultStatus,
+        time: merged.time || '',
+        note: merged.note || ''
       };
     });
   });
@@ -651,6 +656,16 @@ async function handleMemberSave() {
     if (errors.includes('duplicate_id')) { toast('IDが重複しています。編集画面で修正してください', false); return; }
     toast('入力内容を確認してください', false); return;
   }
+
+  // 管理画面からの保存では、ステータス・時間・備考・勤務時間は現在値を上書きせず、
+  // DB内の最新値を維持させるため、送信データから除外する。
+  // (連絡先情報 ext, mobile, email のみ更新対象とする)
+  Object.values(dataObj).forEach(d => {
+    delete d.status;
+    delete d.time;
+    delete d.note;
+    delete d.workHours;
+  });
   try {
     const cfgToSet = { version: 2, updated: Date.now(), groups, menus: MENUS || undefined };
     const r1 = await adminSetConfigFor(office, cfgToSet);
@@ -660,8 +675,15 @@ async function handleMemberSave() {
       CONFIG_UPDATED = cfgToSet.updated;
       if (typeof render === 'function') {
         render();
+        // ★修正: 最新の保存データ(dataObj)をUIに即座に反映
+        if (typeof applyState === 'function') {
+          applyState(dataObj);
+        }
       }
     }
+    // ★修正: ローカルの管理用データも最新の状態に更新しておく
+    Object.assign(adminMemberData, dataObj);
+
     const r2 = await adminSetForChunked(office, dataObj);
     if (!(r2 && r2.ok !== false)) toast('在席データの保存に失敗しました', false);
     else toast('保存しました');
@@ -673,6 +695,16 @@ async function handleMemberSave() {
 
 /* お知らせ管理UI */
 btnAddNotice.addEventListener('click', () => addNoticeEditorItem());
+function resolveNoticeVisibility(item) {
+  if (!item || typeof item !== 'object') return true;
+  if (Object.prototype.hasOwnProperty.call(item, 'visible')) {
+    return item.visible !== false;
+  }
+  if (Object.prototype.hasOwnProperty.call(item, 'display')) {
+    return item.display !== false;
+  }
+  return true;
+}
 btnLoadNotices.addEventListener('click', async () => {
   const office = selectedOfficeId(); if (!office) return;
   try {
@@ -685,9 +717,9 @@ btnLoadNotices.addEventListener('click', async () => {
         addNoticeEditorItem();
       } else {
         res.notices.forEach((n, idx) => {
-          const visible = (n && n.visible !== false) ? true : (n && n.display !== false);
+          const visible = resolveNoticeVisibility(n);
           const id = n && (n.id != null ? n.id : (n.noticeId != null ? n.noticeId : idx));
-          addNoticeEditorItem(n.title, n.content, visible !== false, id);
+          addNoticeEditorItem(n.title, n.content, visible, id);
         });
       }
       toast('お知らせを読み込みました');
@@ -1641,9 +1673,9 @@ async function autoLoadNoticesOnAdminOpen() {
         addNoticeEditorItem();
       } else {
         res.notices.forEach((n, idx) => {
-          const visible = (n && n.visible !== false) ? true : (n && n.display !== false);
+          const visible = resolveNoticeVisibility(n);
           const id = n && (n.id != null ? n.id : (n.noticeId != null ? n.noticeId : idx));
-          addNoticeEditorItem(n.title, n.content, visible !== false, id);
+          addNoticeEditorItem(n.title, n.content, visible, id);
         });
       }
     }

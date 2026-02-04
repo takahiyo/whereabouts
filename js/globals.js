@@ -1,11 +1,19 @@
+/**
+ * js/globals.js - グローバル変数・DOM要素・状態管理
+ *
+ * 本ファイルはアプリケーション全体で共有される状態とDOM参照を管理する。
+ * 定数は js/constants/ に集約されているため、本ファイルでは定義しない。
+ *
+ * 依存: js/config.js, js/constants/*.js
+ * 参照元: 全JSファイル
+ *
+ * @see CORE_PRINCIPLES.md
+ * @see SSOT_GUIDE.md
+ */
+
 /* ===== 接続設定 ===== */
 /* config.js で CONFIG を定義 */
-
-/* セッションキー */
-const SESSION_KEY = "presence-session-token";
-const SESSION_ROLE_KEY = "presence-role";
-const SESSION_OFFICE_KEY = "presence-office";
-const SESSION_OFFICE_NAME_KEY = "presence-office-name";
+/* セッションキーは constants/storage.js で定義 */
 
 /* 要素 */
 const board = document.getElementById('board'), toastEl = document.getElementById('toast'), diag = document.getElementById('diag');
@@ -52,7 +60,8 @@ const btnVacationSave = document.getElementById('btnVacationSave'), btnVacationD
 let GROUPS = [], CONFIG_UPDATED = 0, MENUS = null, STATUSES = [], requiresTimeSet = new Set(), clearOnSet = new Set(), statusClassMap = new Map();
 let tokenRenewTimer = null, ro = null, remotePullTimer = null, configWatchTimer = null, eventSyncTimer = null;
 let resumeRemoteSyncOnVisible = false, resumeConfigWatchOnVisible = false, resumeEventSyncOnVisible = false;
-let storeKeyBase = "presence-board-v4";
+/* storeKeyBase は constants/storage.js で STORE_KEY_BASE として定義 */
+let storeKeyBase = STORE_KEY_BASE;
 const PENDING_ROWS = new Set();
 let adminSelectedOfficeId = '';
 let currentEventIds = [];
@@ -173,36 +182,9 @@ const EVENT_COLOR_LABELS = (typeof CONFIG !== 'undefined' && CONFIG.eventColorLa
 const PALETTE_TO_EVENT_COLOR_MAP = (typeof CONFIG !== 'undefined' && CONFIG.paletteToEventColor) ? CONFIG.paletteToEventColor : {};
 const EVENT_COLOR_KEYS = Object.keys(EVENT_COLOR_LABELS);
 
-const EVENT_COLOR_TO_PALETTE_MAP = {
-  amber: 'amber',
-  blue: 'saturday',
-  green: 'mint',
-  purple: 'lavender',
-  teal: 'mint',
-  sunday: 'sunday',
-  holiday: 'holiday',
-  slate: 'slate',
-  pink: 'sunday',
-  gray: 'slate',
-  grey: 'slate',
-  none: 'none',
-  saturday: 'saturday'
-};
-const PALETTE_KEYS = ['none', 'saturday', 'sunday', 'holiday', 'amber', 'mint', 'lavender', 'slate'];
+/* EVENT_COLOR_TO_PALETTE_MAP, PALETTE_KEYS は constants/ui.js で定義 */
 
-// レガシーカラーキーの正規化マッピング
-const EVENT_COLOR_LEGACY_FALLBACKS = {
-  gray: 'slate',
-  grey: 'slate',
-  teal: 'green',
-  pink: 'sunday'
-};
-
-// トランスポート用カラーキーのフォールバック
-const EVENT_COLOR_TRANSPORT_FALLBACKS = {
-  slate: 'gray',
-  green: 'teal'
-};
+/* EVENT_COLOR_LEGACY_FALLBACKS, EVENT_COLOR_TRANSPORT_FALLBACKS は constants/ui.js で定義 */
 
 function getEventColorClass(color) {
   const key = (color || '').toString().trim().toLowerCase();
@@ -247,9 +229,7 @@ function toTransportEventColorKey(raw) {
   return '';
 }
 
-function eventSelectionKey(officeId) {
-  return `${storeKeyBase}:event:${officeId || '__none__'}`;
-}
+/* eventSelectionKey は constants/storage.js で定義 */
 
 function loadSavedEventIds(officeId) {
   if (currentEventOfficeId === officeId && Array.isArray(currentEventIds)) return currentEventIds;
@@ -1263,7 +1243,7 @@ function parseVacationMembersForDate(bitsStr, targetDate, startDate, endDate) {
   return buildResultFromBits(bits);
 }
 
-const ROW_STATUS_CLASSES = ['st-here', 'st-out', 'st-meeting', 'st-remote', 'st-trip', 'st-training', 'st-health', 'st-coadoc', 'st-home', 'st-off'];
+/* ROW_STATUS_CLASSES は constants/ui.js で定義 */
 
 function getEventMembersForDate(item, targetDate) {
   const today = new Date(targetDate || Date.now());
@@ -1603,6 +1583,5 @@ if (btnEventPrint) {
   });
 }
 
-/* レイアウト（JS + CSS両方で冗長に制御） */
-const PANEL_MIN_PX = 760, GAP_PX = 20, MAX_COLS = 3;
-const CARD_BREAKPOINT_PX = 760; // これより狭い幅ではカード表示を強制
+/* レイアウト定数は constants/ui.js で定義 */
+/* PANEL_MIN_PX, GAP_PX, MAX_COLS, CARD_BREAKPOINT_PX */

@@ -89,25 +89,12 @@ curl -X POST https://whereabouts.taka-hiyo.workers.dev \
 
 ### 拠点リストが空で返される場合
 
-1. **Firestoreのデータ確認**
-   - Firebase Console（https://console.firebase.google.com/）にアクセス
-   - プロジェクト `whereabouts-f3388` を選択
-   - Firestore Database → `offices` コレクションを確認
-   - 拠点ドキュメントが存在するか確認
+1. **D1のデータ確認**
+   - D1の対象データベースを開く
+   - `offices` テーブルにレコードが存在するか確認
 
 2. **公開設定の確認**
-   - 各拠点ドキュメントに `public` フィールドがある場合
-   - `public: false` になっていないか確認
-   - 未設定または `public: true` の場合は表示されます
-
-3. **セキュリティルールの確認**
-   - Firestore Database → ルール
-   - `offices` コレクションの読み取り権限を確認
-   ```
-   match /offices/{officeId} {
-     allow read: if true; // Workerからのアクセスに必要
-   }
-   ```
+   - `is_public` カラムが 1 になっているか確認
 
 ### デプロイエラーが発生する場合
 
@@ -131,24 +118,9 @@ curl -X POST https://whereabouts.taka-hiyo.workers.dev \
 
 ## 環境変数の設定
 
-Workerが正常に動作するには、以下の環境変数（Secrets）が必要です：
-
-1. **FIREBASE_PRIVATE_KEY**
-   - Firebase Admin SDK の秘密鍵
-   - 設定方法：
-   ```bash
-   wrangler secret put FIREBASE_PRIVATE_KEY
-   ```
-
-2. **wrangler.toml で設定済みの変数**
-   ```toml
-   FIREBASE_PROJECT_ID = "whereabouts-f3388"
-   FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gserviceaccount.com"
-   STATUS_CACHE_TTL_SEC = "60"
-   ```
+必要に応じて Worker の環境変数（Secrets）を設定してください。
 
 ## 参考リンク
 
 - [Cloudflare Workers ドキュメント](https://developers.cloudflare.com/workers/)
 - [Wrangler CLI リファレンス](https://developers.cloudflare.com/workers/wrangler/)
-- [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup)

@@ -13,8 +13,8 @@
 
   <!-- CSP：Worker への POST を許可 -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self';
-               script-src 'self' https://www.gstatic.com;
-               connect-src 'self' https://whereabouts.taka-hiyo.workers.dev https://whereabouts-dev.taka-hiyo.workers.dev https://*.googleapis.com https://*.firebaseapp.com https://*.firebaseio.com https://www.gstatic.com;
+               script-src 'self';
+               connect-src 'self' https://whereabouts.taka-hiyo.workers.dev https://whereabouts-dev.taka-hiyo.workers.dev;
                style-src 'self' 'unsafe-inline';
                img-src 'self' data:;
                font-src 'self';
@@ -22,10 +22,6 @@
                base-uri 'self';
                form-action 'self'">
   <link rel="stylesheet" href="styles.css">
-
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js" defer></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js" defer></script>
 </head>
 
 <body>
@@ -1154,13 +1150,12 @@
 
   <!-- ログイン -->
   <div id="login" class="login u-hidden">
-    <form class="card" onsubmit="event.preventDefault();">
+    <form id="loginForm" class="card">
       <h2>在席確認表</h2>
       <p>拠点を選び、パスワードを入力してください</p>
       <input type="text" name="username" id="dummyUsername" tabindex="-1" aria-hidden="true" class="u-visually-hidden"
         autocomplete="username">
-      <select id="officeSel" aria-label="拠点"
-        onchange="document.getElementById('dummyUsername').value = this.options[this.selectedIndex].text"></select>
+      <select id="officeSel" aria-label="拠点"></select>
       <input type="password" id="pw" placeholder="Password" autocomplete="current-password" />
       <button id="btnLogin" type="button">ログイン</button>
       <div id="loginMsg" class="login-msg" aria-live="polite"></div>
@@ -1185,6 +1180,11 @@
   </div>
   <div id="diag" class="diag"></div>
   <script src="js/config.js" defer></script>
+  <!-- 定数ファイル (SSOT) - config.jsの後、globals.jsの前に読み込む -->
+  <script src="js/constants/storage.js" defer></script>
+  <script src="js/constants/timing.js" defer></script>
+  <script src="js/constants/ui.js" defer></script>
+  <script src="js/constants/defaults.js" defer></script>
   <script src="js/globals.js" defer></script>
   <script src="js/utils.js" defer></script>
   <script src="js/layout.js" defer></script>

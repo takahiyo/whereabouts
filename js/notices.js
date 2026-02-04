@@ -1,9 +1,20 @@
+/**
+ * js/notices.js - お知らせ機能
+ *
+ * お知らせの表示・管理・ポーリングを管理する。
+ *
+ * 依存: js/constants/*.js, js/globals.js, js/utils.js
+ * 参照元: js/auth.js, js/admin.js, js/sync.js
+ *
+ * @see MODULE_GUIDE.md
+ */
+
 /* お知らせ機能 */
 
 let CURRENT_NOTICES = [];
 window.CURRENT_NOTICES = CURRENT_NOTICES; // グローバルに公開してadmin.jsから参照可能にする
-const MAX_NOTICE_ITEMS = 100;
-const NOTICE_COLLAPSE_STORAGE_KEY = 'noticeAreaCollapsed';
+/* MAX_NOTICE_ITEMS は constants/ui.js で定義 */
+/* NOTICE_COLLAPSE_STORAGE_KEY は constants/storage.js で定義 */
 let noticeCollapsePreference = loadNoticeCollapsePreference();
 
 // URLを自動リンク化する関数
@@ -343,15 +354,15 @@ async function saveNotices(notices, office) {
   return false;
 }
 
-// お知らせの自動更新（ポーリング -> Firestore Listener）
+// お知らせの自動更新（Workerポーリング）
 let noticesPollingTimer = null;
 
 function startNoticesPolling() {
-  // すでにSDKリスナーが動いていれば何もしない
+  // すでにポーリングが動いていれば何もしない
   if (window.noticesUnsubscribe) return;
 
-  // ★修正: Firestore直接接続(Plan A)を廃止し、Workerポーリング(Plan B)に一本化
-  // これにより ERR_BLOCKED_BY_CLIENT を回避し、Read数を削減する
+  // ★修正: Workerポーリングに一本化
+  // これにより ERR_BLOCKED_BY_CLIENT を回避し、リクエスト数を削減する
   startLegacyNoticesPolling();
 }
 
