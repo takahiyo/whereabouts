@@ -455,61 +455,89 @@ export default {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
-        const dataParam = body?.data ?? getParam('data');
-        const payload = parseJsonParam(dataParam, {});
-        const updates = payload.data && typeof payload.data === 'object'
-          ? payload.data
-          : (payload && typeof payload === 'object' ? payload : {});
+        try {
+          const dataParam = body?.data ?? getParam('data');
+          const payload = parseJsonParam(dataParam, {});
+          const updates = payload.data && typeof payload.data === 'object'
+            ? payload.data
+            : (payload && typeof payload === 'object' ? payload : {});
 
-        if (!updates || typeof updates !== 'object') {
-          return new Response(JSON.stringify({ ok: false, error: 'invalid_data' }), { headers: corsHeaders });
-        }
-        const nowTs = Date.now();
-
-        const statements = [];
-        const rev = {};
-
-        for (const [memberId, m] of Object.entries(updates)) {
-          let query = 'UPDATE members SET ';
-          const params = [];
-
-          if (m.status !== undefined) { query += 'status=?, '; params.push(m.status); }
-          if (m.time !== undefined) { query += 'time=?, '; params.push(m.time); }
-          if (m.note !== undefined) { query += 'note=?, '; params.push(m.note); }
-          if (m.workHours !== undefined) { query += 'work_hours=?, '; params.push(m.workHours); }
-
-          query += 'updated=?, ';
-          params.push(nowTs);
-
-          if (m.ext !== undefined) { query += 'ext=?, '; params.push(m.ext); }
-          if (m.mobile !== undefined) { query += 'mobile=?, '; params.push(m.mobile); }
-          if (m.email !== undefined) { query += 'email=?, '; params.push(m.email); }
-
-          // 末尾のカンマとスペースを削除
-          if (query.endsWith(', ')) {
-            query = query.slice(0, -2);
+          const entries = updates && typeof updates === 'object' && !Array.isArray(updates)
+            ? Object.entries(updates)
+            : null;
+          if (!entries || entries.length === 0) {
+            return new Response(JSON.stringify({ ok: false, error: 'invalid_data' }), { headers: corsHeaders });
           }
 
-          query += ' WHERE office_id=? AND id=?';
-          params.push(officeId, memberId);
+          const nowTs = Date.now();
+          const statements = [];
+          const rev = {};
+          const errors = [];
+          const isValidMemberId = (memberId) => typeof memberId === 'string' && memberId.trim() !== '';
 
-          statements.push(env.DB.prepare(query).bind(...params));
-          rev[memberId] = nowTs;
-        }
+          for (const [memberId, m] of entries) {
+            if (!isValidMemberId(memberId)) {
+              errors.push({ memberId, error: 'invalid_member_id' });
+              continue;
+            }
+            if (!m || typeof m !== 'object') {
+              errors.push({ memberId, error: 'invalid_member_data' });
+              continue;
+            }
+            let query = 'UPDATE members SET ';
+            const params = [];
 
-        if (statements.length > 0) {
+            if (m.status !== undefined) { query += 'status=?, '; params.push(m.status); }
+            if (m.time !== undefined) { query += 'time=?, '; params.push(m.time); }
+            if (m.note !== undefined) { query += 'note=?, '; params.push(m.note); }
+            if (m.workHours !== undefined) { query += 'work_hours=?, '; params.push(m.workHours); }
+
+            query += 'updated=?, ';
+            params.push(nowTs);
+
+            if (m.ext !== undefined) { query += 'ext=?, '; params.push(m.ext); }
+            if (m.mobile !== undefined) { query += 'mobile=?, '; params.push(m.mobile); }
+            if (m.email !== undefined) { query += 'email=?, '; params.push(m.email); }
+
+            // 末尾のカンマとスペースを削除
+            if (query.endsWith(', ')) {
+              query = query.slice(0, -2);
+            }
+
+            query += ' WHERE office_id=? AND id=?';
+            params.push(officeId, memberId);
+
+            statements.push(env.DB.prepare(query).bind(...params));
+            rev[memberId] = nowTs;
+          }
+
+          if (statements.length === 0) {
+            return new Response(JSON.stringify({ ok: false, error: 'invalid_data', errors }), { headers: corsHeaders });
+          }
+
           await env.DB.batch(statements);
-        }
 
-        if (statusCache) {
-          ctx.waitUntil(Promise.all([
-            statusCache.delete(`status:${officeId}`),
-            statusCache.delete(`config_v2:${officeId}`),
-            statusCache.put(`lastUpdate:${officeId}`, String(nowTs))
-          ]));
-        }
+          if (statusCache) {
+            ctx.waitUntil(Promise.all([
+              statusCache.delete(`status:${officeId}`),
+              statusCache.delete(`config_v2:${officeId}`),
+              statusCache.put(`lastUpdate:${officeId}`, String(nowTs))
+            ]));
+          }
 
-        return new Response(JSON.stringify({ ok: true, rev, serverUpdated: rev }), { headers: corsHeaders });
+          return new Response(JSON.stringify({
+            ok: true,
+            rev,
+            serverUpdated: rev,
+            errors: errors.length ? errors : undefined
+          }), { headers: corsHeaders });
+        } catch (setErr) {
+          console.error('[Set Error]', setErr?.message || setErr);
+          return new Response(
+            JSON.stringify({ ok: false, error: 'set_failed', message: setErr?.message }),
+            { headers: corsHeaders }
+          );
+        }
       }
 
       /* --- SET CONFIG FOR (Admin: Update member roster structure) --- */
