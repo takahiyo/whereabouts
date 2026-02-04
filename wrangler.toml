@@ -11,6 +11,11 @@ kv_namespaces = [
   { binding = "STATUS_CACHE", id = "cc4d3c16d44e4f299d9395c3c8ecde89" }
 ]
 
+[[d1_databases]]
+binding = "DB"
+database_name = "whereabouts-db"
+database_id = "350bb3cf-27be-4e96-9ce4-c2bf89ab678c"
+
 # 本番用 (default) の変数
 [vars]
 FIREBASE_PROJECT_ID = "whereabouts-f3388"
@@ -31,3 +36,8 @@ id = "695bec76282e488c8d7b76fd5f0a1f4f"
 FIREBASE_PROJECT_ID = "whereabouts-f3388"
 FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@whereabouts-f3388.iam.gserviceaccount.com"
 STATUS_CACHE_TTL_SEC = "604800"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "whereabouts-db"
+database_id = "350bb3cf-27be-4e96-9ce4-c2bf89ab678c"

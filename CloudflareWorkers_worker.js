@@ -1,12 +1,10 @@
 /**
- * Cloudflare Worker for Whereabouts Board (Firestore Backend)
- * FULL VERSION: Supports Main Sync, Tools, Notices, and Vacations
- * OPTIMIZED: Implements KV caching for all read operations to minimize Firestore costs.
+ * Cloudflare Worker for Whereabouts Board (D1 Backend)
+ * 従来の Firestore 版から D1 (SQL) に移行した完全版
  */
 
 export default {
   async fetch(req, env, ctx) {
-
     const corsHeaders = {
       'Access-Control-Allow-Origin': req.headers.get('origin') || '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -25,9 +23,7 @@ export default {
     }
 
     try {
-      /* =========================================================
-         Request body parsing
-      ========================================================= */
+      /* --- Request 処理 --- */
       const contentType = (req.headers.get('content-type') || '').toLowerCase();
       let body = {};
       const rawText = await req.text();
@@ -35,139 +31,45 @@ export default {
       if (rawText) {
         if (contentType.includes('application/json')) {
           try { body = JSON.parse(rawText); } catch { }
-        } else if (contentType.includes('application/x-www-form-urlencoded')) {
-          const params = new URLSearchParams(rawText);
-          for (const [k, v] of params) body[k] = v;
         } else {
           try {
-            body = JSON.parse(rawText);
-          } catch {
             const params = new URLSearchParams(rawText);
             for (const [k, v] of params) body[k] = v;
+          } catch {
+            try { body = JSON.parse(rawText); } catch { }
           }
         }
       }
 
-      const formData = {
-        get: (key) => (body[key] !== undefined ? String(body[key]) : null),
-        _raw: body
-      };
+      const getParam = (key) => (body[key] !== undefined ? String(body[key]) : null);
 
-      /* =========================================================
-         Parameters
-      ========================================================= */
-      const action = formData.get('action');
-      const tokenOffice = formData.get('tokenOffice') || '';
-      const tokenRole = formData.get('tokenRole') || '';
+      const action = getParam('action');
+      const tokenOffice = getParam('tokenOffice') || '';
+      const tokenRole = getParam('tokenRole') || '';
 
-      /* =========================================================
-         Auth / Firestore setup
-      ========================================================= */
-      const accessToken = await getGoogleAuthToken(env);
-      const projectId = env.FIREBASE_PROJECT_ID;
-      const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
-
-      // GET helper
-      const firestoreFetch = async (path) => {
-        const res = await fetch(`${baseUrl}/${path}`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        if (res.status !== 200) {
-          const j = await res.json();
-          throw new Error(`Firestore Fetch Error ${res.status}: ${JSON.stringify(j)}`);
-        }
-        return res.json();
-      };
-
-      // POST helper (runQuery, commit etc)
-      const firestorePost = async (path, payload) => {
-        const res = await fetch(`${baseUrl}/${path}`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-        if (res.status !== 200) {
-          const j = await res.json();
-          throw new Error(`Firestore Post Error ${res.status}: ${JSON.stringify(j)}`);
-        }
-        return res.json();
-      };
-
-      // PATCH helper
-      const firestorePatch = async (path, payload, maskFields = []) => {
-        let url = `${baseUrl}/${path}`;
-        if (maskFields.length > 0) {
-          const params = maskFields.map(f => `updateMask.fieldPaths=${f}`).join('&');
-          url += `?${params}`;
-        }
-        const res = await fetch(url, {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
-        if (res.status !== 200) {
-          const j = await res.json();
-          throw new Error(`Firestore Patch Error ${res.status}: ${JSON.stringify(j)}`);
-        }
-        return res.json();
-      };
-
-      // 404 Optional helper
-      const firestoreFetchOptional = async (path) => {
-        const res = await fetch(`${baseUrl}/${path}`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        if (res.status === 404) return null;
-        if (res.status !== 200) {
-          const j = await res.json();
-          throw new Error(`Firestore Opt Error ${res.status}: ${JSON.stringify(j)}`);
-        }
-        return res.json();
-      };
-
-      // DELETE helper
-      const firestoreDelete = async (path) => {
-        const res = await fetch(`${baseUrl}/${path}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        if (res.status !== 200) {
-          const j = await res.json();
-          throw new Error(`Firestore Delete Error ${res.status}: ${JSON.stringify(j)}`);
-        }
-        return res.json();
-      };
-
-      /* =========================================================
-         KV Cache
-      ========================================================= */
       const statusCache = env.STATUS_CACHE;
       const statusCacheTtlSec = Number(env.STATUS_CACHE_TTL_SEC || 60);
-      const statusCacheKey = (office) => `status:${office}`;
 
-      /* =========================================================
-         Actions
-      ========================================================= */
+      /* --- Actions --- */
 
       /* --- LOGIN --- */
       if (action === 'login') {
-        const officeId = formData.get('office');
-        const password = formData.get('password');
+        const officeId = getParam('office');
+        const password = getParam('password');
 
-        const json = await firestoreFetch(`offices/${officeId}`);
-        const f = json.fields || {};
+        const office = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
+          .bind(officeId)
+          .first();
+
+        if (!office) {
+          return new Response(JSON.stringify({ error: 'unauthorized', code: 'office_not_found' }), { headers: corsHeaders });
+        }
 
         let role = '';
-        if (password === f.adminPassword?.stringValue) role = 'officeAdmin';
-        else if (password === f.password?.stringValue) role = 'user';
+        if (password === office.admin_password) role = 'officeAdmin';
+        else if (password === office.password) role = 'user';
         else {
-          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+          return new Response(JSON.stringify({ error: 'unauthorized', code: 'invalid_password' }), { headers: corsHeaders });
         }
 
         return new Response(
@@ -175,7 +77,7 @@ export default {
             ok: true,
             role,
             office: officeId,
-            officeName: f.name?.stringValue || officeId
+            officeName: office.name || officeId
           }),
           { headers: corsHeaders }
         );
@@ -184,7 +86,7 @@ export default {
       /* --- GET CONFIG --- */
       if (action === 'getConfig') {
         const officeId = tokenOffice || 'nagoya_chuo';
-        const nocache = formData.get('nocache') === '1';
+        const nocache = getParam('nocache') === '1';
         const cacheKey = `config_v2:${officeId}`;
 
         if (!nocache && statusCache) {
@@ -192,26 +94,25 @@ export default {
           if (cached) return new Response(cached, { headers: corsHeaders });
         }
 
-        const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
-        const members = (json.documents || []).map(doc => {
-          const f = doc.fields || {};
-          return {
-            id: doc.name.split('/').pop(),
-            name: f.name?.stringValue || '',
-            group: f.group?.stringValue || '',
-            order: Number(f.order?.integerValue || 0),
-            status: f.status?.stringValue || '',
-            time: f.time?.stringValue || '',
-            note: f.note?.stringValue || '',
-            workHours: f.workHours?.stringValue || '',
-            ext: f.ext?.stringValue || ''
-          };
-        });
+        const members = await env.DB.prepare('SELECT * FROM members WHERE office_id = ? ORDER BY display_order ASC, name ASC')
+          .bind(officeId)
+          .all();
 
         const groupsMap = {};
-        members.sort((a, b) => a.order - b.order).forEach(m => {
-          if (!groupsMap[m.group]) groupsMap[m.group] = { title: m.group, members: [] };
-          groupsMap[m.group].members.push(m);
+        (members.results || []).forEach(m => {
+          const groupName = m.group_name || '未設定';
+          if (!groupsMap[groupName]) groupsMap[groupName] = { title: groupName, members: [] };
+          groupsMap[groupName].members.push({
+            id: m.id,
+            name: m.name,
+            group: m.group_name,
+            order: m.display_order,
+            status: m.status,
+            time: m.time,
+            note: m.note,
+            workHours: m.work_hours,
+            ext: m.ext
+          });
         });
 
         const responseBody = JSON.stringify({
@@ -221,7 +122,6 @@ export default {
         });
 
         if (statusCache) {
-          // Configは滅多に変わらないため、TTLを1時間(3600秒)に固定して延長する
           ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
         }
 
@@ -230,42 +130,29 @@ export default {
 
       /* --- PUBLIC LIST OFFICES --- */
       if (action === 'publicListOffices') {
-        const json = await firestoreFetch('offices?pageSize=300');
-        const offices = [];
-        (json.documents || []).forEach(doc => {
-          const f = doc.fields || {};
-          const isPublic = f.public?.booleanValue;
-          if (isPublic !== false) {
-            offices.push({ id: doc.name.split('/').pop(), name: f.name?.stringValue || '' });
-          }
-        });
-        return new Response(JSON.stringify({ ok: true, offices }), { headers: corsHeaders });
+        const offices = await env.DB.prepare('SELECT id, name FROM offices WHERE is_public = 1')
+          .all();
+        return new Response(JSON.stringify({ ok: true, offices: offices.results }), { headers: corsHeaders });
       }
 
-      /* --- ADMIN LIST OFFICES --- */
+      /* --- ADMIN LIST OFFICES (SuperAdmin用) --- */
       if (action === 'listOffices') {
         if (tokenRole !== 'superAdmin') {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
-        const json = await firestoreFetch('offices?pageSize=300');
-        const offices = (json.documents || []).map(doc => ({
-          id: doc.name.split('/').pop(),
-          name: doc.fields?.name?.stringValue || ''
-        }));
-        return new Response(JSON.stringify({ ok: true, offices }), { headers: corsHeaders });
+        const offices = await env.DB.prepare('SELECT id, name FROM offices').all();
+        return new Response(JSON.stringify({ ok: true, offices: offices.results }), { headers: corsHeaders });
       }
 
       /* --- GET (Differential Sync) --- */
       if (action === 'get') {
         const officeId = tokenOffice || 'nagoya_chuo';
-        const since = Number(formData.get('since') || 0);
-        const nocache = formData.get('nocache') === '1';
+        const since = Number(getParam('since') || 0);
+        const nocache = getParam('nocache') === '1';
 
-        // 門番チェック (KVにある最終更新時刻を確認)
+        const lastUpdateKey = `lastUpdate:${officeId}`;
         if (since > 0 && !nocache && statusCache) {
-          const lastUpdateKey = `lastUpdate:${officeId}`;
           const lastUpdateVal = await statusCache.get(lastUpdateKey);
-
           if (lastUpdateVal && Number(lastUpdateVal) <= since) {
             return new Response(JSON.stringify({
               ok: true,
@@ -276,413 +163,267 @@ export default {
           }
         }
 
-        // 1. Full Fetch (初回ロード、または強制リロード)
+        let query, results;
         if (since === 0) {
-          const cacheKey = statusCacheKey(officeId);
+          // Full fetch
+          const cacheKey = `status:${officeId}`;
           if (!nocache && statusCache) {
             const cached = await statusCache.get(cacheKey);
             if (cached) return new Response(cached, { headers: corsHeaders });
           }
 
-          const json = await firestoreFetch(`offices/${officeId}/members?pageSize=300`);
-          const data = {};
-          let maxUpdated = 0;
-          (json.documents || []).forEach(doc => {
-            const f = doc.fields || {};
-            const up = Number(f.updated?.integerValue || 0);
-            data[doc.name.split('/').pop()] = {
-              status: f.status?.stringValue || '',
-              time: f.time?.stringValue || '',
-              note: f.note?.stringValue || '',
-              workHours: f.workHours?.stringValue || '',
-              updated: up,
-              serverUpdated: up
-            };
-            if (up > maxUpdated) maxUpdated = up;
-          });
-
-          const responseBody = JSON.stringify({
-            ok: true,
-            data,
-            maxUpdated: maxUpdated || Date.now(),
-            serverNow: Date.now()
-          });
-
-          if (statusCache) {
-            ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: statusCacheTtlSec }));
-          }
-          return new Response(responseBody, { headers: corsHeaders });
+          results = await env.DB.prepare('SELECT * FROM members WHERE office_id = ?')
+            .bind(officeId)
+            .all();
+        } else {
+          // Differential fetch
+          results = await env.DB.prepare('SELECT * FROM members WHERE office_id = ? AND updated > ?')
+            .bind(officeId, since)
+            .all();
         }
-
-        // 2. Differential Fetch (差分取得)
-        const queryPayload = {
-          structuredQuery: {
-            from: [{ collectionId: 'members' }],
-            where: {
-              fieldFilter: {
-                field: { fieldPath: 'updated' },
-                op: 'GREATER_THAN',
-                value: { integerValue: String(since) }
-              }
-            }
-          }
-        };
-
-        const jsonArr = await firestorePost(`offices/${officeId}:runQuery`, queryPayload);
 
         const data = {};
         let maxUpdated = 0;
+        (results.results || []).forEach(m => {
+          data[m.id] = {
+            status: m.status,
+            time: m.time,
+            note: m.note,
+            workHours: m.work_hours,
+            updated: m.updated,
+            serverUpdated: m.updated
+          };
+          if (m.updated > maxUpdated) maxUpdated = m.updated;
+        });
 
-        if (Array.isArray(jsonArr)) {
-          jsonArr.forEach(item => {
-            if (item.document) {
-              const doc = item.document;
-              const f = doc.fields || {};
-              const mId = doc.name.split('/').pop();
-              const up = Number(f.updated?.integerValue || 0);
-              data[mId] = {
-                status: f.status?.stringValue || '',
-                time: f.time?.stringValue || '',
-                note: f.note?.stringValue || '',
-                workHours: f.workHours?.stringValue || '',
-                updated: up,
-                serverUpdated: up
-              };
-              if (up > maxUpdated) maxUpdated = up;
-            }
-          });
-        }
-
-        return new Response(JSON.stringify({
+        const responseBody = JSON.stringify({
           ok: true,
           data,
-          maxUpdated,
+          maxUpdated: maxUpdated || since || Date.now(),
           serverNow: Date.now()
-        }), { headers: corsHeaders });
+        });
+
+        if (since === 0 && statusCache) {
+          ctx.waitUntil(statusCache.put(`status:${officeId}`, responseBody, { expirationTtl: statusCacheTtlSec }));
+        }
+
+        return new Response(responseBody, { headers: corsHeaders });
       }
 
       /* --- GET TOOLS --- */
       if (action === 'getTools') {
-        const officeId = formData.get('office') || tokenOffice;
-        if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
-
+        const officeId = getParam('office') || tokenOffice;
         const cacheKey = `tools:${officeId}`;
         if (statusCache) {
           const cached = await statusCache.get(cacheKey);
           if (cached) return new Response(cached, { headers: corsHeaders });
         }
 
-        const doc = await firestoreFetchOptional(`offices/${officeId}/tools/config`);
-        let tools = [];
-        if (doc && doc.fields && doc.fields.tools) {
-          try {
-            tools = JSON.parse(doc.fields.tools.stringValue || '[]');
-          } catch (e) { }
-        }
+        const config = await env.DB.prepare('SELECT tools_json FROM tools_config WHERE office_id = ?')
+          .bind(officeId)
+          .first();
 
+        const tools = config ? JSON.parse(config.tools_json) : [];
         const responseBody = JSON.stringify({ ok: true, tools });
 
         if (statusCache) {
           ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
         }
-
         return new Response(responseBody, { headers: corsHeaders });
       }
 
       /* --- SET TOOLS --- */
       if (action === 'setTools') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
-        const officeId = tokenOffice;
-        const toolsStr = formData.get('tools') || '[]';
+        const toolsStr = getParam('tools') || '[]';
+        const nowTs = Date.now();
 
-        const payload = {
-          fields: {
-            tools: { stringValue: toolsStr }
-          }
-        };
-        await firestorePatch(`offices/${officeId}/tools/config`, payload, ['tools']);
+        await env.DB.prepare('INSERT INTO tools_config (office_id, tools_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(office_id) DO UPDATE SET tools_json = ?, updated_at = ?')
+          .bind(tokenOffice, toolsStr, nowTs, toolsStr, nowTs)
+          .run();
 
-        if (statusCache) {
-          ctx.waitUntil(statusCache.delete(`tools:${officeId}`));
-        }
-
+        if (statusCache) ctx.waitUntil(statusCache.delete(`tools:${tokenOffice}`));
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
       /* --- GET NOTICES --- */
       if (action === 'getNotices') {
-        const officeId = formData.get('office') || tokenOffice;
-        if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
-
+        const officeId = getParam('office') || tokenOffice;
         const cacheKey = `notices:${officeId}`;
         if (statusCache) {
           const cached = await statusCache.get(cacheKey);
           if (cached) return new Response(cached, { headers: corsHeaders });
         }
 
-        const json = await firestoreFetchOptional(`offices/${officeId}/notices?pageSize=100`);
-        let notices = [];
-        if (json && json.documents) {
-          notices = json.documents.map(doc => {
-            const f = doc.fields || {};
-            return {
-              id: doc.name.split('/').pop(),
-              title: f.title?.stringValue || '',
-              content: f.content?.stringValue || '',
-              visible: f.visible?.booleanValue ?? true,
-              updated: f.updated?.integerValue ? Number(f.updated.integerValue) : 0
-            };
-          });
-          notices.sort((a, b) => b.updated - a.updated);
-        }
+        const results = await env.DB.prepare('SELECT * FROM notices WHERE office_id = ? ORDER BY updated DESC LIMIT 100')
+          .bind(officeId)
+          .all();
+
+        const notices = (results.results || []).map(n => ({
+          id: n.id,
+          title: n.title,
+          content: n.content,
+          visible: Boolean(n.visible),
+          updated: n.updated
+        }));
 
         const responseBody = JSON.stringify({ ok: true, notices });
-
-        if (statusCache) {
-          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
-        }
-
+        if (statusCache) ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
         return new Response(responseBody, { headers: corsHeaders });
       }
 
       /* --- SET NOTICES --- */
       if (action === 'setNotices') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
-        const officeId = tokenOffice;
-        const noticesStr = formData.get('notices');
-        if (!noticesStr) throw new Error('notices parameter required');
-
-        const noticesList = JSON.parse(noticesStr);
-        const writes = [];
+        const noticesList = JSON.parse(getParam('notices') || '[]');
         const nowTs = Date.now();
-        const keepIds = new Set(
-          Array.isArray(noticesList)
-            ? noticesList.map(item => String(item?.id || '')).filter(Boolean)
-            : []
-        );
 
-        for (let i = 0; i < noticesList.length; i++) {
-          const item = noticesList[i];
-          const docId = item.id || `notice_${nowTs}_${i}`;
-          keepIds.add(String(docId));
-          const path = `offices/${officeId}/notices/${docId}`;
-          const fields = {
-            title: { stringValue: String(item.title || '') },
-            content: { stringValue: String(item.content || '') },
-            visible: { booleanValue: item.visible !== false },
-            updated: { integerValue: String(nowTs) }
-          };
-          writes.push(firestorePatch(path, { fields }, ['title', 'content', 'visible', 'updated']));
+        // トランザクション的にバッチ実行
+        const statements = [
+          env.DB.prepare('DELETE FROM notices WHERE office_id = ?').bind(tokenOffice)
+        ];
+
+        for (const item of noticesList) {
+          const id = item.id || `notice_${nowTs}_${Math.random().toString(36).substr(2, 5)}`;
+          statements.push(
+            env.DB.prepare('INSERT INTO notices (id, office_id, title, content, visible, updated) VALUES (?, ?, ?, ?, ?, ?)')
+              .bind(id, tokenOffice, item.title, item.content, item.visible ? 1 : 0, nowTs)
+          );
         }
 
-        await Promise.all(writes);
-
-        const existing = await firestoreFetchOptional(`offices/${officeId}/notices?pageSize=100`);
-        if (existing?.documents?.length) {
-          const deletions = existing.documents
-            .map(doc => doc?.name?.split('/').pop())
-            .filter(id => id && !keepIds.has(String(id)));
-          if (deletions.length) {
-            await Promise.all(deletions.map(id => firestoreDelete(`offices/${officeId}/notices/${id}`)));
-          }
-        }
-
-        if (statusCache) {
-          ctx.waitUntil(statusCache.delete(`notices:${officeId}`));
-        }
-
+        await env.DB.batch(statements);
+        if (statusCache) ctx.waitUntil(statusCache.delete(`notices:${tokenOffice}`));
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
       /* --- GET VACATION --- */
       if (action === 'getVacation') {
-        const officeId = formData.get('office') || tokenOffice;
-        if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'office_required' }), { headers: corsHeaders });
-
+        const officeId = getParam('office') || tokenOffice;
         const cacheKey = `vacation:${officeId}`;
         if (statusCache) {
           const cached = await statusCache.get(cacheKey);
           if (cached) return new Response(cached, { headers: corsHeaders });
         }
 
-        const json = await firestoreFetchOptional(`offices/${officeId}/vacations?pageSize=300`);
-        let vacations = [];
-        if (json && json.documents) {
-          vacations = json.documents.map(doc => {
-            const f = doc.fields || {};
-            const orderVal = f.order?.integerValue ? Number(f.order.integerValue) : 0;
-            return {
-              id: doc.name.split('/').pop(),
-              title: f.title?.stringValue || '',
-              startDate: f.startDate?.stringValue || '',
-              endDate: f.endDate?.stringValue || '',
-              color: f.color?.stringValue || '',
-              visible: f.visible?.booleanValue ?? true,
-              membersBits: f.membersBits?.stringValue || '',
-              isVacation: f.isVacation?.booleanValue ?? undefined,
-              note: f.note?.stringValue || '',
-              noticeId: f.noticeId?.stringValue || '',
-              noticeTitle: f.noticeTitle?.stringValue || '',
-              order: Number.isFinite(orderVal) ? orderVal : 0,
-              office: f.office?.stringValue || ''
-            };
-          });
-          vacations.sort((a, b) => (a.startDate < b.startDate ? -1 : 1));
-        }
+        const results = await env.DB.prepare('SELECT * FROM vacations WHERE office_id = ? ORDER BY start_date ASC LIMIT 300')
+          .bind(officeId)
+          .all();
+
+        const vacations = (results.results || []).map(v => ({
+          id: v.id,
+          title: v.title,
+          startDate: v.start_date,
+          endDate: v.end_date,
+          color: v.color,
+          visible: Boolean(v.visible),
+          membersBits: v.members_bits,
+          isVacation: Boolean(v.is_vacation),
+          note: v.note,
+          noticeId: v.notice_id,
+          noticeTitle: v.notice_title,
+          order: v.display_order,
+          office: v.vacancy_office || v.office_id
+        }));
 
         const responseBody = JSON.stringify({ ok: true, vacations });
-
-        if (statusCache) {
-          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
-        }
-
+        if (statusCache) ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
         return new Response(responseBody, { headers: corsHeaders });
       }
 
       /* --- SET VACATION (Full) --- */
       if (action === 'setVacation') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
-        const officeId = formData.get('office') || tokenOffice;
-        const vacationsStr = formData.get('vacations');
-        const dataStr = formData.get('data');
-        if (!vacationsStr && !dataStr) throw new Error('vacations or data parameter required');
+        const dataStr = getParam('vacations') || getParam('data');
+        const list = Array.isArray(JSON.parse(dataStr)) ? JSON.parse(dataStr) : [JSON.parse(dataStr)];
+        const nowTs = Date.now();
 
-        const vacationsList = vacationsStr ? JSON.parse(vacationsStr) : [JSON.parse(dataStr)];
-        const writes = [];
-
-        for (let i = 0; i < vacationsList.length; i++) {
-          const item = vacationsList[i];
-          const docId = item.id || `vacation_${Date.now()}_${i}`;
-          const path = `offices/${officeId}/vacations/${docId}`;
-          const startDate = item.startDate ?? item.start ?? item.from ?? '';
-          const endDate = item.endDate ?? item.end ?? item.to ?? '';
-          const note = item.note ?? item.memo ?? '';
-          const noticeId = item.noticeId ?? item.noticeKey ?? '';
-          const noticeTitle = item.noticeTitle ?? '';
-          const order = Number(item.order || 0);
-          const fields = {
-            title: { stringValue: String(item.title || '') },
-            startDate: { stringValue: String(startDate) },
-            endDate: { stringValue: String(endDate) },
-            color: { stringValue: String(item.color || '') },
-            visible: { booleanValue: item.visible !== false },
-            membersBits: { stringValue: String(item.membersBits || item.bits || '') },
-            isVacation: { booleanValue: item.isVacation !== false },
-            note: { stringValue: String(note) },
-            noticeId: { stringValue: String(noticeId) },
-            noticeTitle: { stringValue: String(noticeTitle) },
-            order: { integerValue: String(Number.isFinite(order) && order > 0 ? order : 0) },
-            office: { stringValue: String(item.office || officeId || '') }
-          };
-
-          writes.push(
-            firestorePatch(
-              path,
-              { fields },
-              ['title', 'startDate', 'endDate', 'color', 'visible', 'membersBits', 'isVacation', 'note', 'noticeId', 'noticeTitle', 'order', 'office']
+        const statements = [];
+        for (const item of list) {
+          const id = item.id || `vacation_${nowTs}_${Math.random().toString(36).substr(2, 5)}`;
+          statements.push(
+            env.DB.prepare(`
+              INSERT INTO vacations (id, office_id, title, start_date, end_date, color, visible, members_bits, is_vacation, note, notice_id, notice_title, display_order, vacancy_office, updated)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(office_id, id) DO UPDATE SET
+                title=excluded.title, start_date=excluded.start_date, end_date=excluded.end_date, color=excluded.color,
+                visible=excluded.visible, members_bits=excluded.members_bits, is_vacation=excluded.is_vacation,
+                note=excluded.note, notice_id=excluded.notice_id, notice_title=excluded.notice_title,
+                display_order=excluded.display_order, vacancy_office=excluded.vacancy_office, updated=excluded.updated
+            `).bind(
+              id, tokenOffice, item.title, item.startDate || item.start || '', item.endDate || item.end || '',
+              item.color, item.visible !== false ? 1 : 0, item.membersBits || '', item.isVacation !== false ? 1 : 0,
+              item.note || '', item.noticeId || '', item.noticeTitle || '', item.order || 0, item.office || '', nowTs
             )
           );
         }
 
-        await Promise.all(writes);
-
-        // ★案5: 更新時にキャッシュ削除
-        if (statusCache) {
-          ctx.waitUntil(statusCache.delete(`vacation:${officeId}`));
-        }
-
+        await env.DB.batch(statements);
+        if (statusCache) ctx.waitUntil(statusCache.delete(`vacation:${tokenOffice}`));
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
       /* --- DELETE VACATION --- */
       if (action === 'deleteVacation') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
-        const officeId = formData.get('office') || tokenOffice;
-        const id = formData.get('id');
-        if (!id) throw new Error('vacation id required');
+        const id = getParam('id');
+        if (!tokenOffice || !id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
 
-        await firestoreDelete(`offices/${officeId}/vacations/${id}`);
+        await env.DB.prepare('DELETE FROM vacations WHERE office_id = ? AND id = ?')
+          .bind(tokenOffice, id)
+          .run();
 
-        if (statusCache) {
-          ctx.waitUntil(statusCache.delete(`vacation:${officeId}`));
-        }
-
+        if (statusCache) ctx.waitUntil(statusCache.delete(`vacation:${tokenOffice}`));
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- SET VACATION BITS (membersBits のみ更新) --- */
+      /* --- SET VACATION BITS --- */
       if (action === 'setVacationBits') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
-        const officeId = formData.get('office') || tokenOffice;
-        const dataStr = formData.get('data');
-        if (!dataStr) throw new Error('data parameter required');
+        const payload = JSON.parse(getParam('data') || '{}');
+        if (!tokenOffice || !payload.id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
 
-        const payload = JSON.parse(dataStr);
-        const vacationId = payload.id;
-        const membersBits = payload.membersBits || '';
+        await env.DB.prepare('UPDATE vacations SET members_bits = ?, updated = ? WHERE office_id = ? AND id = ?')
+          .bind(payload.membersBits || '', Date.now(), tokenOffice, payload.id)
+          .run();
 
-        if (!vacationId) throw new Error('vacation id required');
-
-        const path = `offices/${officeId}/vacations/${vacationId}`;
-        const fields = {
-          membersBits: { stringValue: String(membersBits) }
-        };
-
-        await firestorePatch(path, { fields }, ['membersBits']);
-
-        // キャッシュ削除
-        if (statusCache) {
-          ctx.waitUntil(statusCache.delete(`vacation:${officeId}`));
-        }
-
+        if (statusCache) ctx.waitUntil(statusCache.delete(`vacation:${tokenOffice}`));
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- SET --- */
+      /* --- SET (Main Status Sync) --- */
       if (action === 'set') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
-        const officeId = tokenOffice;
-        const dataStr = formData.get('data');
-        if (!dataStr) throw new Error('data parameter is required');
-
-        const payload = JSON.parse(dataStr);
+        const payload = JSON.parse(getParam('data') || '{}');
         const updates = payload.data || {};
+        const nowTs = Date.now();
+
+        const statements = [];
         const rev = {};
-        const serverUpdated = {};
 
-        for (const [memberId, memberData] of Object.entries(updates)) {
-          const docPath = `offices/${officeId}/members/${memberId}`;
-          const nowTs = Date.now();
-          const fields = {
-            status: { stringValue: String(memberData.status || '') },
-            time: { stringValue: String(memberData.time || '') },
-            note: { stringValue: String(memberData.note || '') },
-            workHours: { stringValue: String(memberData.workHours || '') },
-            updated: { integerValue: String(nowTs) } // 更新時刻を保存
-          };
-
-          await firestorePatch(docPath, { fields }, ['status', 'time', 'note', 'workHours', 'updated']);
-
+        for (const [memberId, m] of Object.entries(updates)) {
+          statements.push(
+            env.DB.prepare('UPDATE members SET status=?, time=?, note=?, work_hours=?, updated=? WHERE office_id=? AND id=?')
+              .bind(m.status, m.time, m.note, m.workHours, nowTs, tokenOffice, memberId)
+          );
           rev[memberId] = nowTs;
-          serverUpdated[memberId] = nowTs;
         }
 
-        // キャッシュ無効化 ＆ ★案1: 最終更新時刻をKVに記録
+        if (statements.length > 0) {
+          await env.DB.batch(statements);
+        }
+
         if (statusCache) {
-          const lastUpdateKey = `lastUpdate:${officeId}`;
           ctx.waitUntil(Promise.all([
-            statusCache.delete(statusCacheKey(officeId)),
-            statusCache.put(lastUpdateKey, String(Date.now()))
+            statusCache.delete(`status:${tokenOffice}`),
+            statusCache.put(`lastUpdate:${tokenOffice}`, String(nowTs))
           ]));
         }
 
-        return new Response(JSON.stringify({ ok: true, rev, serverUpdated }), { headers: corsHeaders });
+        return new Response(JSON.stringify({ ok: true, rev, serverUpdated: rev }), { headers: corsHeaders });
       }
 
       return new Response(JSON.stringify({ error: 'unknown_action', action }), { headers: corsHeaders });
 
     } catch (e) {
-      console.error('[Worker Error]', e.message, e.stack);
+      console.error('[Worker Error]', e.message);
       return new Response(
         JSON.stringify({ ok: false, error: e.message, timestamp: Date.now() }),
         { status: 500, headers: corsHeaders }
@@ -690,53 +431,3 @@ export default {
     }
   }
 };
-
-/* =========================================================
-   Google Auth Helper
-========================================================= */
-async function getGoogleAuthToken(env) {
-  const pem = env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
-  const clientEmail = env.FIREBASE_CLIENT_EMAIL;
-
-  // PEM Parsing
-  const binaryDer = Uint8Array.from(atob(pem.split('-----')[2].replace(/\s/g, '')), c => c.charCodeAt(0));
-  const key = await crypto.subtle.importKey(
-    'pkcs8',
-    binaryDer.buffer,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const claim = {
-    iss: clientEmail,
-    scope: 'https://www.googleapis.com/auth/datastore',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now
-  };
-
-  const headerB64 = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const claimB64 = btoa(JSON.stringify(claim)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-  const signature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    key,
-    new TextEncoder().encode(`${headerB64}.${claimB64}`)
-  );
-
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-  const res = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${headerB64}.${claimB64}.${sigB64}`
-  });
-
-  if (res.status !== 200) {
-    throw new Error(`Google Auth Failed: ${await res.text()}`);
-  }
-  return (await res.json()).access_token;
-}
