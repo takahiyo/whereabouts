@@ -23,7 +23,16 @@ export default {
     }
 
     try {
-      /* --- Request 処理 --- */
+      /* --- Request 処理 ---
+       * 受信仕様:
+       * - 現行 (推奨): Content-Type: application/json
+       *   - body: { data: { ...params } }
+       * - 旧仕様 (互換): application/x-www-form-urlencoded
+       *   - body: key=value&...
+       * - 旧仕様 (互換): JSON フラット形式
+       *   - body: { action: "...", ... }
+       * data は常にオブジェクトとして受信する想定で、互換のため旧形式も解析する。
+       */
       const contentType = (req.headers.get('content-type') || '').toLowerCase();
       let body = {};
       let parseFailure = false;
@@ -46,7 +55,30 @@ export default {
         console.warn(`[Request Parse Failed] content-type: ${contentType || 'unknown'}, rawTextLength: ${rawText.length}`);
       }
 
-      const getParam = (key) => (body[key] !== undefined ? String(body[key]) : null);
+      const parseJsonParam = (value, fallback = {}) => {
+        if (value == null) return fallback;
+        if (typeof value === 'object') return value;
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (!trimmed) return fallback;
+          try {
+            return JSON.parse(trimmed);
+          } catch {
+            return fallback;
+          }
+        }
+        return fallback;
+      };
+      const resolveRequestData = (rawBody) => {
+        if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) return {};
+        if (rawBody.data !== undefined) {
+          const parsed = parseJsonParam(rawBody.data, null);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        }
+        return rawBody;
+      };
+      const requestData = resolveRequestData(body);
+      const getParam = (key) => (requestData[key] !== undefined ? String(requestData[key]) : null);
       const getPayloadSize = (value, parsedValue) => {
         if (typeof value === 'string') return value.length;
         if (parsedValue && typeof parsedValue === 'object') {
@@ -61,20 +93,6 @@ export default {
       const getPayloadType = (value) => {
         if (Array.isArray(value)) return 'array';
         return typeof value;
-      };
-      const parseJsonParam = (value, fallback = {}) => {
-        if (value == null) return fallback;
-        if (typeof value === 'object') return value;
-        if (typeof value === 'string') {
-          const trimmed = value.trim();
-          if (!trimmed) return fallback;
-          try {
-            return JSON.parse(trimmed);
-          } catch {
-            return fallback;
-          }
-        }
-        return fallback;
       };
 
       const action = getParam('action');
