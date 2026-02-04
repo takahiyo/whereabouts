@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS members (
     note TEXT,
     work_hours TEXT,
     ext TEXT,
+    mobile TEXT,
+    email TEXT,
     updated INTEGER, -- 同期用のタイムスタンプ (ms)
     PRIMARY KEY (office_id, id),
     FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE

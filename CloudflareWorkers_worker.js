@@ -89,9 +89,9 @@ export default {
         );
       }
 
-      /* --- GET CONFIG --- */
-      if (action === 'getConfig') {
-        const officeId = tokenOffice || getParam('office') || 'nagoya_chuo';
+      /* --- GET CONFIG / GET CONFIG FOR --- */
+      if (action === 'getConfig' || action === 'getConfigFor') {
+        const officeId = getParam('office') || tokenOffice || 'nagoya_chuo';
         const nocache = getParam('nocache') === '1';
         const cacheKey = `config_v2:${officeId}`;
 
@@ -117,7 +117,9 @@ export default {
             time: m.time,
             note: m.note,
             workHours: m.work_hours,
-            ext: m.ext
+            ext: m.ext,
+            mobile: m.mobile,
+            email: m.email
           });
         });
 
@@ -141,7 +143,7 @@ export default {
         return new Response(JSON.stringify({ ok: true, offices: offices.results }), { headers: corsHeaders });
       }
 
-      /* --- ADMIN LIST OFFICES (SuperAdmin用) --- */
+      /* --- ADMIN LIST OFFICES / listOffices (SuperAdmin用) --- */
       if (action === 'listOffices') {
         if (tokenRole !== 'superAdmin') {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
@@ -150,9 +152,9 @@ export default {
         return new Response(JSON.stringify({ ok: true, offices: offices.results }), { headers: corsHeaders });
       }
 
-      /* --- GET (Differential Sync) --- */
-      if (action === 'get') {
-        const officeId = tokenOffice || 'nagoya_chuo';
+      /* --- GET / GET FOR (Differential Sync) --- */
+      if (action === 'get' || action === 'getFor') {
+        const officeId = getParam('office') || tokenOffice || 'nagoya_chuo';
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
 
@@ -197,7 +199,10 @@ export default {
             note: m.note,
             workHours: m.work_hours,
             updated: m.updated,
-            serverUpdated: m.updated
+            serverUpdated: m.updated,
+            ext: m.ext,
+            mobile: m.mobile,
+            email: m.email
           };
           if (m.updated > maxUpdated) maxUpdated = m.updated;
         });
@@ -394,9 +399,90 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- SET (Main Status Sync) --- */
-      if (action === 'set') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+      /* --- RENAME OFFICE --- */
+      if (action === 'renameOffice') {
+        const officeId = getParam('office') || tokenOffice;
+        const newName = getParam('name');
+        if (!officeId || !newName || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+        await env.DB.prepare('UPDATE offices SET name = ? WHERE id = ?').bind(newName, officeId).run();
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- SET OFFICE PASSWORD --- */
+      if (action === 'setOfficePassword') {
+        const officeId = getParam('id') || getParam('office') || tokenOffice;
+        const pw = getParam('password');
+        const apw = getParam('adminPassword');
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+        let query = 'UPDATE offices SET ';
+        const params = [];
+        if (pw) { query += 'password = ?, '; params.push(pw); }
+        if (apw) { query += 'admin_password = ?, '; params.push(apw); }
+        query = query.replace(/, $/, '') + ' WHERE id = ?';
+        params.push(officeId);
+        if (params.length > 1) {
+          await env.DB.prepare(query).bind(...params).run();
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- SET CONFIG FOR (Admin) --- */
+      if (action === 'setConfigFor') {
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
+        }
+        const cfg = JSON.parse(getParam('data') || '{}');
+        const groups = cfg.groups || [];
+        const nowTs = Date.now();
+
+        const currentMembers = await env.DB.prepare('SELECT id, status, time, note, work_hours FROM members WHERE office_id = ?').bind(officeId).all();
+        const memberMap = {};
+        (currentMembers.results || []).forEach(m => { memberMap[m.id] = m; });
+
+        const statements = [
+          env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(officeId)
+        ];
+
+        groups.forEach((g, gi) => {
+          (g.members || []).forEach((m, mi) => {
+            const ex = memberMap[m.id] || {};
+            statements.push(
+              env.DB.prepare('INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, work_hours, updated, ext, mobile, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                .bind(
+                  m.id, officeId, m.name || '', g.title || '', mi,
+                  ex.status || '', ex.time || '', ex.note || '',
+                  m.workHours || ex.work_hours || '', nowTs,
+                  m.ext || ex.ext || '', m.mobile || ex.mobile || '', m.email || ex.email || ''
+                )
+            );
+          });
+        });
+
+        await env.DB.batch(statements);
+        if (statusCache) {
+          ctx.waitUntil(Promise.all([
+            statusCache.delete(`config_v2:${officeId}`),
+            statusCache.delete(`status:${officeId}`)
+          ]));
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- SET / SET FOR (Status Sync & Batch Update) --- */
+      if (action === 'set' || action === 'setFor') {
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+
+        // setFor は管理者権限チェック
+        if (action === 'setFor' && tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin') {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
         const payload = JSON.parse(getParam('data') || '{}');
         const updates = payload.data || {};
         const nowTs = Date.now();
@@ -405,9 +491,18 @@ export default {
         const rev = {};
 
         for (const [memberId, m] of Object.entries(updates)) {
+          // 管理者以外からの更新（'set'）は一部フィールドに限定すべきだが、従来の互換性を優先
           statements.push(
-            env.DB.prepare('UPDATE members SET status=?, time=?, note=?, work_hours=?, updated=? WHERE office_id=? AND id=?')
-              .bind(m.status, m.time, m.note, m.workHours, nowTs, tokenOffice, memberId)
+            env.DB.prepare(`
+              UPDATE members SET 
+                status=?, time=?, note=?, work_hours=?, updated=?,
+                ext=COALESCE(?, ext), mobile=COALESCE(?, mobile), email=COALESCE(?, email)
+              WHERE office_id=? AND id=?
+            `).bind(
+              m.status, m.time, m.note, m.workHours, nowTs,
+              m.ext, m.mobile, m.email,
+              officeId, memberId
+            )
           );
           rev[memberId] = nowTs;
         }
@@ -418,8 +513,9 @@ export default {
 
         if (statusCache) {
           ctx.waitUntil(Promise.all([
-            statusCache.delete(`status:${tokenOffice}`),
-            statusCache.put(`lastUpdate:${tokenOffice}`, String(nowTs))
+            statusCache.delete(`status:${officeId}`),
+            statusCache.delete(`config_v2:${officeId}`),
+            statusCache.put(`lastUpdate:${officeId}`, String(nowTs))
           ]));
         }
 
