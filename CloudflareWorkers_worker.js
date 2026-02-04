@@ -104,11 +104,13 @@ export default {
           .bind(officeId)
           .all();
 
-        const groupsMap = {};
+        const groupsMap = new Map();
         (members.results || []).forEach(m => {
           const groupName = m.group_name || '未設定';
-          if (!groupsMap[groupName]) groupsMap[groupName] = { title: groupName, members: [] };
-          groupsMap[groupName].members.push({
+          if (!groupsMap.has(groupName)) {
+            groupsMap.set(groupName, { title: groupName, members: [] });
+          }
+          groupsMap.get(groupName).members.push({
             id: m.id,
             name: m.name,
             group: m.group_name,
@@ -125,7 +127,7 @@ export default {
 
         const responseBody = JSON.stringify({
           ok: true,
-          groups: Object.values(groupsMap),
+          groups: Array.from(groupsMap.values()),
           updated: Date.now()
         });
 
