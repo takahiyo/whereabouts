@@ -449,24 +449,30 @@ export default {
         const rev = {};
 
         for (const [memberId, m] of Object.entries(updates)) {
-          statements.push(
-            env.DB.prepare(`
-              UPDATE members SET 
-                status=COALESCE(?, status), 
-                time=COALESCE(?, time), 
-                note=COALESCE(?, note), 
-                work_hours=COALESCE(?, work_hours), 
-                updated=?,
-                ext=COALESCE(?, ext), 
-                mobile=COALESCE(?, mobile), 
-                email=COALESCE(?, email)
-              WHERE office_id=? AND id=?
-            `).bind(
-              m.status ?? null, m.time ?? null, m.note ?? null, m.workHours ?? null, nowTs,
-              m.ext ?? null, m.mobile ?? null, m.email ?? null,
-              officeId, memberId
-            )
-          );
+          let query = 'UPDATE members SET ';
+          const params = [];
+
+          if (m.status !== undefined) { query += 'status=?, '; params.push(m.status); }
+          if (m.time !== undefined) { query += 'time=?, '; params.push(m.time); }
+          if (m.note !== undefined) { query += 'note=?, '; params.push(m.note); }
+          if (m.workHours !== undefined) { query += 'work_hours=?, '; params.push(m.workHours); }
+
+          query += 'updated=?, ';
+          params.push(nowTs);
+
+          if (m.ext !== undefined) { query += 'ext=?, '; params.push(m.ext); }
+          if (m.mobile !== undefined) { query += 'mobile=?, '; params.push(m.mobile); }
+          if (m.email !== undefined) { query += 'email=?, '; params.push(m.email); }
+
+          // 末尾のカンマとスペースを削除
+          if (query.endsWith(', ')) {
+            query = query.slice(0, -2);
+          }
+
+          query += ' WHERE office_id=? AND id=?';
+          params.push(officeId, memberId);
+
+          statements.push(env.DB.prepare(query).bind(...params));
           rev[memberId] = nowTs;
         }
 
