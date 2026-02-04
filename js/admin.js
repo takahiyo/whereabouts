@@ -660,12 +660,15 @@ async function handleMemberSave() {
       CONFIG_UPDATED = cfgToSet.updated;
       if (typeof render === 'function') {
         render();
-        // 保存直後にステータス表示を復元（リフレッシュしなくても良いようにする）
-        if (typeof applyState === 'function' && adminMemberData) {
-          applyState(adminMemberData);
+        // ★修正: 最新の保存データ(dataObj)をUIに即座に反映
+        if (typeof applyState === 'function') {
+          applyState(dataObj);
         }
       }
     }
+    // ★修正: ローカルの管理用データも最新の状態に更新しておく
+    Object.assign(adminMemberData, dataObj);
+
     const r2 = await adminSetForChunked(office, dataObj);
     if (!(r2 && r2.ok !== false)) toast('在席データの保存に失敗しました', false);
     else toast('保存しました');

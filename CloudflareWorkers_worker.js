@@ -432,55 +432,11 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- SET CONFIG FOR (Admin) --- */
-      if (action === 'setConfigFor') {
-        const officeId = getParam('office') || tokenOffice;
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
-        }
-        const cfg = JSON.parse(getParam('data') || '{}');
-        const groups = cfg.groups || [];
-        const nowTs = Date.now();
-
-        const currentMembers = await env.DB.prepare('SELECT id, status, time, note, work_hours FROM members WHERE office_id = ?').bind(officeId).all();
-        const memberMap = {};
-        (currentMembers.results || []).forEach(m => { memberMap[m.id] = m; });
-
-        const statements = [
-          env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(officeId)
-        ];
-
-        groups.forEach((g, gi) => {
-          (g.members || []).forEach((m, mi) => {
-            const ex = memberMap[m.id] || {};
-            statements.push(
-              env.DB.prepare('INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, work_hours, updated, ext, mobile, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                .bind(
-                  m.id, officeId, m.name || '', g.title || '', mi,
-                  ex.status || '', ex.time || '', ex.note || '',
-                  m.workHours || ex.work_hours || '', nowTs,
-                  m.ext || ex.ext || '', m.mobile || ex.mobile || '', m.email || ex.email || ''
-                )
-            );
-          });
-        });
-
-        await env.DB.batch(statements);
-        if (statusCache) {
-          ctx.waitUntil(Promise.all([
-            statusCache.delete(`config_v2:${officeId}`),
-            statusCache.delete(`status:${officeId}`)
-          ]));
-        }
-        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
-      }
-
       /* --- SET / SET FOR (Status Sync & Batch Update) --- */
       if (action === 'set' || action === 'setFor') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
 
-        // setFor は管理者権限チェック
         if (action === 'setFor' && tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin') {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
@@ -493,7 +449,6 @@ export default {
         const rev = {};
 
         for (const [memberId, m] of Object.entries(updates)) {
-          // 管理者以外からの更新（'set'）は一部フィールドに限定すべきだが、従来の互換性を優先
           statements.push(
             env.DB.prepare(`
               UPDATE members SET 
@@ -526,11 +481,10 @@ export default {
 
       /* --- SET CONFIG FOR (Admin: Update member roster structure) --- */
       if (action === 'setConfigFor') {
-        // 管理者以外は拒否
-        if (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin') {
-          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
-
         const dataJson = getParam('data');
         if (!dataJson) {
           return new Response(JSON.stringify({ ok: false, error: 'no data' }), { headers: corsHeaders });
@@ -541,11 +495,6 @@ export default {
           cfg = JSON.parse(dataJson);
         } catch (parseErr) {
           return new Response(JSON.stringify({ ok: false, error: 'invalid JSON' }), { headers: corsHeaders });
-        }
-
-        const officeId = getParam('office') || tokenOffice;
-        if (!officeId) {
-          return new Response(JSON.stringify({ ok: false, error: 'no office' }), { headers: corsHeaders });
         }
 
         const nowTs = Date.now();
