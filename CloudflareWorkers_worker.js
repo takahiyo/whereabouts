@@ -215,8 +215,9 @@ export default {
 
       /* --- PUBLIC LIST OFFICES --- */
       if (action === 'publicListOffices') {
-        const offices = await env.DB.prepare('SELECT id, name FROM offices WHERE is_public = 1')
-          .all();
+        const offices = await env.DB.prepare(
+          "SELECT id, name FROM offices WHERE is_public IS NULL OR is_public = 1 OR lower(CAST(is_public AS TEXT)) = 'true'"
+        ).all();
         return new Response(JSON.stringify({ ok: true, offices: offices.results }), { headers: corsHeaders });
       }
 
