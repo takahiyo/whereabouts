@@ -14,6 +14,8 @@
 const isDev = window.location.hostname.includes('dev') || window.location.hostname.includes('localhost');
 
 const CONFIG = {
+    // 認証/同期のモード設定（D1移行後は worker を推奨）
+    authMode: 'worker',
     // 環境に応じてエンドポイントを自動切り替え
     remoteEndpoint: isDev 
         ? "https://whereabouts-dev.taka-hiyo.workers.dev" 
@@ -97,6 +99,9 @@ const CONFIG = {
 
 // Initialize Firebase (Compat版)
 function initFirebase() {
+    if (CONFIG.authMode !== 'firebase') {
+        return false;
+    }
     // SDKが正しく読み込まれているかチェック
     if (typeof firebase === 'undefined') {
         console.error("Firebase SDK not loaded.");
