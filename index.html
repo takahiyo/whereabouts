@@ -1154,13 +1154,12 @@
 
   <!-- ログイン -->
   <div id="login" class="login u-hidden">
-    <form class="card" onsubmit="event.preventDefault();">
+    <form id="loginForm" class="card">
       <h2>在席確認表</h2>
       <p>拠点を選び、パスワードを入力してください</p>
       <input type="text" name="username" id="dummyUsername" tabindex="-1" aria-hidden="true" class="u-visually-hidden"
         autocomplete="username">
-      <select id="officeSel" aria-label="拠点"
-        onchange="document.getElementById('dummyUsername').value = this.options[this.selectedIndex].text"></select>
+      <select id="officeSel" aria-label="拠点"></select>
       <input type="password" id="pw" placeholder="Password" autocomplete="current-password" />
       <button id="btnLogin" type="button">ログイン</button>
       <div id="loginMsg" class="login-msg" aria-live="polite"></div>

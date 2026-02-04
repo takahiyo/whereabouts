@@ -57,20 +57,26 @@ export default {
         const officeId = getParam('office');
         const password = getParam('password');
 
+        console.log(`[Login Attempt] Office: ${officeId}, password provided: ${password ? 'Yes' : 'No'}`);
+
         const office = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
           .bind(officeId)
           .first();
 
         if (!office) {
-          return new Response(JSON.stringify({ error: 'unauthorized', code: 'office_not_found' }), { headers: corsHeaders });
+          console.warn(`[Login Failed] Office not found: ${officeId}`);
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', code: 'office_not_found' }), { headers: corsHeaders });
         }
 
         let role = '';
         if (password === office.admin_password) role = 'officeAdmin';
         else if (password === office.password) role = 'user';
         else {
-          return new Response(JSON.stringify({ error: 'unauthorized', code: 'invalid_password' }), { headers: corsHeaders });
+          console.warn(`[Login Failed] Invalid password for office: ${officeId}`);
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', code: 'invalid_password' }), { headers: corsHeaders });
         }
+
+        console.log(`[Login Success] Office: ${officeId}, Role: ${role}`);
 
         return new Response(
           JSON.stringify({
@@ -85,7 +91,7 @@ export default {
 
       /* --- GET CONFIG --- */
       if (action === 'getConfig') {
-        const officeId = tokenOffice || 'nagoya_chuo';
+        const officeId = tokenOffice || getParam('office') || 'nagoya_chuo';
         const nocache = getParam('nocache') === '1';
         const cacheKey = `config_v2:${officeId}`;
 

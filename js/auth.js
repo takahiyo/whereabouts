@@ -125,7 +125,7 @@ async function login(officeInput, passwordInput) {
     return true;
 
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("Login process error:", error);
     toast(error.message, false);
     return false;
   }
@@ -376,4 +376,18 @@ if (btnLogin) {
       else loginMsg.textContent = "認証に失敗しました";
     }
   });
+}
+
+// インラインイベントハンドラの代替
+if (officeSel) {
+  officeSel.addEventListener('change', () => {
+    const dummyUsername = document.getElementById('dummyUsername');
+    if (dummyUsername && officeSel.selectedIndex >= 0) {
+      dummyUsername.value = officeSel.options[officeSel.selectedIndex].text;
+    }
+  });
+}
+const loginForm = document.getElementById('loginForm');
+if (loginForm) {
+  loginForm.addEventListener('submit', (e) => e.preventDefault());
 }
