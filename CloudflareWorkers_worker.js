@@ -42,6 +42,20 @@ export default {
       }
 
       const getParam = (key) => (body[key] !== undefined ? String(body[key]) : null);
+      const parseJsonParam = (value, fallback = {}) => {
+        if (value == null) return fallback;
+        if (typeof value === 'object') return value;
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (!trimmed) return fallback;
+          try {
+            return JSON.parse(trimmed);
+          } catch {
+            return fallback;
+          }
+        }
+        return fallback;
+      };
 
       const action = getParam('action');
       const tokenOffice = getParam('tokenOffice') || '';
@@ -441,8 +455,15 @@ export default {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
-        const payload = JSON.parse(getParam('data') || '{}');
-        const updates = payload.data || {};
+        const dataParam = body?.data ?? getParam('data');
+        const payload = parseJsonParam(dataParam, {});
+        const updates = payload.data && typeof payload.data === 'object'
+          ? payload.data
+          : (payload && typeof payload === 'object' ? payload : {});
+
+        if (!updates || typeof updates !== 'object') {
+          return new Response(JSON.stringify({ ok: false, error: 'invalid_data' }), { headers: corsHeaders });
+        }
         const nowTs = Date.now();
 
         const statements = [];
