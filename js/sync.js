@@ -363,9 +363,12 @@ async function pushRowDelta(key) {
     const st = getRowState(key);
     st.workHours = st.workHours == null ? '' : String(st.workHours);
     const baseRev = {}; baseRev[key] = Number(tr.dataset.rev || 0);
-    const payload = { updated: Date.now(), data: { [key]: st } };
+    // ★修正: apiPostが { data: payload } でラップするため、
+    // ここでは直接メンバーデータを渡す（三重ネスト問題を解消）
+    const memberData = { [key]: st };
 
-    const r = await apiPost({ action: 'set', token: SESSION_TOKEN, data: payload, baseRev: baseRev });
+    const r = await apiPost({ action: 'set', token: SESSION_TOKEN, data: memberData, baseRev: baseRev });
+
 
     if (!r) { toast('通信エラー', false); return; }
 
