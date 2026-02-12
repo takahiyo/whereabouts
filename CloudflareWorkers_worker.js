@@ -638,15 +638,25 @@ export default {
         if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
-        const dataJson = getParam('data');
-        if (!dataJson) {
+        // dataパラメータを取得（オブジェクトまたはJSON文字列の両方に対応）
+        const dataRaw = getParamRaw('data');
+        console.log(`[setConfigFor] dataRaw type: ${typeof dataRaw}, isString: ${typeof dataRaw === 'string'}`);
+        if (!dataRaw) {
           return new Response(JSON.stringify({ ok: false, error: 'no data' }), { headers: corsHeaders });
         }
 
         let cfg;
         try {
-          cfg = JSON.parse(dataJson);
+          if (typeof dataRaw === 'object' && dataRaw !== null) {
+            // すでにオブジェクトの場合はそのまま使用
+            cfg = dataRaw;
+          } else if (typeof dataRaw === 'string') {
+            cfg = JSON.parse(dataRaw);
+          } else {
+            return new Response(JSON.stringify({ ok: false, error: 'invalid data type' }), { headers: corsHeaders });
+          }
         } catch (parseErr) {
+          console.error(`[setConfigFor] JSON parse error: ${parseErr.message}, dataRaw (first 200): ${String(dataRaw).slice(0, 200)}`);
           return new Response(JSON.stringify({ ok: false, error: 'invalid JSON' }), { headers: corsHeaders });
         }
 
