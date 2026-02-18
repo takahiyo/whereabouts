@@ -1,15 +1,22 @@
 :root {
   /* === パネル表示（多列）列幅定義 (SSOT) === */
   /* 固定幅列 */
-  --w-work: 160px;           /* 業務時間: 固定 */
-  --w-status: 200px;         /* ステータス: 固定 */
-  --w-time: 120px;           /* 戻り時間: 固定 */
-  --w-tomorrow-plan: 200px;  /* 明日の予定: 固定 */
+  --w-work: 160px;
+  /* 業務時間: 固定 */
+  --w-status: 200px;
+  /* ステータス: 固定 */
+  --w-time: 120px;
+  /* 戻り時間: 固定 */
+  --w-tomorrow-plan: 200px;
+  /* 明日の予定: 固定 */
 
   /* 可変幅列 */
-  --w-name: 140px;           /* 氏名: col基準幅（＝最小値）*/
-  --w-name-max: 200px;       /* 氏名: 最大幅 */
-  --w-note-min: 130px;       /* 備考: 最小幅（col幅未指定→残余スペース配分）*/
+  --w-name: 140px;
+  /* 氏名: col基準幅（＝最小値）*/
+  --w-name-max: 200px;
+  /* 氏名: 最大幅 */
+  --w-note-min: 130px;
+  /* 備考: 最小幅（col幅未指定→残余スペース配分）*/
 
   /* ステータス列幅: --status-fixed による上書き可（互換性維持） */
   --status-effective: var(--status-fixed, var(--w-status));
@@ -311,6 +318,27 @@ td.name {
 
 td.note {
   min-width: var(--w-note-min)
+}
+
+/* 固定幅列のセル: col だけでは比例配分されるため td にも幅を強制 */
+td.work {
+  width: var(--w-work);
+  max-width: var(--w-work)
+}
+
+td.status {
+  width: var(--status-effective);
+  max-width: var(--status-effective)
+}
+
+td.time {
+  width: var(--w-time);
+  max-width: var(--w-time)
+}
+
+td.tomorrow-plan {
+  width: var(--w-tomorrow-plan);
+  max-width: var(--w-tomorrow-plan)
 }
 
 select,
@@ -761,6 +789,8 @@ td.time.need-time select:focus~.time-hint {
     gap: 8px;
     flex: 1 1 48%;
     min-width: 140px;
+    width: auto;
+    max-width: none;
     background: transparent;
   }
 
@@ -849,6 +879,8 @@ td.time.need-time select:focus~.time-hint {
   gap: 8px;
   flex: 1 1 48%;
   min-width: 140px;
+  width: auto;
+  max-width: none;
   background: transparent;
 }
 
