@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS members (
     time TEXT,
     note TEXT,
     work_hours TEXT,
+    tomorrow_plan TEXT,
     ext TEXT,
     mobile TEXT,
     email TEXT,

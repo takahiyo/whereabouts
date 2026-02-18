@@ -91,25 +91,7 @@ function showContactPopup(member) {
   const closeBtn = el('button', { type: 'button', class: 'contact-close', 'aria-label': '閉じる' }, ['×']);
   const title = el('h4', { class: 'contact-title', text: dialogLabel });
 
-  const mobile = member.mobile ? String(member.mobile) : '';
-  const email = member.email ? String(member.email) : '';
-
-  const mobileRow = el('div', { class: 'contact-row' }, [
-    el('span', { class: 'contact-label', text: '携帯' }),
-    mobile
-      ? el('a', { class: 'contact-link', href: `tel:${mobile}`, text: mobile })
-      : el('span', { class: 'contact-empty', text: '未登録' })
-  ]);
-
-  const emailRow = el('div', { class: 'contact-row' }, [
-    el('span', { class: 'contact-label', text: 'メール' }),
-    email
-      ? el('a', { class: 'contact-link', href: `mailto:${encodeURIComponent(email)}`, text: email })
-      : el('span', { class: 'contact-empty', text: '未登録' })
-  ]);
-
   const extension = member.extension ? String(member.extension) : '';
-
   const extensionRow = el('div', { class: 'contact-row' }, [
     el('span', { class: 'contact-label', text: '内線' }),
     extension
@@ -117,7 +99,23 @@ function showContactPopup(member) {
       : el('span', { class: 'contact-empty', text: '未登録' })
   ]);
 
-  const body = el('div', { class: 'contact-body' }, [mobileRow, extensionRow, emailRow]);
+  const mobile = member.mobile ? String(member.mobile) : '';
+  const mobileRow = el('div', { class: 'contact-row' }, [
+    el('span', { class: 'contact-label', text: '携帯' }),
+    mobile
+      ? el('a', { class: 'contact-link', href: `tel:${mobile}`, text: mobile })
+      : el('span', { class: 'contact-empty', text: '未登録' })
+  ]);
+
+  const email = member.email ? String(member.email) : '';
+  const emailRow = el('div', { class: 'contact-row' }, [
+    el('span', { class: 'contact-label', text: 'メール' }),
+    email
+      ? el('a', { class: 'contact-link', href: `mailto:${encodeURIComponent(email)}`, text: email })
+      : el('span', { class: 'contact-empty', text: '未登録' })
+  ]);
+
+  const body = el('div', { class: 'contact-body' }, [extensionRow, mobileRow, emailRow]);
 
   closeBtn.addEventListener('click', closeContactPopup);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeContactPopup(); });

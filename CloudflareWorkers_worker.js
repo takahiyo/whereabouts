@@ -194,6 +194,7 @@ export default {
             time: m.time,
             note: m.note,
             workHours: m.work_hours,
+            tomorrowPlan: m.tomorrow_plan,
             ext: m.ext,
             mobile: m.mobile,
             email: m.email
@@ -275,6 +276,7 @@ export default {
             time: m.time,
             note: m.note,
             workHours: m.work_hours,
+            tomorrowPlan: m.tomorrow_plan,
             updated: m.updated,
             serverUpdated: m.updated,
             ext: m.ext,
@@ -581,6 +583,7 @@ export default {
             if (m.time !== undefined) { query += 'time=?, '; params.push(m.time); }
             if (m.note !== undefined) { query += 'note=?, '; params.push(m.note); }
             if (m.workHours !== undefined) { query += 'work_hours=?, '; params.push(m.workHours); }
+            if (m.tomorrowPlan !== undefined) { query += 'tomorrow_plan=?, '; params.push(m.tomorrowPlan); }
 
             query += 'updated=?, ';
             params.push(nowTs);
@@ -675,6 +678,7 @@ export default {
             time: m.time || '',
             note: m.note || '',
             work_hours: m.work_hours || '',
+            tomorrow_plan: m.tomorrow_plan || '',
             ext: m.ext || '',
             mobile: m.mobile || '',
             email: m.email || ''
@@ -695,8 +699,8 @@ export default {
               // 既存データがあれば status, time, note, work_hours などを引き継ぐ
               const existing = existingMap.get(id) || {};
               statements.push(env.DB.prepare(`
-                INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, work_hours, ext, mobile, email, updated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, tomorrow_plan, work_hours, ext, mobile, email, updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).bind(
                 id,
                 officeId,
@@ -706,6 +710,7 @@ export default {
                 existing.status || '',
                 existing.time || '',
                 existing.note || '',
+                m.tomorrowPlan || existing.tomorrow_plan || '',
                 m.workHours || existing.work_hours || '',
                 m.ext || existing.ext || '',
                 m.mobile || existing.mobile || '',
