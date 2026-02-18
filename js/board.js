@@ -108,6 +108,8 @@ function showContactPopup(member) {
       : el('span', { class: 'contact-empty', text: '未登録' })
   ]);
 
+  const extension = member.extension ? String(member.extension) : '';
+
   const extensionRow = el('div', { class: 'contact-row' }, [
     el('span', { class: 'contact-label', text: '内線' }),
     extension
@@ -224,6 +226,7 @@ function buildRow(member) {
   const tr = el('tr', { id: `row-${key}` }); tr.dataset.key = key; tr.dataset.rev = '0';
   tr.dataset.mobile = member.mobile ? String(member.mobile) : '';
   tr.dataset.email = member.email ? String(member.email) : '';
+  tr.dataset.extension = ext;
 
   const tdName = el('td', { class: 'name', 'data-label': '氏名' }); tdName.textContent = name;
 
