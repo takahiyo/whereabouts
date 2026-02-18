@@ -108,7 +108,14 @@ function showContactPopup(member) {
       : el('span', { class: 'contact-empty', text: '未登録' })
   ]);
 
-  const body = el('div', { class: 'contact-body' }, [mobileRow, emailRow]);
+  const extensionRow = el('div', { class: 'contact-row' }, [
+    el('span', { class: 'contact-label', text: '内線' }),
+    extension
+      ? el('a', { class: 'contact-link', href: `tel:${extension}`, text: extension })
+      : el('span', { class: 'contact-empty', text: '未登録' })
+  ]);
+
+  const body = el('div', { class: 'contact-body' }, [mobileRow, extensionRow, emailRow]);
 
   closeBtn.addEventListener('click', closeContactPopup);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeContactPopup(); });
@@ -128,6 +135,7 @@ function resolveContactInfo(tr, fallback) {
   return {
     name: nameText,
     mobile: (mobileVal || fallback?.mobile || '').trim(),
+    extension: (tr ? (tr.dataset.extension ?? '') : '').trim(),
     email: (emailVal || fallback?.email || '').trim()
   };
 }

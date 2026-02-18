@@ -5,7 +5,8 @@
   /* 元160px (2/3) */
   --w-status: 134px;
   /* 元200px (2/3) */
-  --w-time: 80px;
+  --w-time: 85px;
+  /* 元120px (2/3 + 5px) */
   /* 元120px (2/3) */
   --w-tomorrow-plan: 134px;
   /* 元200px (2/3) */
@@ -827,7 +828,7 @@ td.time.need-time select:focus~.time-hint {
     content: attr(data-label) !important;
     font-weight: 600;
     color: #6B7280;
-    min-width: 5.5em;
+    min-width: 6em;
     flex: 0 0 auto;
   }
 
@@ -852,26 +853,28 @@ td.time.need-time select:focus~.time-hint {
     flex: 1 1 100%;
   }
 
+  /* 内線はカード表示では非表示（連絡先ポップアップへ移動） */
   tbody td.ext {
+    display: none !important;
+  }
+
+  tbody td.status {
     order: 2;
+    flex: 1 1 100%;
   }
 
   tbody td.time {
     order: 3;
-  }
-
-  tbody td.status {
-    order: 4;
     flex: 1 1 100%;
   }
 
   tbody td.tomorrow-plan {
-    order: 5;
+    order: 4;
     flex: 1 1 100%;
   }
 
   tbody td.note {
-    order: 6;
+    order: 5;
     flex: 1 1 100%;
   }
 }
@@ -915,7 +918,7 @@ td.time.need-time select:focus~.time-hint {
 #board[data-cols="1"] tbody td::before {
   font-weight: 600;
   color: #6B7280;
-  min-width: 5.5em;
+  min-width: 6em;
   flex: 0 0 auto;
 }
 
@@ -937,14 +940,34 @@ td.time.need-time select:focus~.time-hint {
   flex: 1 1 100%;
 }
 
+/* 内線非表示 */
 #board.force-cards tbody td.ext,
 #board[data-cols="1"] tbody td.ext {
+  display: none !important;
+}
+
+#board.force-cards tbody td.status,
+#board[data-cols="1"] tbody td.status {
   order: 2;
+  flex: 1 1 100%;
 }
 
 #board.force-cards tbody td.time,
 #board[data-cols="1"] tbody td.time {
   order: 3;
+  flex: 1 1 100%;
+}
+
+#board.force-cards tbody td.tomorrow-plan,
+#board[data-cols="1"] tbody td.tomorrow-plan {
+  order: 4;
+  flex: 1 1 100%;
+}
+
+#board.force-cards tbody td.note,
+#board[data-cols="1"] tbody td.note {
+  order: 5;
+  flex: 1 1 100%;
 }
 
 #board.force-cards tbody td.status,
