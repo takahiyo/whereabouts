@@ -6,6 +6,7 @@
   --base-status: 150px;
   --base-time: 65px;
   --base-note: 210px;
+  --base-tomorrow-plan: 240px;
 
   --scale-name: 0.50;
   --scale-ext: 0.33;
@@ -13,13 +14,15 @@
   --scale-status: 0.75;
   --scale-time: 0.45;
   --scale-note: 0.75;
+  --scale-tomorrow-plan: 0.75;
 
   --min-name: 85px;
   --min-ext: 35px;
   --min-work: 80px;
-  --min-status: 85px;
+  --min-status: 120px;
   --min-time: 65px;
   --min-note: 70px;
+  --min-tomorrow-plan: 180px;
 
   --w-name: max(calc(var(--base-name) * var(--scale-name)), var(--min-name));
   --w-ext: max(calc(var(--base-ext) * var(--scale-ext)), var(--min-ext));
@@ -27,6 +30,7 @@
   --w-status: max(calc(var(--base-status) * var(--scale-status)), var(--min-status));
   --w-time: max(calc(var(--base-time) * var(--scale-time)), var(--min-time));
   --w-note: max(calc(var(--base-note) * var(--scale-note)), var(--min-note));
+  --w-tomorrow-plan: max(calc(var(--base-tomorrow-plan) * var(--scale-tomorrow-plan)), var(--min-tomorrow-plan));
 
   --status-effective: var(--status-fixed, var(--w-status));
 
@@ -282,12 +286,18 @@ th {
   text-align: left
 }
 
+th.ext,
+td.ext {
+  display: none
+}
+
 col.col-name {
   width: var(--w-name)
 }
 
 col.col-ext {
-  width: var(--w-ext)
+  width: var(--w-ext);
+  display: none
 }
 
 col.col-work {
@@ -300,6 +310,10 @@ col.col-status {
 
 col.col-time {
   width: var(--w-time)
+}
+
+col.col-tomorrow-plan {
+  width: var(--w-tomorrow-plan)
 }
 
 col.col-note {
@@ -798,8 +812,13 @@ td.time.need-time select:focus~.time-hint {
     flex: 1 1 100%;
   }
 
-  tbody td.note {
+  tbody td.tomorrow-plan {
     order: 5;
+    flex: 1 1 100%;
+  }
+
+  tbody td.note {
+    order: 6;
     flex: 1 1 100%;
   }
 }
@@ -881,9 +900,15 @@ td.time.need-time select:focus~.time-hint {
   flex: 1 1 100%;
 }
 
+#board.force-cards tbody td.tomorrow-plan,
+#board[data-cols="1"] tbody td.tomorrow-plan {
+  order: 5;
+  flex: 1 1 100%;
+}
+
 #board.force-cards tbody td.note,
 #board[data-cols="1"] tbody td.note {
-  order: 5;
+  order: 6;
   flex: 1 1 100%;
 }
 
