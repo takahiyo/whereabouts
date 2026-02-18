@@ -1,21 +1,28 @@
 :root {
   /* === パネル表示（多列）列幅定義 (SSOT) === */
   /* 固定幅列（OS拡大率150%に合わせて2/3に縮小） */
-  --w-work: 107px;
+  --w-work: 60px;
+  /* 元107px -> 物理約90px */
   /* 元160px */
-  --w-status: 134px;
+  --w-status: 70px;
+  /* 元134px -> 物理約105px */
   /* 元200px */
-  --w-time: 80px;
+  --w-time: 50px;
+  /* 元80px  -> 物理約75px */
   /* 元120px */
-  --w-tomorrow-plan: 134px;
+  --w-tomorrow-plan: 70px;
+  /* 元134px -> 物理約105px */
   /* 元200px */
 
   /* 可変幅列（基準値も2/3に縮小） */
-  --w-name: 94px;
+  --w-name: 80px;
+  /* 元94px  -> 物理約120px */
   /* 元140px */
   --w-name-max: 110px;
-  /* ユーザー指定: 110px (元200px) */
-  --w-note-min: 87px;
+  /* ユーザー指定 110px */
+  /* 元200px */
+  --w-note-min: 80px;
+  /* 備考最小幅 */
   /* 元130px */
 
   /* ステータス列幅: --status-fixed による上書き可（互換性維持） */
@@ -289,7 +296,7 @@ td.ext {
 }
 
 col.col-name {
-  width: auto
+  width: var(--w-name) !important;
 }
 
 /* 物理固定: width/min-/max-widthをcol, th, td全てで固定 (!importantで強制) */
@@ -330,7 +337,7 @@ td.tomorrow-plan {
 }
 
 col.col-note {
-  width: auto
+  width: auto !important;
 }
 
 /* 氏名・備考列の幅制約（多列パネル表示の補完） */
