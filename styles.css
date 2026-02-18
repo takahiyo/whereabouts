@@ -289,7 +289,7 @@ td.ext {
 }
 
 col.col-name {
-  width: var(--w-name)
+  /* 幅指定なし → 可変（余剰スペースを配分） */
 }
 
 col.col-work {
@@ -308,10 +308,8 @@ col.col-tomorrow-plan {
   width: var(--w-tomorrow-plan)
 }
 
-/* col-note: 残余スペースをすべて吸収し、余剰の比例配分を防止 */
-col.col-note {
-  width: calc(100% - var(--w-name) - var(--w-work) - var(--status-effective) - var(--w-time) - var(--w-tomorrow-plan))
-}
+/* col-note: 幅指定なし → 可変（余剰スペースを配分） */
+col.col-note {}
 
 /* 氏名・備考列の幅制約（多列パネル表示の補完） */
 td.name {
