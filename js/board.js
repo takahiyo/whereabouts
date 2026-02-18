@@ -331,7 +331,16 @@ function buildPanel(group, idx) {
     el('col', { class: 'col-tomorrow-plan' }),
     el('col', { class: 'col-note' })
   ]));
-  const thead = el('thead'); const thr = el('tr');['氏名', '業務時間', 'ステータス', '戻り時間', '明日の予定', '備考'].forEach(h => thr.appendChild(el('th', { text: h }))); thead.appendChild(thr); table.appendChild(thead);
+  const thead = el('thead'); const thr = el('tr');
+  const headers = [
+    { label: '氏名', cls: 'name' },
+    { label: '業務時間', cls: 'work' },
+    { label: 'ステータス', cls: 'status' },
+    { label: '戻り時間', cls: 'time' },
+    { label: '明日の予定', cls: 'tomorrow-plan' },
+    { label: '備考', cls: 'note' }
+  ];
+  headers.forEach(h => thr.appendChild(el('th', { text: h.label, class: h.cls }))); thead.appendChild(thr); table.appendChild(thead);
   const tbody = el('tbody'); group.members.forEach(m => { const r = buildRow(m); tbody.appendChild(r); }); table.appendChild(tbody);
   sec.appendChild(table); return sec;
 }

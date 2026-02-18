@@ -289,35 +289,59 @@ td.ext {
 }
 
 col.col-name {
-  /* 幅指定なし → 可変（余剰スペースを配分） */
+  width: auto
 }
 
-col.col-work {
-  width: var(--w-work)
+/* 物理固定: width/min-/max-widthをcol, th, td全てで固定 */
+col.col-work,
+th.work,
+td.work {
+  width: var(--w-work);
+  min-width: var(--w-work);
+  max-width: var(--w-work);
+  box-sizing: border-box;
 }
 
-col.col-status {
-  width: var(--status-effective)
+col.col-status,
+th.status,
+td.status {
+  width: var(--status-effective);
+  min-width: var(--status-effective);
+  max-width: var(--status-effective);
+  box-sizing: border-box;
 }
 
-col.col-time {
-  width: var(--w-time)
+col.col-time,
+th.time,
+td.time {
+  width: var(--w-time);
+  min-width: var(--w-time);
+  max-width: var(--w-time);
+  box-sizing: border-box;
 }
 
-col.col-tomorrow-plan {
-  width: var(--w-tomorrow-plan)
+col.col-tomorrow-plan,
+th.tomorrow-plan,
+td.tomorrow-plan {
+  width: var(--w-tomorrow-plan);
+  min-width: var(--w-tomorrow-plan);
+  max-width: var(--w-tomorrow-plan);
+  box-sizing: border-box;
 }
 
-/* col-note: 幅指定なし → 可変（余剰スペースを配分） */
-col.col-note {}
+col.col-note {
+  width: auto
+}
 
 /* 氏名・備考列の幅制約（多列パネル表示の補完） */
-td.name {
+td.name,
+th.name {
   min-width: var(--w-name);
   max-width: var(--w-name-max)
 }
 
-td.note {
+td.note,
+th.note {
   min-width: var(--w-note-min)
 }
 
