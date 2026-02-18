@@ -14,6 +14,10 @@
   /* ステータス列幅: --status-fixed による上書き可（互換性維持） */
   --status-effective: var(--status-fixed, var(--w-status));
 
+  /* パネルテーブル最小幅（SSOT: 全列 min 幅の合計）
+     この幅を下回るパネルでは table が min-width を保持し、panel が横スクロール */
+  --table-min-width: calc(var(--w-name) + var(--w-work) + var(--status-effective) + var(--w-time) + var(--w-tomorrow-plan) + var(--w-note-min));
+
   --gap: 20px;
   --line: #d9d9d9;
   --head: #f1ece6;
@@ -246,6 +250,12 @@ table {
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed
+}
+
+/* パネル内テーブル: 列幅が比例縮小されないよう min-width を設定。
+   パネル幅が不足する場合は .panel の overflow:auto で横スクロール */
+.panel table {
+  min-width: var(--table-min-width)
 }
 
 thead th {
@@ -726,6 +736,7 @@ td.time.need-time select:focus~.time-hint {
 
   table {
     table-layout: auto;
+    min-width: unset;
   }
 
   tbody {
@@ -908,6 +919,7 @@ td.time.need-time select:focus~.time-hint {
   width: 100%;
   table-layout: auto;
   border-collapse: separate;
+  min-width: unset
 }
 
 /* 診断用バナー（必要時のみ） */
