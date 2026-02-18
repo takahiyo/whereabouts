@@ -43,21 +43,16 @@ try {
   console.error("Local cache restore failed:", e);
 }
 
+/**
+ * デフォルトのメニュー設定オブジェクトを返す。
+ * ステータス・備考選択肢は constants/defaults.js の定数を参照（SSOT）。
+ * @returns {{ timeStepMinutes: number, statuses: Array, noteOptions: string[], tomorrowPlanOptions: string[], businessHours: string[] }}
+ */
 function defaultMenus() {
   return {
     timeStepMinutes: 30,
-    statuses: [
-      { value: "在席", class: "st-here", clearOnSet: true },
-      { value: "外出", requireTime: true, class: "st-out" },
-      { value: "在宅勤務", class: "st-remote", clearOnSet: true },
-      { value: "出張", requireTime: true, class: "st-trip" },
-      { value: "研修", requireTime: true, class: "st-training" },
-      { value: "健康診断", requireTime: true, class: "st-health" },
-      { value: "コアドック", requireTime: true, class: "st-coadoc" },
-      { value: "帰宅", class: "st-home" },
-      { value: "休み", class: "st-off", clearOnSet: true }
-    ],
-    noteOptions: ["直出", "直帰", "直出・直帰"],
+    statuses: DEFAULT_STATUSES.slice(),              /* constants/defaults.js (SSOT) */
+    noteOptions: DEFAULT_NOTE_OPTIONS.slice(),        /* constants/defaults.js (SSOT) */
     tomorrowPlanOptions: DEFAULT_TOMORROW_PLAN_OPTIONS.slice(),
     businessHours: DEFAULT_BUSINESS_HOURS.slice()
   };

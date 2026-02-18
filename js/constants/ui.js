@@ -21,7 +21,7 @@ const ROW_STATUS_CLASSES = Object.freeze([
   'st-trip',      // 出張
   'st-training',  // 研修
   'st-health',    // 健康診断
-  'st-coadoc',    // コアドック
+  'st-coadoc',    // ドック
   'st-home',      // 帰宅
   'st-off'        // 休み
 ]);
@@ -38,7 +38,7 @@ const STATUS_CLASS_MAPPING = Object.freeze(new Map([
   ['出張', 'st-trip'],
   ['研修', 'st-training'],
   ['健康診断', 'st-health'],
-  ['コアドック', 'st-coadoc'],
+  ['ドック', 'st-coadoc'],
   ['帰宅', 'st-home'],
   ['休み', 'st-off']
 ]));

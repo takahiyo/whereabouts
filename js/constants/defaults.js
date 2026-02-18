@@ -41,7 +41,7 @@ const DEFAULT_STATUSES = Object.freeze([
   { value: "出張", requireTime: true, class: "st-trip" },
   { value: "研修", requireTime: true, class: "st-training" },
   { value: "健康診断", requireTime: true, class: "st-health" },
-  { value: "コアドック", requireTime: true, class: "st-coadoc" },
+  { value: "ドック", requireTime: true, class: "st-coadoc" },
   { value: "帰宅", class: "st-home" },
   { value: "休み", class: "st-off", clearOnSet: true }
 ]);
