@@ -292,40 +292,40 @@ col.col-name {
   width: auto
 }
 
-/* 物理固定: width/min-/max-widthをcol, th, td全てで固定 */
+/* 物理固定: width/min-/max-widthをcol, th, td全てで固定 (!importantで強制) */
 col.col-work,
 th.work,
 td.work {
-  width: var(--w-work);
-  min-width: var(--w-work);
-  max-width: var(--w-work);
+  width: var(--w-work) !important;
+  min-width: var(--w-work) !important;
+  max-width: var(--w-work) !important;
   box-sizing: border-box;
 }
 
 col.col-status,
 th.status,
 td.status {
-  width: var(--status-effective);
-  min-width: var(--status-effective);
-  max-width: var(--status-effective);
+  width: var(--status-effective) !important;
+  min-width: var(--status-effective) !important;
+  max-width: var(--status-effective) !important;
   box-sizing: border-box;
 }
 
 col.col-time,
 th.time,
 td.time {
-  width: var(--w-time);
-  min-width: var(--w-time);
-  max-width: var(--w-time);
+  width: var(--w-time) !important;
+  min-width: var(--w-time) !important;
+  max-width: var(--w-time) !important;
   box-sizing: border-box;
 }
 
 col.col-tomorrow-plan,
 th.tomorrow-plan,
 td.tomorrow-plan {
-  width: var(--w-tomorrow-plan);
-  min-width: var(--w-tomorrow-plan);
-  max-width: var(--w-tomorrow-plan);
+  width: var(--w-tomorrow-plan) !important;
+  min-width: var(--w-tomorrow-plan) !important;
+  max-width: var(--w-tomorrow-plan) !important;
   box-sizing: border-box;
 }
 
