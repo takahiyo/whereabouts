@@ -308,7 +308,10 @@ col.col-tomorrow-plan {
   width: var(--w-tomorrow-plan)
 }
 
-/* col.col-note: 幅未指定 → table-layout:fixed の残余スペースを配分 */
+/* col-note: 残余スペースをすべて吸収し、余剰の比例配分を防止 */
+col.col-note {
+  width: calc(100% - var(--w-name) - var(--w-work) - var(--status-effective) - var(--w-time) - var(--w-tomorrow-plan))
+}
 
 /* 氏名・備考列の幅制約（多列パネル表示の補完） */
 td.name {
@@ -318,27 +321,6 @@ td.name {
 
 td.note {
   min-width: var(--w-note-min)
-}
-
-/* 固定幅列のセル: col だけでは比例配分されるため td にも幅を強制 */
-td.work {
-  width: var(--w-work);
-  max-width: var(--w-work)
-}
-
-td.status {
-  width: var(--status-effective);
-  max-width: var(--status-effective)
-}
-
-td.time {
-  width: var(--w-time);
-  max-width: var(--w-time)
-}
-
-td.tomorrow-plan {
-  width: var(--w-tomorrow-plan);
-  max-width: var(--w-tomorrow-plan)
 }
 
 select,
@@ -789,8 +771,6 @@ td.time.need-time select:focus~.time-hint {
     gap: 8px;
     flex: 1 1 48%;
     min-width: 140px;
-    width: auto;
-    max-width: none;
     background: transparent;
   }
 
@@ -879,8 +859,6 @@ td.time.need-time select:focus~.time-hint {
   gap: 8px;
   flex: 1 1 48%;
   min-width: 140px;
-  width: auto;
-  max-width: none;
   background: transparent;
 }
 
