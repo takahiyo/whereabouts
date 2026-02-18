@@ -13,8 +13,8 @@
   /* 可変幅列（基準値も2/3に縮小） */
   --w-name: 94px;
   /* 元140px */
-  --w-name-max: 134px;
-  /* 元200px */
+  --w-name-max: 110px;
+  /* ユーザー指定: 110px (元200px) */
   --w-note-min: 87px;
   /* 元130px */
 
@@ -336,8 +336,8 @@ col.col-note {
 /* 氏名・備考列の幅制約（多列パネル表示の補完） */
 td.name,
 th.name {
-  min-width: var(--w-name);
-  max-width: var(--w-name-max)
+  min-width: var(--w-name) !important;
+  max-width: var(--w-name-max) !important;
 }
 
 td.note,
