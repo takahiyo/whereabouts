@@ -1,28 +1,22 @@
 :root {
   /* === パネル表示（多列）列幅定義 (SSOT) === */
-  /* 固定幅列（OS拡大率150%に合わせて2/3に縮小） */
-  --w-work: 60px;
-  /* 元107px -> 物理約90px */
-  /* 元160px */
-  --w-status: 70px;
-  /* 元134px -> 物理約105px */
-  /* 元200px */
-  --w-time: 50px;
-  /* 元80px  -> 物理約75px */
-  /* 元120px */
-  --w-tomorrow-plan: 70px;
-  /* 元134px -> 物理約105px */
-  /* 元200px */
+  /* 固定幅列（氏名以外は2/3サイズに戻す） */
+  --w-work: 107px;
+  /* 元160px (2/3) */
+  --w-status: 134px;
+  /* 元200px (2/3) */
+  --w-time: 80px;
+  /* 元120px (2/3) */
+  --w-tomorrow-plan: 134px;
+  /* 元200px (2/3) */
 
-  /* 可変幅列（基準値も2/3に縮小） */
-  --w-name: 80px;
-  /* 元94px  -> 物理約120px */
-  /* 元140px */
+  /* 氏名欄（ユーザー指定の110pxを維持） */
+  --w-name: 94px;
+  /* 元140px (2/3) */
   --w-name-max: 110px;
-  /* ユーザー指定 110px */
-  /* 元200px */
-  --w-note-min: 80px;
-  /* 備考最小幅 */
+  /* ユーザー指定: 110px */
+  --w-note-min: 87px;
+  /* 元130px (2/3) */
   /* 元130px */
 
   /* ステータス列幅: --status-fixed による上書き可（互換性維持） */
@@ -338,6 +332,32 @@ td.tomorrow-plan {
 
 col.col-note {
   width: auto !important;
+}
+
+/* === カード表示（1列）時の強制リセット === */
+/* パネル表示用の !important 固定幅を解除し、Flexboxレイアウトを復元 */
+#board.force-cards th,
+#board.force-cards td,
+#board.force-cards col,
+#board[data-cols="1"] th,
+#board[data-cols="1"] td,
+#board[data-cols="1"] col {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+/* === カード表示（1列）時の強制リセット === */
+/* パネル表示用の !important 固定幅を解除し、Flexboxレイアウトを復元 */
+#board.force-cards th,
+#board.force-cards td,
+#board.force-cards col,
+#board[data-cols="1"] th,
+#board[data-cols="1"] td,
+#board[data-cols="1"] col {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
 }
 
 /* 氏名・備考列の幅制約（多列パネル表示の補完） */
