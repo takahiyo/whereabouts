@@ -4326,3 +4326,23 @@ td.time.need-time select:focus~.time-hint {
     padding: 2px 5px;
   }
 }
+
+/* Utility functions (SSOT Support) */
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+/* Admin Member Table Group Header */
+.group-header-row td {
+  background-color: #f3f4f6;
+  /* gray-100 */
+  color: #374151;
+  /* gray-700 */
+  font-weight: bold;
+  padding: 8px 12px;
+  border-top: 2px solid #e5e7eb;
+}
