@@ -3777,46 +3777,38 @@ td.time.need-time select:focus~.time-hint {
     padding: 0 !important;
   }
 
-  /* 列幅定義 (左・右共通) - 2列表示なので片側は合計50%以下に収める */
-  /* 合計: 7+7+4+4+6 = 28% + note(auto) */
+  /* 列幅定義 (左・右共通) - 合計: 片側約48% × 2 + sep 2% ≒ 98% */
   .print-col-name {
-    width: 7% !important;
+    width: 12% !important;
   }
 
   .print-col-work {
-    width: 7% !important;
+    width: 10% !important;
   }
 
   .print-col-status {
-    width: 5% !important;
-    /* 少し広めに */
+    width: 7% !important;
   }
 
   .print-col-time {
-    width: 5% !important;
+    width: 7% !important;
   }
 
   .print-col-next {
-    width: 6% !important;
+    width: 10% !important;
   }
 
-  /* 備考は残り全て */
+  /* 備考は残りの幅を自動分配 */
   .print-col-note {
     width: auto !important;
   }
 
-  /* 行スタイルの強制 */
+  /* 行スタイルの強制（テーブル内のみ - グループ表示に影響しない） */
   .print-two-col-table tr {
     display: table-row !important;
     vertical-align: middle !important;
     page-break-inside: avoid !important;
     background-color: transparent !important;
-  }
-
-  .print-member-row {
-    display: table-row !important;
-    /* 重複定義かもしれないが念のため */
-    page-break-inside: avoid;
   }
 
   /* グループ別表示（従来）のためのスタイル調整 */
