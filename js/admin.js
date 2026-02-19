@@ -1778,7 +1778,8 @@ if (btnPrintList) {
           status: live.status || admin.status || '在席',
           time: live.time || admin.time || '',
           note: live.note || admin.note || '',
-          workHours: live.workHours || admin.workHours || m.workHours || ''
+          workHours: live.workHours || admin.workHours || m.workHours || '',
+          tomorrowPlan: live.tomorrowPlan || admin.tomorrowPlan || '' // 明日の予定を追加
         };
       });
 
@@ -1823,6 +1824,9 @@ if (btnPrintList) {
         header.textContent = '全メンバー';
         section.appendChild(header);
 
+        // カラムヘッダー
+        section.appendChild(createPrintHeaderRow());
+
         // メンバー行生成
         list.forEach(m => {
           section.appendChild(createPrintRow(m));
@@ -1852,6 +1856,9 @@ if (btnPrintList) {
           h3.textContent = groupName;
           groupSection.appendChild(h3);
 
+          // カラムヘッダー
+          groupSection.appendChild(createPrintHeaderRow());
+
           groupMembers.forEach(m => {
             groupSection.appendChild(createPrintRow(m));
           });
@@ -1876,6 +1883,21 @@ if (btnPrintList) {
   });
 }
 
+function createPrintHeaderRow() {
+  const row = document.createElement('div');
+  row.className = 'print-table-header';
+
+  const name = document.createElement('div'); name.className = 'pm-name'; name.textContent = '氏名';
+  const work = document.createElement('div'); work.className = 'pm-work'; work.textContent = '業務時間';
+  const status = document.createElement('div'); status.className = 'pm-status'; status.textContent = '状態';
+  const ret = document.createElement('div'); ret.className = 'pm-ret'; ret.textContent = '戻り';
+  const next = document.createElement('div'); next.className = 'pm-next'; next.textContent = '明日の予定';
+  const note = document.createElement('div'); note.className = 'pm-note'; note.textContent = '備考';
+
+  row.append(name, work, status, ret, next, note);
+  return row;
+}
+
 function createPrintRow(m) {
   const row = document.createElement('div');
   row.className = 'print-member-row';
@@ -1884,8 +1906,9 @@ function createPrintRow(m) {
   const work = document.createElement('div'); work.className = 'pm-work'; work.textContent = m.workHours || '';
   const status = document.createElement('div'); status.className = 'pm-status'; status.textContent = m.status || '';
   const ret = document.createElement('div'); ret.className = 'pm-ret'; ret.textContent = m.time || '';
+  const next = document.createElement('div'); next.className = 'pm-next'; next.textContent = m.tomorrowPlan || '';
   const note = document.createElement('div'); note.className = 'pm-note'; note.textContent = m.note || '';
 
-  row.append(name, work, status, ret, note);
+  row.append(name, work, status, ret, next, note);
   return row;
 }
