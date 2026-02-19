@@ -1824,7 +1824,7 @@ if (btnPrintList) {
         const headerRow = document.createElement('tr');
 
         // 左カラムヘッダー
-        const headers = ['氏名', '業務時間', '状態', '戻り', '明日の予定', '備考'];
+        const headers = ['氏名', '時間', '状態', '戻り', '予定', '備考'];
         const classes = ['print-col-name', 'print-col-work', 'print-col-status', 'print-col-time', 'print-col-next', 'print-col-note'];
 
         headers.forEach((h, i) => {
