@@ -1811,11 +1811,30 @@ if (btnPrintList) {
       workArea.appendChild(title);
 
       if (oneTable) {
-        // 全員一括の1つのテーブル
-        const table = createPrintTable(list, false);
-        workArea.appendChild(table);
+        // 全員一括の1つのリスト
+        const container = document.createElement('div');
+        container.className = 'print-list-container';
+
+        const section = document.createElement('div');
+        section.className = 'print-group-section';
+
+        const header = document.createElement('div');
+        header.className = 'print-group-header';
+        header.textContent = '全メンバー';
+        section.appendChild(header);
+
+        // メンバー行生成
+        list.forEach(m => {
+          section.appendChild(createPrintRow(m));
+        });
+
+        container.appendChild(section);
+        workArea.appendChild(container);
       } else {
         // グループごとに分割
+        const container = document.createElement('div');
+        container.className = 'print-list-container';
+
         const groups = [...new Set(list.map(m => m.group))];
         // adminGroupOrder の順序を尊重しつつ、データがあるものだけ抽出
         const sortedGroups = adminGroupOrder.filter(g => groups.includes(g));
@@ -1828,14 +1847,18 @@ if (btnPrintList) {
           const groupSection = document.createElement('div');
           groupSection.className = 'print-group-section';
 
-          const h3 = document.createElement('h3');
+          const h3 = document.createElement('div');
+          h3.className = 'print-group-header';
           h3.textContent = groupName;
           groupSection.appendChild(h3);
 
-          const table = createPrintTable(groupMembers, true);
-          groupSection.appendChild(table);
-          workArea.appendChild(groupSection);
+          groupMembers.forEach(m => {
+            groupSection.appendChild(createPrintRow(m));
+          });
+
+          container.appendChild(groupSection);
         });
+        workArea.appendChild(container);
       }
 
       // 印刷実行
@@ -1853,36 +1876,16 @@ if (btnPrintList) {
   });
 }
 
-function createPrintTable(members, isGrouped) {
-  const table = document.createElement('table');
-  table.className = 'print-list-table';
+function createPrintRow(m) {
+  const row = document.createElement('div');
+  row.className = 'print-member-row';
 
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  const headers = isGrouped ? ['氏名', '勤務時間', '状況', '戻り時間', '備考'] : ['グループ', '氏名', '勤務時間', '状況', '戻り時間', '備考'];
+  const name = document.createElement('div'); name.className = 'pm-name'; name.textContent = m.name || '';
+  const work = document.createElement('div'); work.className = 'pm-work'; work.textContent = m.workHours || '';
+  const status = document.createElement('div'); status.className = 'pm-status'; status.textContent = m.status || '';
+  const ret = document.createElement('div'); ret.className = 'pm-ret'; ret.textContent = m.time || '';
+  const note = document.createElement('div'); note.className = 'pm-note'; note.textContent = m.note || '';
 
-  headers.forEach(h => {
-    const th = document.createElement('th');
-    th.textContent = h;
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  const tbody = document.createElement('tbody');
-  members.forEach(m => {
-    const tr = document.createElement('tr');
-    const cols = isGrouped
-      ? [m.name, m.workHours, m.status, m.time, m.note]
-      : [m.group, m.name, m.workHours, m.status, m.time, m.note];
-
-    cols.forEach(c => {
-      const td = document.createElement('td');
-      td.textContent = c || '';
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-  return table;
+  row.append(name, work, status, ret, note);
+  return row;
 }
