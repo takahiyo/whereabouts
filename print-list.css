@@ -1,0 +1,200 @@
+/* ======================================================================
+ * print-list.css — 一覧出力（印刷）専用モジュール
+ * styles.css から独立したファイル。通常画面には影響しない（media="print"で読込）。
+ * ====================================================================== */
+
+@media print {
+
+    /* ==========================================================================
+   * 1. 表示切替 — 一覧出力時は他の要素をすべて隠す
+   * styles.css Block1 の body>*:not(#eventModal) { display:none } を打ち消し
+   * ========================================================================== */
+
+    /* 一覧出力が表示中のとき、body直下の全要素を隠す（#printListWorkArea 含む） */
+    body:has(#printListWorkArea:not(.u-hidden))>* {
+        display: none !important;
+    }
+
+    /* #printListWorkArea だけを表示 */
+    body:has(#printListWorkArea:not(.u-hidden))>#printListWorkArea {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        font-family: "Helvetica Neue", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    }
+
+    /* ==========================================================================
+   * 2. 用紙設定（一覧出力専用）
+   * ========================================================================== */
+    body:has(#printListWorkArea:not(.u-hidden)) {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* ==========================================================================
+   * 3. 共通タイトル
+   * ========================================================================== */
+    .print-list-title {
+        text-align: center;
+        font-size: 14pt;
+        font-weight: bold;
+        margin-bottom: 8px;
+        border-bottom: 2px solid #000;
+        padding-bottom: 4px;
+    }
+
+    /* ==========================================================================
+   * 4. One Table レイアウト（2列テーブル・全メンバー表示）
+   *    admin.js が生成する構造:
+   *    table.print-two-col-table > colgroup > col[style.width]
+   *                              > thead > tr > th.print-col-*
+   *                              > tbody > tr > td.print-col-* + td.col-sep
+   * ========================================================================== */
+    .print-two-col-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+        table-layout: fixed !important;
+    }
+
+    .print-two-col-table th,
+    .print-two-col-table td {
+        display: table-cell !important;
+        border: 1px solid #000 !important;
+        padding: 2px 4px !important;
+        font-size: 8.5pt !important;
+        vertical-align: middle !important;
+        color: #000 !important;
+        height: 28px !important;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    /* テーブルヘッダー: ページ毎に繰り返す */
+    .print-two-col-table thead {
+        display: table-header-group !important;
+    }
+
+    .print-two-col-table thead th {
+        background-color: #f0f0f0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        border-bottom: 2px solid #000 !important;
+        font-weight: bold !important;
+        text-align: center !important;
+        font-size: 9pt !important;
+    }
+
+    /* テーブル行 */
+    .print-two-col-table tr {
+        display: table-row !important;
+        page-break-inside: avoid !important;
+    }
+
+    .print-two-col-table tbody {
+        display: table-row-group !important;
+    }
+
+    /* 左右の区切りカラム */
+    .print-two-col-table td.col-sep,
+    .print-two-col-table th.col-sep {
+        border: none !important;
+        width: 2% !important;
+        background: transparent !important;
+        padding: 0 !important;
+    }
+
+    /* ==========================================================================
+   * 5. グループ表示レイアウト（従来のFlexbox構成）
+   *    admin.js が生成する構造:
+   *    div.print-list-container
+   *      > div.print-group-section
+   *          > div.print-group-header
+   *          > div.print-table-header > div.pm-*
+   *          > div.print-member-row   > div.pm-*
+   * ========================================================================== */
+    .print-group-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin-bottom: 15px;
+    }
+
+    .print-group-header {
+        font-size: 10pt;
+        font-weight: bold;
+        border-bottom: 2px solid #000;
+        margin-bottom: 3px;
+        margin-top: 8px;
+    }
+
+    .print-table-header {
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid #000;
+        background-color: #f0f0f0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        font-weight: bold;
+        font-size: 8.5pt;
+        padding: 2px 5px;
+    }
+
+    .print-member-row {
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid #ccc;
+        font-size: 8.5pt;
+        padding: 2px 5px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Flex各項目の幅（グループ表示用） */
+    .pm-name {
+        flex: 0 0 18%;
+        font-weight: bold;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        padding-right: 4px;
+    }
+
+    .pm-work {
+        flex: 0 0 14%;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    .pm-status {
+        flex: 0 0 10%;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .pm-ret {
+        flex: 0 0 10%;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .pm-next {
+        flex: 0 0 18%;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        padding: 0 4px;
+    }
+
+    .pm-note {
+        flex: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: #555;
+    }
+
+}

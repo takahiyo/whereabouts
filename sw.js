@@ -2,11 +2,13 @@
 // [2026-01-20] Fixed: ignore cross-origin requests to prevent stale caching
 // [2026-02-05] Updated: cache version bump to force refresh after sync.js fix
 // [2026-02-19] Updated: v8 - 印刷レイアウト修正（colgroup追加、列幅調整）
-const CACHE_NAME = 'whereabouts-v8-worker-only';
+// [2026-02-19] Updated: v9 - 印刷スタイルをモジュール化（print-list.css追加）
+const CACHE_NAME = 'whereabouts-v9-worker-only';
 const URLS_TO_CACHE = [
   './',
   './index.html',
   './styles.css',
+  './print-list.css',
   './main.js',
   './js/config.js',
   './js/globals.js',

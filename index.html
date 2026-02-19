@@ -22,6 +22,7 @@
                base-uri 'self';
                form-action 'self'">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="print-list.css" media="print">
 </head>
 
 <body>
@@ -324,15 +325,16 @@
                   <option value="time">業務時間順</option>
                   <option value="status">ステータス順</option>
                 </select>
-                
+
                 <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600;">
                   <input type="checkbox" id="adminExportOneTable" style="width: 18px; height: 18px;">
                   全てのメンバーを1つの表にまとめる
                 </label>
-                
+
                 <button id="btnPrintList" class="btn-primary">🖨️ 一覧出力（印刷）</button>
               </div>
-              <div class="admin-note u-mt-8">※ブラウザの印刷機能を使用してPDFとして保存できます。「全てのメンバーを1つの表にまとめる」をチェックするとグループ分けを無視して出力します。</div>
+              <div class="admin-note u-mt-8">※ブラウザの印刷機能を使用してPDFとして保存できます。「全てのメンバーを1つの表にまとめる」をチェックするとグループ分けを無視して出力します。
+              </div>
             </div>
           </div>
 
@@ -825,8 +827,7 @@
 
         <p class="u-mt-16 u-font-095em">
           <strong>📚 さらに詳しく知りたい方へ</strong><br>
-          より詳細な情報は <a href="USER_MANUAL.md" target="_blank"
-            class="u-link-blue">詳細マニュアル（USER_MANUAL.md）</a> をご覧ください。
+          より詳細な情報は <a href="USER_MANUAL.md" target="_blank" class="u-link-blue">詳細マニュアル（USER_MANUAL.md）</a> をご覧ください。
         </p>
       </section>
 
@@ -1164,8 +1165,8 @@
 
         <p class="u-mt-16 u-font-095em">
           <strong>📚 さらに詳しく知りたい方へ</strong><br>
-          より詳細な情報は <a href="ADMIN_MANUAL.md" target="_blank"
-            class="u-link-blue">管理者向け詳細マニュアル（ADMIN_MANUAL.md）</a> をご覧ください。
+          より詳細な情報は <a href="ADMIN_MANUAL.md" target="_blank" class="u-link-blue">管理者向け詳細マニュアル（ADMIN_MANUAL.md）</a>
+          をご覧ください。
         </p>
       </section>
     </div>
