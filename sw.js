@@ -1,7 +1,8 @@
 // Service Worker for Whereabouts (Optimized v2)
 // [2026-01-20] Fixed: ignore cross-origin requests to prevent stale caching
 // [2026-02-05] Updated: cache version bump to force refresh after sync.js fix
-const CACHE_NAME = 'whereabouts-v7-worker-only';
+// [2026-02-19] Updated: v8 - 印刷レイアウト修正（colgroup追加、列幅調整）
+const CACHE_NAME = 'whereabouts-v8-worker-only';
 const URLS_TO_CACHE = [
   './',
   './index.html',
