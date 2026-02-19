@@ -3726,131 +3726,137 @@ td.time.need-time select:focus~.time-hint {
 
 /* Utilities */
 
-.print-list-title {
-  text-align: center;
-  font-size: 16pt;
-  font-weight: bold;
-  margin-bottom: 10px;
-}
+@media print {
+  .print-list-title {
+    text-align: center;
+    font-size: 16pt;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
 
-/* 2列レイアウト用テーブル (Z字順) */
-.print-two-col-table {
-  width: 100% !important;
-  border-collapse: collapse !important;
-  border-spacing: 0 !important;
-  table-layout: fixed !important;
-}
+  /* 2列レイアウト用テーブル (Z字順) */
+  .print-two-col-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    table-layout: fixed !important;
+  }
 
-.print-two-col-table th,
-.print-two-col-table td {
-  border: 1px solid #000 !important;
-  padding: 4px !important;
-  font-size: 9pt !important;
-  vertical-align: middle !important;
-  color: #000 !important;
-  height: 30px !important;
-  /* 行の高さを固定してページ繰りを安定させる */
-}
+  .print-two-col-table th,
+  .print-two-col-table td {
+    display: table-cell !important;
+    /* 強制的にセル表示 (モバイル用block解除) */
+    border: 1px solid #000 !important;
+    padding: 4px !important;
+    font-size: 9pt !important;
+    vertical-align: middle !important;
+    color: #000 !important;
+    height: 30px !important;
+  }
 
-.print-two-col-table thead th {
-  background-color: #f0f0f0 !important;
-  border-bottom: 2px solid #000 !important;
-  font-weight: bold !important;
-  text-align: center !important;
-  font-size: 10pt !important;
-}
+  .print-two-col-table thead {
+    display: table-header-group !important;
+    /* header表示強制 */
+  }
 
-/* 左右カラムの区切り線（中央） */
-.print-two-col-table td.col-sep,
-.print-two-col-table th.col-sep {
-  border: none !important;
-  width: 10px !important;
-  /* 左右の隙間 */
-  background: transparent !important;
-}
+  .print-two-col-table thead th {
+    background-color: #f0f0f0 !important;
+    border-bottom: 2px solid #000 !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    font-size: 10pt !important;
+  }
 
-/* 列幅定義 (左・右共通) */
-.print-col-name {
-  width: 14% !important;
-}
+  /* 左右カラムの区切り線（中央） */
+  .print-two-col-table td.col-sep,
+  .print-two-col-table th.col-sep {
+    border: none !important;
+    width: 10px !important;
+    background: transparent !important;
+  }
 
-.print-col-work {
-  width: 14% !important;
-}
+  /* 列幅定義 (左・右共通) */
+  .print-col-name {
+    width: 14% !important;
+  }
 
-.print-col-status {
-  width: 8% !important;
-}
+  .print-col-work {
+    width: 14% !important;
+  }
 
-.print-col-time {
-  width: 8% !important;
-}
+  .print-col-status {
+    width: 8% !important;
+  }
 
-.print-col-next {
-  width: 12% !important;
-}
+  .print-col-time {
+    width: 8% !important;
+  }
 
-/* 備考は残り全て */
-.print-col-note {
-  width: auto !important;
-}
+  .print-col-next {
+    width: 12% !important;
+  }
 
-.print-member-row {
-  page-break-inside: avoid;
-}
+  /* 備考は残り全て */
+  .print-col-note {
+    width: auto !important;
+  }
 
-/* グループ別表示（従来）のためのスタイル調整 */
-.print-group-section {
-  page-break-inside: avoid;
-  margin-bottom: 20px;
-}
+  .print-member-row {
+    page-break-inside: avoid;
+  }
 
-.print-group-header {
-  font-size: 14pt;
-  font-weight: bold;
-  border-bottom: 2px solid #000;
-  margin-bottom: 5px;
-  margin-top: 10px;
-}
+  /* グループ別表示（従来）のためのスタイル調整 */
+  .print-group-section {
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+  }
 
-.print-table-header {
-  display: flex;
-  border-bottom: 1px solid #000;
-  font-weight: bold;
-  font-size: 10pt;
-  padding: 4px 0;
-}
+  .print-group-header {
+    font-size: 14pt;
+    font-weight: bold;
+    border-bottom: 2px solid #000;
+    margin-bottom: 5px;
+    margin-top: 10px;
+  }
 
-.print-member-row {
-  display: flex;
-  border-bottom: 1px solid #ccc;
-  font-size: 9pt;
-  padding: 4px 0;
-}
+  .print-table-header {
+    display: flex;
+    border-bottom: 1px solid #000;
+    font-weight: bold;
+    font-size: 10pt;
+    padding: 4px 0;
+  }
 
-.pm-name {
-  width: 150px;
-}
+  .print-member-row {
+    display: flex;
+    border-bottom: 1px solid #ccc;
+    font-size: 9pt;
+    padding: 4px 0;
+  }
 
-.pm-work {
-  width: 120px;
-}
+  .pm-name {
+    width: 150px;
+  }
 
-.pm-status {
-  width: 80px;
-}
+  .pm-work {
+    width: 120px;
+  }
 
-.pm-ret {
-  width: 80px;
-}
+  .pm-status {
+    width: 80px;
+  }
 
-.pm-next {
-  width: 120px;
-}
+  .pm-ret {
+    width: 80px;
+  }
 
-.pm-note {
-  flex: 1;
-}
+  .pm-next {
+    width: 120px;
+  }
+
+  .pm-note {
+    flex: 1;
+  }
 }
 
 
