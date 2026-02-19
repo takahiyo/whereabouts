@@ -43,21 +43,17 @@ try {
   console.error("Local cache restore failed:", e);
 }
 
+/**
+ * デフォルトのメニュー設定オブジェクトを返す。
+ * ステータス・備考選択肢は constants/defaults.js の定数を参照（SSOT）。
+ * @returns {{ timeStepMinutes: number, statuses: Array, noteOptions: string[], tomorrowPlanOptions: string[], businessHours: string[] }}
+ */
 function defaultMenus() {
   return {
     timeStepMinutes: 30,
-    statuses: [
-      { value: "在席", class: "st-here", clearOnSet: true },
-      { value: "外出", requireTime: true, class: "st-out" },
-      { value: "在宅勤務", class: "st-remote", clearOnSet: true },
-      { value: "出張", requireTime: true, class: "st-trip" },
-      { value: "研修", requireTime: true, class: "st-training" },
-      { value: "健康診断", requireTime: true, class: "st-health" },
-      { value: "コアドック", requireTime: true, class: "st-coadoc" },
-      { value: "帰宅", class: "st-home" },
-      { value: "休み", class: "st-off", clearOnSet: true }
-    ],
-    noteOptions: ["直出", "直帰", "直出・直帰"],
+    statuses: DEFAULT_STATUSES.slice(),              /* constants/defaults.js (SSOT) */
+    noteOptions: DEFAULT_NOTE_OPTIONS.slice(),        /* constants/defaults.js (SSOT) */
+    tomorrowPlanOptions: DEFAULT_TOMORROW_PLAN_OPTIONS.slice(),
     businessHours: DEFAULT_BUSINESS_HOURS.slice()
   };
 }
@@ -107,6 +103,7 @@ function setupMenus(m) {
 
   if (!Array.isArray(MENUS.statuses)) MENUS.statuses = base.statuses;
   if (!Array.isArray(MENUS.noteOptions)) MENUS.noteOptions = base.noteOptions;
+  if (!Array.isArray(MENUS.tomorrowPlanOptions)) MENUS.tomorrowPlanOptions = base.tomorrowPlanOptions;
   MENUS.businessHours = normalizeBusinessHours(MENUS.businessHours);
   const sts = Array.isArray(MENUS.statuses) ? MENUS.statuses : base.statuses;
 
@@ -163,7 +160,8 @@ function normalizeConfigClient(cfg) {
         ext: String(m.ext ?? ""),
         mobile: String(m.mobile ?? ""),
         email: String(m.email ?? ""),
-        workHours: m.workHours == null ? '' : String(m.workHours)
+        workHours: m.workHours == null ? '' : String(m.workHours),
+        tomorrowPlan: m.tomorrowPlan == null ? '' : String(m.tomorrowPlan)
       })).filter(m => m.id || m.name)
     };
   });
@@ -409,7 +407,7 @@ async function pushRowDelta(key) {
   } finally {
     PENDING_ROWS.delete(key);
     if (tr) {
-      tr.querySelectorAll('input[name="note"],input[name="workHours"],select[name="status"],select[name="time"]').forEach(inp => {
+      tr.querySelectorAll('input[name="note"],input[name="workHours"],select[name="status"],select[name="time"],select[name="tomorrowPlan"]').forEach(inp => {
         if (inp && inp.dataset) delete inp.dataset.editing;
       });
     }
@@ -434,8 +432,8 @@ function applyState(data) {
     if (PENDING_ROWS.has(k)) return;
 
     const tr = document.getElementById(`row-${k}`);
-    const s = tr?.querySelector('select[name="status"]'), t = tr?.querySelector('select[name="time"]'), w = tr?.querySelector('input[name="workHours"]'), n = tr?.querySelector('input[name="note"]');
-    if (!tr || !s || !t || !w) { ensureRowControls(tr); }
+    const s = tr?.querySelector('select[name="status"]'), t = tr?.querySelector('select[name="time"]'), p = tr?.querySelector('select[name="tomorrowPlan"]'), w = tr?.querySelector('input[name="workHours"]'), n = tr?.querySelector('input[name="note"]');
+    if (!tr || !s || !t || !p || !w) { ensureRowControls(tr); }
     const extTd = tr?.querySelector('td.ext');
     if (extTd && v && v.ext !== undefined) {
       const extVal = String(v.ext || '').replace(/[^0-9]/g, '');
@@ -447,7 +445,7 @@ function applyState(data) {
     }
     if (v.status && STATUSES.some(x => x.value === v.status)) setIfNeeded(s, v.status);
     setIfNeeded(w, (v && typeof v.workHours === 'string') ? v.workHours : (v && v.workHours == null ? '' : String(v?.workHours ?? '')));
-    setIfNeeded(t, v.time || ""); setIfNeeded(n, v.note || "");
+    setIfNeeded(t, v.time || ""); setIfNeeded(p, v.tomorrowPlan || ""); setIfNeeded(n, v.note || "");
     if (s && t) toggleTimeEnable(s, t);
 
     const remoteRev = Number(v.rev || 0);

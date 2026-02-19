@@ -850,6 +850,14 @@ function updateMoveButtons() {
 }
 
 /* ツール管理UI */
+const btnSaveAutoClear = document.getElementById('btnSaveAutoClear');
+if (btnSaveAutoClear) {
+  btnSaveAutoClear.addEventListener('click', async () => {
+    const office = selectedOfficeId(); if (!office) return;
+    await saveAutoClearSettings(office);
+  });
+}
+
 if (btnAddTool) { btnAddTool.addEventListener('click', () => addToolEditorItem()); }
 if (btnLoadTools) { btnLoadTools.addEventListener('click', () => loadAdminTools(true)); }
 if (btnSaveTools) {
@@ -894,11 +902,88 @@ async function loadAdminTools(force = false) {
     if (!normalized.length) {
       addToolEditorItem();
     }
+    // 自動消去設定の読み込み
+    await loadAutoClearSettings(office);
     adminToolsLoaded = true; adminToolsOfficeId = office;
     if (force) { toast('ツールを読み込みました'); }
   } catch (err) {
     console.error('loadAdminTools error', err);
     toast('ツールの読み込みに失敗', false);
+  }
+}
+
+/**
+ * 拠点の自動消去設定をサーバーから読み込み、UIに反映する
+ * @param {string} officeId 拠点ID
+ */
+async function loadAutoClearSettings(officeId) {
+  try {
+    const params = { action: 'getOfficeSettings', token: SESSION_TOKEN, office: officeId };
+    const res = await apiPost(params);
+    if (res && res.settings) {
+      const s = res.settings;
+      const elEnabled = document.getElementById('autoClearEnabled');
+      const elHour = document.getElementById('autoClearHour');
+      const elFields = document.getElementById('autoClearFields');
+
+      if (elEnabled) elEnabled.checked = !!s.enabled;
+      if (elHour) elHour.value = s.hour || 0;
+
+      if (elFields) {
+        const fields = s.fields || [];
+        const cbs = elFields.querySelectorAll('input[type="checkbox"]');
+        cbs.forEach(cb => {
+          cb.checked = fields.includes(cb.value);
+        });
+      }
+    }
+  } catch (e) {
+    console.error('loadAutoClearSettings error:', e);
+  }
+}
+
+/**
+ * 現在のUI上の自動消去設定をサーバーに保存する
+ * @param {string} officeId 拠点ID
+ */
+async function saveAutoClearSettings(officeId) {
+  try {
+    const elEnabled = document.getElementById('autoClearEnabled');
+    const elHour = document.getElementById('autoClearHour');
+    const elFields = document.getElementById('autoClearFields');
+
+    const enabled = elEnabled ? elEnabled.checked : false;
+    const hour = elHour ? parseInt(elHour.value, 10) : 0;
+
+    let fields = [];
+    if (elFields) {
+      const cbs = elFields.querySelectorAll('input[type="checkbox"]');
+      fields = Array.from(cbs).filter(cb => cb.checked).map(cb => cb.value);
+    }
+
+    if (enabled && fields.length === 0) {
+      toast('消去する項目を1つ以上選択してください', false);
+      return;
+    }
+
+    const settings = { enabled, hour, fields };
+    const params = {
+      action: 'setOfficeSettings',
+      token: SESSION_TOKEN,
+      office: officeId,
+      settings: JSON.stringify(settings)
+    };
+
+    const res = await apiPost(params);
+
+    if (res && res.ok) {
+      toast('自動消去設定を保存しました');
+    } else {
+      toast('設定の保存に失敗しました', false);
+    }
+  } catch (e) {
+    console.error('saveAutoClearSettings error:', e);
+    toast('設定の保存に失敗しました', false);
   }
 }
 
@@ -1751,4 +1836,213 @@ if (btnExportEvent) {
       toast('エクスポートに失敗しました', false);
     }
   });
+}
+/* 一覧出力（PDF出力）機能 */
+const btnPrintList = document.getElementById('btnPrintList');
+if (btnPrintList) {
+  btnPrintList.addEventListener('click', async () => {
+    const office = selectedOfficeId();
+    if (!office) return;
+
+    try {
+      // データの最新化がまだならロード
+      if (!adminMembersLoaded) {
+        toast('データを読み込み中...', true);
+        await loadAdminMembers(true);
+      }
+
+      const sortType = document.getElementById('adminExportSort')?.value || 'default';
+      const oneTable = document.getElementById('adminExportOneTable')?.checked || false;
+
+      // 表示用のデータを構築（ステータス情報などを結合）
+      const list = adminMemberList.map(m => {
+        const live = (typeof STATE_CACHE !== 'undefined' ? STATE_CACHE[m.id] : {}) || {};
+        const admin = adminMemberData[m.id] || {};
+        return {
+          ...m,
+          status: live.status || admin.status || '在席',
+          time: live.time || admin.time || '',
+          note: live.note || admin.note || '',
+          workHours: live.workHours || admin.workHours || m.workHours || '',
+          tomorrowPlan: live.tomorrowPlan || admin.tomorrowPlan || '' // 明日の予定を追加
+        };
+      });
+
+      // ソート処理
+      if (sortType === 'name') {
+        list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'));
+      } else if (sortType === 'time') {
+        list.sort((a, b) => (a.workHours || '').localeCompare(b.workHours || '', 'ja') || (a.name || '').localeCompare(b.name || '', 'ja'));
+      } else if (sortType === 'status') {
+        const statusOrder = (typeof STATUSES !== 'undefined') ? STATUSES.map(s => s.value) : [];
+        list.sort((a, b) => {
+          const ia = statusOrder.indexOf(a.status);
+          const ib = statusOrder.indexOf(b.status);
+          if (ia !== ib) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+          return (a.name || '').localeCompare(b.name || '', 'ja');
+        });
+      }
+      // default の場合は adminMemberList の順序（normalizeMemberOrdering済み）を維持
+
+      // HTML生成
+      const workArea = document.getElementById('printListWorkArea');
+      if (!workArea) return;
+      workArea.innerHTML = '';
+      workArea.classList.remove('u-hidden');
+
+      const officeName = (document.getElementById('renameOfficeName')?.value) || (typeof CURRENT_OFFICE_NAME !== 'undefined' ? CURRENT_OFFICE_NAME : '');
+      const title = document.createElement('h2');
+      title.className = 'print-list-title';
+      title.textContent = `${officeName} 在席確認一覧 (${new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })})`;
+      workArea.appendChild(title);
+
+      if (oneTable) {
+        // 全員一括の1つのリスト（1人1行テーブル）
+        // ★ 列幅の定義箇所 (SSOT): colgroup のみ
+        //   ※ .print-col-* クラスは使わない（styles.css の !important と競合するため）
+        const container = document.createElement('div');
+        container.className = 'print-list-container';
+
+        const table = document.createElement('table');
+        table.className = 'print-one-col-table';
+
+        // ★ SSOT: 列幅はここだけで定義する
+        // 氏名13% + 時間12% + 状態12% + 戻り7% + 予定20% + 備考36% = 100%
+        const colgroup = document.createElement('colgroup');
+        const colWidths = ['13%', '12%', '12%', '7%', '20%', '36%'];
+        colWidths.forEach(w => {
+          const col = document.createElement('col');
+          col.style.width = w;
+          colgroup.appendChild(col);
+        });
+        table.appendChild(colgroup);
+
+        // THEAD: ページ毎にヘッダーを表示させるため
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+
+        const headers = ['氏名', '業務時間', '状態', '戻り', '明日の予定', '備考'];
+        headers.forEach(h => {
+          const th = document.createElement('th');
+          th.textContent = h;
+          headerRow.appendChild(th);
+        });
+
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // TBODY: 1人1行（クラスなしでセル生成）
+        const tbody = document.createElement('tbody');
+        list.forEach(m => {
+          const tr = document.createElement('tr');
+          const values = [
+            m.name || '', m.workHours || '', m.status || '',
+            m.time || '', m.tomorrowPlan || '', m.note || ''
+          ];
+          values.forEach(v => {
+            const td = document.createElement('td');
+            td.textContent = v;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(tbody);
+        container.appendChild(table);
+        workArea.appendChild(container);
+
+      } else {
+        // グループごとに分割（従来通り）
+        const container = document.createElement('div');
+        container.className = 'print-list-container';
+
+        const groups = [...new Set(list.map(m => m.group))];
+        const sortedGroups = adminGroupOrder.filter(g => groups.includes(g));
+        groups.forEach(g => { if (!sortedGroups.includes(g)) sortedGroups.push(g); });
+
+        sortedGroups.forEach(groupName => {
+          const groupMembers = list.filter(m => m.group === groupName);
+          if (groupMembers.length === 0) return;
+
+          const groupSection = document.createElement('div');
+          groupSection.className = 'print-group-section';
+
+          const h3 = document.createElement('div');
+          h3.className = 'print-group-header';
+          h3.textContent = groupName;
+          groupSection.appendChild(h3);
+
+          // カラムヘッダー（DIV構成）
+          groupSection.appendChild(createPrintHeaderRowDiv());
+
+          groupMembers.forEach(m => {
+            groupSection.appendChild(createPrintRowDiv(m));
+          });
+
+          container.appendChild(groupSection);
+        });
+        workArea.appendChild(container);
+      }
+
+      // 印刷実行
+      window.print();
+
+      // 印刷後はワークエリアを隠す
+      setTimeout(() => {
+        workArea.classList.add('u-hidden');
+      }, 500);
+
+    } catch (err) {
+      console.error('Print list error:', err);
+      toast('一覧出力に失敗しました', false);
+    }
+  });
+}
+
+// 2列表示用セル生成ヘルパー
+function appendMemberCells(tr, m, classes) {
+  const values = [
+    m.name || '',
+    m.workHours || '',
+    m.status || '',
+    m.time || '',
+    m.tomorrowPlan || '',
+    m.note || ''
+  ];
+  values.forEach((v, i) => {
+    const td = document.createElement('td');
+    td.textContent = v;
+    td.className = classes[i];
+    tr.appendChild(td);
+  });
+}
+
+function createPrintHeaderRowDiv() {
+  const row = document.createElement('div');
+  row.className = 'print-table-header';
+
+  const name = document.createElement('div'); name.className = 'pm-name'; name.textContent = '氏名';
+  const work = document.createElement('div'); work.className = 'pm-work'; work.textContent = '業務時間';
+  const status = document.createElement('div'); status.className = 'pm-status'; status.textContent = '状態';
+  const ret = document.createElement('div'); ret.className = 'pm-ret'; ret.textContent = '戻り';
+  const next = document.createElement('div'); next.className = 'pm-next'; next.textContent = '明日の予定';
+  const note = document.createElement('div'); note.className = 'pm-note'; note.textContent = '備考';
+
+  row.append(name, work, status, ret, next, note);
+  return row;
+}
+
+function createPrintRowDiv(m) {
+  const row = document.createElement('div');
+  row.className = 'print-member-row';
+
+  const name = document.createElement('div'); name.className = 'pm-name'; name.textContent = m.name || '';
+  const work = document.createElement('div'); work.className = 'pm-work'; work.textContent = m.workHours || '';
+  const status = document.createElement('div'); status.className = 'pm-status'; status.textContent = m.status || '';
+  const ret = document.createElement('div'); ret.className = 'pm-ret'; ret.textContent = m.time || '';
+  const next = document.createElement('div'); next.className = 'pm-next'; next.textContent = m.tomorrowPlan || '';
+  const note = document.createElement('div'); note.className = 'pm-note'; note.textContent = m.note || '';
+
+  row.append(name, work, status, ret, next, note);
+  return row;
 }

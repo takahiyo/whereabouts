@@ -5,5 +5,8 @@
   "main": "migrate.js",
   "scripts": {
     "migrate": "node migrate.js"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.58.2"
   }
 }

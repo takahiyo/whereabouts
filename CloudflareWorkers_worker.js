@@ -194,6 +194,7 @@ export default {
             time: m.time,
             note: m.note,
             workHours: m.work_hours,
+            tomorrowPlan: m.tomorrow_plan,
             ext: m.ext,
             mobile: m.mobile,
             email: m.email
@@ -275,6 +276,7 @@ export default {
             time: m.time,
             note: m.note,
             workHours: m.work_hours,
+            tomorrowPlan: m.tomorrow_plan,
             updated: m.updated,
             serverUpdated: m.updated,
             ext: m.ext,
@@ -476,6 +478,37 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
+      /* --- GET OFFICE SETTINGS --- */
+      if (action === 'getOfficeSettings') {
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+        const office = await env.DB.prepare('SELECT auto_clear_config FROM offices WHERE id = ?')
+          .bind(officeId)
+          .first();
+        const settings = office && office.auto_clear_config ? JSON.parse(office.auto_clear_config) : { enabled: false, hour: 0, fields: [] };
+        return new Response(JSON.stringify({ ok: true, settings }), { headers: corsHeaders });
+      }
+
+      /* --- SET OFFICE SETTINGS --- */
+      if (action === 'setOfficeSettings') {
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+        let settingsRaw = getParamRaw('settings');
+        if (typeof settingsRaw === 'object' && settingsRaw !== null) {
+          settingsRaw = JSON.stringify(settingsRaw);
+        }
+        if (!settingsRaw) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+
+        await env.DB.prepare('UPDATE offices SET auto_clear_config = ?, updated_at = ? WHERE id = ?')
+          .bind(settingsRaw, Date.now(), officeId)
+          .run();
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
       /* --- RENAME OFFICE --- */
       if (action === 'renameOffice') {
         const officeId = getParam('office') || tokenOffice;
@@ -581,6 +614,7 @@ export default {
             if (m.time !== undefined) { query += 'time=?, '; params.push(m.time); }
             if (m.note !== undefined) { query += 'note=?, '; params.push(m.note); }
             if (m.workHours !== undefined) { query += 'work_hours=?, '; params.push(m.workHours); }
+            if (m.tomorrowPlan !== undefined) { query += 'tomorrow_plan=?, '; params.push(m.tomorrowPlan); }
 
             query += 'updated=?, ';
             params.push(nowTs);
@@ -675,6 +709,7 @@ export default {
             time: m.time || '',
             note: m.note || '',
             work_hours: m.work_hours || '',
+            tomorrow_plan: m.tomorrow_plan || '',
             ext: m.ext || '',
             mobile: m.mobile || '',
             email: m.email || ''
@@ -695,8 +730,8 @@ export default {
               // 既存データがあれば status, time, note, work_hours などを引き継ぐ
               const existing = existingMap.get(id) || {};
               statements.push(env.DB.prepare(`
-                INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, work_hours, ext, mobile, email, updated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, tomorrow_plan, work_hours, ext, mobile, email, updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).bind(
                 id,
                 officeId,
@@ -706,6 +741,7 @@ export default {
                 existing.status || '',
                 existing.time || '',
                 existing.note || '',
+                m.tomorrowPlan || existing.tomorrow_plan || '',
                 m.workHours || existing.work_hours || '',
                 m.ext || existing.ext || '',
                 m.mobile || existing.mobile || '',
@@ -754,6 +790,79 @@ export default {
         }),
         { status: 500, headers: corsHeaders }
       );
+    }
+  },
+
+  /**
+   * 定期実行 (Cron Trigger)
+   * 毎日指定された時間に特定の項目を自動消去する
+   */
+  async scheduled(event, env, ctx) {
+    const now = new Date();
+    // 日本標準時 (JST = UTC+9) に調整
+    const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const currentHour = jstNow.getUTCHours();
+
+    console.log(`[Scheduled] ${jstNow.toISOString()} (JST Hour: ${currentHour})`);
+
+    // 自動消去設定が有効な拠点を取得
+    const offices = await env.DB.prepare('SELECT id, auto_clear_config FROM offices WHERE auto_clear_config IS NOT NULL').all();
+
+    for (const office of (offices.results || [])) {
+      try {
+        const config = JSON.parse(office.auto_clear_config);
+        if (!config.enabled) continue;
+
+        // 設定された時間と現在の時間が一致するか確認
+        if (Number(config.hour) !== currentHour) continue;
+
+        const fieldsToClear = config.fields || [];
+        if (fieldsToClear.length === 0) continue;
+
+        console.log(`[Scheduled] Clearing fields [${fieldsToClear.join(', ')}] for office: ${office.id}`);
+
+        let query = 'UPDATE members SET ';
+        const params = [];
+        const fieldMap = {
+          'workHours': 'work_hours',
+          'status': 'status',
+          'time': 'time',
+          'tomorrowPlan': 'tomorrow_plan',
+          'note': 'note'
+        };
+
+        const updates = [];
+        for (const f of fieldsToClear) {
+          const col = fieldMap[f];
+          if (col) {
+            updates.push(`${col} = ?`);
+            // ステータスは「在席」に戻し、それ以外は空文字にする
+            params.push(f === 'status' ? '在席' : '');
+          }
+        }
+
+        if (updates.length > 0) {
+          updates.push('updated = ?');
+          params.push(Date.now());
+
+          query += updates.join(', ') + ' WHERE office_id = ?';
+          params.push(office.id);
+
+          await env.DB.prepare(query).bind(...params).run();
+
+          // キャッシュを削除して最新状態が反映されるようにする
+          if (env.STATUS_CACHE) {
+            ctx.waitUntil(Promise.all([
+              env.STATUS_CACHE.delete(`status:${office.id}`),
+              env.STATUS_CACHE.delete(`config_v2:${office.id}`),
+              env.STATUS_CACHE.put(`lastUpdate:${office.id}`, String(Date.now()))
+            ]));
+          }
+          console.log(`[Scheduled] Successfully cleared fields for office: ${office.id}`);
+        }
+      } catch (err) {
+        console.error(`[Scheduled] Error processing office ${office.id}:`, err);
+      }
     }
   }
 };
