@@ -974,14 +974,18 @@ async function saveAutoClearSettings(officeId) {
       settings: JSON.stringify(settings)
     };
 
+    console.log('[saveAutoClearSettings] リクエスト送信:', JSON.stringify(params, null, 2));
     const res = await apiPost(params);
+    console.log('[saveAutoClearSettings] レスポンス:', JSON.stringify(res, null, 2));
+
     if (res && res.ok) {
       toast('自動消去設定を保存しました');
     } else {
+      console.warn('[saveAutoClearSettings] 保存失敗 - レスポンス:', res);
       toast('設定の保存に失敗しました', false);
     }
   } catch (e) {
-    console.error('saveAutoClearSettings error:', e);
+    console.error('[saveAutoClearSettings] 例外発生:', e);
     toast('設定の保存に失敗しました', false);
   }
 }
