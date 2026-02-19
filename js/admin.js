@@ -1817,7 +1817,8 @@ if (btnPrintList) {
         container.className = 'print-list-container';
 
         const section = document.createElement('div');
-        section.className = 'print-group-section';
+        // 全員表示の場合は改ページ制限を解除するクラスを付与
+        section.className = 'print-group-section no-break-limit';
 
         const header = document.createElement('div');
         header.className = 'print-group-header';

@@ -4000,10 +4000,18 @@ td.time.need-time select:focus~.time-hint {
 }
 
 .print-group-section {
-  /* break-inside: avoid; を削除し、行単位での改ページを許容する */
+  break-inside: avoid;
+  page-break-inside: avoid;
+  /* 旧ブラウザ互換 */
   margin-bottom: 15px;
   border: 1px solid #000;
   border-radius: 4px;
+}
+
+/* 全員表示用：ページ跨ぎを許容する */
+.print-group-section.no-break-limit {
+  break-inside: auto;
+  page-break-inside: auto;
 }
 
 .print-group-header {
@@ -4022,8 +4030,11 @@ td.time.need-time select:focus~.time-hint {
   border-bottom: 1px solid #000;
   background-color: #f9f9f9;
   font-weight: bold;
-  font-size: 9pt;
-  padding: 4px 6px;
+  font-size: 8pt;
+  /* サイズ縮小 */
+  padding: 2px 4px;
+  /* パディング縮小 */
+  line-height: 1.1;
 }
 
 .print-member-row {
