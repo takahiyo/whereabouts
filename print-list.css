@@ -100,35 +100,14 @@
         display: table-row-group !important;
     }
 
-    /* 氏名列は太字 */
-    .print-one-col-table td.print-col-name {
+    /* 氏名列（1列目）は太字 */
+    .print-one-col-table td:first-child {
         font-weight: bold;
     }
 
-    /* 列幅の上書き（styles.css の .print-col-* !important を打ち消す） */
-    .print-one-col-table .print-col-name {
-        width: 13% !important;
-    }
-
-    .print-one-col-table .print-col-work {
-        width: 12% !important;
-    }
-
-    .print-one-col-table .print-col-status {
-        width: 12% !important;
-    }
-
-    .print-one-col-table .print-col-time {
-        width: 7% !important;
-    }
-
-    .print-one-col-table .print-col-next {
-        width: 20% !important;
-    }
-
-    .print-one-col-table .print-col-note {
-        width: 36% !important;
-    }
+    /* ★ 列幅は admin.js の colgroup で一元管理（SSOT）
+     *   .print-col-* クラスは One Table では使わない
+     *   → styles.css の !important 付きルールとの競合を回避 */
 
     /* ==========================================================================
    * 5. グループ表示レイアウト（従来のFlexbox構成）
