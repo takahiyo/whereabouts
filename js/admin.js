@@ -1812,36 +1812,86 @@ if (btnPrintList) {
       workArea.appendChild(title);
 
       if (oneTable) {
-        // 全員一括の1つのリスト
+        // 全員一括の1つのリスト（2列表示テーブル・Z字順）
         const container = document.createElement('div');
         container.className = 'print-list-container';
 
-        const section = document.createElement('div');
-        // 全員表示の場合は改ページ制限を解除するクラスを付与
-        section.className = 'print-group-section no-break-limit';
+        const table = document.createElement('table');
+        table.className = 'print-two-col-table';
 
-        const header = document.createElement('div');
-        header.className = 'print-group-header';
-        header.textContent = '全メンバー';
-        section.appendChild(header);
+        // THEAD: ページ毎にヘッダーを表示させるため
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
 
-        // カラムヘッダー
-        section.appendChild(createPrintHeaderRow());
+        // 左カラムヘッダー
+        const headers = ['氏名', '業務時間', '状態', '戻り', '明日の予定', '備考'];
+        const classes = ['print-col-name', 'print-col-work', 'print-col-status', 'print-col-time', 'print-col-next', 'print-col-note'];
 
-        // メンバー行生成
-        list.forEach(m => {
-          section.appendChild(createPrintRow(m));
+        headers.forEach((h, i) => {
+          const th = document.createElement('th');
+          th.textContent = h;
+          th.className = classes[i];
+          headerRow.appendChild(th);
         });
 
-        container.appendChild(section);
+        // 区切り（中央）
+        const thSep = document.createElement('th');
+        thSep.className = 'col-sep';
+        headerRow.appendChild(thSep);
+
+        // 右カラムヘッダー
+        headers.forEach((h, i) => {
+          const th = document.createElement('th');
+          th.textContent = h;
+          th.className = classes[i];
+          headerRow.appendChild(th);
+        });
+
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // TBODY
+        const tbody = document.createElement('tbody');
+
+        // 2人ずつペアにして行を作成
+        for (let i = 0; i < list.length; i += 2) {
+          const m1 = list[i];
+          const m2 = list[i + 1]; // 奇数人の場合は undefined
+
+          const tr = document.createElement('tr');
+
+          // 左カラムデータ
+          appendMemberCells(tr, m1, classes);
+
+          // 区切り（中央）
+          const tdSep = document.createElement('td');
+          tdSep.className = 'col-sep';
+          tr.appendChild(tdSep);
+
+          // 右カラムデータ
+          if (m2) {
+            appendMemberCells(tr, m2, classes);
+          } else {
+            // 空のセルを埋める
+            classes.forEach(() => {
+              const td = document.createElement('td');
+              tr.appendChild(td);
+            });
+          }
+
+          tbody.appendChild(tr);
+        }
+
+        table.appendChild(tbody);
+        container.appendChild(table);
         workArea.appendChild(container);
+
       } else {
-        // グループごとに分割
+        // グループごとに分割（従来通り）
         const container = document.createElement('div');
         container.className = 'print-list-container';
 
         const groups = [...new Set(list.map(m => m.group))];
-        // adminGroupOrder の順序を尊重しつつ、データがあるものだけ抽出
         const sortedGroups = adminGroupOrder.filter(g => groups.includes(g));
         groups.forEach(g => { if (!sortedGroups.includes(g)) sortedGroups.push(g); });
 
@@ -1857,11 +1907,11 @@ if (btnPrintList) {
           h3.textContent = groupName;
           groupSection.appendChild(h3);
 
-          // カラムヘッダー
-          groupSection.appendChild(createPrintHeaderRow());
+          // カラムヘッダー（DIV構成）
+          groupSection.appendChild(createPrintHeaderRowDiv());
 
           groupMembers.forEach(m => {
-            groupSection.appendChild(createPrintRow(m));
+            groupSection.appendChild(createPrintRowDiv(m));
           });
 
           container.appendChild(groupSection);
@@ -1872,7 +1922,7 @@ if (btnPrintList) {
       // 印刷実行
       window.print();
 
-      // 印刷後はワークエリアを隠す（実際には @media print で制御されるが念のため）
+      // 印刷後はワークエリアを隠す
       setTimeout(() => {
         workArea.classList.add('u-hidden');
       }, 500);
@@ -1884,7 +1934,25 @@ if (btnPrintList) {
   });
 }
 
-function createPrintHeaderRow() {
+// 2列表示用セル生成ヘルパー
+function appendMemberCells(tr, m, classes) {
+  const values = [
+    m.name || '',
+    m.workHours || '',
+    m.status || '',
+    m.time || '',
+    m.tomorrowPlan || '',
+    m.note || ''
+  ];
+  values.forEach((v, i) => {
+    const td = document.createElement('td');
+    td.textContent = v;
+    td.className = classes[i];
+    tr.appendChild(td);
+  });
+}
+
+function createPrintHeaderRowDiv() {
   const row = document.createElement('div');
   row.className = 'print-table-header';
 
@@ -1899,7 +1967,7 @@ function createPrintHeaderRow() {
   return row;
 }
 
-function createPrintRow(m) {
+function createPrintRowDiv(m) {
   const row = document.createElement('div');
   row.className = 'print-member-row';
 
