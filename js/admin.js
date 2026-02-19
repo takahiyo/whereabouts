@@ -1752,3 +1752,137 @@ if (btnExportEvent) {
     }
   });
 }
+/* 一覧出力（PDF出力）機能 */
+const btnPrintList = document.getElementById('btnPrintList');
+if (btnPrintList) {
+  btnPrintList.addEventListener('click', async () => {
+    const office = selectedOfficeId();
+    if (!office) return;
+
+    try {
+      // データの最新化がまだならロード
+      if (!adminMembersLoaded) {
+        toast('データを読み込み中...', true);
+        await loadAdminMembers(true);
+      }
+
+      const sortType = document.getElementById('adminExportSort')?.value || 'default';
+      const oneTable = document.getElementById('adminExportOneTable')?.checked || false;
+
+      // 表示用のデータを構築（ステータス情報などを結合）
+      const list = adminMemberList.map(m => {
+        const live = (typeof STATE_CACHE !== 'undefined' ? STATE_CACHE[m.id] : {}) || {};
+        const admin = adminMemberData[m.id] || {};
+        return {
+          ...m,
+          status: live.status || admin.status || '在席',
+          time: live.time || admin.time || '',
+          note: live.note || admin.note || '',
+          workHours: live.workHours || admin.workHours || m.workHours || ''
+        };
+      });
+
+      // ソート処理
+      if (sortType === 'name') {
+        list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'));
+      } else if (sortType === 'time') {
+        list.sort((a, b) => (a.workHours || '').localeCompare(b.workHours || '', 'ja') || (a.name || '').localeCompare(b.name || '', 'ja'));
+      } else if (sortType === 'status') {
+        const statusOrder = (typeof STATUSES !== 'undefined') ? STATUSES.map(s => s.value) : [];
+        list.sort((a, b) => {
+          const ia = statusOrder.indexOf(a.status);
+          const ib = statusOrder.indexOf(b.status);
+          if (ia !== ib) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+          return (a.name || '').localeCompare(b.name || '', 'ja');
+        });
+      }
+      // default の場合は adminMemberList の順序（normalizeMemberOrdering済み）を維持
+
+      // HTML生成
+      const workArea = document.getElementById('printListWorkArea');
+      if (!workArea) return;
+      workArea.innerHTML = '';
+      workArea.classList.remove('u-hidden');
+
+      const officeName = (document.getElementById('renameOfficeName')?.value) || (typeof CURRENT_OFFICE_NAME !== 'undefined' ? CURRENT_OFFICE_NAME : '');
+      const title = document.createElement('h2');
+      title.className = 'print-list-title';
+      title.textContent = `${officeName} 在席確認一覧 (${new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })})`;
+      workArea.appendChild(title);
+
+      if (oneTable) {
+        // 全員一括の1つのテーブル
+        const table = createPrintTable(list, false);
+        workArea.appendChild(table);
+      } else {
+        // グループごとに分割
+        const groups = [...new Set(list.map(m => m.group))];
+        // adminGroupOrder の順序を尊重しつつ、データがあるものだけ抽出
+        const sortedGroups = adminGroupOrder.filter(g => groups.includes(g));
+        groups.forEach(g => { if (!sortedGroups.includes(g)) sortedGroups.push(g); });
+
+        sortedGroups.forEach(groupName => {
+          const groupMembers = list.filter(m => m.group === groupName);
+          if (groupMembers.length === 0) return;
+
+          const groupSection = document.createElement('div');
+          groupSection.className = 'print-group-section';
+
+          const h3 = document.createElement('h3');
+          h3.textContent = groupName;
+          groupSection.appendChild(h3);
+
+          const table = createPrintTable(groupMembers, true);
+          groupSection.appendChild(table);
+          workArea.appendChild(groupSection);
+        });
+      }
+
+      // 印刷実行
+      window.print();
+
+      // 印刷後はワークエリアを隠す（実際には @media print で制御されるが念のため）
+      setTimeout(() => {
+        workArea.classList.add('u-hidden');
+      }, 500);
+
+    } catch (err) {
+      console.error('Print list error:', err);
+      toast('一覧出力に失敗しました', false);
+    }
+  });
+}
+
+function createPrintTable(members, isGrouped) {
+  const table = document.createElement('table');
+  table.className = 'print-list-table';
+
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  const headers = isGrouped ? ['氏名', '勤務時間', '状況', '戻り時間', '備考'] : ['グループ', '氏名', '勤務時間', '状況', '戻り時間', '備考'];
+
+  headers.forEach(h => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  members.forEach(m => {
+    const tr = document.createElement('tr');
+    const cols = isGrouped
+      ? [m.name, m.workHours, m.status, m.time, m.note]
+      : [m.group, m.name, m.workHours, m.status, m.time, m.note];
+
+    cols.forEach(c => {
+      const td = document.createElement('td');
+      td.textContent = c || '';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return table;
+}
