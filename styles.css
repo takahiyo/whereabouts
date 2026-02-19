@@ -1,30 +1,30 @@
-﻿:root {
-  /* === 繝代ロ繝ｫ陦ｨ遉ｺ・亥､壼・・牙・蟷・ｮ夂ｾｩ (SSOT) === */
-  /* 蝗ｺ螳壼ｹ・・・域ｰ丞錐莉･螟悶・2/3繧ｵ繧､繧ｺ縺ｫ謌ｻ縺呻ｼ・*/
+:root {
+  /* === パネル表示（多列）列幅定義 (SSOT) === */
+  /* 固定幅列（氏名以外は2/3サイズに戻す） */
   --w-work: 107px;
-  /* 蜈・60px (2/3) */
+  /* 元160px (2/3) */
   --w-status: 134px;
-  /* 蜈・00px (2/3) */
+  /* 元200px (2/3) */
   --w-time: 85px;
-  /* 蜈・20px (2/3 + 5px) */
-  /* 蜈・20px (2/3) */
+  /* 元120px (2/3 + 5px) */
+  /* 元120px (2/3) */
   --w-tomorrow-plan: 134px;
-  /* 蜈・00px (2/3) */
+  /* 元200px (2/3) */
 
-  /* 豌丞錐谺・ｼ医Θ繝ｼ繧ｶ繝ｼ謖・ｮ壹・110px繧堤ｶｭ謖・ｼ・*/
+  /* 氏名欄（ユーザー指定の110pxを維持） */
   --w-name: 94px;
-  /* 蜈・40px (2/3) */
+  /* 元140px (2/3) */
   --w-name-max: 110px;
-  /* 繝ｦ繝ｼ繧ｶ繝ｼ謖・ｮ・ 110px */
+  /* ユーザー指定: 110px */
   --w-note-min: 87px;
-  /* 蜈・30px (2/3) */
-  /* 蜈・30px */
+  /* 元130px (2/3) */
+  /* 元130px */
 
-  /* 繧ｹ繝・・繧ｿ繧ｹ蛻怜ｹ・ --status-fixed 縺ｫ繧医ｋ荳頑嶌縺榊庄・井ｺ呈鋤諤ｧ邯ｭ謖・ｼ・*/
+  /* ステータス列幅: --status-fixed による上書き可（互換性維持） */
   --status-effective: var(--status-fixed, var(--w-status));
 
-  /* 繝代ロ繝ｫ繝・・繝悶Ν譛蟆丞ｹ・ｼ・SOT: 蜈ｨ蛻・min 蟷・・蜷郁ｨ茨ｼ・
-     縺薙・蟷・ｒ荳句屓繧九ヱ繝阪Ν縺ｧ縺ｯ table 縺・min-width 繧剃ｿ晄戟縺励｝anel 縺梧ｨｪ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ */
+  /* パネルテーブル最小幅（SSOT: 全列 min 幅の合計）
+     この幅を下回るパネルでは table が min-width を保持し、panel が横スクロール */
   --table-min-width: calc(var(--w-name) + var(--w-work) + var(--status-effective) + var(--w-time) + var(--w-tomorrow-plan) + var(--w-note-min));
 
   --gap: 20px;
@@ -33,7 +33,7 @@
   --bg: #fafafa;
   --header-height: 56px;
 
-  /* === 繧ｫ繝ｩ繝ｼ繝代Ξ繝・ヨ (SSOT) === */
+  /* === カラーパレット (SSOT) === */
   --color-white: #ffffff;
   --color-black: #000000;
   --color-gray-50: #f9fafb;
@@ -76,7 +76,7 @@
   --color-indigo-100: #e0e7ff;
   --color-indigo-200: #c7d2fe;
 
-  /* 讖溯・蛻･繧ｫ繝ｩ繝ｼ */
+  /* 機能別カラー */
   --color-border: var(--line);
   --color-panel-bg: var(--bg);
   --color-header-bg: var(--color-white);
@@ -85,19 +85,19 @@
   --color-text-muted: var(--color-gray-500);
 
   --color-btn-group-bg: #dff1ff;
-  /* 蠕捺擂濶ｲ邯ｭ謖・*/
+  /* 従来色維持 */
   --color-btn-group-border: #bfe4ff;
   --color-btn-notices-bg: var(--color-amber-50);
   --color-btn-notices-border: var(--color-amber-400);
   --color-btn-admin-bg: #e7f8e7;
-  /* 蠕捺擂濶ｲ邯ｭ謖・*/
+  /* 従来色維持 */
   --color-btn-admin-border: #b7e6b7;
   --color-btn-event-bg: var(--color-pink-50);
   --color-btn-event-border: var(--color-pink-200);
   --color-btn-logout-bg: var(--color-red-100);
   --color-btn-logout-border: var(--color-red-200);
   --color-btn-tools-bg: #e0f2fe;
-  /* 蠕捺擂濶ｲ邯ｭ謖・*/
+  /* 従来色維持 */
   --color-btn-tools-border: #bae6fd;
   --color-btn-manual-bg: var(--color-indigo-50);
   --color-btn-manual-border: var(--color-indigo-200);
@@ -110,7 +110,7 @@ body {
   color: var(--color-text-main);
 }
 
-/* 繝倥ャ繝 */
+/* ヘッダ */
 header {
   position: sticky;
   top: 0;
@@ -188,7 +188,7 @@ header .manual-btn {
   display: none;
 }
 
-/* 繝輔ぅ繝ｫ繧ｿUI・医Ο繧ｰ繧､繝ｳ蠕後・縺ｿ陦ｨ遉ｺ・・*/
+/* フィルタUI（ログイン後のみ表示） */
 .name-filter,
 .status-filter {
   display: none;
@@ -207,7 +207,7 @@ header .manual-btn {
   min-width: 170px;
 }
 
-/* 繝倥ャ繝蜀・・讀懃ｴ｢繝懊ャ繧ｯ繧ｹ縺ｮ蝗ｺ螳壼ｹ・- 蛻晄悄陦ｨ遉ｺ繧帝撼陦ｨ遉ｺ(none)縺ｫ螟画峩縺励メ繝ｩ縺､縺埼亟豁｢ */
+/* ヘッダ内の検索ボックスの固定幅 - 初期表示を非表示(none)に変更しチラつき防止 */
 header #nameFilter,
 header .name-filter {
   display: none;
@@ -225,7 +225,7 @@ header .status-filter {
   flex: 0 0 auto;
 }
 
-/* 逶､髱｢ */
+/* 盤面 */
 .wrap {
   width: 100%;
   margin: 0 auto;
@@ -261,8 +261,8 @@ table {
   table-layout: fixed
 }
 
-/* 繝代ロ繝ｫ蜀・ユ繝ｼ繝悶Ν: 蛻怜ｹ・′豈比ｾ狗ｸｮ蟆上＆繧後↑縺・ｈ縺・min-width 繧定ｨｭ螳壹・
-   繝代ロ繝ｫ蟷・′荳崎ｶｳ縺吶ｋ蝣ｴ蜷医・ .panel 縺ｮ overflow:auto 縺ｧ讓ｪ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ */
+/* パネル内テーブル: 列幅が比例縮小されないよう min-width を設定。
+   パネル幅が不足する場合は .panel の overflow:auto で横スクロール */
 .panel table {
   min-width: var(--table-min-width)
 }
@@ -294,7 +294,7 @@ col.col-name {
   width: var(--w-name) !important;
 }
 
-/* 迚ｩ逅・崋螳・ width/min-/max-width繧団ol, th, td蜈ｨ縺ｦ縺ｧ蝗ｺ螳・(!important縺ｧ蠑ｷ蛻ｶ) */
+/* 物理固定: width/min-/max-widthをcol, th, td全てで固定 (!importantで強制) */
 col.col-work,
 th.work,
 td.work {
@@ -335,8 +335,8 @@ col.col-note {
   width: auto !important;
 }
 
-/* === 繧ｫ繝ｼ繝芽｡ｨ遉ｺ・・蛻暦ｼ画凾縺ｮ蠑ｷ蛻ｶ繝ｪ繧ｻ繝・ヨ === */
-/* 繝代ロ繝ｫ陦ｨ遉ｺ逕ｨ縺ｮ !important 蝗ｺ螳壼ｹ・ｒ隗｣髯､縺励：lexbox繝ｬ繧､繧｢繧ｦ繝医ｒ蠕ｩ蜈・*/
+/* === カード表示（1列）時の強制リセット === */
+/* パネル表示用の !important 固定幅を解除し、Flexboxレイアウトを復元 */
 #board.force-cards th,
 #board.force-cards td,
 #board.force-cards col,
@@ -348,8 +348,8 @@ col.col-note {
   max-width: none !important;
 }
 
-/* === 繧ｫ繝ｼ繝芽｡ｨ遉ｺ・・蛻暦ｼ画凾縺ｮ蠑ｷ蛻ｶ繝ｪ繧ｻ繝・ヨ === */
-/* 繝代ロ繝ｫ陦ｨ遉ｺ逕ｨ縺ｮ !important 蝗ｺ螳壼ｹ・ｒ隗｣髯､縺励：lexbox繝ｬ繧､繧｢繧ｦ繝医ｒ蠕ｩ蜈・*/
+/* === カード表示（1列）時の強制リセット === */
+/* パネル表示用の !important 固定幅を解除し、Flexboxレイアウトを復元 */
 #board.force-cards th,
 #board.force-cards td,
 #board.force-cards col,
@@ -361,7 +361,7 @@ col.col-note {
   max-width: none !important;
 }
 
-/* 豌丞錐繝ｻ蛯呵・・縺ｮ蟷・宛邏・ｼ亥､壼・繝代ロ繝ｫ陦ｨ遉ｺ縺ｮ陬懷ｮ鯉ｼ・*/
+/* 氏名・備考列の幅制約（多列パネル表示の補完） */
 td.name,
 th.name {
   min-width: var(--w-name) !important;
@@ -606,7 +606,7 @@ td.work input {
   outline-offset: 2px;
 }
 
-/* 繧ｹ繝・・繧ｿ繧ｹ蛻･縺ｮ陦瑚牡・亥惠蟶ｭ縺ｯ繝・ヵ繧ｩ繝ｫ繝茨ｼ・*/
+/* ステータス別の行色（在席はデフォルト） */
 #board tbody tr {
   transition: background-color .15s ease;
 }
@@ -666,7 +666,7 @@ td.work input {
   color: #374151;
 }
 
-/* 謌ｻ繧頑凾髢灘・蜉帙・菫・＠・亥､門・/莨夊ｭｰ・・*/
+/* 戻り時間入力の促し（外出/会議） */
 td.time {
   position: relative;
 }
@@ -682,14 +682,14 @@ td.time.need-time select {
   animation: pulseRing 1.2s ease-in-out infinite;
 }
 
-/* 菫ｮ豁｣: 繧ｿ繝・メ/驕ｸ謚樊桃菴應ｸｭ・医ヵ繧ｩ繝ｼ繧ｫ繧ｹ譎ゑｼ峨・繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ繧呈ｭ｢繧√ｋ */
+/* 修正: タッチ/選択操作中（フォーカス時）はアニメーションを止める */
 td.time.need-time select:focus {
   animation: none;
   border-color: #ef4444 !important;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, .25);
 }
 
-/* 菫ｮ豁｣: 繧ｿ繝・メ/驕ｸ謚樊桃菴應ｸｭ・医ヵ繧ｩ繝ｼ繧ｫ繧ｹ譎ゑｼ峨・繝偵Φ繝域枚蟄励ｒ豸医☆ */
+/* 修正: タッチ/選択操作中（フォーカス時）はヒント文字を消す */
 td.time.need-time select:focus~.time-hint {
   display: none;
 }
@@ -853,7 +853,7 @@ td.time.need-time select:focus~.time-hint {
     flex: 1 1 100%;
   }
 
-  /* 蜀・ｷ壹・繧ｫ繝ｼ繝芽｡ｨ遉ｺ縺ｧ縺ｯ髱櫁｡ｨ遉ｺ・磯｣邨｡蜈医・繝・・繧｢繝・・縺ｸ遘ｻ蜍包ｼ・*/
+  /* 内線はカード表示では非表示（連絡先ポップアップへ移動） */
   tbody td.ext {
     display: none !important;
   }
@@ -940,7 +940,7 @@ td.time.need-time select:focus~.time-hint {
   flex: 1 1 100%;
 }
 
-/* 蜀・ｷ夐撼陦ｨ遉ｺ */
+/* 内線非表示 */
 #board.force-cards tbody td.ext,
 #board[data-cols="1"] tbody td.ext {
   display: none !important;
@@ -994,7 +994,7 @@ td.time.need-time select:focus~.time-hint {
   display: none;
 }
 
-/* 1蛻励↓縺ｪ縺｣縺溘ｉ蠑ｷ蛻ｶ繧ｫ繝ｼ繝牙喧 */
+/* 1列になったら強制カード化 */
 
 .board.force-cards table {
   display: block;
@@ -1004,7 +1004,7 @@ td.time.need-time select:focus~.time-hint {
   min-width: unset
 }
 
-/* 險ｺ譁ｭ逕ｨ繝舌リ繝ｼ・亥ｿ・ｦ∵凾縺ｮ縺ｿ・・*/
+/* 診断用バナー（必要時のみ） */
 .diag {
   position: fixed;
   left: 8px;
@@ -1304,7 +1304,7 @@ td.time.need-time select:focus~.time-hint {
   gap: 8px;
   padding: 15px;
   padding-right: 40px;
-  /* 逕ｻ髱｢蜿ｳ遶ｯ縺九ｉ蟆代＠髮｢縺・*/
+  /* 画面右端から少し離す */
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   border-top: 1px solid #ccc;
@@ -1356,16 +1356,16 @@ td.time.need-time select:focus~.time-hint {
   align-items: center;
 }
 
-/* --- 鬆・分蛻励・繧ｹ繧ｿ繧､繝ｫ --- */
+/* --- 順番列のスタイル --- */
 .member-order-cell {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  /* 蟾ｦ蟇・○ */
+  /* 左寄せ */
   gap: 8px;
   white-space: nowrap;
   font-family: monospace;
-  /* 謨ｰ蟄励・蟷・ｒ謠・∴繧・*/
+  /* 数字の幅を揃える */
 }
 
 .member-order-num {
@@ -1378,7 +1378,7 @@ td.time.need-time select:focus~.time-hint {
   gap: 2px;
 }
 
-/* 辟｡蜉ｹ蛹悶＆繧後◆遘ｻ蜍輔・繧ｿ繝ｳ縺ｮ繧ｹ繧ｿ繧､繝ｫ */
+/* 無効化された移動ボタンのスタイル */
 .btn-move-up:disabled,
 .btn-move-down:disabled {
   opacity: 0.3;
@@ -1511,9 +1511,9 @@ td.time.need-time select:focus~.time-hint {
   white-space: nowrap;
 }
 
-/* --- 莉･荳九∝・蟷・・菫ｮ豁｣ --- */
+/* --- 以下、列幅の修正 --- */
 
-/* 1蛻礼岼: 鬆・分 (150px 蝗ｺ螳・ */
+/* 1列目: 順番 (150px 固定) */
 .member-table th:nth-child(1),
 .member-table td:nth-child(1) {
   width: 150px;
@@ -1521,37 +1521,37 @@ td.time.need-time select:focus~.time-hint {
   text-align: center;
 }
 
-/* 2蛻礼岼: 繧ｰ繝ｫ繝ｼ繝・(譛菴・400px - 蜿ｯ螟・ */
+/* 2列目: グループ (最低 400px - 可変) */
 .member-table th:nth-child(2),
 .member-table td:nth-child(2) {
   width: 400px;
 }
 
-/* 3蛻礼岼: 豌丞錐 (譛菴・240px - 蜿ｯ螟・ */
+/* 3列目: 氏名 (最低 240px - 可変) */
 .member-table th:nth-child(3),
 .member-table td:nth-child(3) {
   width: 240px;
 }
 
-/* 4蛻礼岼: 蜀・ｷ・(80px 蝗ｺ螳・ */
+/* 4列目: 内線 (80px 固定) */
 .member-table th:nth-child(4),
 .member-table td:nth-child(4) {
   width: 80px;
 }
 
-/* 5蛻礼岼: 謳ｺ蟶ｯ (180px 蝗ｺ螳・ */
+/* 5列目: 携帯 (180px 固定) */
 .member-table th:nth-child(5),
 .member-table td:nth-child(5) {
   width: 180px;
 }
 
-/* 6蛻礼岼: Email (譛菴・350px - 蜿ｯ螟・ */
+/* 6列目: Email (最低 350px - 可変) */
 .member-table th:nth-child(6),
 .member-table td:nth-child(6) {
   width: 350px;
 }
 
-/* 7蛻礼岼: 謫堺ｽ・(180px 蝗ｺ螳・ */
+/* 7列目: 操作 (180px 固定) */
 .member-table th:nth-child(7),
 .member-table td:nth-child(7) {
   width: 180px;
@@ -1858,7 +1858,7 @@ td.time.need-time select:focus~.time-hint {
   z-index: 10;
   text-align: left;
   font-weight: 600;
-  /* 繧ｬ繝ｳ繝医ン繝･繝ｼ蟆ら畑縺ｮ豌丞錐蛻怜ｹ・ｼ亥､壼・繝代ロ繝ｫ縺ｮ --w-name 縺ｨ縺ｯ迢ｬ遶具ｼ・*/
+  /* ガントビュー専用の氏名列幅（多列パネルの --w-name とは独立） */
   width: 110px;
   min-width: 85px;
   max-width: 110px;
@@ -2468,7 +2468,7 @@ td.time.need-time select:focus~.time-hint {
 }
 
 .vacation-radio-item.selected::before {
-  content: "笨・驕ｸ謚樔ｸｭ";
+  content: "✓ 選択中";
   background: #dbeafe;
   border: 1px solid #bfdbfe;
   color: #1d4ed8;
@@ -2477,7 +2477,7 @@ td.time.need-time select:focus~.time-hint {
 }
 
 .vacation-radio-item.applied::after {
-  content: "早 陦ｨ遉ｺ荳ｭ";
+  content: "👁 表示中";
   background: #dcfce7;
   border: 1px solid #86efac;
   color: #166534;
@@ -2915,7 +2915,7 @@ td.time.need-time select:focus~.time-hint {
   }
 }
 
-/* 繝槭ル繝･繧｢繝ｫ繝｢繝ｼ繝繝ｫ */
+/* マニュアルモーダル */
 .manual-modal {
   position: fixed;
   inset: 0;
@@ -2977,7 +2977,7 @@ td.time.need-time select:focus~.time-hint {
   padding: 6px;
 }
 
-/* 繝槭ル繝･繧｢繝ｫ繧ｿ繝・*/
+/* マニュアルタブ */
 .manual-tabs {
   display: flex;
   gap: 8px;
@@ -3016,7 +3016,7 @@ td.time.need-time select:focus~.time-hint {
   display: block;
 }
 
-/* 繧ｰ繝ｫ繝ｼ繝励Γ繝九Η繝ｼ */
+/* グループメニュー */
 .grp-menu {
   position: absolute;
   top: 100%;
@@ -3079,7 +3079,7 @@ td.time.need-time select:focus~.time-hint {
   background: #bfe4ff;
 }
 
-/* 縺顔衍繧峨○繧ｨ繝ｪ繧｢ */
+/* お知らせエリア */
 .notices-area {
   max-width: 100%;
   margin: 0 auto 16px;
@@ -3139,7 +3139,7 @@ td.time.need-time select:focus~.time-hint {
   gap: 8px;
 }
 
-/* 縺顔衍繧峨○繧ｨ繝ｪ繧｢縺碁哩縺倥※縺・ｋ迥ｶ諷・*/
+/* お知らせエリアが閉じている状態 */
 .notices-area.collapsed .notices-list {
   display: none;
 }
@@ -3210,7 +3210,7 @@ td.time.need-time select:focus~.time-hint {
   color: #005a8f;
 }
 
-/* 繧ｿ繧､繝医Ν縺ｮ縺ｿ縺ｮ縺顔衍繧峨○縺ｯ髢矩哩荳崎ｦ・*/
+/* タイトルのみのお知らせは開閉不要 */
 .notice-item.title-only {
   cursor: default;
 }
@@ -3223,7 +3223,7 @@ td.time.need-time select:focus~.time-hint {
   background: #fff;
 }
 
-/* 縺顔衍繧峨○邂｡逅・I */
+/* お知らせ管理UI */
 .notices-editor,
 .tools-editor {
   display: flex;
@@ -3285,7 +3285,7 @@ td.time.need-time select:focus~.time-hint {
   background: #dc2626;
 }
 
-/* 縺顔衍繧峨○邂｡逅・/ 繝・・繝ｫ邂｡逅・ｼ医ち繝門・・・*/
+/* お知らせ管理 / ツール管理（タブ内） */
 .notices-manager,
 .tools-manager {
   display: flex;
@@ -3402,7 +3402,7 @@ td.time.need-time select:focus~.time-hint {
   background: #059669;
 }
 
-/* 繝峨Λ繝・げ&繝峨Ο繝・・蟇ｾ蠢懊・縺顔衍繧峨○/繝・・繝ｫ繧ｨ繝・ぅ繧ｿ繧｢繧､繝・Β */
+/* ドラッグ&ドロップ対応のお知らせ/ツールエディタアイテム */
 .notice-edit-item,
 .tool-edit-item {
   position: relative;
@@ -3508,353 +3508,349 @@ td.time.need-time select:focus~.time-hint {
   opacity: 0.5;
 }
 
-/* === 蜊ｰ蛻ｷ逕ｨ繧ｹ繧ｿ繧､繝ｫ (SSOT: JS豕ｨ蜈･螟画焚縺ｮ蛻ｩ逕ｨ) === */
-/* === 蜊ｰ蛻ｷ逕ｨ繧ｹ繧ｿ繧､繝ｫ (SSOT: 邨ｱ蜷育沿) === */
+/* === 印刷用スタイル (SSOT: JS注入変数の利用) === */
 @media print {
 
-    /* 1. 逕ｨ邏吶→蜈ｨ菴楢ｨｭ螳・*/
-    @page {
-        size: landscape;
-        margin: 5mm;
-        /* 菴咏區繧呈怙蟆城剞縺ｫ */
-    }
+  /* 1. 用紙と全体設定 */
+  @page {
+    size: A4 landscape;
+    margin: 5mm;
+    /* 余白を少し詰めて広く使えるように */
+  }
 
-    body {
-        background: #fff !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        width: 100% !important;
-        height: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-    }
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 
-    /* 2. 荳崎ｦ√↑隕∫ｴ繧帝撼陦ｨ遉ｺ (繝帙Ρ繧､繝医Μ繧ｹ繝域婿蠑・ */
-    body>* {
-        display: none !important;
-    }
+  /* 2. 不要な要素を非表示 */
+  body>*:not(#eventModal) {
+    display: none !important;
+  }
 
-    /* 險ｱ蜿ｯ縺輔ｌ縺溘Ν繝ｼ繝郁ｦ∫ｴ縺ｮ縺ｿ陦ｨ遉ｺ */
-    body>#eventModal,
-    body>#printListWorkArea {
-        display: block !important;
-    }
+  /* モーダル内の不要パーツ非表示 */
+  #eventClose,
+  .event-modal-header,
+  .event-select-toolbar,
+  .event-toolbar,
+  .vacation-actions,
+  .vacation-group-jumps,
+  .event-legend,
+  .vac-color-palette,
+  .vacation-gantt-touch-hint,
+  .event-toolbar__hint,
+  .btn-show-event-notice,
+  button {
+    display: none !important;
+  }
 
-    /* 繝｢繝ｼ繝繝ｫ蜀・・荳崎ｦ√ヱ繝ｼ繝・撼陦ｨ遉ｺ */
-    #eventClose,
-    .event-modal-header,
-    .event-select-toolbar,
-    .event-toolbar,
-    .vacation-actions,
-    .vacation-group-jumps,
-    .event-legend,
-    .vac-color-palette,
-    .vacation-gantt-touch-hint,
-    .event-toolbar__hint,
-    .btn-show-event-notice,
-    button {
-        display: none !important;
-    }
+  /* 3. モーダルを印刷キャンバスとしてリセット */
+  #eventModal {
+    display: block !important;
+    position: absolute !important;
+    /* staticだと余白等の影響を受けることがあるためabsoluteで左上に固定 */
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    z-index: 9999 !important;
+  }
 
-    /* 3. 繝｢繝ｼ繝繝ｫ(Gantt)逕ｨ繧ｹ繧ｿ繧､繝ｫ */
-    #eventModal {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        height: auto !important;
-        background: #fff !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        border: none !important;
-        box-shadow: none !important;
-        z-index: 9999 !important;
-    }
+  /* 内部コンテナのリセット */
+  #eventModal .admin-card,
+  #eventModal .admin-card-body,
+  #eventModal .vacation-table-wrap,
+  #eventModal .vacation-gantt {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
 
-    #eventModal .admin-card,
-    #eventModal .admin-card-body,
-    #eventModal .vacation-table-wrap,
-    #eventModal .vacation-gantt {
-        display: block !important;
-        width: 100% !important;
-        height: auto !important;
-        max-height: none !important;
-        overflow: visible !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        border: none !important;
-        box-shadow: none !important;
-        background: transparent !important;
-    }
+  /* 4. ガントチャートテーブルの構造を強制 */
+  .vacation-gantt table {
+    display: table !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    font-size: var(--print-font-size, 9pt) !important;
+  }
 
-    .vacation-gantt table {
-        display: table !important;
-        width: 100% !important;
-        table-layout: fixed !important;
-        border-collapse: collapse !important;
-        border-spacing: 0 !important;
-        font-size: 9pt !important;
-    }
+  .vacation-gantt thead {
+    display: table-header-group !important;
+  }
 
-    .vacation-gantt thead {
-        display: table-header-group !important;
-    }
+  .vacation-gantt tbody {
+    display: table-row-group !important;
+  }
 
-    .vacation-gantt tbody {
-        display: table-row-group !important;
-    }
+  .vacation-gantt tr {
+    display: table-row !important;
+    page-break-inside: avoid;
+    height: auto !important;
+  }
 
-    .vacation-gantt tr {
-        display: table-row !important;
-        page-break-inside: avoid;
-        height: auto !important;
-    }
+  .vacation-gantt th,
+  .vacation-gantt td {
+    display: table-cell !important;
+    border: 1px solid #ccc !important;
+    padding: 1px 2px !important;
+    vertical-align: middle !important;
+    height: var(--print-header-height, 28px) !important;
+    background-clip: padding-box !important;
+  }
 
-    .vacation-gantt th,
-    .vacation-gantt td {
-        display: table-cell !important;
-        border: 1px solid #ccc !important;
-        padding: 1px 2px !important;
-        vertical-align: middle !important;
-        height: 28px !important;
-    }
+  /* 5. 列幅とレイアウトの再現 (SSOT) */
 
-    .vacation-gantt th.group-name {
-        width: 30px !important;
-        writing-mode: vertical-rl;
-    }
+  /* グループ名 (縦書き) */
+  .vacation-gantt th.group-name {
+    width: 30px !important;
+    background-color: #f3f4f6 !important;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    white-space: nowrap !important;
+    position: static !important;
+  }
 
-    .vacation-gantt th.member-name {
-        width: 120px !important;
-        text-align: left !important;
-    }
+  /* 氏名 */
+  .vacation-gantt th.member-name {
+    width: var(--print-name-width, 120px) !important;
+    background-color: #fff !important;
+    text-align: left !important;
+    padding-left: 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    position: static !important;
+  }
 
-    .vacation-gantt th.vac-day-header,
-    .vacation-gantt td.vac-cell {
-        width: 30px !important;
-        min-width: 30px !important;
-        text-align: center !important;
-    }
+  /* 日付セル（ビットマス部分） */
+  .vacation-gantt th.vac-day-header,
+  .vacation-gantt td.vac-cell {
+    width: var(--print-cell-width, 30px) !important;
+    min-width: var(--print-cell-width, 30px) !important;
+    text-align: center !important;
+  }
 
-    /* Gantt驟崎牡縺ｯ螟画峩縺ｪ縺・*/
-    .vacation-gantt .vac-day-header.weekend-sat,
-    .vacation-gantt .vac-cell.weekend-sat {
-        background-color: #e0f2fe !important;
-    }
+  /* 6. 配色の再現 (背景色を強制) */
 
-    .vacation-gantt .vac-day-header.weekend-sun,
-    .vacation-gantt .vac-cell.weekend-sun {
-        background-color: #fee2e2 !important;
-    }
+  /* ヘッダー・デフォルト背景 */
+  .vacation-gantt .vac-day-header.weekend-sat,
+  .vacation-gantt .vac-cell.weekend-sat {
+    background-color: #e0f2fe !important;
+  }
 
-    .vacation-gantt .vac-day-header.holiday,
-    .vacation-gantt .vac-cell.holiday {
-        background-color: #ffe4e6 !important;
-        color: #b91c1c !important;
-    }
+  .vacation-gantt .vac-day-header.weekend-sun,
+  .vacation-gantt .vac-cell.weekend-sun {
+    background-color: #fee2e2 !important;
+  }
 
-    .vacation-gantt .vac-cell.vac-color-sat {
-        background-color: var(--color-blue-100) !important;
-    }
+  .vacation-gantt .vac-day-header.holiday,
+  .vacation-gantt .vac-cell.holiday {
+    background-color: #ffe4e6 !important;
+    color: #b91c1c !important;
+  }
 
-    .vacation-gantt .vac-cell.vac-color-sun {
-        background-color: var(--color-red-100) !important;
-    }
+  /* ユーザー選択カラー (変数を優先適用) */
+  .vacation-gantt .vac-cell.vac-color-sat {
+    background-color: var(--color-blue-100) !important;
+  }
 
-    .vacation-gantt .vac-cell.vac-color-holiday {
-        background-color: var(--color-red-100) !important;
-        color: var(--color-red-600) !important;
-    }
+  .vacation-gantt .vac-cell.vac-color-sun {
+    background-color: var(--color-red-100) !important;
+  }
 
-    .vacation-gantt .vac-cell.vac-color-amber {
-        background-color: var(--color-amber-100) !important;
-    }
+  .vacation-gantt .vac-cell.vac-color-holiday {
+    background-color: var(--color-red-100) !important;
+    color: var(--color-red-600) !important;
+  }
 
-    .vacation-gantt .vac-cell.vac-color-mint {
-        background-color: var(--color-green-100) !important;
-    }
+  .vacation-gantt .vac-cell.vac-color-amber {
+    background-color: var(--color-amber-100) !important;
+  }
 
-    .vacation-gantt .vac-cell.vac-color-lavender {
-        background-color: var(--color-indigo-50) !important;
-    }
+  .vacation-gantt .vac-cell.vac-color-mint {
+    background-color: var(--color-green-100) !important;
+  }
 
-    .vacation-gantt .vac-cell.vac-color-slate {
-        background-color: var(--color-gray-200) !important;
-    }
+  .vacation-gantt .vac-cell.vac-color-lavender {
+    background-color: var(--color-indigo-50) !important;
+  }
 
-    .vacation-gantt .vac-cell.on {
-        background-color: #0ea5e9 !important;
-        color: #fff !important;
-    }
+  .vacation-gantt .vac-cell.vac-color-slate {
+    background-color: var(--color-gray-200) !important;
+  }
 
-    .vacation-gantt .vac-cell.on.weekend-sun,
-    .vacation-gantt .vac-cell.on.holiday {
-        background-color: #e11d48 !important;
-    }
+  /* ON状態（ハイライト） */
+  .vacation-gantt .vac-cell.on {
+    background-color: #0ea5e9 !important;
+    color: #fff !important;
+    /* 白黒印刷でもわかるようにボーダーかパターンを入れるのも手ですが、今回はWeb再現優先 */
+  }
 
-    #eventPrintInfo {
-        display: block !important;
-        text-align: center;
-        font-size: 14pt;
-        margin-bottom: 5mm;
-    }
+  .vacation-gantt .vac-cell.on.weekend-sun,
+  .vacation-gantt .vac-cell.on.holiday {
+    background-color: #e11d48 !important;
+  }
 
-    /* 4. 荳隕ｧ蜃ｺ蜉・(Print List) 逕ｨ繧ｹ繧ｿ繧､繝ｫ */
-    #printListWorkArea {
-        position: static !important;
-        width: 100% !important;
-        height: auto !important;
-        overflow: visible !important;
-        font-family: "Helvetica Neue", Arial, sans-serif;
-    }
+  /* 印刷タイトル */
+  #eventPrintInfo {
+    display: block !important;
+    text-align: center;
+    font-size: 14pt;
+    font-weight: bold;
+    margin-bottom: 5mm;
+    color: #000;
+  }
+}
 
-    .print-list-title {
-        text-align: center;
-        font-size: 14pt;
-        font-weight: bold;
-        margin-bottom: 10px;
-        border-bottom: 2px solid #000;
-        padding-bottom: 5px;
-    }
+/* === Migrated Utilities & Components (v1.5) === */
 
-    /* === A. One Table Layout (2蛻励ユ繝ｼ繝悶Ν) === */
-    .print-two-col-table {
-        width: 100% !important;
-        border-collapse: collapse !important;
-        border-spacing: 0 !important;
-        table-layout: fixed !important;
-    }
+/* Utilities */
 
-    .print-two-col-table th,
-    .print-two-col-table td {
-        border: 1px solid #000 !important;
-        padding: 2px 4px !important;
-        font-size: 8.5pt !important;
-        vertical-align: middle !important;
-        color: #000 !important;
-        height: 28px !important;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
+.print-list-title {
+  text-align: center;
+  font-size: 16pt;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
 
-    .print-two-col-table thead {
-        display: table-header-group !important;
-    }
+/* 2列レイアウト用テーブル (Z字順) */
+.print-two-col-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  table-layout: fixed !important;
+}
 
-    .print-two-col-table thead th {
-        background-color: #f0f0f0 !important;
-        border-bottom: 2px solid #000 !important;
-        font-weight: bold !important;
-        text-align: center !important;
-    }
+.print-two-col-table th,
+.print-two-col-table td {
+  border: 1px solid #000 !important;
+  padding: 4px !important;
+  font-size: 9pt !important;
+  vertical-align: middle !important;
+  color: #000 !important;
+  height: 30px !important;
+  /* 行の高さを固定してページ繰りを安定させる */
+}
 
-    .print-two-col-table tr {
-        display: table-row !important;
-        page-break-inside: avoid !important;
-    }
+.print-two-col-table thead th {
+  background-color: #f0f0f0 !important;
+  border-bottom: 2px solid #000 !important;
+  font-weight: bold !important;
+  text-align: center !important;
+  font-size: 10pt !important;
+}
 
-    /* 蛹ｺ蛻・ｊ繧ｫ繝ｩ繝 */
-    .col-sep {
-        border: none !important;
-        background: transparent !important;
-    }
+/* 左右カラムの区切り線（中央） */
+.print-two-col-table td.col-sep,
+.print-two-col-table th.col-sep {
+  border: none !important;
+  width: 10px !important;
+  /* 左右の隙間 */
+  background: transparent !important;
+}
 
-    /* === B. Group Layout (Flexbox / DIV讒区・) === */
-    .print-list-container {
-        column-count: 2;
-        column-gap: 20px;
-        width: 100%;
-    }
+/* 列幅定義 (左・右共通) */
+.print-col-name {
+  width: 14% !important;
+}
 
-    .print-group-section {
-        break-inside: avoid;
-        page-break-inside: avoid;
-        margin-bottom: 15px;
-        border: 1px solid #000;
-        border-radius: 4px;
-        overflow: hidden;
-        /* 隗剃ｸｸ逕ｨ */
-    }
+.print-col-work {
+  width: 14% !important;
+}
 
-    .print-group-header {
-        background-color: #eee;
-        border-bottom: 1px solid #000;
-        padding: 4px 8px;
-        font-size: 10pt;
-        font-weight: bold;
-        break-after: avoid;
-    }
+.print-col-status {
+  width: 8% !important;
+}
 
-    .print-table-header {
-        display: flex;
-        align-items: center;
-        border-bottom: 1px solid #000;
-        background-color: #f9f9f9;
-        font-weight: bold;
-        font-size: 8.5pt;
-        padding: 2px 4px;
-    }
+.print-col-time {
+  width: 8% !important;
+}
 
-    .print-member-row {
-        display: flex;
-        align-items: center;
-        border-bottom: 1px solid #ccc;
-        padding: 2px 5px;
-        font-size: 8.5pt;
-        height: 26px;
-        /* 陦後・鬮倥＆謠・∴ */
-        break-inside: avoid;
-    }
+.print-col-next {
+  width: 12% !important;
+}
 
-    .print-member-row:last-child {
-        border-bottom: none;
-    }
+/* 備考は残り全て */
+.print-col-note {
+  width: auto !important;
+}
 
-    /* Flex鬆・岼縺ｮ蟷・ｮ夂ｾｩ (Group Layout逕ｨ) */
-    .pm-name {
-        flex: 0 0 20%;
-        font-weight: bold;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        padding-right: 4px;
-    }
+.print-member-row {
+  page-break-inside: avoid;
+}
 
-    .pm-work {
-        flex: 0 0 15%;
-        overflow: hidden;
-        white-space: nowrap;
-    }
+/* グループ別表示（従来）のためのスタイル調整 */
+.print-group-section {
+  page-break-inside: avoid;
+  margin-bottom: 20px;
+}
 
-    .pm-status {
-        flex: 0 0 10%;
-        text-align: center;
-        white-space: nowrap;
-    }
+.print-group-header {
+  font-size: 14pt;
+  font-weight: bold;
+  border-bottom: 2px solid #000;
+  margin-bottom: 5px;
+  margin-top: 10px;
+}
 
-    .pm-ret {
-        flex: 0 0 10%;
-        text-align: center;
-        white-space: nowrap;
-    }
+.print-table-header {
+  display: flex;
+  border-bottom: 1px solid #000;
+  font-weight: bold;
+  font-size: 10pt;
+  padding: 4px 0;
+}
 
-    .pm-next {
-        flex: 0 0 20%;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        padding: 0 4px;
-    }
+.print-member-row {
+  display: flex;
+  border-bottom: 1px solid #ccc;
+  font-size: 9pt;
+  padding: 4px 0;
+}
 
-    .pm-note {
-        flex: 1;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        color: #555;
-    }
+.pm-name {
+  width: 150px;
+}
+
+.pm-work {
+  width: 120px;
+}
+
+.pm-status {
+  width: 80px;
+}
+
+.pm-ret {
+  width: 80px;
+}
+
+.pm-next {
+  width: 120px;
+}
+
+.pm-note {
+  flex: 1;
+}
 }
 
 
@@ -4102,7 +4098,7 @@ td.time.need-time select:focus~.time-hint {
   font-size: 0.9em;
 }
 
-/* === 荳隕ｧ蜃ｺ蜉幢ｼ・DF蜃ｺ蜉幢ｼ臥畑繧ｹ繧ｿ繧､繝ｫ === */
+/* === 一覧出力（PDF出力）用スタイル === */
 .print-list-work-area {
   background: #fff;
   color: #000;
@@ -4119,7 +4115,7 @@ td.time.need-time select:focus~.time-hint {
   padding-bottom: 5px;
 }
 
-/* 2蛻玲ｮｵ邨・∩繧ｳ繝ｳ繝・リ */
+/* 2列段組みコンテナ */
 .print-list-container {
   column-count: 2;
   column-gap: 20px;
@@ -4129,13 +4125,13 @@ td.time.need-time select:focus~.time-hint {
 .print-group-section {
   break-inside: avoid;
   page-break-inside: avoid;
-  /* 譌ｧ繝悶Λ繧ｦ繧ｶ莠呈鋤 */
+  /* 旧ブラウザ互換 */
   margin-bottom: 15px;
   border: 1px solid #000;
   border-radius: 4px;
 }
 
-/* 蜈ｨ蜩｡陦ｨ遉ｺ逕ｨ・壹・繝ｼ繧ｸ霍ｨ縺弱ｒ險ｱ螳ｹ縺吶ｋ */
+/* 全員表示用：ページ跨ぎを許容する */
 .print-group-section.no-break-limit {
   break-inside: auto;
   page-break-inside: auto;
@@ -4143,7 +4139,7 @@ td.time.need-time select:focus~.time-hint {
 
 .print-group-header {
   break-after: avoid;
-  /* 隕句・縺励・逶ｴ蠕後〒縺ｮ謾ｹ繝壹・繧ｸ繧帝亟縺・*/
+  /* 見出しの直後での改ページを防ぐ */
   background-color: #eee;
   border-bottom: 1px solid #000;
   padding: 4px 8px;
@@ -4158,9 +4154,9 @@ td.time.need-time select:focus~.time-hint {
   background-color: #f9f9f9;
   font-weight: bold;
   font-size: 8pt;
-  /* 繧ｵ繧､繧ｺ邵ｮ蟆・*/
+  /* サイズ縮小 */
   padding: 2px 4px;
-  /* 繝代ョ繧｣繝ｳ繧ｰ邵ｮ蟆・*/
+  /* パディング縮小 */
   line-height: 1.1;
 }
 
@@ -4172,18 +4168,18 @@ td.time.need-time select:focus~.time-hint {
   font-size: 9pt;
   line-height: 1.2;
   break-inside: avoid;
-  /* 陦後・騾比ｸｭ縺ｧ縺ｮ謾ｹ繝壹・繧ｸ縺ｯ髦ｲ縺・*/
+  /* 行の途中での改ページは防ぐ */
 }
 
 .print-member-row:last-child {
   border-bottom: none;
 }
 
-/* 蜷・・岼縺ｮ蟷・ｪｿ謨ｴ (A4讓ｪ繝ｻ2蛻怜燕謠・ */
-/* 蜷郁ｨ医′100%縺ｫ縺ｪ繧九ｈ縺・↓隱ｿ謨ｴ: 豌丞錐20, 蜍､蜍・5, 迥ｶ諷・0, 謌ｻ繧・0, 譏取律20, 蛯呵・5 */
+/* 各項目の幅調整 (A4横・2列前提) */
+/* 合計が100%になるように調整: 氏名20, 勤務15, 状態10, 戻り10, 明日20, 備考25 */
 .pm-name {
   flex: 0 0 20%;
-  /* 豌丞錐 */
+  /* 氏名 */
   font-weight: bold;
   white-space: nowrap;
   overflow: hidden;
@@ -4193,7 +4189,7 @@ td.time.need-time select:focus~.time-hint {
 
 .pm-work {
   flex: 0 0 15%;
-  /* 蜍､蜍呎凾髢・*/
+  /* 勤務時間 */
   white-space: nowrap;
   overflow: hidden;
   font-size: 0.9em;
@@ -4201,7 +4197,7 @@ td.time.need-time select:focus~.time-hint {
 
 .pm-status {
   flex: 0 0 10%;
-  /* 迥ｶ諷・*/
+  /* 状態 */
   white-space: nowrap;
   text-align: center;
   font-weight: bold;
@@ -4209,14 +4205,14 @@ td.time.need-time select:focus~.time-hint {
 
 .pm-ret {
   flex: 0 0 10%;
-  /* 謌ｻ繧・*/
+  /* 戻り */
   text-align: center;
   white-space: nowrap;
 }
 
 .pm-next {
   flex: 0 0 20%;
-  /* 譏取律縺ｮ莠亥ｮ・*/
+  /* 明日の予定 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4227,7 +4223,7 @@ td.time.need-time select:focus~.time-hint {
 
 .pm-note {
   flex: 1;
-  /* 蛯呵・(谿九ｊ蜈ｨ縺ｦ) */
+  /* 備考 (残り全て) */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4236,4 +4232,51 @@ td.time.need-time select:focus~.time-hint {
   font-size: 0.9em;
 }
 
-/* 蜊ｰ蛻ｷ譎ゅ・陦ｨ遉ｺ蛻ｶ蠕｡ */
+/* 印刷時の表示制御 */
+@media print {
+  @page {
+    size: landscape;
+    /* 横向き推奨 */
+    margin: 10mm;
+  }
+
+  body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* 一覧出力モードの時は他の全てを隠す */
+  body:has(#printListWorkArea:not(.u-hidden))>*:not(#printListWorkArea) {
+    display: none !important;
+  }
+
+  body:has(#printListWorkArea:not(.u-hidden)) #printListWorkArea {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* フォントサイズ調整 */
+  .print-list-title {
+    font-size: 14pt;
+  }
+
+  .print-group-header {
+    font-size: 10pt;
+  }
+
+  .print-table-header {
+    font-size: 8.5pt;
+    background-color: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-member-row {
+    font-size: 8.5pt;
+    padding: 2px 5px;
+  }
+}
