@@ -314,6 +314,61 @@
 
         <!-- タブパネル4: ツール管理 -->
         <div id="tabTools" class="tab-panel" data-tab="tools">
+          <!-- 項目自動消去設定 -->
+          <div class="admin-box u-mb-16">
+            <h4>🔄 項目自動消去設定</h4>
+            <div class="admin-subsection">
+              <div class="admin-row u-mb-12 auto-clear-setting-row">
+                <label class="auto-clear-checkbox-label">
+                  <input type="checkbox" id="autoClearEnabled" class="u-m-0" style="width: 20px; height: 20px;">
+                  <span>自動消去を有効にする</span>
+                </label>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <label for="autoClearHour" style="font-weight: 600;">実行時間:</label>
+                  <select id="autoClearHour" class="auto-clear-hour-select">
+                    <option value="0">0:00 (深夜)</option>
+                    <option value="1">1:00</option>
+                    <option value="2">2:00</option>
+                    <option value="3">3:00</option>
+                    <option value="4">4:00</option>
+                    <option value="5">5:00</option>
+                    <option value="6">6:00</option>
+                    <option value="7">7:00</option>
+                    <option value="8">8:00</option>
+                    <option value="9">9:00</option>
+                    <option value="10">10:00</option>
+                    <option value="11">11:00</option>
+                    <option value="12">12:00 (正午)</option>
+                    <option value="13">13:00</option>
+                    <option value="14">14:00</option>
+                    <option value="15">15:00</option>
+                    <option value="16">16:00</option>
+                    <option value="17">17:00</option>
+                    <option value="18">18:00</option>
+                    <option value="19">19:00</option>
+                    <option value="20">20:00</option>
+                    <option value="21">21:00</option>
+                    <option value="22">22:00</option>
+                    <option value="23">23:00</option>
+                  </select>
+                </div>
+
+                <button id="btnSaveAutoClear" class="btn-success" style="margin-left: auto;">💾 設定を保存</button>
+              </div>
+
+              <div class="admin-note u-mb-8" style="font-weight: 600; color: #4b5563;">消去する項目を選択してください：</div>
+              <div id="autoClearFields" class="auto-clear-fields-container">
+                <label class="auto-clear-field-item"><input type="checkbox" value="workHours"> 業務時間</label>
+                <label class="auto-clear-field-item"><input type="checkbox" value="status"> ステータス</label>
+                <label class="auto-clear-field-item"><input type="checkbox" value="time"> 戻り時間</label>
+                <label class="auto-clear-field-item"><input type="checkbox" value="tomorrowPlan"> 明日の予定</label>
+                <label class="auto-clear-field-item"><input type="checkbox" value="note"> 備考</label>
+              </div>
+              <div class="admin-note u-mt-8">※指定した時間（毎日）に、拠点の全メンバーのチェックした項目が自動的に消去されます。ステータスは「在席」に戻ります。</div>
+            </div>
+          </div>
+
           <div class="admin-box u-mb-16">
             <h4>🖨️ 一覧出力（PDF出力）</h4>
             <div class="admin-subsection">

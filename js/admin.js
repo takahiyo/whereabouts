@@ -850,6 +850,14 @@ function updateMoveButtons() {
 }
 
 /* ツール管理UI */
+const btnSaveAutoClear = document.getElementById('btnSaveAutoClear');
+if (btnSaveAutoClear) {
+  btnSaveAutoClear.addEventListener('click', async () => {
+    const office = selectedOfficeId(); if (!office) return;
+    await saveAutoClearSettings(office);
+  });
+}
+
 if (btnAddTool) { btnAddTool.addEventListener('click', () => addToolEditorItem()); }
 if (btnLoadTools) { btnLoadTools.addEventListener('click', () => loadAdminTools(true)); }
 if (btnSaveTools) {
@@ -894,11 +902,87 @@ async function loadAdminTools(force = false) {
     if (!normalized.length) {
       addToolEditorItem();
     }
+    // 自動消去設定の読み込み
+    await loadAutoClearSettings(office);
     adminToolsLoaded = true; adminToolsOfficeId = office;
     if (force) { toast('ツールを読み込みました'); }
   } catch (err) {
     console.error('loadAdminTools error', err);
     toast('ツールの読み込みに失敗', false);
+  }
+}
+
+/**
+ * 拠点の自動消去設定をサーバーから読み込み、UIに反映する
+ * @param {string} officeId 拠点ID
+ */
+async function loadAutoClearSettings(officeId) {
+  try {
+    const params = { action: 'getOfficeSettings', token: SESSION_TOKEN, office: officeId };
+    const res = await apiPost(params);
+    if (res && res.settings) {
+      const s = res.settings;
+      const elEnabled = document.getElementById('autoClearEnabled');
+      const elHour = document.getElementById('autoClearHour');
+      const elFields = document.getElementById('autoClearFields');
+
+      if (elEnabled) elEnabled.checked = !!s.enabled;
+      if (elHour) elHour.value = s.hour || 0;
+
+      if (elFields) {
+        const fields = s.fields || [];
+        const cbs = elFields.querySelectorAll('input[type="checkbox"]');
+        cbs.forEach(cb => {
+          cb.checked = fields.includes(cb.value);
+        });
+      }
+    }
+  } catch (e) {
+    console.error('loadAutoClearSettings error:', e);
+  }
+}
+
+/**
+ * 現在のUI上の自動消去設定をサーバーに保存する
+ * @param {string} officeId 拠点ID
+ */
+async function saveAutoClearSettings(officeId) {
+  try {
+    const elEnabled = document.getElementById('autoClearEnabled');
+    const elHour = document.getElementById('autoClearHour');
+    const elFields = document.getElementById('autoClearFields');
+
+    const enabled = elEnabled ? elEnabled.checked : false;
+    const hour = elHour ? parseInt(elHour.value, 10) : 0;
+
+    let fields = [];
+    if (elFields) {
+      const cbs = elFields.querySelectorAll('input[type="checkbox"]');
+      fields = Array.from(cbs).filter(cb => cb.checked).map(cb => cb.value);
+    }
+
+    if (enabled && fields.length === 0) {
+      toast('消去する項目を1つ以上選択してください', false);
+      return;
+    }
+
+    const settings = { enabled, hour, fields };
+    const params = {
+      action: 'setOfficeSettings',
+      token: SESSION_TOKEN,
+      office: officeId,
+      settings: JSON.stringify(settings)
+    };
+
+    const res = await apiPost(params);
+    if (res && res.ok) {
+      toast('自動消去設定を保存しました');
+    } else {
+      toast('設定の保存に失敗しました', false);
+    }
+  } catch (e) {
+    console.error('saveAutoClearSettings error:', e);
+    toast('設定の保存に失敗しました', false);
   }
 }
 

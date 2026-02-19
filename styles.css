@@ -1292,6 +1292,52 @@ td.time.need-time select:focus~.time-hint {
   min-height: 0;
 }
 
+/* 自動消去設定 UI */
+.auto-clear-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.auto-clear-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.auto-clear-hour-select {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #fff;
+  width: auto !important;
+}
+
+.auto-clear-fields-container {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: #f9fafb;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px dashed #d1d5db;
+}
+
+.auto-clear-field-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.auto-clear-field-item input {
+  width: 16px;
+  height: 16px;
+}
+
 .member-save-bar {
   position: fixed;
   bottom: 0;
