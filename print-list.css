@@ -47,65 +47,69 @@
     }
 
     /* ==========================================================================
-   * 4. One Table レイアウト（2列テーブル・全メンバー表示）
+   * 4. One Table レイアウト（1人1行テーブル・全メンバー表示）
    *    admin.js が生成する構造:
-   *    table.print-two-col-table > colgroup > col[style.width]
+   *    table.print-one-col-table > colgroup > col[style.width]
    *                              > thead > tr > th.print-col-*
-   *                              > tbody > tr > td.print-col-* + td.col-sep
+   *                              > tbody > tr > td.print-col-*
    * ========================================================================== */
-    .print-two-col-table {
+    .print-one-col-table {
         width: 100% !important;
         border-collapse: collapse !important;
         border-spacing: 0 !important;
         table-layout: fixed !important;
     }
 
-    .print-two-col-table th,
-    .print-two-col-table td {
+    .print-one-col-table th,
+    .print-one-col-table td {
         display: table-cell !important;
-        border: 1px solid #000 !important;
-        padding: 2px 4px !important;
-        font-size: 8.5pt !important;
+        border: 1px solid #999 !important;
+        padding: 3px 6px !important;
+        font-size: 9pt !important;
         vertical-align: middle !important;
         color: #000 !important;
-        height: 28px !important;
+        height: 26px !important;
         overflow: hidden;
-        white-space: nowrap;
         text-overflow: ellipsis;
     }
 
     /* テーブルヘッダー: ページ毎に繰り返す */
-    .print-two-col-table thead {
+    .print-one-col-table thead {
         display: table-header-group !important;
     }
 
-    .print-two-col-table thead th {
-        background-color: #f0f0f0 !important;
+    .print-one-col-table thead th {
+        background-color: #e8e8e8 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
-        border-bottom: 2px solid #000 !important;
+        border-bottom: 2px solid #333 !important;
         font-weight: bold !important;
         text-align: center !important;
         font-size: 9pt !important;
+        white-space: nowrap;
     }
 
     /* テーブル行 */
-    .print-two-col-table tr {
+    .print-one-col-table tr {
         display: table-row !important;
         page-break-inside: avoid !important;
     }
 
-    .print-two-col-table tbody {
+    .print-one-col-table tbody {
         display: table-row-group !important;
     }
 
-    /* 左右の区切りカラム */
-    .print-two-col-table td.col-sep,
-    .print-two-col-table th.col-sep {
-        border: none !important;
-        width: 2% !important;
-        background: transparent !important;
-        padding: 0 !important;
+    /* 氏名列は太字 */
+    .print-one-col-table td.print-col-name {
+        font-weight: bold;
+        white-space: nowrap;
+    }
+
+    /* 備考・予定は折り返しを許可 */
+    .print-one-col-table td.print-col-note,
+    .print-one-col-table td.print-col-next {
+        white-space: normal;
+        word-break: break-all;
     }
 
     /* ==========================================================================

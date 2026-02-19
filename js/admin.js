@@ -1812,19 +1812,17 @@ if (btnPrintList) {
       workArea.appendChild(title);
 
       if (oneTable) {
-        // 全員一括の1つのリスト（2列表示テーブル・Z字順）
+        // 全員一括の1つのリスト（1人1行テーブル）
         const container = document.createElement('div');
         container.className = 'print-list-container';
 
         const table = document.createElement('table');
-        table.className = 'print-two-col-table';
+        table.className = 'print-one-col-table';
 
-        // COLGROUPでカラム幅を直接制御（印刷時にCSSクラス%が効かない問題の対策）
+        // COLGROUPでカラム幅を直接制御
+        // 氏名15% + 時間13% + 状態10% + 戻り10% + 予定20% + 備考32% = 100%
         const colgroup = document.createElement('colgroup');
-        // 左側6列 + 区切り1列 + 右側6列 = 合計13列
-        // 片側: 名前12% + 時間10% + 状態7% + 戻り7% + 予定9% + 備考4% = 49%
-        // 区切り: 2%  合計: 49% + 2% + 49% = 100%
-        const colWidths = ['12%', '10%', '7%', '7%', '9%', '4%', '2%', '12%', '10%', '7%', '7%', '9%', '4%'];
+        const colWidths = ['15%', '13%', '10%', '10%', '20%', '32%'];
         colWidths.forEach(w => {
           const col = document.createElement('col');
           col.style.width = w;
@@ -1836,23 +1834,9 @@ if (btnPrintList) {
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
 
-        // 左カラムヘッダー
-        const headers = ['氏名', '時間', '状態', '戻り', '予定', '備考'];
+        const headers = ['氏名', '業務時間', '状態', '戻り', '明日の予定', '備考'];
         const classes = ['print-col-name', 'print-col-work', 'print-col-status', 'print-col-time', 'print-col-next', 'print-col-note'];
 
-        headers.forEach((h, i) => {
-          const th = document.createElement('th');
-          th.textContent = h;
-          th.className = classes[i];
-          headerRow.appendChild(th);
-        });
-
-        // 区切り（中央）
-        const thSep = document.createElement('th');
-        thSep.className = 'col-sep';
-        headerRow.appendChild(thSep);
-
-        // 右カラムヘッダー
         headers.forEach((h, i) => {
           const th = document.createElement('th');
           th.textContent = h;
@@ -1863,37 +1847,13 @@ if (btnPrintList) {
         thead.appendChild(headerRow);
         table.appendChild(thead);
 
-        // TBODY
+        // TBODY: 1人1行
         const tbody = document.createElement('tbody');
-
-        // 2人ずつペアにして行を作成
-        for (let i = 0; i < list.length; i += 2) {
-          const m1 = list[i];
-          const m2 = list[i + 1]; // 奇数人の場合は undefined
-
+        list.forEach(m => {
           const tr = document.createElement('tr');
-
-          // 左カラムデータ
-          appendMemberCells(tr, m1, classes);
-
-          // 区切り（中央）
-          const tdSep = document.createElement('td');
-          tdSep.className = 'col-sep';
-          tr.appendChild(tdSep);
-
-          // 右カラムデータ
-          if (m2) {
-            appendMemberCells(tr, m2, classes);
-          } else {
-            // 空のセルを埋める
-            classes.forEach(() => {
-              const td = document.createElement('td');
-              tr.appendChild(td);
-            });
-          }
-
+          appendMemberCells(tr, m, classes);
           tbody.appendChild(tr);
-        }
+        });
 
         table.appendChild(tbody);
         container.appendChild(table);
