@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS offices (
     password TEXT,
     admin_password TEXT,
     is_public BOOLEAN DEFAULT 1, -- SQLite には真偽値がないため 0 or 1
+    auto_clear_config TEXT DEFAULT NULL, -- 自動消去設定 (JSON文字列)
     created_at INTEGER,
     updated_at INTEGER
 );
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS members (
     time TEXT,
     note TEXT,
     work_hours TEXT,
+    tomorrow_plan TEXT,
     ext TEXT,
     mobile TEXT,
     email TEXT,

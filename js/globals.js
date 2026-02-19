@@ -1292,11 +1292,7 @@ function restoreStatusField(tr, statusTd, statusSelect) {
     statusSelect.value = originalValue;
     delete statusSelect.dataset.originalValue;
     ROW_STATUS_CLASSES.forEach(cls => tr.classList.remove(cls));
-    const statusClassMap = new Map([
-      ['在席', 'st-here'], ['外出', 'st-out'], ['会議', 'st-meeting'],
-      ['在宅勤務', 'st-remote'], ['出張', 'st-trip'], ['研修', 'st-training'],
-      ['健康診断', 'st-health'], ['コアドック', 'st-coadoc'], ['帰宅', 'st-home'], ['休み', 'st-off']
-    ]);
+    // モジュールレベルの statusClassMap（sync.jsでサーバーデータから構築）を使用（SSOT）
     const cls = statusClassMap.get(originalValue);
     if (cls) tr.classList.add(cls);
     tr.dataset.status = originalValue;

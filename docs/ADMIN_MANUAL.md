@@ -581,7 +581,7 @@ group_index,group_title,member_order,id,name,ext,status,time,note
 | st-trip | 水色 | 出張 |
 | st-training | 緑 | 研修 |
 | st-health | ピンク | 健康診断 |
-| st-coadoc | 薄紫 | コアドック |
+| st-coadoc | 薄紫 | ドック |
 | st-home | 薄灰 | 帰宅 |
 | st-off | 赤 | 休み |
 
@@ -595,7 +595,7 @@ group_index,group_title,member_order,id,name,ext,status,time,note
     { "value": "出張",       "class": "st-trip",     "requireTime": true },
     { "value": "研修",       "class": "st-training", "requireTime": true },
     { "value": "健康診断",   "class": "st-health",   "requireTime": true },
-    { "value": "コアドック", "class": "st-coadoc",   "requireTime": true },
+    { "value": "ドック",     "class": "st-coadoc",   "requireTime": true },
     { "value": "帰宅",       "class": "st-home",     "clearOnSet": true  },
     { "value": "休み",       "class": "st-off",      "clearOnSet": true  }
   ]

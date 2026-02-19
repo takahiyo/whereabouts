@@ -91,9 +91,15 @@ function showContactPopup(member) {
   const closeBtn = el('button', { type: 'button', class: 'contact-close', 'aria-label': '閉じる' }, ['×']);
   const title = el('h4', { class: 'contact-title', text: dialogLabel });
 
-  const mobile = member.mobile ? String(member.mobile) : '';
-  const email = member.email ? String(member.email) : '';
+  const extension = member.extension ? String(member.extension) : '';
+  const extensionRow = el('div', { class: 'contact-row' }, [
+    el('span', { class: 'contact-label', text: '内線' }),
+    extension
+      ? el('a', { class: 'contact-link', href: `tel:${extension}`, text: extension })
+      : el('span', { class: 'contact-empty', text: '未登録' })
+  ]);
 
+  const mobile = member.mobile ? String(member.mobile) : '';
   const mobileRow = el('div', { class: 'contact-row' }, [
     el('span', { class: 'contact-label', text: '携帯' }),
     mobile
@@ -101,6 +107,7 @@ function showContactPopup(member) {
       : el('span', { class: 'contact-empty', text: '未登録' })
   ]);
 
+  const email = member.email ? String(member.email) : '';
   const emailRow = el('div', { class: 'contact-row' }, [
     el('span', { class: 'contact-label', text: 'メール' }),
     email
@@ -108,7 +115,7 @@ function showContactPopup(member) {
       : el('span', { class: 'contact-empty', text: '未登録' })
   ]);
 
-  const body = el('div', { class: 'contact-body' }, [mobileRow, emailRow]);
+  const body = el('div', { class: 'contact-body' }, [extensionRow, mobileRow, emailRow]);
 
   closeBtn.addEventListener('click', closeContactPopup);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeContactPopup(); });
@@ -128,6 +135,7 @@ function resolveContactInfo(tr, fallback) {
   return {
     name: nameText,
     mobile: (mobileVal || fallback?.mobile || '').trim(),
+    extension: (tr ? (tr.dataset.extension ?? '') : '').trim(),
     email: (emailVal || fallback?.email || '').trim()
   };
 }
@@ -216,6 +224,7 @@ function buildRow(member) {
   const tr = el('tr', { id: `row-${key}` }); tr.dataset.key = key; tr.dataset.rev = '0';
   tr.dataset.mobile = member.mobile ? String(member.mobile) : '';
   tr.dataset.email = member.email ? String(member.email) : '';
+  tr.dataset.extension = ext;
 
   const tdName = el('td', { class: 'name', 'data-label': '氏名' }); tdName.textContent = name;
 
@@ -239,11 +248,20 @@ function buildRow(member) {
   tdTime.appendChild(el('label', { class: 'sr-only', for: `time-${key}`, text: '戻り時間' }));
   selTime.appendChild(buildTimeOptions(MENUS?.timeStepMinutes)); tdTime.appendChild(selTime);
 
+  const tdPlan = el('td', { class: 'tomorrow-plan', 'data-label': '明日の予定' });
+  const selPlan = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
+  tdPlan.appendChild(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }));
+  const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
+  selPlan.appendChild(el('option', { value: '', text: '' }));
+  planOptions.forEach(v => selPlan.appendChild(el('option', { value: String(v), text: String(v) })));
+  selPlan.value = member.tomorrowPlan == null ? '' : String(member.tomorrowPlan);
+  tdPlan.appendChild(selPlan);
+
   const tdNote = el('td', { class: 'note', 'data-label': '備考' });
   const noteField = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note' });
   tdNote.appendChild(noteField.wrapper);
 
-  tr.append(tdName, tdExt, tdWork, tdStatus, tdTime, tdNote);
+  tr.append(tdName, tdExt, tdWork, tdStatus, tdTime, tdPlan, tdNote);
   return tr;
 }
 
@@ -267,6 +285,21 @@ function ensureRowControls(tr) {
     td && td.appendChild(t);
     diagAdd('fix: time select injected');
   }
+
+  let p = tr.querySelector('td.tomorrow-plan select');
+  if (!p) {
+    const td = tr.querySelector('td.tomorrow-plan');
+    p = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
+    if (td && !td.querySelector('label.sr-only')) {
+      td.insertBefore(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }), td.firstChild || null);
+    }
+    p.appendChild(el('option', { value: '', text: '' }));
+    const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
+    planOptions.forEach(v => p.appendChild(el('option', { value: String(v), text: String(v) })));
+    td && td.appendChild(p);
+    diagAdd('fix: tomorrow plan select injected');
+  }
+
   let w = tr.querySelector('input[name="workHours"]');
   if (!w || !w.closest('.candidate-input')) {
     const td = tr.querySelector('td.work');
@@ -301,13 +334,22 @@ function buildPanel(group, idx) {
   const table = el('table', { 'aria-label': `在席表（${title}）` });
   table.appendChild(el('colgroup', {}, [
     el('col', { class: 'col-name' }),
-    el('col', { class: 'col-ext' }),
     el('col', { class: 'col-work' }),
     el('col', { class: 'col-status' }),
     el('col', { class: 'col-time' }),
+    el('col', { class: 'col-tomorrow-plan' }),
     el('col', { class: 'col-note' })
   ]));
-  const thead = el('thead'); const thr = el('tr');['氏名', '内線', '業務時間', 'ステータス', '戻り時間', '備考'].forEach(h => thr.appendChild(el('th', { text: h }))); thead.appendChild(thr); table.appendChild(thead);
+  const thead = el('thead'); const thr = el('tr');
+  const headers = [
+    { label: '氏名', cls: 'name' },
+    { label: '業務時間', cls: 'work' },
+    { label: 'ステータス', cls: 'status' },
+    { label: '戻り時間', cls: 'time' },
+    { label: '明日の予定', cls: 'tomorrow-plan' },
+    { label: '備考', cls: 'note' }
+  ];
+  headers.forEach(h => thr.appendChild(el('th', { text: h.label, class: h.cls }))); thead.appendChild(thr); table.appendChild(thead);
   const tbody = el('tbody'); group.members.forEach(m => { const r = buildRow(m); tbody.appendChild(r); }); table.appendChild(tbody);
   sec.appendChild(table); return sec;
 }
@@ -362,13 +404,14 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(
 
 /* 行状態 */
 function getRowStateByTr(tr) {
-  if (!tr) return { ext: "", workHours: "", status: STATUSES[0]?.value || "在席", time: "", note: "" };
+  if (!tr) return { ext: "", workHours: "", status: STATUSES[0]?.value || "在席", time: "", tomorrowPlan: "", note: "" };
   const workHoursInput = tr.querySelector('input[name="workHours"]');
   return {
     ext: tr.querySelector('td.ext')?.textContent.trim() || "",
     workHours: workHoursInput ? workHoursInput.value : "",
     status: tr.querySelector('select[name="status"]').value,
     time: tr.querySelector('select[name="time"]').value,
+    tomorrowPlan: tr.querySelector('select[name="tomorrowPlan"]')?.value || "",
     note: tr.querySelector('input[name="note"]').value
   };
 }
@@ -532,7 +575,7 @@ function wireEvents() {
   board.addEventListener('focusin', e => {
     const t = e.target;
     if (t && t.dataset) t.dataset.editing = '1';
-    if (t && (t.name === 'status' || t.name === 'time')) {
+    if (t && (t.name === 'status' || t.name === 'time' || t.name === 'tomorrowPlan')) {
       t.dataset.prevValue = t.value;
     }
     if (t && t.name === 'time' && t.dataset) {
@@ -546,7 +589,7 @@ function wireEvents() {
     const key = tr?.dataset.key;
     if ((t.name === 'note' || t.name === 'workHours') && key && PENDING_ROWS.has(key)) { t.dataset.editing = '1'; }
     else { delete t.dataset.editing; }
-    if (t.name === 'status' || t.name === 'time') {
+    if (t.name === 'status' || t.name === 'time' || t.name === 'tomorrowPlan') {
       delete t.dataset.prevValue;
     }
     if (t.name === 'time') {
@@ -563,7 +606,7 @@ function wireEvents() {
     if (t.name === 'workHours') { debounceRowPush(key); return; }
   });
 
-  // 変更（ステータス/時間）
+  // 変更（ステータス/時間/明日の予定）
   const handleStatusTimeChange = (e) => {
     const t = e.target;
     if (!t) return;
@@ -605,7 +648,7 @@ function wireEvents() {
       return;
     }
 
-    if (t.name === 'time') {
+    if (t.name === 'time' || t.name === 'tomorrowPlan') {
       t.dataset.editing = '1';
 
       ensureTimePrompt(tr);

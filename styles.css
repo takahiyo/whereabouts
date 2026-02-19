@@ -1,34 +1,31 @@
 :root {
-  /* === v1.42 の幅パラメータを踏襲 === */
-  --base-name: 110px;
-  --base-ext: 70px;
-  --base-work: 170px;
-  --base-status: 150px;
-  --base-time: 65px;
-  --base-note: 210px;
+  /* === パネル表示（多列）列幅定義 (SSOT) === */
+  /* 固定幅列（氏名以外は2/3サイズに戻す） */
+  --w-work: 107px;
+  /* 元160px (2/3) */
+  --w-status: 134px;
+  /* 元200px (2/3) */
+  --w-time: 85px;
+  /* 元120px (2/3 + 5px) */
+  /* 元120px (2/3) */
+  --w-tomorrow-plan: 134px;
+  /* 元200px (2/3) */
 
-  --scale-name: 0.50;
-  --scale-ext: 0.33;
-  --scale-work: 0.55;
-  --scale-status: 0.75;
-  --scale-time: 0.45;
-  --scale-note: 0.75;
+  /* 氏名欄（ユーザー指定の110pxを維持） */
+  --w-name: 94px;
+  /* 元140px (2/3) */
+  --w-name-max: 110px;
+  /* ユーザー指定: 110px */
+  --w-note-min: 87px;
+  /* 元130px (2/3) */
+  /* 元130px */
 
-  --min-name: 85px;
-  --min-ext: 35px;
-  --min-work: 80px;
-  --min-status: 85px;
-  --min-time: 65px;
-  --min-note: 70px;
-
-  --w-name: max(calc(var(--base-name) * var(--scale-name)), var(--min-name));
-  --w-ext: max(calc(var(--base-ext) * var(--scale-ext)), var(--min-ext));
-  --w-work: max(calc(var(--base-work) * var(--scale-work)), var(--min-work));
-  --w-status: max(calc(var(--base-status) * var(--scale-status)), var(--min-status));
-  --w-time: max(calc(var(--base-time) * var(--scale-time)), var(--min-time));
-  --w-note: max(calc(var(--base-note) * var(--scale-note)), var(--min-note));
-
+  /* ステータス列幅: --status-fixed による上書き可（互換性維持） */
   --status-effective: var(--status-fixed, var(--w-status));
+
+  /* パネルテーブル最小幅（SSOT: 全列 min 幅の合計）
+     この幅を下回るパネルでは table が min-width を保持し、panel が横スクロール */
+  --table-min-width: calc(var(--w-name) + var(--w-work) + var(--status-effective) + var(--w-time) + var(--w-tomorrow-plan) + var(--w-note-min));
 
   --gap: 20px;
   --line: #d9d9d9;
@@ -264,6 +261,12 @@ table {
   table-layout: fixed
 }
 
+/* パネル内テーブル: 列幅が比例縮小されないよう min-width を設定。
+   パネル幅が不足する場合は .panel の overflow:auto で横スクロール */
+.panel table {
+  min-width: var(--table-min-width)
+}
+
 thead th {
   position: sticky;
   top: 0;
@@ -282,28 +285,92 @@ th {
   text-align: left
 }
 
+th.ext,
+td.ext {
+  display: none
+}
+
 col.col-name {
-  width: var(--w-name)
+  width: var(--w-name) !important;
 }
 
-col.col-ext {
-  width: var(--w-ext)
+/* 物理固定: width/min-/max-widthをcol, th, td全てで固定 (!importantで強制) */
+col.col-work,
+th.work,
+td.work {
+  width: var(--w-work) !important;
+  min-width: var(--w-work) !important;
+  max-width: var(--w-work) !important;
+  box-sizing: border-box;
 }
 
-col.col-work {
-  width: var(--w-work)
+col.col-status,
+th.status,
+td.status {
+  width: var(--status-effective) !important;
+  min-width: var(--status-effective) !important;
+  max-width: var(--status-effective) !important;
+  box-sizing: border-box;
 }
 
-col.col-status {
-  width: var(--status-effective)
+col.col-time,
+th.time,
+td.time {
+  width: var(--w-time) !important;
+  min-width: var(--w-time) !important;
+  max-width: var(--w-time) !important;
+  box-sizing: border-box;
 }
 
-col.col-time {
-  width: var(--w-time)
+col.col-tomorrow-plan,
+th.tomorrow-plan,
+td.tomorrow-plan {
+  width: var(--w-tomorrow-plan) !important;
+  min-width: var(--w-tomorrow-plan) !important;
+  max-width: var(--w-tomorrow-plan) !important;
+  box-sizing: border-box;
 }
 
 col.col-note {
-  width: var(--w-note)
+  width: auto !important;
+}
+
+/* === カード表示（1列）時の強制リセット === */
+/* パネル表示用の !important 固定幅を解除し、Flexboxレイアウトを復元 */
+#board.force-cards th,
+#board.force-cards td,
+#board.force-cards col,
+#board[data-cols="1"] th,
+#board[data-cols="1"] td,
+#board[data-cols="1"] col {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+/* === カード表示（1列）時の強制リセット === */
+/* パネル表示用の !important 固定幅を解除し、Flexboxレイアウトを復元 */
+#board.force-cards th,
+#board.force-cards td,
+#board.force-cards col,
+#board[data-cols="1"] th,
+#board[data-cols="1"] td,
+#board[data-cols="1"] col {
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+/* 氏名・備考列の幅制約（多列パネル表示の補完） */
+td.name,
+th.name {
+  min-width: var(--w-name) !important;
+  max-width: var(--w-name-max) !important;
+}
+
+td.note,
+th.note {
+  min-width: var(--w-note-min)
 }
 
 select,
@@ -729,6 +796,7 @@ td.time.need-time select:focus~.time-hint {
 
   table {
     table-layout: auto;
+    min-width: unset;
   }
 
   tbody {
@@ -760,7 +828,7 @@ td.time.need-time select:focus~.time-hint {
     content: attr(data-label) !important;
     font-weight: 600;
     color: #6B7280;
-    min-width: 5.5em;
+    min-width: 6em;
     flex: 0 0 auto;
   }
 
@@ -785,15 +853,22 @@ td.time.need-time select:focus~.time-hint {
     flex: 1 1 100%;
   }
 
+  /* 内線はカード表示では非表示（連絡先ポップアップへ移動） */
   tbody td.ext {
+    display: none !important;
+  }
+
+  tbody td.status {
     order: 2;
+    flex: 1 1 100%;
   }
 
   tbody td.time {
     order: 3;
+    flex: 1 1 100%;
   }
 
-  tbody td.status {
+  tbody td.tomorrow-plan {
     order: 4;
     flex: 1 1 100%;
   }
@@ -843,7 +918,7 @@ td.time.need-time select:focus~.time-hint {
 #board[data-cols="1"] tbody td::before {
   font-weight: 600;
   color: #6B7280;
-  min-width: 5.5em;
+  min-width: 6em;
   flex: 0 0 auto;
 }
 
@@ -865,14 +940,34 @@ td.time.need-time select:focus~.time-hint {
   flex: 1 1 100%;
 }
 
+/* 内線非表示 */
 #board.force-cards tbody td.ext,
 #board[data-cols="1"] tbody td.ext {
+  display: none !important;
+}
+
+#board.force-cards tbody td.status,
+#board[data-cols="1"] tbody td.status {
   order: 2;
+  flex: 1 1 100%;
 }
 
 #board.force-cards tbody td.time,
 #board[data-cols="1"] tbody td.time {
   order: 3;
+  flex: 1 1 100%;
+}
+
+#board.force-cards tbody td.tomorrow-plan,
+#board[data-cols="1"] tbody td.tomorrow-plan {
+  order: 4;
+  flex: 1 1 100%;
+}
+
+#board.force-cards tbody td.note,
+#board[data-cols="1"] tbody td.note {
+  order: 5;
+  flex: 1 1 100%;
 }
 
 #board.force-cards tbody td.status,
@@ -881,9 +976,15 @@ td.time.need-time select:focus~.time-hint {
   flex: 1 1 100%;
 }
 
+#board.force-cards tbody td.tomorrow-plan,
+#board[data-cols="1"] tbody td.tomorrow-plan {
+  order: 5;
+  flex: 1 1 100%;
+}
+
 #board.force-cards tbody td.note,
 #board[data-cols="1"] tbody td.note {
-  order: 5;
+  order: 6;
   flex: 1 1 100%;
 }
 
@@ -900,6 +1001,7 @@ td.time.need-time select:focus~.time-hint {
   width: 100%;
   table-layout: auto;
   border-collapse: separate;
+  min-width: unset
 }
 
 /* 診断用バナー（必要時のみ） */
@@ -1188,6 +1290,52 @@ td.time.need-time select:focus~.time-hint {
   flex-direction: column;
   gap: 16px;
   min-height: 0;
+}
+
+/* 自動消去設定 UI */
+.auto-clear-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.auto-clear-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.auto-clear-hour-select {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #fff;
+  width: auto !important;
+}
+
+.auto-clear-fields-container {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: #f9fafb;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px dashed #d1d5db;
+}
+
+.auto-clear-field-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.auto-clear-field-item input {
+  width: 16px;
+  height: 16px;
 }
 
 .member-save-bar {
@@ -1756,7 +1904,8 @@ td.time.need-time select:focus~.time-hint {
   z-index: 10;
   text-align: left;
   font-weight: 600;
-  width: var(--w-name);
+  /* ガントビュー専用の氏名列幅（多列パネルの --w-name とは独立） */
+  width: 110px;
   min-width: 85px;
   max-width: 110px;
   white-space: nowrap;
@@ -3622,11 +3771,134 @@ td.time.need-time select:focus~.time-hint {
 /* === Migrated Utilities & Components (v1.5) === */
 
 /* Utilities */
-.u-flex-between-center {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+
+.print-list-title {
+  text-align: center;
+  font-size: 16pt;
+  font-weight: bold;
+  margin-bottom: 10px;
 }
+
+/* 2列レイアウト用テーブル (Z字順) */
+.print-two-col-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  table-layout: fixed !important;
+}
+
+.print-two-col-table th,
+.print-two-col-table td {
+  border: 1px solid #000 !important;
+  padding: 4px !important;
+  font-size: 9pt !important;
+  vertical-align: middle !important;
+  color: #000 !important;
+  height: 30px !important;
+  /* 行の高さを固定してページ繰りを安定させる */
+}
+
+.print-two-col-table thead th {
+  background-color: #f0f0f0 !important;
+  border-bottom: 2px solid #000 !important;
+  font-weight: bold !important;
+  text-align: center !important;
+  font-size: 10pt !important;
+}
+
+/* 左右カラムの区切り線（中央） */
+.print-two-col-table td.col-sep,
+.print-two-col-table th.col-sep {
+  border: none !important;
+  width: 10px !important;
+  /* 左右の隙間 */
+  background: transparent !important;
+}
+
+/* 列幅定義 (左・右共通) */
+.print-col-name {
+  width: 14% !important;
+}
+
+.print-col-work {
+  width: 14% !important;
+}
+
+.print-col-status {
+  width: 8% !important;
+}
+
+.print-col-time {
+  width: 8% !important;
+}
+
+.print-col-next {
+  width: 12% !important;
+}
+
+/* 備考は残り全て */
+.print-col-note {
+  width: auto !important;
+}
+
+.print-member-row {
+  page-break-inside: avoid;
+}
+
+/* グループ別表示（従来）のためのスタイル調整 */
+.print-group-section {
+  page-break-inside: avoid;
+  margin-bottom: 20px;
+}
+
+.print-group-header {
+  font-size: 14pt;
+  font-weight: bold;
+  border-bottom: 2px solid #000;
+  margin-bottom: 5px;
+  margin-top: 10px;
+}
+
+.print-table-header {
+  display: flex;
+  border-bottom: 1px solid #000;
+  font-weight: bold;
+  font-size: 10pt;
+  padding: 4px 0;
+}
+
+.print-member-row {
+  display: flex;
+  border-bottom: 1px solid #ccc;
+  font-size: 9pt;
+  padding: 4px 0;
+}
+
+.pm-name {
+  width: 150px;
+}
+
+.pm-work {
+  width: 120px;
+}
+
+.pm-status {
+  width: 80px;
+}
+
+.pm-ret {
+  width: 80px;
+}
+
+.pm-next {
+  width: 120px;
+}
+
+.pm-note {
+  flex: 1;
+}
+}
+
 
 .u-mb-8 {
   margin-bottom: 8px !important;
@@ -3870,4 +4142,187 @@ td.time.need-time select:focus~.time-hint {
   margin: 8px 0 16px 0;
   color: #666;
   font-size: 0.9em;
+}
+
+/* === 一覧出力（PDF出力）用スタイル === */
+.print-list-work-area {
+  background: #fff;
+  color: #000;
+  padding: 0;
+  font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+}
+
+.print-list-title {
+  text-align: center;
+  font-size: 16pt;
+  font-weight: bold;
+  margin-bottom: 15px;
+  border-bottom: 2px solid #000;
+  padding-bottom: 5px;
+}
+
+/* 2列段組みコンテナ */
+.print-list-container {
+  column-count: 2;
+  column-gap: 20px;
+  width: 100%;
+}
+
+.print-group-section {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  /* 旧ブラウザ互換 */
+  margin-bottom: 15px;
+  border: 1px solid #000;
+  border-radius: 4px;
+}
+
+/* 全員表示用：ページ跨ぎを許容する */
+.print-group-section.no-break-limit {
+  break-inside: auto;
+  page-break-inside: auto;
+}
+
+.print-group-header {
+  break-after: avoid;
+  /* 見出しの直後での改ページを防ぐ */
+  background-color: #eee;
+  border-bottom: 1px solid #000;
+  padding: 4px 8px;
+  font-size: 11pt;
+  font-weight: bold;
+}
+
+.print-table-header {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #000;
+  background-color: #f9f9f9;
+  font-weight: bold;
+  font-size: 8pt;
+  /* サイズ縮小 */
+  padding: 2px 4px;
+  /* パディング縮小 */
+  line-height: 1.1;
+}
+
+.print-member-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #ccc;
+  padding: 4px 6px;
+  font-size: 9pt;
+  line-height: 1.2;
+  break-inside: avoid;
+  /* 行の途中での改ページは防ぐ */
+}
+
+.print-member-row:last-child {
+  border-bottom: none;
+}
+
+/* 各項目の幅調整 (A4横・2列前提) */
+/* 合計が100%になるように調整: 氏名20, 勤務15, 状態10, 戻り10, 明日20, 備考25 */
+.pm-name {
+  flex: 0 0 20%;
+  /* 氏名 */
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 4px;
+}
+
+.pm-work {
+  flex: 0 0 15%;
+  /* 勤務時間 */
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 0.9em;
+}
+
+.pm-status {
+  flex: 0 0 10%;
+  /* 状態 */
+  white-space: nowrap;
+  text-align: center;
+  font-weight: bold;
+}
+
+.pm-ret {
+  flex: 0 0 10%;
+  /* 戻り */
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pm-next {
+  flex: 0 0 20%;
+  /* 明日の予定 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 4px;
+  padding-right: 4px;
+  font-size: 0.9em;
+}
+
+.pm-note {
+  flex: 1;
+  /* 備考 (残り全て) */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 4px;
+  color: #555;
+  font-size: 0.9em;
+}
+
+/* 印刷時の表示制御 */
+@media print {
+  @page {
+    size: landscape;
+    /* 横向き推奨 */
+    margin: 10mm;
+  }
+
+  body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* 一覧出力モードの時は他の全てを隠す */
+  body:has(#printListWorkArea:not(.u-hidden))>*:not(#printListWorkArea) {
+    display: none !important;
+  }
+
+  body:has(#printListWorkArea:not(.u-hidden)) #printListWorkArea {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* フォントサイズ調整 */
+  .print-list-title {
+    font-size: 14pt;
+  }
+
+  .print-group-header {
+    font-size: 10pt;
+  }
+
+  .print-table-header {
+    font-size: 8.5pt;
+    background-color: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-member-row {
+    font-size: 8.5pt;
+    padding: 2px 5px;
+  }
 }

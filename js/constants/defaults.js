@@ -41,7 +41,7 @@ const DEFAULT_STATUSES = Object.freeze([
   { value: "出張", requireTime: true, class: "st-trip" },
   { value: "研修", requireTime: true, class: "st-training" },
   { value: "健康診断", requireTime: true, class: "st-health" },
-  { value: "コアドック", requireTime: true, class: "st-coadoc" },
+  { value: "ドック", requireTime: true, class: "st-coadoc" },
   { value: "帰宅", class: "st-home" },
   { value: "休み", class: "st-off", clearOnSet: true }
 ]);
@@ -54,6 +54,21 @@ const DEFAULT_NOTE_OPTIONS = Object.freeze([
   "直出",
   "直帰",
   "直出・直帰"
+]);
+
+/**
+ * デフォルトの明日の予定選択肢
+ * @type {string[]}
+ */
+const DEFAULT_TOMORROW_PLAN_OPTIONS = Object.freeze([
+  "出勤",
+  "直行",
+  "在宅勤務",
+  "出張・会議",
+  "AM休",
+  "PM休",
+  "休み",
+  "健診・ドック"
 ]);
 
 // ============================================

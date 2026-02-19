@@ -22,6 +22,7 @@
                base-uri 'self';
                form-action 'self'">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="print-list.css" media="print">
 </head>
 
 <body>
@@ -60,7 +61,7 @@
             <button class="tab-btn" data-tab="members">👥 メンバー管理</button>
             <button class="tab-btn" data-tab="notices">📢 お知らせ管理</button>
             <button class="tab-btn" data-tab="events">📅 イベント管理</button>
-            <button class="tab-btn" data-tab="tools">🛠️ ツール管理</button>
+            <button class="tab-btn" data-tab="tools">🛠️ ツール / 出力</button>
           </div>
         </div>
       </div>
@@ -313,6 +314,85 @@
 
         <!-- タブパネル4: ツール管理 -->
         <div id="tabTools" class="tab-panel" data-tab="tools">
+          <!-- 項目自動消去設定 -->
+          <div class="admin-box u-mb-16">
+            <h4>🔄 項目自動消去設定</h4>
+            <div class="admin-subsection">
+              <div class="admin-row u-mb-12 auto-clear-setting-row">
+                <label class="auto-clear-checkbox-label">
+                  <input type="checkbox" id="autoClearEnabled" class="u-m-0" style="width: 20px; height: 20px;">
+                  <span>自動消去を有効にする</span>
+                </label>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <label for="autoClearHour" style="font-weight: 600;">実行時間:</label>
+                  <select id="autoClearHour" class="auto-clear-hour-select">
+                    <option value="0">0:00 (深夜)</option>
+                    <option value="1">1:00</option>
+                    <option value="2">2:00</option>
+                    <option value="3">3:00</option>
+                    <option value="4">4:00</option>
+                    <option value="5">5:00</option>
+                    <option value="6">6:00</option>
+                    <option value="7">7:00</option>
+                    <option value="8">8:00</option>
+                    <option value="9">9:00</option>
+                    <option value="10">10:00</option>
+                    <option value="11">11:00</option>
+                    <option value="12">12:00 (正午)</option>
+                    <option value="13">13:00</option>
+                    <option value="14">14:00</option>
+                    <option value="15">15:00</option>
+                    <option value="16">16:00</option>
+                    <option value="17">17:00</option>
+                    <option value="18">18:00</option>
+                    <option value="19">19:00</option>
+                    <option value="20">20:00</option>
+                    <option value="21">21:00</option>
+                    <option value="22">22:00</option>
+                    <option value="23">23:00</option>
+                  </select>
+                </div>
+
+                <button id="btnSaveAutoClear" class="btn-success" style="margin-left: auto;">💾 設定を保存</button>
+              </div>
+
+              <div class="admin-note u-mb-8" style="font-weight: 600; color: #4b5563;">消去する項目を選択してください：</div>
+              <div id="autoClearFields" class="auto-clear-fields-container">
+                <label class="auto-clear-field-item"><input type="checkbox" value="workHours"> 業務時間</label>
+                <label class="auto-clear-field-item"><input type="checkbox" value="status"> ステータス</label>
+                <label class="auto-clear-field-item"><input type="checkbox" value="time"> 戻り時間</label>
+                <label class="auto-clear-field-item"><input type="checkbox" value="tomorrowPlan"> 明日の予定</label>
+                <label class="auto-clear-field-item"><input type="checkbox" value="note"> 備考</label>
+              </div>
+              <div class="admin-note u-mt-8">※指定した時間（毎日）に、拠点の全メンバーのチェックした項目が自動的に消去されます。ステータスは「在席」に戻ります。</div>
+            </div>
+          </div>
+
+          <div class="admin-box u-mb-16">
+            <h4>🖨️ 一覧出力（PDF出力）</h4>
+            <div class="admin-subsection">
+              <div class="admin-row u-flex-end-gap" style="align-items: center; flex-wrap: wrap;">
+                <label for="adminExportSort" style="font-weight: 600;">ソート順:</label>
+                <select id="adminExportSort" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                  <option value="default">表示順設定（デフォルト）</option>
+                  <option value="name">氏名順</option>
+                  <option value="time">業務時間順</option>
+                  <option value="status">ステータス順</option>
+                </select>
+
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600;">
+                  <input type="checkbox" id="adminExportOneTable" style="width: 18px; height: 18px;">
+                  全てのメンバーを1つの表にまとめる
+                </label>
+
+                <button id="btnPrintList" class="btn-primary">🖨️ 一覧出力（印刷）</button>
+              </div>
+              <div class="admin-note u-mt-8">※ブラウザの印刷機能を使用してPDFとして保存できます。「全てのメンバーを1つの表にまとめる」をチェックするとグループ分けを無視して出力します。
+              </div>
+            </div>
+          </div>
+
           <div class="tools-manager">
             <div class="tools-manager-toolbar">
               <div class="tools-manager-info">
@@ -527,10 +607,10 @@
             <td>健康診断受診中</td>
           </tr>
           <tr>
-            <td>コアドック</td>
+            <td>ドック</td>
             <td>💜 薄紫</td>
             <td><strong>必須</strong></td>
-            <td>コアドック受診中</td>
+            <td>ドック受診中</td>
           </tr>
           <tr>
             <td>帰宅</td>
@@ -548,7 +628,7 @@
 
         <p class="u-mt-16 u-mb-8"><strong>⏰ 戻り時間の入力（外出、出張、研修などの場合）</strong></p>
         <ol class="u-lh-18">
-          <li>ステータスで「外出」「出張」「研修」「健康診断」「コアドック」を選ぶと、戻り時間が<strong class="u-text-red">必須</strong>になります</li>
+          <li>ステータスで「外出」「出張」「研修」「健康診断」「ドック」を選ぶと、戻り時間が<strong class="u-text-red">必須</strong>になります</li>
           <li>「戻り時間」のドロップダウンをクリックして選択（07:00〜22:00、30分刻み）</li>
           <li>⚠️ 未入力の場合は赤枠で表示されます（必ず入力してください）</li>
         </ol>
@@ -802,8 +882,7 @@
 
         <p class="u-mt-16 u-font-095em">
           <strong>📚 さらに詳しく知りたい方へ</strong><br>
-          より詳細な情報は <a href="USER_MANUAL.md" target="_blank"
-            class="u-link-blue">詳細マニュアル（USER_MANUAL.md）</a> をご覧ください。
+          より詳細な情報は <a href="USER_MANUAL.md" target="_blank" class="u-link-blue">詳細マニュアル（USER_MANUAL.md）</a> をご覧ください。
         </p>
       </section>
 
@@ -1141,8 +1220,8 @@
 
         <p class="u-mt-16 u-font-095em">
           <strong>📚 さらに詳しく知りたい方へ</strong><br>
-          より詳細な情報は <a href="ADMIN_MANUAL.md" target="_blank"
-            class="u-link-blue">管理者向け詳細マニュアル（ADMIN_MANUAL.md）</a> をご覧ください。
+          より詳細な情報は <a href="ADMIN_MANUAL.md" target="_blank" class="u-link-blue">管理者向け詳細マニュアル（ADMIN_MANUAL.md）</a>
+          をご覧ください。
         </p>
       </section>
     </div>
@@ -1179,6 +1258,8 @@
     <div id="board" class="board u-hidden"></div>
   </div>
   <div id="diag" class="diag"></div>
+  <!-- 一覧出力（印刷）用のワークエリア -->
+  <div id="printListWorkArea" class="print-list-work-area u-hidden"></div>
   <script src="js/config.js" defer></script>
   <!-- 定数ファイル (SSOT) - config.jsの後、globals.jsの前に読み込む -->
   <script src="js/constants/storage.js" defer></script>

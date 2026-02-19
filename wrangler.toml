@@ -2,6 +2,9 @@ name = "whereabouts"
 main = "CloudflareWorkers_worker.js"
 compatibility_date = "2024-01-14"
 
+[triggers]
+crons = ["0 * * * *"]
+
 # ▼▼▼ エラーログに基づいて修正したID ▼▼▼
 account_id = "01f96b532d61f9cebe2c01bd3e4082f2"
 
@@ -35,3 +38,6 @@ STATUS_CACHE_TTL_SEC = "604800"
 binding = "DB"
 database_name = "whereabouts-db"
 database_id = "350bb3cf-27be-4e96-9ce4-c2bf89ab678c"
+
+[env.dev.triggers]
+crons = ["0 * * * *"]
