@@ -1820,9 +1820,9 @@ if (btnPrintList) {
         table.className = 'print-one-col-table';
 
         // COLGROUPでカラム幅を直接制御
-        // 氏名15% + 時間13% + 状態10% + 戻り10% + 予定20% + 備考32% = 100%
+        // 氏名13% + 時間12% + 状態9% + 戻り7% + 予定20% + 備考39% = 100%
         const colgroup = document.createElement('colgroup');
-        const colWidths = ['15%', '13%', '10%', '10%', '20%', '32%'];
+        const colWidths = ['13%', '12%', '9%', '7%', '20%', '39%'];
         colWidths.forEach(w => {
           const col = document.createElement('col');
           col.style.width = w;
