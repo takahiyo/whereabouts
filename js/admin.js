@@ -1819,6 +1819,19 @@ if (btnPrintList) {
         const table = document.createElement('table');
         table.className = 'print-two-col-table';
 
+        // COLGROUPでカラム幅を直接制御（印刷時にCSSクラス%が効かない問題の対策）
+        const colgroup = document.createElement('colgroup');
+        // 左側6列 + 区切り1列 + 右側6列 = 合計13列
+        // 片側: 名前12% + 時間10% + 状態7% + 戻り7% + 予定9% + 備考4% = 49%
+        // 区切り: 2%  合計: 49% + 2% + 49% = 100%
+        const colWidths = ['12%', '10%', '7%', '7%', '9%', '4%', '2%', '12%', '10%', '7%', '7%', '9%', '4%'];
+        colWidths.forEach(w => {
+          const col = document.createElement('col');
+          col.style.width = w;
+          colgroup.appendChild(col);
+        });
+        table.appendChild(colgroup);
+
         // THEAD: ページ毎にヘッダーを表示させるため
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
