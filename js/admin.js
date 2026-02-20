@@ -1908,7 +1908,7 @@ if (btnPrintList) {
       if (oneTable) {
         // 全員一括の1つのリスト（1行に2名分）
         const container = document.createElement('div');
-        container.className = 'print-list-container';
+        container.className = 'print-list-container print-list-container--one-table';
 
         const table = document.createElement('table');
         table.className = 'print-two-col-table';
