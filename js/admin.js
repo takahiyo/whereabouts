@@ -1838,6 +1838,15 @@ if (btnExportEvent) {
   });
 }
 /* 一覧出力（PDF出力）機能 */
+const PRINT_LIST_COLUMNS = [
+  { key: 'name', label: '氏名', className: 'print-col-name' },
+  { key: 'workHours', label: '業務時間', className: 'print-col-work' },
+  { key: 'status', label: '状態', className: 'print-col-status' },
+  { key: 'time', label: '戻り', className: 'print-col-time' },
+  { key: 'tomorrowPlan', label: '明日の予定', className: 'print-col-next' },
+  { key: 'note', label: '備考', className: 'print-col-note' }
+];
+
 const btnPrintList = document.getElementById('btnPrintList');
 if (btnPrintList) {
   btnPrintList.addEventListener('click', async () => {
@@ -1897,58 +1906,42 @@ if (btnPrintList) {
       workArea.appendChild(title);
 
       if (oneTable) {
-        // 全員一括の1つのリスト（1人1行テーブル）
-        const printOneTableColumns = [
-          { key: 'name', label: '氏名', width: '13%' },
-          { key: 'workHours', label: '業務時間', width: '14%' },
-          { key: 'status', label: '状態', width: '12%' },
-          { key: 'time', label: '戻り', width: '10%' },
-          { key: 'tomorrowPlan', label: '明日の予定', width: '18%' },
-          { key: 'note', label: '備考', width: '33%' }
-        ];
-
+        // 全員一括の1つのリスト（1行に2名分）
         const container = document.createElement('div');
         container.className = 'print-list-container';
 
         const table = document.createElement('table');
-        table.className = 'print-one-col-table';
+        table.className = 'print-two-col-table';
 
-        // ★ SSOT: 列幅は printOneTableColumns のみで管理
-        const colgroup = document.createElement('colgroup');
-        printOneTableColumns.forEach(({ width, key }) => {
-          const col = document.createElement('col');
-          col.className = `print-one-col-${key}`;
-          col.style.width = width;
-          colgroup.appendChild(col);
-        });
-        table.appendChild(colgroup);
-
-        // THEAD: ページ毎にヘッダーを表示させるため
+        // THEAD（ページ毎に繰り返し表示）
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
 
-        printOneTableColumns.forEach(({ label, key }) => {
-          const th = document.createElement('th');
-          th.className = `print-one-col-${key}`;
-          th.textContent = label;
-          headerRow.appendChild(th);
-        });
+        appendHeaderCells(headerRow, PRINT_LIST_COLUMNS);
+        const separator = document.createElement('th');
+        separator.className = 'col-sep';
+        separator.textContent = '';
+        headerRow.appendChild(separator);
+        appendHeaderCells(headerRow, PRINT_LIST_COLUMNS);
 
         thead.appendChild(headerRow);
         table.appendChild(thead);
 
-        // TBODY: 1人1行
+        // TBODY（1行に2名分）
         const tbody = document.createElement('tbody');
-        list.forEach(m => {
+        for (let i = 0; i < list.length; i += 2) {
+          const leftMember = list[i] || null;
+          const rightMember = list[i + 1] || null;
           const tr = document.createElement('tr');
-          printOneTableColumns.forEach(({ key }) => {
-            const td = document.createElement('td');
-            td.className = `print-one-col-${key}`;
-            td.textContent = m[key] || '';
-            tr.appendChild(td);
-          });
+
+          appendMemberCells(tr, leftMember, PRINT_LIST_COLUMNS);
+          const sepTd = document.createElement('td');
+          sepTd.className = 'col-sep';
+          tr.appendChild(sepTd);
+          appendMemberCells(tr, rightMember, PRINT_LIST_COLUMNS);
+
           tbody.appendChild(tr);
-        });
+        }
 
         table.appendChild(tbody);
         container.appendChild(table);
@@ -2003,19 +1996,20 @@ if (btnPrintList) {
 }
 
 // 2列表示用セル生成ヘルパー
-function appendMemberCells(tr, m, classes) {
-  const values = [
-    m.name || '',
-    m.workHours || '',
-    m.status || '',
-    m.time || '',
-    m.tomorrowPlan || '',
-    m.note || ''
-  ];
-  values.forEach((v, i) => {
+function appendHeaderCells(tr, columns) {
+  columns.forEach(({ label, className }) => {
+    const th = document.createElement('th');
+    th.textContent = label;
+    th.className = className;
+    tr.appendChild(th);
+  });
+}
+
+function appendMemberCells(tr, member, columns) {
+  columns.forEach(({ key, className }) => {
     const td = document.createElement('td');
-    td.textContent = v;
-    td.className = classes[i];
+    td.textContent = member?.[key] || '';
+    td.className = className;
     tr.appendChild(td);
   });
 }
