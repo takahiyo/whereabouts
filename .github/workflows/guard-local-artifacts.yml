@@ -1,0 +1,36 @@
+name: Guard Local Artifacts
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  block-local-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if local artifacts are tracked
+        run: |
+          set -eu
+          BLOCKED_PATTERNS=(
+            '.wrangler/**'
+            '*.sqlite'
+            '*.sqlite-wal'
+            '*.sqlite-shm'
+          )
+
+          blocked_files=""
+          for pattern in "${BLOCKED_PATTERNS[@]}"; do
+            matches="$(git ls-files "$pattern")"
+            if [ -n "$matches" ]; then
+              blocked_files="${blocked_files}${matches}\n"
+            fi
+          done
+
+          if [ -n "$blocked_files" ]; then
+            echo '❌ Local artifacts are tracked and must be removed from Git index:'
+            printf '%b' "$blocked_files"
+            exit 1
+          fi
+
+          echo '✅ No tracked local artifacts found.'
