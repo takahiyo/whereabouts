@@ -3816,28 +3816,13 @@ td.time.need-time select:focus~.time-hint {
 }
 
 /* 列幅定義 (左・右共通) */
-.print-col-name {
-  width: 14% !important;
-}
-
-.print-col-work {
-  width: 14% !important;
-}
-
-.print-col-status {
-  width: 8% !important;
-}
-
-.print-col-time {
-  width: 8% !important;
-}
-
-.print-col-next {
-  width: 12% !important;
-}
-
-/* 備考は残り全て */
-.print-col-note {
+/* 列幅は js/admin.js の colgroup（SSOT）で管理 */
+.print-two-col-table .print-col-name,
+.print-two-col-table .print-col-work,
+.print-two-col-table .print-col-status,
+.print-two-col-table .print-col-time,
+.print-two-col-table .print-col-next,
+.print-two-col-table .print-col-note {
   width: auto !important;
 }
 
@@ -4166,6 +4151,12 @@ td.time.need-time select:focus~.time-hint {
   column-count: 2;
   column-gap: 20px;
   width: 100%;
+}
+
+/* 1テーブル出力は段組みしない（4段落化防止） */
+.print-list-container--one-table {
+  column-count: 1;
+  column-gap: 0;
 }
 
 .print-group-section {
