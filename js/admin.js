@@ -1898,21 +1898,27 @@ if (btnPrintList) {
 
       if (oneTable) {
         // 全員一括の1つのリスト（1人1行テーブル）
-        // ★ 列幅の定義箇所 (SSOT): colgroup のみ
-        //   ※ .print-col-* クラスは使わない（styles.css の !important と競合するため）
+        const printOneTableColumns = [
+          { key: 'name', label: '氏名', width: '13%' },
+          { key: 'workHours', label: '業務時間', width: '14%' },
+          { key: 'status', label: '状態', width: '12%' },
+          { key: 'time', label: '戻り', width: '10%' },
+          { key: 'tomorrowPlan', label: '明日の予定', width: '18%' },
+          { key: 'note', label: '備考', width: '33%' }
+        ];
+
         const container = document.createElement('div');
         container.className = 'print-list-container';
 
         const table = document.createElement('table');
         table.className = 'print-one-col-table';
 
-        // ★ SSOT: 列幅はここだけで定義する
-        // 氏名13% + 時間12% + 状態12% + 戻り7% + 予定20% + 備考36% = 100%
+        // ★ SSOT: 列幅は printOneTableColumns のみで管理
         const colgroup = document.createElement('colgroup');
-        const colWidths = ['13%', '12%', '12%', '7%', '20%', '36%'];
-        colWidths.forEach(w => {
+        printOneTableColumns.forEach(({ width, key }) => {
           const col = document.createElement('col');
-          col.style.width = w;
+          col.className = `print-one-col-${key}`;
+          col.style.width = width;
           colgroup.appendChild(col);
         });
         table.appendChild(colgroup);
@@ -1921,27 +1927,24 @@ if (btnPrintList) {
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
 
-        const headers = ['氏名', '業務時間', '状態', '戻り', '明日の予定', '備考'];
-        headers.forEach(h => {
+        printOneTableColumns.forEach(({ label, key }) => {
           const th = document.createElement('th');
-          th.textContent = h;
+          th.className = `print-one-col-${key}`;
+          th.textContent = label;
           headerRow.appendChild(th);
         });
 
         thead.appendChild(headerRow);
         table.appendChild(thead);
 
-        // TBODY: 1人1行（クラスなしでセル生成）
+        // TBODY: 1人1行
         const tbody = document.createElement('tbody');
         list.forEach(m => {
           const tr = document.createElement('tr');
-          const values = [
-            m.name || '', m.workHours || '', m.status || '',
-            m.time || '', m.tomorrowPlan || '', m.note || ''
-          ];
-          values.forEach(v => {
+          printOneTableColumns.forEach(({ key }) => {
             const td = document.createElement('td');
-            td.textContent = v;
+            td.className = `print-one-col-${key}`;
+            td.textContent = m[key] || '';
             tr.appendChild(td);
           });
           tbody.appendChild(tr);
