@@ -1839,13 +1839,14 @@ if (btnExportEvent) {
 }
 /* 一覧出力（PDF出力）機能 */
 const PRINT_LIST_COLUMNS = [
-  { key: 'name', label: '氏名', className: 'print-col-name' },
-  { key: 'workHours', label: '業務時間', className: 'print-col-work' },
-  { key: 'status', label: '状態', className: 'print-col-status' },
-  { key: 'time', label: '戻り', className: 'print-col-time' },
-  { key: 'tomorrowPlan', label: '明日の予定', className: 'print-col-next' },
-  { key: 'note', label: '備考', className: 'print-col-note' }
+  { key: 'name', label: '氏名', className: 'print-col-name', ratio: 13 },
+  { key: 'workHours', label: '業務時間', className: 'print-col-work', ratio: 14 },
+  { key: 'status', label: '状態', className: 'print-col-status', ratio: 12 },
+  { key: 'time', label: '戻り', className: 'print-col-time', ratio: 10 },
+  { key: 'tomorrowPlan', label: '明日の予定', className: 'print-col-next', ratio: 18 },
+  { key: 'note', label: '備考', className: 'print-col-note', ratio: 33 }
 ];
+const PRINT_LIST_SEPARATOR_WIDTH = '10px';
 
 const btnPrintList = document.getElementById('btnPrintList');
 if (btnPrintList) {
@@ -1912,6 +1913,7 @@ if (btnPrintList) {
 
         const table = document.createElement('table');
         table.className = 'print-two-col-table';
+        appendPrintColGroup(table, PRINT_LIST_COLUMNS, PRINT_LIST_SEPARATOR_WIDTH);
 
         // THEAD（ページ毎に繰り返し表示）
         const thead = document.createElement('thead');
@@ -2012,6 +2014,28 @@ function appendMemberCells(tr, member, columns) {
     td.className = className;
     tr.appendChild(td);
   });
+}
+
+function appendPrintColGroup(table, columns, separatorWidth) {
+  const colgroup = document.createElement('colgroup');
+  const totalRatio = columns.reduce((sum, col) => sum + (Number(col.ratio) || 0), 0) || 1;
+
+  const appendOneSide = () => {
+    columns.forEach((col) => {
+      const c = document.createElement('col');
+      const ratio = Number(col.ratio) || 0;
+      c.style.width = `calc((100% - ${separatorWidth}) * ${(ratio / (totalRatio * 2)).toFixed(6)})`;
+      colgroup.appendChild(c);
+    });
+  };
+
+  appendOneSide();
+  const sep = document.createElement('col');
+  sep.style.width = separatorWidth;
+  colgroup.appendChild(sep);
+  appendOneSide();
+
+  table.appendChild(colgroup);
 }
 
 function createPrintHeaderRowDiv() {
