@@ -4168,6 +4168,12 @@ td.time.need-time select:focus~.time-hint {
   width: 100%;
 }
 
+/* 1テーブル出力は段組みしない（4段落化防止） */
+.print-list-container--one-table {
+  column-count: 1;
+  column-gap: 0;
+}
+
 .print-group-section {
   break-inside: avoid;
   page-break-inside: avoid;
