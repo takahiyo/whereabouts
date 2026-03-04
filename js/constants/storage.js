@@ -37,6 +37,7 @@ const NOTICE_COLLAPSE_STORAGE_KEY = 'noticeAreaCollapsed';
 // ============================================
 /**
  * 状態キャッシュキー（CONFIG.storageKeysから参照）
+ * 値は sync.js で { savedAt, state } の自己修復用エンベロープ保存にも利用される。
  * @deprecated CONFIG.storageKeys.stateCache を使用すること
  */
 const STORAGE_KEY_CACHE_FALLBACK = 'whereabouts_state_cache';

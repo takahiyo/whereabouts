@@ -38,10 +38,11 @@ const SYNC_LOG_KEYS = Object.freeze({
 });
 
 const DEFAULT_SYNC_LOG_SETTINGS = Object.freeze({
-  skipWarnThreshold: 3
+  skipWarnThreshold: DEFAULT_SYNC_CONFLICT_STREAK_WARN_THRESHOLD
 });
 
 let syncSkipStreak = 0;
+let syncConflictStreak = 0;
 
 function getSyncLogSettings() {
   const fromConfig = (typeof CONFIG !== 'undefined' && CONFIG && typeof CONFIG.syncLog === 'object')
@@ -52,6 +53,27 @@ function getSyncLogSettings() {
     skipWarnThreshold: Number.isFinite(threshold) && threshold > 0
       ? threshold
       : DEFAULT_SYNC_LOG_SETTINGS.skipWarnThreshold
+  };
+}
+
+function getSyncSelfHealSettings() {
+  const fromConfig = (typeof CONFIG !== 'undefined' && CONFIG && typeof CONFIG.syncSelfHeal === 'object')
+    ? CONFIG.syncSelfHeal
+    : null;
+  const revRescueWindowMs = Number(fromConfig?.revRescueWindowMs);
+  const cacheTtlMs = Number(fromConfig?.cacheTtlMs);
+  const conflictStreakWarnThreshold = Number(fromConfig?.conflictStreakWarnThreshold);
+
+  return {
+    revRescueWindowMs: Number.isFinite(revRescueWindowMs) && revRescueWindowMs > 0
+      ? revRescueWindowMs
+      : DEFAULT_SYNC_REV_RESCUE_WINDOW_MS,
+    cacheTtlMs: Number.isFinite(cacheTtlMs) && cacheTtlMs > 0
+      ? cacheTtlMs
+      : DEFAULT_SYNC_CACHE_TTL_MS,
+    conflictStreakWarnThreshold: Number.isFinite(conflictStreakWarnThreshold) && conflictStreakWarnThreshold > 0
+      ? conflictStreakWarnThreshold
+      : DEFAULT_SYNC_CONFLICT_STREAK_WARN_THRESHOLD
   };
 }
 
@@ -86,15 +108,73 @@ function logSyncDecision(input) {
   syncSkipStreak = 0;
 }
 
+function reportConflictStreak(memberId) {
+  const settings = getSyncSelfHealSettings();
+  syncConflictStreak += 1;
+  if (syncConflictStreak >= settings.conflictStreakWarnThreshold && (syncConflictStreak % settings.conflictStreakWarnThreshold) === 0) {
+    console.warn('[sync-conflict-streak]', {
+      conflictStreak: syncConflictStreak,
+      conflictStreakWarnThreshold: settings.conflictStreakWarnThreshold,
+      lastMemberId: String(memberId || '')
+    });
+  }
+}
+
+function resetConflictStreak() {
+  syncConflictStreak = 0;
+}
+
+function shouldApplyRemoteState(remoteRev, localRev, remoteServerUpdated, localServerUpdated) {
+  if (remoteRev > localRev) {
+    return true;
+  }
+
+  if (remoteRev !== localRev || remoteServerUpdated <= localServerUpdated) {
+    return false;
+  }
+
+  const settings = getSyncSelfHealSettings();
+  return (remoteServerUpdated - localServerUpdated) <= settings.revRescueWindowMs;
+}
+
 // Configからキーを取得（読み込み順序に依存するため安全策をとる）
-const STORAGE_KEY_CACHE = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.stateCache : 'whereabouts_state_cache';
-const STORAGE_KEY_SYNC = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.lastSync : 'whereabouts_last_sync';
+const STORAGE_KEY_CACHE = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.stateCache : STORAGE_KEY_CACHE_FALLBACK;
+const STORAGE_KEY_SYNC = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.lastSync : STORAGE_KEY_SYNC_FALLBACK;
+
+function serializeStateCachePayload(cache) {
+  return JSON.stringify({
+    savedAt: Date.now(),
+    state: cache
+  });
+}
+
+function restoreStateCache(rawCache) {
+  if (!rawCache) {
+    return;
+  }
+
+  const parsed = JSON.parse(rawCache);
+  const settings = getSyncSelfHealSettings();
+
+  if (parsed && typeof parsed === 'object' && parsed.state && typeof parsed.state === 'object') {
+    const savedAt = Number(parsed.savedAt || 0);
+    const isFresh = Number.isFinite(savedAt) && (Date.now() - savedAt) <= settings.cacheTtlMs;
+    if (isFresh) {
+      STATE_CACHE = parsed.state;
+      return;
+    }
+    localStorage.removeItem(STORAGE_KEY_CACHE);
+    return;
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    STATE_CACHE = parsed;
+  }
+}
 
 try {
   const cached = localStorage.getItem(STORAGE_KEY_CACHE);
-  if (cached) {
-    STATE_CACHE = JSON.parse(cached);
-  }
+  restoreStateCache(cached);
   // ★追加: 最終同期時刻も復元する
   const cachedTs = localStorage.getItem(STORAGE_KEY_SYNC);
   if (cachedTs) {
@@ -446,6 +526,7 @@ async function pushRowDelta(key) {
     if (r.error === 'conflict') {
       const c = (r.conflicts && r.conflicts.find(x => x.id === key)) || null;
       if (c && c.server) {
+        reportConflictStreak(key);
         logSyncDecision({
           memberId: key,
           remoteRev: Number(c.server.rev || 0),
@@ -474,11 +555,12 @@ async function pushRowDelta(key) {
       if (!STATE_CACHE[key]) STATE_CACHE[key] = {};
       Object.assign(STATE_CACHE[key], st);
       try {
-        localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(STATE_CACHE));
+        localStorage.setItem(STORAGE_KEY_CACHE, serializeStateCachePayload(STATE_CACHE));
       } catch (e) {
         console.error("Failed to update local cache:", e);
       }
 
+      resetConflictStreak();
       saveLocal();
       return;
     }
@@ -504,7 +586,7 @@ function applyState(data) {
 
   // ★修正: 最新状態をlocalStorageに保存（サーバーからの受信時）
   try {
-    localStorage.setItem(STORAGE_KEY_CACHE, JSON.stringify(STATE_CACHE));
+    localStorage.setItem(STORAGE_KEY_CACHE, serializeStateCachePayload(STATE_CACHE));
   } catch (e) {
     // quota exceededなどは無視
   }
@@ -544,7 +626,8 @@ function applyState(data) {
     const localRev = Number(tr?.dataset.rev || 0);
     const remoteServerUpdated = Number(v.serverUpdated || 0);
     const localServerUpdated = Number(tr?.dataset.serverUpdated || 0);
-    const decision = (tr && remoteRev > localRev) ? SYNC_DECISION.APPLY : SYNC_DECISION.SKIP;
+    const shouldApply = Boolean(tr) && shouldApplyRemoteState(remoteRev, localRev, remoteServerUpdated, localServerUpdated);
+    const decision = shouldApply ? SYNC_DECISION.APPLY : SYNC_DECISION.SKIP;
     logSyncDecision({
       memberId: k,
       remoteRev,
@@ -553,7 +636,7 @@ function applyState(data) {
       localServerUpdated,
       decision
     });
-    if (tr && remoteRev > localRev) { tr.dataset.rev = String(remoteRev); tr.dataset.serverUpdated = String(v.serverUpdated || 0); }
+    if (tr && shouldApply) { tr.dataset.rev = String(remoteRev); tr.dataset.serverUpdated = String(v.serverUpdated || 0); }
 
     ensureTimePrompt(tr);
   });

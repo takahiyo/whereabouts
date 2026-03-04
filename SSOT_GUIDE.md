@@ -249,3 +249,18 @@ setTimeout(callback, TIMEOUTS.DEFAULT_MS);
 
 - [CORE_PRINCIPLES.md](./CORE_PRINCIPLES.md) - 基本原則
 - [COMMENT_GUIDE.md](./COMMENT_GUIDE.md) - 定数へのコメント付与規則
+
+
+---
+
+## 同期自己修復パラメータ一覧（変更窓口）
+
+同期の自己修復で使用する値は **`js/constants/timing.js` を既定値のSSOT**、**`js/config.js` の `CONFIG.syncSelfHeal` を環境上書き窓口**とする。運用で値を変更する場合は、この2ファイル以外を編集しないこと。
+
+| パラメータ | 既定値定数（timing.js） | 上書きキー（config.js） | 運用意図 |
+|---|---|---|---|
+| rev救済ウィンドウ | `DEFAULT_SYNC_REV_RESCUE_WINDOW_MS` | `syncSelfHeal.revRescueWindowMs` | rev同値かつ `serverUpdated` 進行時の救済適用範囲 |
+| キャッシュ寿命 | `DEFAULT_SYNC_CACHE_TTL_MS` | `syncSelfHeal.cacheTtlMs` | 古い同期キャッシュを破棄して自己修復を優先する期限 |
+| 競合連続判定 | `DEFAULT_SYNC_CONFLICT_STREAK_WARN_THRESHOLD` | `syncSelfHeal.conflictStreakWarnThreshold` | 競合多発を検知して警告を出すしきい値 |
+
+実装側（`js/sync.js`）は上記キーのみ参照し、数値リテラルを直接書かないこと。
