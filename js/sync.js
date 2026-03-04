@@ -95,6 +95,27 @@ function getSyncRecoverySettings() {
   };
 }
 
+function getSyncCacheValidationSettings() {
+  const fromConfig = (typeof CONFIG !== 'undefined' && CONFIG && typeof CONFIG.syncCacheValidation === 'object')
+    ? CONFIG.syncCacheValidation
+    : null;
+  const maxRev = Number(fromConfig?.maxRev);
+  const maxServerUpdatedAheadMs = Number(fromConfig?.maxServerUpdatedAheadMs);
+  const purgeDriftThresholdMs = Number(fromConfig?.purgeDriftThresholdMs);
+
+  return {
+    maxRev: Number.isInteger(maxRev) && maxRev > 0
+      ? maxRev
+      : DEFAULT_SYNC_CACHE_MAX_REV,
+    maxServerUpdatedAheadMs: Number.isFinite(maxServerUpdatedAheadMs) && maxServerUpdatedAheadMs >= 0
+      ? maxServerUpdatedAheadMs
+      : DEFAULT_SYNC_CACHE_MAX_SERVER_UPDATED_AHEAD_MS,
+    purgeDriftThresholdMs: Number.isFinite(purgeDriftThresholdMs) && purgeDriftThresholdMs > 0
+      ? purgeDriftThresholdMs
+      : DEFAULT_SYNC_CACHE_PURGE_DRIFT_THRESHOLD_MS
+  };
+}
+
 function logSyncDecision(input) {
   const payload = input && typeof input === 'object' ? input : {};
   const settings = getSyncLogSettings();
@@ -193,6 +214,70 @@ function restoreStateCache(rawCache) {
   }
 }
 
+function purgeSyncLocalCache(reason, details = {}) {
+  STATE_CACHE = {};
+  lastSyncTimestamp = 0;
+  localStorage.removeItem(STORAGE_KEY_CACHE);
+  localStorage.removeItem(STORAGE_KEY_SYNC);
+  console.warn('[sync-cache-restore]', {
+    fullPurge: true,
+    reason: String(reason || 'unspecified'),
+    removedRows: Number(details.removedRows || 0),
+    ...details
+  });
+}
+
+function sanitizeStateCache(cache, lastSyncTs) {
+  if (!cache || typeof cache !== 'object') {
+    return {
+      sanitizedCache: {},
+      removedRows: 0,
+      fullPurge: false
+    };
+  }
+
+  const settings = getSyncCacheValidationSettings();
+  const now = Date.now();
+  const sanitizedCache = {};
+  let removedRows = 0;
+  let hasDriftOverflow = false;
+
+  Object.entries(cache).forEach(([memberId, row]) => {
+    if (!row || typeof row !== 'object') {
+      removedRows += 1;
+      return;
+    }
+
+    const rev = Number(row.rev);
+    const serverUpdated = Number(row.serverUpdated);
+    const isRevValid = Number.isInteger(rev) && rev >= 0 && rev <= settings.maxRev;
+    const isServerUpdatedValid = Number.isFinite(serverUpdated)
+      && serverUpdated >= 0
+      && serverUpdated <= (now + settings.maxServerUpdatedAheadMs);
+
+    if (!isRevValid || !isServerUpdatedValid) {
+      removedRows += 1;
+      return;
+    }
+
+    if (Number.isFinite(lastSyncTs) && lastSyncTs > 0) {
+      const drift = Math.abs(serverUpdated - lastSyncTs);
+      if (drift > settings.purgeDriftThresholdMs) {
+        hasDriftOverflow = true;
+      }
+    }
+
+    sanitizedCache[String(memberId)] = row;
+  });
+
+  return {
+    sanitizedCache,
+    removedRows,
+    fullPurge: hasDriftOverflow,
+    driftThresholdMs: settings.purgeDriftThresholdMs
+  };
+}
+
 function normalizeConflictRecoveryState(rawState) {
   if (!rawState || typeof rawState !== 'object') {
     return {};
@@ -287,6 +372,23 @@ try {
     if (Number.isFinite(ts)) {
       lastSyncTimestamp = ts;
     }
+  }
+
+  const validation = sanitizeStateCache(STATE_CACHE, lastSyncTimestamp);
+  if (validation.fullPurge) {
+    purgeSyncLocalCache('drift-over-threshold', {
+      removedRows: validation.removedRows,
+      driftThresholdMs: validation.driftThresholdMs
+    });
+  } else {
+    STATE_CACHE = validation.sanitizedCache;
+    if (validation.removedRows > 0) {
+      localStorage.setItem(STORAGE_KEY_CACHE, serializeStateCachePayload(STATE_CACHE));
+    }
+    console.info('[sync-cache-restore]', {
+      fullPurge: false,
+      removedRows: validation.removedRows
+    });
   }
 
   const rawConflictRecovery = localStorage.getItem(STORAGE_KEY_CONFLICT_RECOVERY);

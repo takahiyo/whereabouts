@@ -61,6 +61,25 @@ const DEFAULT_SYNC_RECOVERY_CONFLICT_THRESHOLD = 3;
  */
 const DEFAULT_SYNC_RECOVERY_WINDOW_MS = 180000;
 
+/**
+ * state cache 内の rev の上限値 - CONFIG.syncCacheValidation.maxRev で上書き可
+ * 不正な巨大値混入による比較異常を防ぐ。
+ */
+const DEFAULT_SYNC_CACHE_MAX_REV = 2147483647;
+
+/**
+ * state cache 内の serverUpdated の許容未来ズレ（ミリ秒）
+ * - CONFIG.syncCacheValidation.maxServerUpdatedAheadMs で上書き可
+ */
+const DEFAULT_SYNC_CACHE_MAX_SERVER_UPDATED_AHEAD_MS = 300000;
+
+/**
+ * lastSyncTimestamp と各行 serverUpdated の最大乖離（ミリ秒）
+ * - CONFIG.syncCacheValidation.purgeDriftThresholdMs で上書き可
+ * この閾値を超える行があれば cache 全体をパージする。
+ */
+const DEFAULT_SYNC_CACHE_PURGE_DRIFT_THRESHOLD_MS = 86400000;
+
 // ============================================
 // API通信
 // ============================================
