@@ -221,7 +221,11 @@ function buildRow(member) {
   const name = sanitizeText(member.name || "");
   const ext = (member.ext && /^[0-9]{1,6}$/.test(String(member.ext))) ? String(member.ext) : "";
   const key = member.id;
-  const tr = el('tr', { id: `row-${key}` }); tr.dataset.key = key; tr.dataset.rev = '0';
+  const rev = member.updated ? String(member.updated) : '0';
+  const tr = el('tr', { id: `row-${key}` });
+  tr.dataset.key = key;
+  tr.dataset.rev = rev;
+  tr.dataset.serverUpdated = rev;
   tr.dataset.mobile = member.mobile ? String(member.mobile) : '';
   tr.dataset.email = member.email ? String(member.email) : '';
   tr.dataset.extension = ext;

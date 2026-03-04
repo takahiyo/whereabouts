@@ -610,7 +610,7 @@ async function startLegacyPolling(immediate) {
     }
     const maxUpdated = Number.isFinite(Number(r?.maxUpdated)) ? Number(r.maxUpdated) : 0;
     const serverNow = Number.isFinite(Number(r?.serverNow)) ? Number(r.serverNow) : 0;
-    const nextSyncTimestamp = Math.max(lastSyncTimestamp, maxUpdated, serverNow);
+    const nextSyncTimestamp = Math.max(lastSyncTimestamp, maxUpdated);
 
     if (nextSyncTimestamp > lastSyncTimestamp) {
       lastSyncTimestamp = nextSyncTimestamp;
