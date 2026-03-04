@@ -31,6 +31,8 @@ const CONFIG = {
     syncSelfHeal: {
         // rev が同値でも serverUpdated の進みを許容する救済ウィンドウ。
         revRescueWindowMs: 180000,
+        // rev 不整合(remoteRev <= localRev)時に serverUpdated 差分で救済する閾値。
+        revSkewHealWindowMs: 180000,
         // 復元対象とみなす同期キャッシュの寿命。期限超過時は破棄して再同期。
         cacheTtlMs: 21600000,
         // 競合が連続した場合の警告しきい値。運用で多発監視する。

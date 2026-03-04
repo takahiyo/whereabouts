@@ -62,6 +62,7 @@ function getSyncSelfHealSettings() {
     ? CONFIG.syncSelfHeal
     : null;
   const revRescueWindowMs = Number(fromConfig?.revRescueWindowMs);
+  const revSkewHealWindowMs = Number(fromConfig?.revSkewHealWindowMs);
   const cacheTtlMs = Number(fromConfig?.cacheTtlMs);
   const conflictStreakWarnThreshold = Number(fromConfig?.conflictStreakWarnThreshold);
 
@@ -69,6 +70,9 @@ function getSyncSelfHealSettings() {
     revRescueWindowMs: Number.isFinite(revRescueWindowMs) && revRescueWindowMs > 0
       ? revRescueWindowMs
       : DEFAULT_SYNC_REV_RESCUE_WINDOW_MS,
+    revSkewHealWindowMs: Number.isFinite(revSkewHealWindowMs) && revSkewHealWindowMs > 0
+      ? revSkewHealWindowMs
+      : DEFAULT_SYNC_REV_SKEW_HEAL_WINDOW_MS,
     cacheTtlMs: Number.isFinite(cacheTtlMs) && cacheTtlMs > 0
       ? cacheTtlMs
       : DEFAULT_SYNC_CACHE_TTL_MS,
@@ -163,17 +167,44 @@ function resetConflictStreak() {
   syncConflictStreak = 0;
 }
 
-function shouldApplyRemoteState(remoteRev, localRev, remoteServerUpdated, localServerUpdated) {
-  if (remoteRev > localRev) {
-    return true;
-  }
+const SYNC_HEAL_REASON = Object.freeze({
+  NONE: 'none',
+  NORMAL: 'normal',
+  HEAL: 'heal',
+  REPAIR: 'repair'
+});
 
-  if (remoteRev !== localRev || remoteServerUpdated <= localServerUpdated) {
-    return false;
-  }
-
+function evaluateRemoteStateDecision(remoteRev, localRev, remoteServerUpdated, localServerUpdated) {
   const settings = getSyncSelfHealSettings();
-  return (remoteServerUpdated - localServerUpdated) <= settings.revRescueWindowMs;
+  const cacheValidation = getSyncCacheValidationSettings();
+  const hasInvalidLocalRev = !Number.isFinite(localRev) || localRev < 0 || localRev > cacheValidation.maxRev;
+
+  if (hasInvalidLocalRev) {
+    return {
+      shouldApply: true,
+      reason: SYNC_HEAL_REASON.REPAIR
+    };
+  }
+
+  if (remoteRev > localRev) {
+    return {
+      shouldApply: true,
+      reason: SYNC_HEAL_REASON.NORMAL
+    };
+  }
+
+  const skewMs = remoteServerUpdated - localServerUpdated;
+  if (remoteRev <= localRev && skewMs > settings.revSkewHealWindowMs) {
+    return {
+      shouldApply: true,
+      reason: SYNC_HEAL_REASON.HEAL
+    };
+  }
+
+  return {
+    shouldApply: false,
+    reason: SYNC_HEAL_REASON.NONE
+  };
 }
 
 // Configからキーを取得（読み込み順序に依存するため安全策をとる）
@@ -801,25 +832,17 @@ async function pushRowDelta(key) {
 function applyState(data) {
   if (!data) return;
 
-  // キャッシュにマージ
-  Object.assign(STATE_CACHE, data);
-
-  // ★修正: 最新状態をlocalStorageに保存（サーバーからの受信時）
-  try {
-    localStorage.setItem(STORAGE_KEY_CACHE, serializeStateCachePayload(STATE_CACHE));
-  } catch (e) {
-    // quota exceededなどは無視
-  }
+  let hasStateCacheUpdates = false;
 
   Object.entries(data).forEach(([k, v]) => {
     if (PENDING_ROWS.has(k)) {
       const trPending = document.getElementById(`row-${k}`);
       logSyncDecision({
         memberId: k,
-        remoteRev: Number(v?.rev || 0),
-        localRev: Number(trPending?.dataset.rev || 0),
-        remoteServerUpdated: Number(v?.serverUpdated || 0),
-        localServerUpdated: Number(trPending?.dataset.serverUpdated || 0),
+        remoteRev: Number(v?.rev),
+        localRev: Number(trPending?.dataset.rev),
+        remoteServerUpdated: Number(v?.serverUpdated),
+        localServerUpdated: Number(trPending?.dataset.serverUpdated),
         decision: SYNC_DECISION.SKIP
       });
       return;
@@ -842,12 +865,14 @@ function applyState(data) {
     setIfNeeded(t, v.time || ""); setIfNeeded(p, v.tomorrowPlan || ""); setIfNeeded(n, v.note || "");
     if (s && t) toggleTimeEnable(s, t);
 
-    const remoteRev = Number(v.rev || 0);
-    const localRev = Number(tr?.dataset.rev || 0);
-    const remoteServerUpdated = Number(v.serverUpdated || 0);
-    const localServerUpdated = Number(tr?.dataset.serverUpdated || 0);
-    const shouldApply = Boolean(tr) && shouldApplyRemoteState(remoteRev, localRev, remoteServerUpdated, localServerUpdated);
-    const decision = shouldApply ? SYNC_DECISION.APPLY : SYNC_DECISION.SKIP;
+    const remoteRev = Number(v?.rev);
+    const localRev = Number(tr?.dataset.rev);
+    const remoteServerUpdated = Number(v?.serverUpdated);
+    const localServerUpdated = Number(tr?.dataset.serverUpdated);
+    const decisionResult = Boolean(tr)
+      ? evaluateRemoteStateDecision(remoteRev, localRev, remoteServerUpdated, localServerUpdated)
+      : { shouldApply: false, reason: SYNC_HEAL_REASON.NONE };
+    const decision = decisionResult.shouldApply ? SYNC_DECISION.APPLY : SYNC_DECISION.SKIP;
     logSyncDecision({
       memberId: k,
       remoteRev,
@@ -856,10 +881,45 @@ function applyState(data) {
       localServerUpdated,
       decision
     });
-    if (tr && shouldApply) { tr.dataset.rev = String(remoteRev); tr.dataset.serverUpdated = String(v.serverUpdated || 0); }
+
+    if (tr && decisionResult.shouldApply) {
+      const nextRev = Number.isFinite(remoteRev) ? remoteRev : 0;
+      const nextServerUpdated = Number.isFinite(remoteServerUpdated) ? remoteServerUpdated : 0;
+      tr.dataset.rev = String(nextRev);
+      tr.dataset.serverUpdated = String(nextServerUpdated);
+
+      if (!STATE_CACHE[k] || typeof STATE_CACHE[k] !== 'object') {
+        STATE_CACHE[k] = {};
+      }
+      Object.assign(STATE_CACHE[k], v, {
+        rev: nextRev,
+        serverUpdated: nextServerUpdated
+      });
+      hasStateCacheUpdates = true;
+
+      if (decisionResult.reason !== SYNC_HEAL_REASON.NONE) {
+        console.info('[sync-heal]', {
+          memberId: k,
+          reason: decisionResult.reason,
+          remoteRev: nextRev,
+          localRev,
+          remoteServerUpdated: nextServerUpdated,
+          localServerUpdated
+        });
+      }
+    }
 
     ensureTimePrompt(tr);
   });
+
+  if (hasStateCacheUpdates) {
+    try {
+      localStorage.setItem(STORAGE_KEY_CACHE, serializeStateCachePayload(STATE_CACHE));
+    } catch (e) {
+      // quota exceededなどは無視
+    }
+  }
+
   recolor();
   updateStatusFilterCounts();
   applyFilters();
