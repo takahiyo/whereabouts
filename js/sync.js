@@ -22,6 +22,70 @@ let lastPollTime = 0;
 let STATE_CACHE = {};
 let lastSyncTimestamp = 0;
 
+const SYNC_DECISION = Object.freeze({
+  APPLY: 'apply',
+  SKIP: 'skip',
+  HEAL: 'heal'
+});
+
+const SYNC_LOG_KEYS = Object.freeze({
+  memberId: 'memberId',
+  remoteRev: 'remoteRev',
+  localRev: 'localRev',
+  remoteServerUpdated: 'remoteServerUpdated',
+  localServerUpdated: 'localServerUpdated',
+  decision: 'decision'
+});
+
+const DEFAULT_SYNC_LOG_SETTINGS = Object.freeze({
+  skipWarnThreshold: 3
+});
+
+let syncSkipStreak = 0;
+
+function getSyncLogSettings() {
+  const fromConfig = (typeof CONFIG !== 'undefined' && CONFIG && typeof CONFIG.syncLog === 'object')
+    ? CONFIG.syncLog
+    : null;
+  const threshold = Number(fromConfig?.skipWarnThreshold);
+  return {
+    skipWarnThreshold: Number.isFinite(threshold) && threshold > 0
+      ? threshold
+      : DEFAULT_SYNC_LOG_SETTINGS.skipWarnThreshold
+  };
+}
+
+function logSyncDecision(input) {
+  const payload = input && typeof input === 'object' ? input : {};
+  const settings = getSyncLogSettings();
+  const decision = String(payload.decision || SYNC_DECISION.SKIP);
+
+  const event = {
+    [SYNC_LOG_KEYS.memberId]: String(payload.memberId || ''),
+    [SYNC_LOG_KEYS.remoteRev]: Number(payload.remoteRev || 0),
+    [SYNC_LOG_KEYS.localRev]: Number(payload.localRev || 0),
+    [SYNC_LOG_KEYS.remoteServerUpdated]: Number(payload.remoteServerUpdated || 0),
+    [SYNC_LOG_KEYS.localServerUpdated]: Number(payload.localServerUpdated || 0),
+    [SYNC_LOG_KEYS.decision]: decision
+  };
+
+  console.info('[sync-decision]', event);
+
+  if (decision === SYNC_DECISION.SKIP) {
+    syncSkipStreak += 1;
+    if (syncSkipStreak >= settings.skipWarnThreshold && (syncSkipStreak % settings.skipWarnThreshold) === 0) {
+      console.warn('[sync-decision-skip-streak]', {
+        skipStreak: syncSkipStreak,
+        skipWarnThreshold: settings.skipWarnThreshold,
+        lastMemberId: event.memberId
+      });
+    }
+    return;
+  }
+
+  syncSkipStreak = 0;
+}
+
 // Configからキーを取得（読み込み順序に依存するため安全策をとる）
 const STORAGE_KEY_CACHE = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.stateCache : 'whereabouts_state_cache';
 const STORAGE_KEY_SYNC = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.lastSync : 'whereabouts_last_sync';
@@ -235,6 +299,15 @@ async function startLegacyPolling(immediate) {
 
     if (r && r.data && Object.keys(r.data).length > 0) {
       applyState(r.data);
+    } else {
+      logSyncDecision({
+        memberId: '__poll__',
+        remoteRev: 0,
+        localRev: 0,
+        remoteServerUpdated: maxUpdated,
+        localServerUpdated: lastSyncTimestamp,
+        decision: SYNC_DECISION.SKIP
+      });
     }
   };
 
@@ -373,6 +446,14 @@ async function pushRowDelta(key) {
     if (r.error === 'conflict') {
       const c = (r.conflicts && r.conflicts.find(x => x.id === key)) || null;
       if (c && c.server) {
+        logSyncDecision({
+          memberId: key,
+          remoteRev: Number(c.server.rev || 0),
+          localRev: Number(tr?.dataset.rev || 0),
+          remoteServerUpdated: Number(c.server.serverUpdated || 0),
+          localServerUpdated: Number(tr?.dataset.serverUpdated || 0),
+          decision: SYNC_DECISION.HEAL
+        });
         applyState({ [key]: c.server });
         toast('他端末と競合しました（サーバ値で更新）', false);
       } else {
@@ -429,7 +510,18 @@ function applyState(data) {
   }
 
   Object.entries(data).forEach(([k, v]) => {
-    if (PENDING_ROWS.has(k)) return;
+    if (PENDING_ROWS.has(k)) {
+      const trPending = document.getElementById(`row-${k}`);
+      logSyncDecision({
+        memberId: k,
+        remoteRev: Number(v?.rev || 0),
+        localRev: Number(trPending?.dataset.rev || 0),
+        remoteServerUpdated: Number(v?.serverUpdated || 0),
+        localServerUpdated: Number(trPending?.dataset.serverUpdated || 0),
+        decision: SYNC_DECISION.SKIP
+      });
+      return;
+    }
 
     const tr = document.getElementById(`row-${k}`);
     const s = tr?.querySelector('select[name="status"]'), t = tr?.querySelector('select[name="time"]'), p = tr?.querySelector('select[name="tomorrowPlan"]'), w = tr?.querySelector('input[name="workHours"]'), n = tr?.querySelector('input[name="note"]');
@@ -450,6 +542,17 @@ function applyState(data) {
 
     const remoteRev = Number(v.rev || 0);
     const localRev = Number(tr?.dataset.rev || 0);
+    const remoteServerUpdated = Number(v.serverUpdated || 0);
+    const localServerUpdated = Number(tr?.dataset.serverUpdated || 0);
+    const decision = (tr && remoteRev > localRev) ? SYNC_DECISION.APPLY : SYNC_DECISION.SKIP;
+    logSyncDecision({
+      memberId: k,
+      remoteRev,
+      localRev,
+      remoteServerUpdated,
+      localServerUpdated,
+      decision
+    });
     if (tr && remoteRev > localRev) { tr.dataset.rev = String(remoteRev); tr.dataset.serverUpdated = String(v.serverUpdated || 0); }
 
     ensureTimePrompt(tr);
