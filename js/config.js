@@ -46,6 +46,15 @@ const CONFIG = {
         // 競合回数を集計する時間窓。
         windowMs: 180000
     },
+    // localStorage 復元時の state cache 検証パラメータ。
+    syncCacheValidation: {
+        // rev の許容上限（0以上、整数）。
+        maxRev: 2147483647,
+        // serverUpdated が現在時刻より先でも許容する最大ズレ。
+        maxServerUpdatedAheadMs: 300000,
+        // lastSyncTimestamp との乖離がこの閾値を超える場合は全体パージ。
+        purgeDriftThresholdMs: 86400000
+    },
     publicOfficeFallbacks: [],
     printSettings: {
         cellWidth: '30px',
