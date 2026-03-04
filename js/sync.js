@@ -870,12 +870,10 @@ function applyState(data) {
     if (s && t) toggleTimeEnable(s, t);
 
     const remoteRev = Number(v?.rev ?? v?.serverUpdated ?? 0);
-    const localRev = Number(tr?.dataset.rev || 0);
+    const localRev = Number(tr?.dataset.rev || STATE_CACHE[k]?.rev || 0);
     const remoteServerUpdated = Number(v?.serverUpdated || 0);
-    const localServerUpdated = Number(tr?.dataset.serverUpdated || 0);
-    const decisionResult = Boolean(tr)
-      ? evaluateRemoteStateDecision(remoteRev, localRev, remoteServerUpdated, localServerUpdated)
-      : { shouldApply: false, reason: SYNC_HEAL_REASON.NONE };
+    const localServerUpdated = Number(tr?.dataset.serverUpdated || STATE_CACHE[k]?.serverUpdated || 0);
+    const decisionResult = evaluateRemoteStateDecision(remoteRev, localRev, remoteServerUpdated, localServerUpdated);
     const decision = decisionResult.shouldApply ? SYNC_DECISION.APPLY : SYNC_DECISION.SKIP;
     logSyncDecision({
       memberId: k,
@@ -886,11 +884,13 @@ function applyState(data) {
       decision
     });
 
-    if (tr && decisionResult.shouldApply) {
+    if (decisionResult.shouldApply) {
       const nextRev = Number.isFinite(remoteRev) ? remoteRev : 0;
       const nextServerUpdated = Number.isFinite(remoteServerUpdated) ? remoteServerUpdated : 0;
-      tr.dataset.rev = String(nextRev);
-      tr.dataset.serverUpdated = String(nextServerUpdated);
+      if (tr) {
+        tr.dataset.rev = String(nextRev);
+        tr.dataset.serverUpdated = String(nextServerUpdated);
+      }
 
       if (!STATE_CACHE[k] || typeof STATE_CACHE[k] !== 'object') {
         STATE_CACHE[k] = {};
