@@ -49,6 +49,18 @@ const DEFAULT_SYNC_CACHE_TTL_MS = 21600000;
  */
 const DEFAULT_SYNC_CONFLICT_STREAK_WARN_THRESHOLD = 3;
 
+/**
+ * 行単位リセット発動しきい値（回）- CONFIG.syncRecovery.conflictThreshold で上書き可
+ * 同一行でこの回数を超えて競合した場合に自動修復（行リセット）を行う。
+ */
+const DEFAULT_SYNC_RECOVERY_CONFLICT_THRESHOLD = 3;
+
+/**
+ * 行単位リセット判定ウィンドウ（ミリ秒）- CONFIG.syncRecovery.windowMs で上書き可
+ * 直近 windowMs 内の競合回数で自動修復の発動可否を判定する。
+ */
+const DEFAULT_SYNC_RECOVERY_WINDOW_MS = 180000;
+
 // ============================================
 // API通信
 // ============================================
