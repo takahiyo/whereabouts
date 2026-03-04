@@ -1,3 +1,12 @@
+/**
+ * js/admin.js - 管理画面ロジック
+ *
+ * 管理画面のUI操作、データ保存、設定エクスポート/インポートなどを行う。
+ * CSV処理ロジックは `js/services/csv.js` に委譲している。
+ * 
+ * 依存: js/globals.js, js/services/csv.js, js/constants/*.js
+ */
+
 /* 管理UIイベント */
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
@@ -32,7 +41,7 @@ btnExport.addEventListener('click', async () => {
   const cfg = await adminGetConfigFor(office);
   const dat = await adminGetFor(office);
   if (!(cfg && cfg.groups) || !(dat && typeof dat.data === 'object')) { toast('エクスポート失敗', false); return; }
-  const csv = makeNormalizedCSV(cfg, dat.data);
+  const csv = CsvService.makeNormalizedCSV(cfg, dat.data);
   const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]);
   const bytes = new TextEncoder().encode(csv);
   const blob = new Blob([BOM, bytes], { type: 'text/csv;charset=utf-8' });
@@ -49,12 +58,12 @@ btnImport.addEventListener('click', async () => {
 
   const text = await file.text();
   const normalizedText = text.replace(/^\uFEFF/, '');
-  const rows = parseCSV(normalizedText);
+  const rows = CsvService.parseCSV(normalizedText);
   if (!rows.length) { toast('CSVが空です', false); return; }
   const titleCell = (rows[0] && rows[0][0] != null) ? String(rows[0][0]) : '';
   if (!((rows[0] || []).length === 1 && titleCell.trim() === '在席管理CSV')) { toast('CSVヘッダが不正です', false); return; }
   if (rows.length < 2) { toast('CSVヘッダが不正です', false); return; }
-  const expectedHeader = ['グループ番号', 'グループ名', '表示順', 'id', '氏名', '内線', '携帯番号', 'Email', '業務時間', 'ステータス', '戻り時間', '備考'];
+  const expectedHeader = ['グループ番号', 'グループ名', '表示順', 'id', '氏名', '内線', '携帯番号', 'Email', '業務時間', 'ステータス', '戻り時間', '明日の予定', '備考'];
   const hdr = (rows[1] || []).map(s => s.trim());
   const headerOk = hdr.length === expectedHeader.length && expectedHeader.every((h, i) => hdr[i] === h);
   if (!headerOk) { toast('CSVヘッダが不正です', false); return; }
@@ -69,7 +78,7 @@ btnImport.addEventListener('click', async () => {
   for (const r of rows.slice(2)) {
     if (!r.some(x => (x || '').trim() !== '')) continue;
     if (r.length !== expectedHeader.length) { toast('CSVデータ行が不正です', false); return; }
-    const [gi, gt, mi, id, name, ext, mobile, email, workHours, status, time, note] = r;
+    const [gi, gt, mi, id, name, ext, mobile, email, workHours, status, time, tomorrowPlan, note] = r;
 
     const fixedId = (id || '').trim() || makeCsvId();
 
@@ -85,6 +94,7 @@ btnImport.addEventListener('click', async () => {
       workHours: workHours == null ? '' : String(workHours),
       status: (status || (STATUSES[0]?.value || '在席')),
       time: (time || ''),
+      tomorrowPlan: (tomorrowPlan || ''),
       note: (note || '')
     });
   }
@@ -103,6 +113,7 @@ btnImport.addEventListener('click', async () => {
       mobile: r.mobile || '',
       email: r.email || '',
       workHours: r.workHours || '',
+      tomorrowPlan: r.tomorrowPlan || '',
       id: r.id
     });
   }
@@ -134,6 +145,7 @@ btnImport.addEventListener('click', async () => {
       workHours,
       status: STATUSES.some(s => s.value === r.status) ? r.status : (STATUSES[0]?.value || '在席'),
       time: r.time || '',
+      tomorrowPlan: r.tomorrowPlan || '',
       note: r.note || ''
     };
   }
@@ -246,7 +258,7 @@ function setMemberTableMessage(msg) {
   memberTableBody.textContent = '';
   const tr = document.createElement('tr');
   const td = document.createElement('td');
-  td.colSpan = 7; td.style.textAlign = 'center'; td.style.color = '#6b7280';
+  td.colSpan = 7; td.className = 'text-center text-muted';
   td.textContent = msg;
   tr.appendChild(td);
   memberTableBody.appendChild(tr);
@@ -404,7 +416,21 @@ function renderMemberTable() {
 
 
   const fragment = document.createDocumentFragment();
+  let currentGroup = null;
+
   rows.forEach((m, idx) => {
+    // グループヘッダーの挿入
+    if (m.group !== currentGroup) {
+      currentGroup = m.group;
+      const groupTr = document.createElement('tr');
+      groupTr.className = 'group-header-row'; // styles.cssで定義する
+      const groupTd = document.createElement('td');
+      groupTd.colSpan = 7;
+      groupTd.textContent = currentGroup || '（グループ未設定）';
+      groupTr.appendChild(groupTd);
+      fragment.appendChild(groupTr);
+    }
+
     const tr = document.createElement('tr');
     tr.dataset.memberId = m.id;
 
@@ -611,7 +637,7 @@ function buildMemberSavePayload() {
   const groups = [];
   groupOrder.forEach(gName => {
     const mems = grouped.get(gName) || [];
-    if (!mems.length) return;
+    // if (!mems.length) return; // 空グループも保持する
     mems.sort((a, b) => (a.order || 0) - (b.order || 0));
     groups.push({
       title: gName,
@@ -1704,46 +1730,7 @@ async function saveVacationBits(office, payload) { const q = { action: 'setVacat
 async function adminDeleteVacation(office, id) { return await apiPost({ action: 'deleteVacation', token: SESSION_TOKEN, office, id }); }
 
 /* CSVパーサ */
-function parseCSV(text) {
-  const out = []; let i = 0, row = [], field = '', inq = false;
-  function pushField() { row.push(field); field = ''; }
-  function pushRow() { out.push(row); row = []; }
-  while (i < text.length) {
-    const c = text[i++];
-    if (inq) {
-      if (c == '"' && text[i] == '"') { field += '"'; i++; }
-      else if (c == '"') { inq = false; }
-      else field += c;
-    } else {
-      if (c === ',') { pushField(); }
-      else if (c == '"') { inq = true; }
-      else if (c == '\n') { pushField(); pushRow(); }
-      else if (c == '\r') { }
-      else field += c;
-    }
-  }
-  const endsWithComma = text.length > 0 && text[text.length - 1] === ',';
-  if (field !== '' || endsWithComma) pushField();
-  if (row.length) pushRow();
-  return out;
-}
-
-/* CSV（共通） */
-function csvProtectFormula(s) { if (s == null) return ''; const v = String(s); return (/^[=\+\-@\t]/.test(v)) ? "'" + v : v; }
-function toCsvRow(arr) { return arr.map(v => { const s = csvProtectFormula(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(','); }
-function makeNormalizedCSV(cfg, data) {
-  const rows = [];
-  rows.push(toCsvRow(['在席管理CSV']));
-  rows.push(toCsvRow(['グループ番号', 'グループ名', '表示順', 'id', '氏名', '内線', '携帯番号', 'Email', '業務時間', 'ステータス', '戻り時間', '備考']));
-  (cfg.groups || []).forEach((g, gi) => {
-    (g.members || []).forEach((m, mi) => {
-      const id = m.id || ''; const rec = (data && data[id]) || {};
-      const workHours = rec.workHours || m.workHours || '';
-      rows.push(toCsvRow([gi + 1, g.title || '', mi + 1, id, m.name || '', m.ext || '', m.mobile || rec.mobile || '', m.email || rec.email || '', workHours, rec.status || (STATUSES[0]?.value || '在席'), rec.time || '', rec.note || '']));
-    });
-  });
-  return rows.join('\n');
-}
+/* CSVパーサ・共通関数は js/services/csv.js に移動済み */
 
 /* 管理モーダルを開いたときにお知らせを自動読み込み */
 async function autoLoadNoticesOnAdminOpen() {
@@ -1789,7 +1776,7 @@ if (btnExportEvent) {
 
       // CSVヘッダー
       const rows = [];
-      rows.push(toCsvRow(['イベントID', 'タイトル', '開始日', '終了日', 'グループ', '氏名', 'ビット状態']));
+      rows.push(CsvService.toCsvRow(['イベントID', 'タイトル', '開始日', '終了日', 'グループ', '氏名', 'ビット状態']));
 
       // 各イベントについて処理
       events.forEach(event => {
@@ -1811,7 +1798,7 @@ if (btnExportEvent) {
         const bitChars = membersBits.split('');
         members.forEach((member, idx) => {
           const bitValue = bitChars[idx] === '1' ? '○' : '';
-          rows.push(toCsvRow([eventId, title, startDate, endDate, member.group, member.name, bitValue]));
+          rows.push(CsvService.toCsvRow([eventId, title, startDate, endDate, member.group, member.name, bitValue]));
         });
       });
 
