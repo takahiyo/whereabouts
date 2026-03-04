@@ -280,6 +280,7 @@ export default {
             tomorrowPlan: m.tomorrow_plan,
             updated: m.updated,
             serverUpdated: m.updated,
+            rev: m.updated,
             ext: m.ext,
             mobile: m.mobile,
             email: m.email

@@ -865,10 +865,10 @@ function applyState(data) {
     setIfNeeded(t, v.time || ""); setIfNeeded(p, v.tomorrowPlan || ""); setIfNeeded(n, v.note || "");
     if (s && t) toggleTimeEnable(s, t);
 
-    const remoteRev = Number(v?.rev);
-    const localRev = Number(tr?.dataset.rev);
-    const remoteServerUpdated = Number(v?.serverUpdated);
-    const localServerUpdated = Number(tr?.dataset.serverUpdated);
+    const remoteRev = Number(v?.rev ?? v?.serverUpdated ?? 0);
+    const localRev = Number(tr?.dataset.rev || 0);
+    const remoteServerUpdated = Number(v?.serverUpdated || 0);
+    const localServerUpdated = Number(tr?.dataset.serverUpdated || 0);
     const decisionResult = Boolean(tr)
       ? evaluateRemoteStateDecision(remoteRev, localRev, remoteServerUpdated, localServerUpdated)
       : { shouldApply: false, reason: SYNC_HEAL_REASON.NONE };

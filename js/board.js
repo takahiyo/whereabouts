@@ -241,12 +241,15 @@ function buildRow(member) {
   const selStatus = el('select', { id: `status-${key}`, name: 'status' });
   tdStatus.appendChild(el('label', { class: 'sr-only', for: `status-${key}`, text: 'ステータス' }));
   STATUSES.forEach(s => selStatus.appendChild(el('option', { value: s.value, text: s.value })));
+  selStatus.value = member.status || STATUSES[0]?.value || "";
   tdStatus.appendChild(selStatus);
 
   const tdTime = el('td', { class: 'time', 'data-label': '戻り時間' });
   const selTime = el('select', { id: `time-${key}`, name: 'time' });
   tdTime.appendChild(el('label', { class: 'sr-only', for: `time-${key}`, text: '戻り時間' }));
-  selTime.appendChild(buildTimeOptions(MENUS?.timeStepMinutes)); tdTime.appendChild(selTime);
+  selTime.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
+  selTime.value = member.time || "";
+  tdTime.appendChild(selTime);
 
   const tdPlan = el('td', { class: 'tomorrow-plan', 'data-label': '明日の予定' });
   const selPlan = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
@@ -258,7 +261,7 @@ function buildRow(member) {
   tdPlan.appendChild(selPlan);
 
   const tdNote = el('td', { class: 'note', 'data-label': '備考' });
-  const noteField = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note' });
+  const noteField = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: member.note || "" });
   tdNote.appendChild(noteField.wrapper);
 
   tr.append(tdName, tdExt, tdWork, tdStatus, tdTime, tdPlan, tdNote);
