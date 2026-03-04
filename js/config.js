@@ -26,6 +26,9 @@ const CONFIG = {
     configPollMs: 300000,      // 30秒 -> 5分へ変更
     eventSyncIntervalMs: 10 * 60 * 1000, // 5分 -> 10分へ変更
     tokenDefaultTtl: 3600000,
+    syncLog: {
+        skipWarnThreshold: 3
+    },
     publicOfficeFallbacks: [],
     printSettings: {
         cellWidth: '30px',
