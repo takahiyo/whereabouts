@@ -197,7 +197,8 @@ export default {
             tomorrowPlan: m.tomorrow_plan,
             ext: m.ext,
             mobile: m.mobile,
-            email: m.email
+            email: m.email,
+            updated: m.updated
           });
         });
 
@@ -208,7 +209,7 @@ export default {
         });
 
         if (statusCache) {
-          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 3600 }));
+          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 60 }));
         }
 
         return new Response(responseBody, { headers: corsHeaders });
@@ -232,25 +233,15 @@ export default {
       }
 
       /* --- GET / GET FOR (Differential Sync) --- */
+      // Action: get / getFor - Get current member status for an office
       if (action === 'get' || action === 'getFor') {
         const officeId = getParam('office') || tokenOffice || 'nagoya_chuo';
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
 
-        const lastUpdateKey = `lastUpdate:${officeId}`;
-        if (since > 0 && !nocache && statusCache) {
-          const lastUpdateVal = await statusCache.get(lastUpdateKey);
-          if (lastUpdateVal && Number(lastUpdateVal) <= since) {
-            return new Response(JSON.stringify({
-              ok: true,
-              data: {},
-              maxUpdated: Number(lastUpdateVal),
-              serverNow: Date.now()
-            }), { headers: corsHeaders });
-          }
-        }
+        // [Removed lastUpdate shortcut for cross-worker consistency]
 
-        let query, results;
+        let results;
         if (since === 0) {
           // Full fetch
           const cacheKey = `status:${officeId}`;
@@ -280,6 +271,7 @@ export default {
             tomorrowPlan: m.tomorrow_plan,
             updated: m.updated,
             serverUpdated: m.updated,
+            rev: m.updated,
             ext: m.ext,
             mobile: m.mobile,
             email: m.email
@@ -290,7 +282,7 @@ export default {
         const responseBody = JSON.stringify({
           ok: true,
           data,
-          maxUpdated: maxUpdated || since || Date.now(),
+          maxUpdated: maxUpdated || since,
           serverNow: Date.now()
         });
 

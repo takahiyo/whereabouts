@@ -48,6 +48,12 @@ const STORAGE_KEY_CACHE_FALLBACK = 'whereabouts_state_cache';
  */
 const STORAGE_KEY_SYNC_FALLBACK = 'whereabouts_last_sync';
 
+/**
+ * 行単位競合回復状態キー（CONFIG.storageKeysから参照）
+ * @deprecated CONFIG.storageKeys.conflictRecovery を使用すること
+ */
+const STORAGE_KEY_CONFLICT_RECOVERY_FALLBACK = 'whereabouts_conflict_recovery';
+
 // ============================================
 // イベント選択状態キー生成
 // ============================================

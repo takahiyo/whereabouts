@@ -17,8 +17,8 @@ const CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
     authMode: 'worker',
     // 環境に応じてエンドポイントを自動切り替え
-    remoteEndpoint: isDev 
-        ? "https://whereabouts-dev.taka-hiyo.workers.dev" 
+    remoteEndpoint: isDev
+        ? "https://whereabouts-dev.taka-hiyo.workers.dev"
         : "https://whereabouts.taka-hiyo.workers.dev",
 
     remotePollMs: 60000,       // 10秒 -> 60秒へ変更（リクエスト数 1/6）
@@ -31,6 +31,8 @@ const CONFIG = {
     syncSelfHeal: {
         // rev が同値でも serverUpdated の進みを許容する救済ウィンドウ。
         revRescueWindowMs: 180000,
+        // rev 不整合(remoteRev <= localRev)時に serverUpdated 差分で救済する閾値。
+        revSkewHealWindowMs: 180000,
         // 復元対象とみなす同期キャッシュの寿命。期限超過時は破棄して再同期。
         cacheTtlMs: 21600000,
         // 競合が連続した場合の警告しきい値。運用で多発監視する。
@@ -38,6 +40,22 @@ const CONFIG = {
     },
     syncLog: {
         skipWarnThreshold: 3
+    },
+    // 行単位の競合多発時に自動リセットする復旧パラメータ。
+    syncRecovery: {
+        // 同一行で一定時間内にこの回数を超えて競合したらリセット。
+        conflictThreshold: 3,
+        // 競合回数を集計する時間窓。
+        windowMs: 180000
+    },
+    // localStorage 復元時の state cache 検証パラメータ。
+    syncCacheValidation: {
+        // rev の許容上限（timestamp利用のため 2^53-1 付近まで許容）。
+        maxRev: 999999999999999,
+        // serverUpdated が現在時刻より先でも許容する最大ズレ。
+        maxServerUpdatedAheadMs: 300000,
+        // lastSyncTimestamp との乖離がこの閾値を超える場合は全体パージ。
+        purgeDriftThresholdMs: 86400000
     },
     publicOfficeFallbacks: [],
     printSettings: {
@@ -49,7 +67,8 @@ const CONFIG = {
     /* === ストレージキー設定 (SSOT) === */
     storageKeys: {
         stateCache: 'whereabouts_state_cache',
-        lastSync: 'whereabouts_last_sync'
+        lastSync: 'whereabouts_last_sync',
+        conflictRecovery: 'whereabouts_conflict_recovery'
     },
     /* === カラーパレット設定 (SSOT) === */
     colorPalette: [

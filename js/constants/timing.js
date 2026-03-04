@@ -38,6 +38,12 @@ const DEFAULT_TOKEN_TTL_MS = 3600000;
 const DEFAULT_SYNC_REV_RESCUE_WINDOW_MS = 180000;
 
 /**
+ * rev不整合時の救済判定ウィンドウ（ミリ秒）- CONFIG.syncSelfHeal.revSkewHealWindowMs で上書き可
+ * remoteRev <= localRev でも serverUpdated がこの閾値以上進んでいれば救済適用する。
+ */
+const DEFAULT_SYNC_REV_SKEW_HEAL_WINDOW_MS = 180000;
+
+/**
  * 同期キャッシュ寿命（ミリ秒）- CONFIG.syncSelfHeal.cacheTtlMs で上書き可
  * 期限切れキャッシュは復元せず、破損時の自己修復を優先する。
  */
@@ -48,6 +54,37 @@ const DEFAULT_SYNC_CACHE_TTL_MS = 21600000;
  * 連続競合の多発を早期検知するための警告しきい値。
  */
 const DEFAULT_SYNC_CONFLICT_STREAK_WARN_THRESHOLD = 3;
+
+/**
+ * 行単位リセット発動しきい値（回）- CONFIG.syncRecovery.conflictThreshold で上書き可
+ * 同一行でこの回数を超えて競合した場合に自動修復（行リセット）を行う。
+ */
+const DEFAULT_SYNC_RECOVERY_CONFLICT_THRESHOLD = 3;
+
+/**
+ * 行単位リセット判定ウィンドウ（ミリ秒）- CONFIG.syncRecovery.windowMs で上書き可
+ * 直近 windowMs 内の競合回数で自動修復の発動可否を判定する。
+ */
+const DEFAULT_SYNC_RECOVERY_WINDOW_MS = 180000;
+
+/**
+ * state cache 内の rev の上限値 - CONFIG.syncCacheValidation.maxRev で上書き可
+ * 不正な巨大値混入による比較異常を防ぐ。
+ */
+const DEFAULT_SYNC_CACHE_MAX_REV = 2147483647;
+
+/**
+ * state cache 内の serverUpdated の許容未来ズレ（ミリ秒）
+ * - CONFIG.syncCacheValidation.maxServerUpdatedAheadMs で上書き可
+ */
+const DEFAULT_SYNC_CACHE_MAX_SERVER_UPDATED_AHEAD_MS = 300000;
+
+/**
+ * lastSyncTimestamp と各行 serverUpdated の最大乖離（ミリ秒）
+ * - CONFIG.syncCacheValidation.purgeDriftThresholdMs で上書き可
+ * この閾値を超える行があれば cache 全体をパージする。
+ */
+const DEFAULT_SYNC_CACHE_PURGE_DRIFT_THRESHOLD_MS = 86400000;
 
 // ============================================
 // API通信

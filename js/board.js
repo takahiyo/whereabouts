@@ -221,7 +221,11 @@ function buildRow(member) {
   const name = sanitizeText(member.name || "");
   const ext = (member.ext && /^[0-9]{1,6}$/.test(String(member.ext))) ? String(member.ext) : "";
   const key = member.id;
-  const tr = el('tr', { id: `row-${key}` }); tr.dataset.key = key; tr.dataset.rev = '0';
+  const rev = member.updated ? String(member.updated) : '0';
+  const tr = el('tr', { id: `row-${key}` });
+  tr.dataset.key = key;
+  tr.dataset.rev = rev;
+  tr.dataset.serverUpdated = rev;
   tr.dataset.mobile = member.mobile ? String(member.mobile) : '';
   tr.dataset.email = member.email ? String(member.email) : '';
   tr.dataset.extension = ext;
@@ -241,12 +245,15 @@ function buildRow(member) {
   const selStatus = el('select', { id: `status-${key}`, name: 'status' });
   tdStatus.appendChild(el('label', { class: 'sr-only', for: `status-${key}`, text: 'ステータス' }));
   STATUSES.forEach(s => selStatus.appendChild(el('option', { value: s.value, text: s.value })));
+  selStatus.value = member.status || STATUSES[0]?.value || "";
   tdStatus.appendChild(selStatus);
 
   const tdTime = el('td', { class: 'time', 'data-label': '戻り時間' });
   const selTime = el('select', { id: `time-${key}`, name: 'time' });
   tdTime.appendChild(el('label', { class: 'sr-only', for: `time-${key}`, text: '戻り時間' }));
-  selTime.appendChild(buildTimeOptions(MENUS?.timeStepMinutes)); tdTime.appendChild(selTime);
+  selTime.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
+  selTime.value = member.time || "";
+  tdTime.appendChild(selTime);
 
   const tdPlan = el('td', { class: 'tomorrow-plan', 'data-label': '明日の予定' });
   const selPlan = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
@@ -258,7 +265,7 @@ function buildRow(member) {
   tdPlan.appendChild(selPlan);
 
   const tdNote = el('td', { class: 'note', 'data-label': '備考' });
-  const noteField = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note' });
+  const noteField = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: member.note || "" });
   tdNote.appendChild(noteField.wrapper);
 
   tr.append(tdName, tdExt, tdWork, tdStatus, tdTime, tdPlan, tdNote);
