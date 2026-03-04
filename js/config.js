@@ -17,8 +17,8 @@ const CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
     authMode: 'worker',
     // 環境に応じてエンドポイントを自動切り替え
-    remoteEndpoint: isDev 
-        ? "https://whereabouts-dev.taka-hiyo.workers.dev" 
+    remoteEndpoint: isDev
+        ? "https://whereabouts-dev.taka-hiyo.workers.dev"
         : "https://whereabouts.taka-hiyo.workers.dev",
 
     remotePollMs: 60000,       // 10秒 -> 60秒へ変更（リクエスト数 1/6）
@@ -50,8 +50,8 @@ const CONFIG = {
     },
     // localStorage 復元時の state cache 検証パラメータ。
     syncCacheValidation: {
-        // rev の許容上限（0以上、整数）。
-        maxRev: 2147483647,
+        // rev の許容上限（timestamp利用のため 2^53-1 付近まで許容）。
+        maxRev: 999999999999999,
         // serverUpdated が現在時刻より先でも許容する最大ズレ。
         maxServerUpdatedAheadMs: 300000,
         // lastSyncTimestamp との乖離がこの閾値を超える場合は全体パージ。

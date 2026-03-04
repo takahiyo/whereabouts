@@ -548,7 +548,11 @@ function normalizeConfigClient(cfg) {
         mobile: String(m.mobile ?? ""),
         email: String(m.email ?? ""),
         workHours: m.workHours == null ? '' : String(m.workHours),
-        tomorrowPlan: m.tomorrowPlan == null ? '' : String(m.tomorrowPlan)
+        tomorrowPlan: m.tomorrowPlan == null ? '' : String(m.tomorrowPlan),
+        status: m.status || '',
+        time: m.time || '',
+        note: m.note || '',
+        updated: m.updated || 0
       })).filter(m => m.id || m.name)
     };
   });
