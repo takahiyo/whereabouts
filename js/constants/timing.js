@@ -38,6 +38,12 @@ const DEFAULT_TOKEN_TTL_MS = 3600000;
 const DEFAULT_SYNC_REV_RESCUE_WINDOW_MS = 180000;
 
 /**
+ * rev不整合時の救済判定ウィンドウ（ミリ秒）- CONFIG.syncSelfHeal.revSkewHealWindowMs で上書き可
+ * remoteRev <= localRev でも serverUpdated がこの閾値以上進んでいれば救済適用する。
+ */
+const DEFAULT_SYNC_REV_SKEW_HEAL_WINDOW_MS = 180000;
+
+/**
  * 同期キャッシュ寿命（ミリ秒）- CONFIG.syncSelfHeal.cacheTtlMs で上書き可
  * 期限切れキャッシュは復元せず、破損時の自己修復を優先する。
  */
