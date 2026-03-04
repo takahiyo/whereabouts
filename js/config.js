@@ -39,6 +39,13 @@ const CONFIG = {
     syncLog: {
         skipWarnThreshold: 3
     },
+    // 行単位の競合多発時に自動リセットする復旧パラメータ。
+    syncRecovery: {
+        // 同一行で一定時間内にこの回数を超えて競合したらリセット。
+        conflictThreshold: 3,
+        // 競合回数を集計する時間窓。
+        windowMs: 180000
+    },
     publicOfficeFallbacks: [],
     printSettings: {
         cellWidth: '30px',
@@ -49,7 +56,8 @@ const CONFIG = {
     /* === ストレージキー設定 (SSOT) === */
     storageKeys: {
         stateCache: 'whereabouts_state_cache',
-        lastSync: 'whereabouts_last_sync'
+        lastSync: 'whereabouts_last_sync',
+        conflictRecovery: 'whereabouts_conflict_recovery'
     },
     /* === カラーパレット設定 (SSOT) === */
     colorPalette: [

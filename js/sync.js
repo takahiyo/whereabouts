@@ -21,6 +21,7 @@ let lastPollTime = 0;
 // ★修正: STATE_CACHE と lastSyncTimestamp を localStorage から初期化
 let STATE_CACHE = {};
 let lastSyncTimestamp = 0;
+let conflictRecoveryState = {};
 
 const SYNC_DECISION = Object.freeze({
   APPLY: 'apply',
@@ -74,6 +75,23 @@ function getSyncSelfHealSettings() {
     conflictStreakWarnThreshold: Number.isFinite(conflictStreakWarnThreshold) && conflictStreakWarnThreshold > 0
       ? conflictStreakWarnThreshold
       : DEFAULT_SYNC_CONFLICT_STREAK_WARN_THRESHOLD
+  };
+}
+
+function getSyncRecoverySettings() {
+  const fromConfig = (typeof CONFIG !== 'undefined' && CONFIG && typeof CONFIG.syncRecovery === 'object')
+    ? CONFIG.syncRecovery
+    : null;
+  const conflictThreshold = Number(fromConfig?.conflictThreshold);
+  const windowMs = Number(fromConfig?.windowMs);
+
+  return {
+    conflictThreshold: Number.isFinite(conflictThreshold) && conflictThreshold > 0
+      ? conflictThreshold
+      : DEFAULT_SYNC_RECOVERY_CONFLICT_THRESHOLD,
+    windowMs: Number.isFinite(windowMs) && windowMs > 0
+      ? windowMs
+      : DEFAULT_SYNC_RECOVERY_WINDOW_MS
   };
 }
 
@@ -140,6 +158,9 @@ function shouldApplyRemoteState(remoteRev, localRev, remoteServerUpdated, localS
 // Configからキーを取得（読み込み順序に依存するため安全策をとる）
 const STORAGE_KEY_CACHE = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.stateCache : STORAGE_KEY_CACHE_FALLBACK;
 const STORAGE_KEY_SYNC = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys) ? CONFIG.storageKeys.lastSync : STORAGE_KEY_SYNC_FALLBACK;
+const STORAGE_KEY_CONFLICT_RECOVERY = (typeof CONFIG !== 'undefined' && CONFIG.storageKeys && typeof CONFIG.storageKeys.conflictRecovery === 'string' && CONFIG.storageKeys.conflictRecovery)
+  ? CONFIG.storageKeys.conflictRecovery
+  : STORAGE_KEY_CONFLICT_RECOVERY_FALLBACK;
 
 function serializeStateCachePayload(cache) {
   return JSON.stringify({
@@ -172,6 +193,90 @@ function restoreStateCache(rawCache) {
   }
 }
 
+function normalizeConflictRecoveryState(rawState) {
+  if (!rawState || typeof rawState !== 'object') {
+    return {};
+  }
+
+  const normalized = {};
+  Object.entries(rawState).forEach(([memberId, value]) => {
+    if (!value || typeof value !== 'object') {
+      return;
+    }
+    const count = Number(value.count || 0);
+    const lastConflictAt = Number(value.lastConflictAt || 0);
+    if (count > 0 || lastConflictAt > 0) {
+      normalized[String(memberId)] = {
+        count: count > 0 ? count : 0,
+        lastConflictAt: lastConflictAt > 0 ? lastConflictAt : 0
+      };
+    }
+  });
+
+  return normalized;
+}
+
+function saveConflictRecoveryState() {
+  try {
+    localStorage.setItem(STORAGE_KEY_CONFLICT_RECOVERY, JSON.stringify(conflictRecoveryState));
+  } catch (e) {
+    console.error('Failed to persist conflict recovery state:', e);
+  }
+}
+
+function clearConflictRecoveryState(memberId) {
+  if (!memberId) {
+    return;
+  }
+  const key = String(memberId);
+  if (conflictRecoveryState[key]) {
+    delete conflictRecoveryState[key];
+    saveConflictRecoveryState();
+  }
+}
+
+function trackConflictAndShouldReset(memberId, nowTs = Date.now()) {
+  const key = String(memberId || '');
+  if (!key) {
+    return false;
+  }
+
+  const settings = getSyncRecoverySettings();
+  const prev = conflictRecoveryState[key] || { count: 0, lastConflictAt: 0 };
+  const withinWindow = prev.lastConflictAt > 0 && (nowTs - prev.lastConflictAt) <= settings.windowMs;
+  const nextCount = withinWindow ? (prev.count + 1) : 1;
+
+  conflictRecoveryState[key] = {
+    count: nextCount,
+    lastConflictAt: nowTs
+  };
+  saveConflictRecoveryState();
+
+  return nextCount > settings.conflictThreshold;
+}
+
+function applyRowConflictReset(memberId) {
+  const key = String(memberId || '');
+  if (!key) {
+    return;
+  }
+
+  const tr = document.getElementById(`row-${key}`);
+  if (tr && tr.dataset) {
+    delete tr.dataset.rev;
+    delete tr.dataset.serverUpdated;
+  }
+  if (Object.prototype.hasOwnProperty.call(STATE_CACHE, key)) {
+    delete STATE_CACHE[key];
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY_CACHE, serializeStateCachePayload(STATE_CACHE));
+  } catch (e) {
+    console.error('Failed to persist state cache after conflict reset:', e);
+  }
+  clearConflictRecoveryState(key);
+}
+
 try {
   const cached = localStorage.getItem(STORAGE_KEY_CACHE);
   restoreStateCache(cached);
@@ -182,6 +287,11 @@ try {
     if (Number.isFinite(ts)) {
       lastSyncTimestamp = ts;
     }
+  }
+
+  const rawConflictRecovery = localStorage.getItem(STORAGE_KEY_CONFLICT_RECOVERY);
+  if (rawConflictRecovery) {
+    conflictRecoveryState = normalizeConflictRecoveryState(JSON.parse(rawConflictRecovery));
   }
 } catch (e) {
   console.error("Local cache restore failed:", e);
@@ -527,6 +637,7 @@ async function pushRowDelta(key) {
       const c = (r.conflicts && r.conflicts.find(x => x.id === key)) || null;
       if (c && c.server) {
         reportConflictStreak(key);
+        const shouldResetRow = trackConflictAndShouldReset(key);
         logSyncDecision({
           memberId: key,
           remoteRev: Number(c.server.rev || 0),
@@ -535,8 +646,14 @@ async function pushRowDelta(key) {
           localServerUpdated: Number(tr?.dataset.serverUpdated || 0),
           decision: SYNC_DECISION.HEAL
         });
-        applyState({ [key]: c.server });
-        toast('他端末と競合しました（サーバ値で更新）', false);
+
+        if (shouldResetRow) {
+          applyRowConflictReset(key);
+          toast('同一行で競合が続いたため自動修復を実施しました。次回同期で最新値を再取得します。', false);
+        } else {
+          applyState({ [key]: c.server });
+          toast('他端末と競合しました（サーバ値で更新）', false);
+        }
       } else {
         const rev = Number((r.rev && r.rev[key]) || 0);
         const ts = Number((r.serverUpdated && r.serverUpdated[key]) || 0);
@@ -561,6 +678,7 @@ async function pushRowDelta(key) {
       }
 
       resetConflictStreak();
+      clearConflictRecoveryState(key);
       saveLocal();
       return;
     }
