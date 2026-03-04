@@ -26,6 +26,19 @@ const CONFIG = {
     configPollMs: 300000,      // 30秒 -> 5分へ変更
     eventSyncIntervalMs: 10 * 60 * 1000, // 5分 -> 10分へ変更
     tokenDefaultTtl: 3600000,
+    // 同期自己修復パラメータ（既定値は js/constants/timing.js）。
+    // 変更窓口は SSOT_GUIDE.md の『同期自己修復パラメータ一覧』に一本化すること。
+    syncSelfHeal: {
+        // rev が同値でも serverUpdated の進みを許容する救済ウィンドウ。
+        revRescueWindowMs: 180000,
+        // 復元対象とみなす同期キャッシュの寿命。期限超過時は破棄して再同期。
+        cacheTtlMs: 21600000,
+        // 競合が連続した場合の警告しきい値。運用で多発監視する。
+        conflictStreakWarnThreshold: 3
+    },
+    syncLog: {
+        skipWarnThreshold: 3
+    },
     publicOfficeFallbacks: [],
     printSettings: {
         cellWidth: '30px',

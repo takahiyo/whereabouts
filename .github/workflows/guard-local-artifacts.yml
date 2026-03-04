@@ -1,0 +1,13 @@
+name: Guard Local Artifacts
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  block-local-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if forbidden files are tracked
+        run: ./scripts/check-forbidden-tracked-files.sh

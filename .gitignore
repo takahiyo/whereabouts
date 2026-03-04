@@ -17,3 +17,11 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Wrangler local state
+.wrangler/
+
+# Local sqlite artifacts
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

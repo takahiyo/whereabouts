@@ -29,6 +29,27 @@ const DEFAULT_EVENT_SYNC_INTERVAL_MS = 600000; // 10分
 const DEFAULT_TOKEN_TTL_MS = 3600000;
 
 // ============================================
+// 同期自己修復（デフォルト値）
+// ============================================
+/**
+ * rev救済ウィンドウ（ミリ秒）- CONFIG.syncSelfHeal.revRescueWindowMs で上書き可
+ * revが同値でも serverUpdated がこの範囲内で進んでいれば追随を許可する。
+ */
+const DEFAULT_SYNC_REV_RESCUE_WINDOW_MS = 180000;
+
+/**
+ * 同期キャッシュ寿命（ミリ秒）- CONFIG.syncSelfHeal.cacheTtlMs で上書き可
+ * 期限切れキャッシュは復元せず、破損時の自己修復を優先する。
+ */
+const DEFAULT_SYNC_CACHE_TTL_MS = 21600000;
+
+/**
+ * 競合連続判定しきい値（回）- CONFIG.syncSelfHeal.conflictStreakWarnThreshold で上書き可
+ * 連続競合の多発を早期検知するための警告しきい値。
+ */
+const DEFAULT_SYNC_CONFLICT_STREAK_WARN_THRESHOLD = 3;
+
+// ============================================
 // API通信
 // ============================================
 /** APIリクエストデフォルトタイムアウト（ミリ秒） */

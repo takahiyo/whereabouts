@@ -1,0 +1,10 @@
+# コミット禁止対象（git ls-files の pathspec）
+.wrangler/**
+*.sqlite
+*.sqlite-*
+*.log
+.cache/**
+.vscode/**
+.idea/**
+.DS_Store
+Thumbs.db

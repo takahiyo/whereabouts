@@ -5,6 +5,11 @@
 
 @media print {
 
+    :root {
+        --print-one-col-work-min-width: 88px;
+        --print-one-col-time-min-width: 72px;
+    }
+
     /* ==========================================================================
    * 1. 表示切替 — 一覧出力時は他の要素をすべて隠す
    * styles.css Block1 の body>*:not(#eventModal) { display:none } を打ち消し
@@ -58,6 +63,19 @@
         border-collapse: collapse !important;
         border-spacing: 0 !important;
         table-layout: fixed !important;
+        min-width: calc(120px + var(--print-one-col-work-min-width) + 100px + var(--print-one-col-time-min-width) + 150px + 200px) !important;
+    }
+
+    .print-one-col-table th.print-one-col-work,
+    .print-one-col-table td.print-one-col-work {
+        min-width: var(--print-one-col-work-min-width) !important;
+        white-space: nowrap !important;
+    }
+
+    .print-one-col-table th.print-one-col-time,
+    .print-one-col-table td.print-one-col-time {
+        min-width: var(--print-one-col-time-min-width) !important;
+        white-space: nowrap !important;
     }
 
     .print-one-col-table th,

@@ -3816,28 +3816,13 @@ td.time.need-time select:focus~.time-hint {
 }
 
 /* 列幅定義 (左・右共通) */
-.print-col-name {
-  width: 14% !important;
-}
-
-.print-col-work {
-  width: 14% !important;
-}
-
-.print-col-status {
-  width: 8% !important;
-}
-
-.print-col-time {
-  width: 8% !important;
-}
-
-.print-col-next {
-  width: 12% !important;
-}
-
-/* 備考は残り全て */
-.print-col-note {
+/* 列幅は js/admin.js の colgroup（SSOT）で管理 */
+.print-two-col-table .print-col-name,
+.print-two-col-table .print-col-work,
+.print-two-col-table .print-col-status,
+.print-two-col-table .print-col-time,
+.print-two-col-table .print-col-next,
+.print-two-col-table .print-col-note {
   width: auto !important;
 }
 
@@ -4168,6 +4153,12 @@ td.time.need-time select:focus~.time-hint {
   width: 100%;
 }
 
+/* 1テーブル出力は段組みしない（4段落化防止） */
+.print-list-container--one-table {
+  column-count: 1;
+  column-gap: 0;
+}
+
 .print-group-section {
   break-inside: avoid;
   page-break-inside: avoid;
@@ -4325,24 +4316,4 @@ td.time.need-time select:focus~.time-hint {
     font-size: 8.5pt;
     padding: 2px 5px;
   }
-}
-
-/* Utility functions (SSOT Support) */
-.text-center {
-  text-align: center;
-}
-
-.text-muted {
-  color: var(--color-text-muted);
-}
-
-/* Admin Member Table Group Header */
-.group-header-row td {
-  background-color: #f3f4f6;
-  /* gray-100 */
-  color: #374151;
-  /* gray-700 */
-  font-weight: bold;
-  padding: 8px 12px;
-  border-top: 2px solid #e5e7eb;
 }
