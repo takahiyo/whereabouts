@@ -21,7 +21,7 @@ const CONFIG = {
         ? "https://whereabouts-dev.taka-hiyo.workers.dev"
         : "https://whereabouts.taka-hiyo.workers.dev",
 
-    remotePollMs: 60000,       // 10秒 -> 60秒へ変更（リクエスト数 1/6）
+    remotePollMs: 30000,       // 30秒 (D1負荷を考慮したバランス設定)
     nightPollMs: 3600000,      // 夜間時: 1時間 (60分 * 60秒 * 1000)
     configPollMs: 300000,      // 30秒 -> 5分へ変更
     eventSyncIntervalMs: 10 * 60 * 1000, // 5分 -> 10分へ変更

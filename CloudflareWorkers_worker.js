@@ -202,10 +202,20 @@ export default {
           });
         });
 
+        const groups = Array.from(groupsMap.values());
+        let maxUpdated = 0;
+        groups.forEach(g => {
+          g.members.forEach(m => {
+            if (Number(m.updated) > maxUpdated) maxUpdated = Number(m.updated);
+          });
+        });
+
         const responseBody = JSON.stringify({
           ok: true,
-          groups: Array.from(groupsMap.values()),
-          updated: Date.now()
+          groups,
+          updated: Date.now(),
+          maxUpdated,
+          serverNow: Date.now()
         });
 
         if (statusCache) {

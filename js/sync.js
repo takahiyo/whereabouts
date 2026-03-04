@@ -222,26 +222,29 @@ function serializeStateCachePayload(cache) {
 }
 
 function restoreStateCache(rawCache) {
-  if (!rawCache) {
-    return;
-  }
+  if (!rawCache) return;
+  try {
+    const parsed = JSON.parse(rawCache);
+    const settings = getSyncSelfHealSettings();
 
-  const parsed = JSON.parse(rawCache);
-  const settings = getSyncSelfHealSettings();
-
-  if (parsed && typeof parsed === 'object' && parsed.state && typeof parsed.state === 'object') {
-    const savedAt = Number(parsed.savedAt || 0);
-    const isFresh = Number.isFinite(savedAt) && (Date.now() - savedAt) <= settings.cacheTtlMs;
-    if (isFresh) {
-      STATE_CACHE = parsed.state;
+    if (parsed && typeof parsed === 'object' && parsed.state && typeof parsed.state === 'object') {
+      const savedAt = Number(parsed.savedAt || 0);
+      const isFresh = Number.isFinite(savedAt) && (Date.now() - savedAt) <= settings.cacheTtlMs;
+      if (isFresh) {
+        STATE_CACHE = parsed.state;
+        return;
+      }
+      // 有効期限切れの場合は同期時刻もリセットして漏れを防ぐ
+      purgeSyncLocalCache('cache-expired');
       return;
     }
-    localStorage.removeItem(STORAGE_KEY_CACHE);
-    return;
-  }
 
-  if (parsed && typeof parsed === 'object') {
-    STATE_CACHE = parsed;
+    if (parsed && typeof parsed === 'object') {
+      STATE_CACHE = parsed;
+    }
+  } catch (e) {
+    console.error('Failed to parse state cache:', e);
+    purgeSyncLocalCache('parse-error');
   }
 }
 
@@ -585,7 +588,7 @@ async function startLegacyPolling(immediate) {
       /* 【将来的な拡張用スペース】
          拠点（Office ID）ごとに稼働時間が異なる場合や、24時間稼働の拠点がある場合は
          ここで判定を行い、isNightMode を false に上書きしてください。
-
+ 
          例:
          const allDayOffices = ['tokyo_control_room', 'osaka_support'];
          if (typeof CURRENT_OFFICE_ID !== 'undefined' && allDayOffices.includes(CURRENT_OFFICE_ID)) {
@@ -684,8 +687,11 @@ function startRemoteSync(immediate) {
   if (typeof startVacationsPolling === 'function') { startVacationsPolling(); }
 }
 
-async function fetchConfigOnce() {
-  const cfg = await apiPost({ action: 'getConfig', token: SESSION_TOKEN });
+async function fetchConfigOnce(nocache = false) {
+  const payload = { action: 'getConfig', token: SESSION_TOKEN };
+  if (nocache) payload.nocache = '1';
+
+  const cfg = await apiPost(payload);
   if (cfg?.error === 'unauthorized') {
     await logout();
     return;
@@ -694,6 +700,14 @@ async function fetchConfigOnce() {
     const updated = (typeof cfg.updated === 'number') ? cfg.updated : 0;
     const groups = cfg.groups || cfg.config?.groups || [];
     const menus = cfg.menus || cfg.config?.menus || null;
+
+    // 同期基準の更新
+    const remoteMaxUpdated = Number(cfg.maxUpdated || 0);
+    if (remoteMaxUpdated > lastSyncTimestamp) {
+      lastSyncTimestamp = remoteMaxUpdated;
+      try { localStorage.setItem(STORAGE_KEY_SYNC, String(lastSyncTimestamp)); } catch (e) { }
+    }
+
     const shouldUpdate = (updated && updated !== CONFIG_UPDATED) || (!updated && CONFIG_UPDATED === 0);
     if (shouldUpdate) {
       GROUPS = normalizeConfigClient({ groups });
@@ -712,7 +726,8 @@ async function fetchConfigOnce() {
 function startConfigWatch(immediate = true) {
   if (configWatchTimer) { clearInterval(configWatchTimer); configWatchTimer = null; }
   if (immediate) {
-    fetchConfigOnce().catch(console.error);
+    // 初回はキャッシュをバイパスして最新を取得
+    fetchConfigOnce(true).catch(console.error);
   }
   const configPollMs = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.configPollMs))
     ? CONFIG.configPollMs
