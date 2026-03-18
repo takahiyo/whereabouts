@@ -71,5 +71,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       eventModal.style.display = 'none';
     });
   }
+  // QRコードボタンのイベントハンドラ
+  if (qrBtn) {
+    qrBtn.addEventListener('click', () => {
+      if (typeof showQrModal === 'function') {
+        showQrModal(true);
+      }
+    });
+  }
   /* === ▲ 追加箇所ここまで ▲ === */
 });

@@ -22,6 +22,7 @@ const menuEl = document.getElementById('groupMenu'), menuList = document.getElem
 const noticesBtn = document.getElementById('noticesBtn'), adminBtn = document.getElementById('adminBtn'), logoutBtn = document.getElementById('logoutBtn'), adminModal = document.getElementById('adminModal'), adminClose = document.getElementById('adminClose');
 const toolsBtn = document.getElementById('toolsBtn'), toolsModal = document.getElementById('toolsModal'), toolsModalClose = document.getElementById('toolsModalClose');
 const eventBtn = document.getElementById('eventBtn'), eventModal = document.getElementById('eventModal'), eventClose = document.getElementById('eventClose');
+const qrBtn = document.getElementById('qrBtn'), qrModal = document.getElementById('qrModal'), qrModalClose = document.getElementById('qrModalClose');
 const vacationRadioList = document.getElementById('vacationRadioList');
 const eventGanttWrap = document.getElementById('eventGanttWrap');
 const eventGantt = document.getElementById('eventGantt');

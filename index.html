@@ -44,6 +44,7 @@
     <button id="toolsBtn" class="tools-btn" title="ツール">🛠️ ツール</button>
     <button id="logoutBtn" class="logout-btn" title="ログオフ">ログオフ</button>
     <button id="manualBtn" class="manual-btn" title="マニュアル">マニュアル</button>
+    <button id="qrBtn" class="qr-btn" title="共有URL">📱 URL共有</button>
   </header>
 
   <!-- 管理モーダル -->
@@ -1150,6 +1151,22 @@
   <div id="diag" class="diag"></div>
   <!-- 一覧出力（印刷）用のワークエリア -->
   <div id="printListWorkArea" class="print-list-work-area u-hidden"></div>
+  <!-- QRコードモーダル -->
+  <div id="qrModal" class="admin-modal qr-modal" aria-modal="true" role="dialog" aria-labelledby="qrModalTitle">
+    <div class="admin-card qr-modal-card">
+      <div class="qr-modal-header">
+        <h3 id="qrModalTitle">📱 共有用QRコード</h3>
+        <button id="qrModalClose" aria-label="閉じる">閉じる</button>
+      </div>
+      <div class="qr-modal-body">
+        <div class="qr-container">
+          <img src="QR_Whereabouts.png" alt="在籍確認表アクセス用QRコード" class="qr-image">
+        </div>
+        <p class="qr-help">このQRコードをスマートフォンで読み取るか、ブラウザのURLをコピーして共有することで、在籍確認表にアクセスできます。</p>
+      </div>
+    </div>
+  </div>
+
   <script src="js/config.js" defer></script>
   <!-- 定数ファイル (SSOT) - config.jsの後、globals.jsの前に読み込む -->
   <script src="js/constants/storage.js" defer></script>
