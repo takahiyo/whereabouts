@@ -150,12 +150,14 @@ function ensureAuthUI() {
   logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
   toolsBtn.style.display = loggedIn ? 'inline-block' : 'none';
   manualBtn.style.display = loggedIn ? 'inline-block' : 'none';
+  qrBtn.style.display = loggedIn ? 'inline-block' : 'none';
   eventBtn.style.display = 'none';
   updateEventButtonVisibility();
   nameFilter.style.display = loggedIn ? 'inline-block' : 'none';
   statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
 }
 function showAdminModal(yes) { adminModal.classList.toggle('show', !!yes); }
+function showQrModal(yes) { qrModal.classList.toggle('show', !!yes); }
 function showToolsModal(yes) { toolsModal.classList.toggle('show', !!yes); }
 function showEventModal(yes) {
   const shouldShow = !!yes;
@@ -294,12 +296,14 @@ manualBtn.addEventListener('click', () => { applyRoleToManual(); showManualModal
 manualClose.addEventListener('click', () => showManualModal(false));
 toolsBtn.addEventListener('click', () => showToolsModal(true));
 toolsModalClose.addEventListener('click', () => showToolsModal(false));
+qrModalClose.addEventListener('click', () => showQrModal(false));
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     showAdminModal(false);
     showManualModal(false);
     showToolsModal(false);
     showEventModal(false);
+    showQrModal(false);
     closeMenu();
   }
 });
@@ -315,6 +319,7 @@ setupModalOverlayClose(adminModal, () => showAdminModal(false));
 setupModalOverlayClose(manualModal, () => showManualModal(false));
 setupModalOverlayClose(toolsModal, () => showToolsModal(false));
 setupModalOverlayClose(eventModal, () => showEventModal(false));
+setupModalOverlayClose(qrModal, () => showQrModal(false));
 
 /* マニュアルタブ切り替え */
 document.querySelectorAll('.manual-tab-btn').forEach(btn => {
