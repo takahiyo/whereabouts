@@ -671,13 +671,17 @@ function startRemoteSync(immediate) {
     if (document.hidden) {
       // 画面が隠れたら停止
       if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
-      console.log("Sync paused (background).");
+      if (configWatchTimer) { clearInterval(configWatchTimer); configWatchTimer = null; }
+      console.log("Sync & Config polling paused (background).");
     } else {
       // 画面に戻ったら再開
       if (!remotePullTimer) {
         startLegacyPolling(true); // 即座に更新確認
-        console.log("Sync resumed.");
       }
+      if (!configWatchTimer) {
+        startConfigWatch(true); // 即座に設定も更新確認
+      }
+      console.log("Sync & Config polling resumed.");
     }
   });
   /* ▲▲▲ 追加箇所ここまで ▲▲▲ */
