@@ -219,7 +219,7 @@ export default {
         });
 
         if (statusCache) {
-          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: 60 }));
+          ctx.waitUntil(statusCache.put(cacheKey, responseBody, { expirationTtl: statusCacheTtlSec }));
         }
 
         return new Response(responseBody, { headers: corsHeaders });
@@ -647,8 +647,7 @@ export default {
           if (statusCache) {
             ctx.waitUntil(Promise.all([
               statusCache.delete(`status:${officeId}`),
-              statusCache.delete(`config_v2:${officeId}`),
-              statusCache.put(`lastUpdate:${officeId}`, String(nowTs))
+              statusCache.delete(`config_v2:${officeId}`)
             ]));
           }
 
@@ -761,8 +760,7 @@ export default {
         if (statusCache) {
           ctx.waitUntil(Promise.all([
             statusCache.delete(`config_v2:${officeId}`),
-            statusCache.delete(`status:${officeId}`),
-            statusCache.put(`lastUpdate:${officeId}`, String(nowTs))
+            statusCache.delete(`status:${officeId}`)
           ]));
         }
 
@@ -857,8 +855,7 @@ export default {
           if (env.STATUS_CACHE) {
             ctx.waitUntil(Promise.all([
               env.STATUS_CACHE.delete(`status:${office.id}`),
-              env.STATUS_CACHE.delete(`config_v2:${office.id}`),
-              env.STATUS_CACHE.put(`lastUpdate:${office.id}`, String(Date.now()))
+              env.STATUS_CACHE.delete(`config_v2:${office.id}`)
             ]));
           }
           console.log(`[Scheduled] Successfully cleared fields for office: ${office.id}`);
