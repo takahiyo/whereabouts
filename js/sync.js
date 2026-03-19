@@ -12,10 +12,7 @@
 /* ===== メニュー・正規化・通信・同期 ===== */
 /* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */
 
-// ハイブリッド同期用の状態管理
-let useSdkMode = false;
-let unsubscribeSnapshot = null;
-let fallbackTimer = null;
+// ポーリング状態管理
 let lastPollTime = 0;
 
 // ★修正: STATE_CACHE と lastSyncTimestamp を localStorage から初期化
@@ -561,12 +558,8 @@ function normalizeConfigClient(cfg) {
   });
 }
 
-// Plan B: Workers経由のポーリング
-// ★修正: 引数 isInitial を追加し、初回のみ nocache を送る
-async function startLegacyPolling(immediate) {
-  useSdkMode = false;
-  // ★削除: lastSyncTimestamp = 0; を削除し、以前の同期時刻を維持する
-
+// Workers経由のポーリング
+async function startWorkerPolling(immediate) {
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
 
   // ポーリング実行関数
@@ -642,7 +635,6 @@ async function startLegacyPolling(immediate) {
   };
 
   if (immediate) {
-    // ★修正: 初回実行フラグを true に
     pollAction(true).catch(() => { });
   }
   const remotePollMs = (typeof CONFIG !== 'undefined' && Number.isFinite(CONFIG.remotePollMs))
@@ -654,37 +646,15 @@ async function startLegacyPolling(immediate) {
 
 function startRemoteSync(immediate) {
   if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
-  if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-  if (fallbackTimer) { clearTimeout(fallbackTimer); fallbackTimer = null; }
 
   if (typeof CURRENT_OFFICE_ID === 'undefined' || !CURRENT_OFFICE_ID) {
     console.error("Office ID not found. Cannot start sync.");
     return;
   }
 
-  console.log("Starting sync via Cloudflare Worker (KV Cache enabled).");
+  console.log("Starting sync via Cloudflare Worker.");
 
-  startLegacyPolling(immediate);
-
-  /* ▼▼▼ 追加箇所: タブが非表示になったらポーリングを停止 ▼▼▼ */
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      // 画面が隠れたら停止
-      if (remotePullTimer) { clearInterval(remotePullTimer); remotePullTimer = null; }
-      if (configWatchTimer) { clearInterval(configWatchTimer); configWatchTimer = null; }
-      console.log("Sync & Config polling paused (background).");
-    } else {
-      // 画面に戻ったら再開
-      if (!remotePullTimer) {
-        startLegacyPolling(true); // 即座に更新確認
-      }
-      if (!configWatchTimer) {
-        startConfigWatch(true); // 即座に設定も更新確認
-      }
-      console.log("Sync & Config polling resumed.");
-    }
-  });
-  /* ▲▲▲ 追加箇所ここまで ▲▲▲ */
+  startWorkerPolling(immediate);
 
   if (typeof startToolsPolling === 'function') { startToolsPolling(); }
   if (typeof startNoticesPolling === 'function') { startNoticesPolling(); }

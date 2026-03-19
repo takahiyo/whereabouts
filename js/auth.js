@@ -9,7 +9,7 @@
  * @see MODULE_GUIDE.md
  */
 
-/* 認証UI + 管理UI + マニュアルUI - Hybrid Auth Version */
+/* 認証UI + 管理UI + マニュアルUI - Worker Auth Version */
 
 function logoutButtonsCleanup() {
   closeMenu(); showAdminModal(false); showManualModal(false); showEventModal(false); showToolsModal(false);
@@ -22,8 +22,8 @@ function logoutButtonsCleanup() {
 
 async function checkLogin() {
   return new Promise((resolve) => {
-    const storedOffice = localStorage.getItem('presence_office');
-    const storedRole = localStorage.getItem('presence_role');
+    const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
+    const storedRole = localStorage.getItem(LOCAL_ROLE_KEY);
     if (storedOffice && storedRole) {
       SESSION_TOKEN = 'worker_session';
       CURRENT_OFFICE_ID = storedOffice;
@@ -75,9 +75,9 @@ async function login(officeInput, passwordInput) {
 
     // ★重要：ログイン処理に入る「前」に、拠点情報を保存する
     // これにより、ログイン直後に走る監視役が正しく情報を読み取れます
-    localStorage.setItem('presence_office', result.office);
-    localStorage.setItem('presence_role', result.role);
-    localStorage.setItem('presence_office_name', result.officeName || result.office);
+    localStorage.setItem(LOCAL_OFFICE_KEY, result.office);
+    localStorage.setItem(LOCAL_ROLE_KEY, result.role);
+    localStorage.setItem(LOCAL_OFFICE_NAME_KEY, result.officeName || result.office);
 
     SESSION_TOKEN = 'worker_session';
 
@@ -121,8 +121,9 @@ async function logout() {
       clearLocalCache();
     }
 
-    localStorage.removeItem('presence_office');
-    localStorage.removeItem('presence_role');
+    localStorage.removeItem(LOCAL_OFFICE_KEY);
+    localStorage.removeItem(LOCAL_ROLE_KEY);
+    localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
     toast("ログオフしました");
     setTimeout(() => location.reload(), 500);
   } catch (e) {

@@ -24,8 +24,17 @@ const SESSION_OFFICE_KEY = "presence-office";
 const SESSION_OFFICE_NAME_KEY = "presence-office-name";
 
 // ============================================
-// ローカルストレージキー（プレフィックス）
+// ローカルストレージキー
 // ============================================
+/** 自動ログイン用拠点ID保存キー */
+const LOCAL_OFFICE_KEY = "presence_office";
+
+/** 自動ログイン用ユーザー権限保存キー */
+const LOCAL_ROLE_KEY = "presence_role";
+
+/** 自動ログイン用拠点名保存キー */
+const LOCAL_OFFICE_NAME_KEY = "presence_office_name";
+
 /** ボードデータ保存用キーベース */
 const STORE_KEY_BASE = "presence-board-v4";
 

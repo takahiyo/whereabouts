@@ -98,7 +98,7 @@ document.addEventListener('visibilitychange', () => {
     eventSyncTimer = null;
   } else {
     if (resumeRemoteSyncOnVisible && SESSION_TOKEN) {
-      startRemoteSync(true);
+      if (typeof startRemoteSync === 'function') startRemoteSync(true);
     }
     if (resumeConfigWatchOnVisible && SESSION_TOKEN) {
       startConfigWatch();

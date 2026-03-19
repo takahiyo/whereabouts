@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (e) { console.error(e); }
 
-  // ログイン状態確認（Firebase OnAuthStateChanged）
+  // ログイン状態確認
   // js/auth.js で定義された checkLogin を呼び出す
   if (typeof checkLogin === 'function') {
     await checkLogin();
