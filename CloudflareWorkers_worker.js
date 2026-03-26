@@ -134,19 +134,24 @@ export default {
 
         console.log(`[Login Attempt] Office: ${officeId}, password provided: ${password ? 'Yes' : 'No'}`);
 
-        // 拠点情報とカラム設定を結合して取得 (Phase 2)
-        const office = await env.DB.prepare(`
-          SELECT o.*, c.config_json as column_config 
-          FROM offices o 
-          LEFT JOIN office_column_config c ON o.id = c.office_id 
-          WHERE o.id = ?
-        `)
+        // 拠点情報を取得（テーブル不在によるエラー回避のため、JOINを一時的に削除）
+        const office = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
           .bind(officeId)
           .first();
 
         if (!office) {
           console.warn(`[Login Failed] Office not found: ${officeId}`);
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', code: 'office_not_found' }), { headers: corsHeaders });
+          return new Response(JSON.stringify({ ok: false, error: 'not_found' }), { headers: corsHeaders });
+        }
+
+        let columnConfig = null;
+        try {
+          const configRow = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
+            .bind(officeId)
+            .first();
+          if (configRow) columnConfig = JSON.parse(configRow.config_json);
+        } catch (e) {
+          console.warn('[Login] office_column_config table may not exist yet');
         }
 
         let role = '';
@@ -169,7 +174,7 @@ export default {
             role,
             office: officeId,
             officeName: office.name || officeId,
-            columnConfig: office.column_config ? JSON.parse(office.column_config) : null
+            columnConfig: columnConfig || (office.column_config ? JSON.parse(office.column_config) : null)
           }),
           { headers: corsHeaders }
         );
@@ -190,10 +195,15 @@ export default {
           .bind(officeId)
           .all();
 
-        // 拠点カラム設定を取得 (Phase 2)
-        const columnConfigRes = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
-          .bind(officeId)
-          .first();
+        // 拠点カラム設定を取得 (Phase 2) - テーブル未作成時の500エラーを回避
+        let columnConfigRes = null;
+        try {
+          columnConfigRes = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
+            .bind(officeId)
+            .first();
+        } catch (e) {
+          console.warn('[getConfig] office_column_config table may not exist yet');
+        }
 
         const groupsMap = new Map();
         (members.results || []).forEach(m => {
@@ -503,9 +513,14 @@ export default {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
 
-        const row = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
-          .bind(officeId)
-          .first();
+        let row = null;
+        try {
+          row = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
+            .bind(officeId)
+            .first();
+        } catch (e) {
+          console.warn('[getColumnConfig] table not found');
+        }
 
         return new Response(JSON.stringify({
           ok: true,
