@@ -2141,6 +2141,14 @@ function renderColumnConfig(config) {
   
   table.appendChild(tbody);
   columnSettingContainer.appendChild(table);
+  
+  columnSettingContainer.appendChild(el('div', { class: 'u-mt-20 u-text-right' }, [
+    el('button', { 
+      class: 'btn-primary', 
+      text: 'カラム構成を拠点設定として保存', 
+      onclick: saveColumnConfig 
+    })
+  ]));
 }
 
 async function saveColumnConfig() {
