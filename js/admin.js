@@ -2165,6 +2165,8 @@ async function saveColumnConfig() {
     }
   });
 
+  console.log('[saveColumnConfig] payload:', { office, boardKeys, popupKeys });
+
   try {
     const res = await apiPost({ 
       action: 'setColumnConfig', 
@@ -2172,6 +2174,7 @@ async function saveColumnConfig() {
       office, 
       config: { board: boardKeys, popup: popupKeys } 
     });
+    console.log('[saveColumnConfig] res:', res);
     if (res && res.ok) {
       toast('カラム構成を保存しました');
       // 現在の拠点が変更された拠点と同じなら、フロントエンドにも即座に反映
