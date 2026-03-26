@@ -2074,10 +2074,12 @@ async function loadColumnConfig() {
       columnSettingContainer.innerHTML = '<p class="u-text-center u-text-gray">設定を読み込み中...</p>';
     }
     const res = await apiPost({ action: 'getColumnConfig', token: SESSION_TOKEN, office });
+    console.log('[loadColumnConfig] res:', res);
     const config = (res && res.columnConfig) || { 
       board: ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'], 
       popup: ['ext', 'mobile', 'email'] 
     };
+    console.log('[loadColumnConfig] Using config:', config);
     renderColumnConfig(config);
   } catch (e) {
     console.error('loadColumnConfig error', e);
@@ -2185,7 +2187,8 @@ async function loadOffices() {
   try {
     officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-gray">読み込み中...</td></tr>';
     const res = await apiPost({ action: 'listOffices', token: SESSION_TOKEN });
-    if (res && Array.isArray(res.offices)) {
+    console.log('[loadOffices] res:', res);
+    if (res && res.ok && Array.isArray(res.offices)) {
       renderOfficeTable(res.offices);
     } else {
       officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-red">取得に失敗しました</td></tr>';

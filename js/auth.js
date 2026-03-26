@@ -92,6 +92,7 @@ async function login(officeInput, passwordInput) {
     CURRENT_ROLE = result.role;
     OFFICE_COLUMN_CONFIG = result.columnConfig || null;
 
+    console.log('[auth.js] Login success. Office:', result.office, 'Role:', result.role);
     toast(`ログインしました: ${result.officeName}`);
 
     // UIを即座に表示状態に切り替える

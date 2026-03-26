@@ -509,7 +509,7 @@ export default {
 
         return new Response(JSON.stringify({
           ok: true,
-          config: row ? JSON.parse(row.config_json) : null
+          columnConfig: row ? JSON.parse(row.config_json) : null
         }), { headers: corsHeaders });
       }
 
@@ -520,7 +520,10 @@ export default {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
-        const configJson = getParam('config'); // JSON文字列
+        let configJson = getParam('config'); // オブジェクトまたは文字列
+        if (configJson && typeof configJson !== 'string') {
+          configJson = JSON.stringify(configJson);
+        }
         if (!configJson) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
 
         const nowTs = Date.now();

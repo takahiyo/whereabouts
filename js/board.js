@@ -243,12 +243,13 @@ function bindCandidatePanelGlobals() {
  * @returns {string[]}
  */
 function getEnabledColumns() {
+  console.log('[board.js] Initializing render with configuration:', OFFICE_COLUMN_CONFIG);
   const defaultKeys = ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
-  if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.columns)) {
+  if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.board)) {
     return defaultKeys;
   }
   // 設定がある場合はそれを使用（ただし氏名は必須とする）
-  let keys = OFFICE_COLUMN_CONFIG.columns.slice();
+  let keys = OFFICE_COLUMN_CONFIG.board.slice();
   if (!keys.includes('name')) keys.unshift('name');
   return keys;
 }
