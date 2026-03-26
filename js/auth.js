@@ -78,6 +78,11 @@ async function login(officeInput, passwordInput) {
     localStorage.setItem(LOCAL_OFFICE_KEY, result.office);
     localStorage.setItem(LOCAL_ROLE_KEY, result.role);
     localStorage.setItem(LOCAL_OFFICE_NAME_KEY, result.officeName || result.office);
+    if (result.columnConfig) {
+      localStorage.setItem(SESSION_COLUMN_CONFIG_KEY, JSON.stringify(result.columnConfig));
+    } else {
+      localStorage.removeItem(SESSION_COLUMN_CONFIG_KEY);
+    }
 
     SESSION_TOKEN = 'worker_session';
 
@@ -85,6 +90,7 @@ async function login(officeInput, passwordInput) {
     CURRENT_OFFICE_ID = result.office;
     CURRENT_OFFICE_NAME = result.officeName || result.office;
     CURRENT_ROLE = result.role;
+    OFFICE_COLUMN_CONFIG = result.columnConfig || null;
 
     toast(`ログインしました: ${result.officeName}`);
 
@@ -124,6 +130,7 @@ async function logout() {
     localStorage.removeItem(LOCAL_OFFICE_KEY);
     localStorage.removeItem(LOCAL_ROLE_KEY);
     localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
+    localStorage.removeItem(SESSION_COLUMN_CONFIG_KEY);
     toast("ログオフしました");
     setTimeout(() => location.reload(), 500);
   } catch (e) {
@@ -178,6 +185,8 @@ async function applyRoleToAdminPanel() {
   if (!(adminOfficeRow && adminOfficeSel)) return;
   if (CURRENT_ROLE !== 'superAdmin') {
     adminOfficeRow.style.display = 'none';
+    const btnTabOffices = document.getElementById('btnTabOffices');
+    if (btnTabOffices) btnTabOffices.classList.add('u-hidden');
     adminOfficeSel.disabled = false;
     adminOfficeSel.textContent = '';
     adminSelectedOfficeId = '';
@@ -185,6 +194,8 @@ async function applyRoleToAdminPanel() {
   }
 
   adminOfficeRow.style.display = '';
+  const btnTabOffices = document.getElementById('btnTabOffices');
+  if (btnTabOffices) btnTabOffices.classList.remove('u-hidden');
   adminOfficeSel.disabled = true;
   adminOfficeSel.textContent = '';
   const loadingOpt = document.createElement('option');

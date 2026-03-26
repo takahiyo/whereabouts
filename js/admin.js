@@ -10,6 +10,10 @@
 /* 管理UIイベント */
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
+const btnColumnSave = document.getElementById('btnColumnSave');
+const columnSettingContainer = document.getElementById('columnSettingContainer');
+const btnAddOffice = document.getElementById('btnAddOffice');
+const officeTableBody = document.getElementById('officeTableBody');
 if (adminOfficeSel) {
   adminOfficeSel.addEventListener('change', () => {
     adminSelectedOfficeId = adminOfficeSel.value || '';
@@ -202,7 +206,8 @@ if (adminModal) {
         members: adminModal.querySelector('#tabMembers'),
         notices: adminModal.querySelector('#tabNotices'),
         events: adminModal.querySelector('#tabEvents'),
-        tools: adminModal.querySelector('#tabTools')
+        tools: adminModal.querySelector('#tabTools'),
+        columns: adminModal.querySelector('#tabColumns')
       };
       const panel = panelMap[targetTab];
       if (panel) {
@@ -228,6 +233,10 @@ if (adminModal) {
         await loadVacationsList();
       } else if (targetTab === 'tools') {
         await loadAdminTools();
+      } else if (targetTab === 'columns') {
+        await loadColumnConfig();
+      } else if (targetTab === 'offices') {
+        await loadOffices();
       }
     });
   });
@@ -238,6 +247,8 @@ let adminMemberList = [], adminMemberData = {}, adminGroupOrder = [], adminMembe
 let adminToolsLoaded = false, adminToolsOfficeId = '';
 
 if (btnMemberSave) { btnMemberSave.addEventListener('click', () => handleMemberSave()); }
+if (btnColumnSave) { btnColumnSave.addEventListener('click', () => saveColumnConfig()); }
+if (btnAddOffice) { btnAddOffice.addEventListener('click', () => addOffice()); }
 if (memberEditForm) {
   memberEditForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -2053,4 +2064,211 @@ function createPrintRowDiv(m) {
 
   row.append(name, work, status, ret, next, note);
   return row;
+}
+
+/* カラム構成管理 (Phase 6) */
+async function loadColumnConfig() {
+  const office = selectedOfficeId(); if (!office) return;
+  try {
+    if (columnSettingContainer) {
+      columnSettingContainer.innerHTML = '<p class="u-text-center u-text-gray">設定を読み込み中...</p>';
+    }
+    const res = await apiPost({ action: 'getColumnConfig', token: SESSION_TOKEN, office });
+    const config = (res && res.columnConfig) || { 
+      board: ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'], 
+      popup: ['ext', 'mobile', 'email'] 
+    };
+    renderColumnConfig(config);
+  } catch (e) {
+    console.error('loadColumnConfig error', e);
+    if (columnSettingContainer) {
+      columnSettingContainer.innerHTML = '<p class="u-text-red">設定の同期に失敗しました</p>';
+    }
+  }
+}
+
+function renderColumnConfig(config) {
+  if (!columnSettingContainer) return;
+  columnSettingContainer.innerHTML = '';
+  
+  const table = el('table', { class: 'column-setting-table' }, [
+    el('thead', {}, [
+      el('tr', {}, [
+        el('th', { text: 'カラム名' }),
+        el('th', { text: 'ボード表示' }),
+        el('th', { text: 'ポップアップ表示' }),
+        el('th', { text: '説明', class: 'u-hidden-mobile' })
+      ])
+    ])
+  ]);
+  
+  const tbody = el('tbody');
+  // COLUMN_DEFINITIONS は js/constants/column-definitions.js で定義済み
+  COLUMN_DEFINITIONS.forEach(def => {
+    const isBoardEnabled = config.board.includes(def.key);
+    const isPopupEnabled = config.popup.includes(def.key);
+    
+    // システム上必須のカラム
+    const boardDisabled = (def.key === 'name' || def.key === 'status');
+    const popupDisabled = !def.popupEligible;
+
+    const tr = el('tr', {}, [
+      el('td', { text: def.label }),
+      el('td', { class: 'u-text-center' }, [
+        el('input', { 
+          type: 'checkbox', 
+          'data-key': def.key, 
+          'data-type': 'board',
+          checked: isBoardEnabled || boardDisabled,
+          disabled: boardDisabled
+        })
+      ]),
+      el('td', { class: 'u-text-center' }, [
+        el('input', { 
+          type: 'checkbox', 
+          'data-key': def.key, 
+          'data-type': 'popup',
+          checked: isPopupEnabled || (isPopupEnabled && popupDisabled),
+          disabled: popupDisabled
+        })
+      ]),
+      el('td', { text: def.description || '', class: 'u-hidden-mobile u-font-sm u-text-gray' })
+    ]);
+    tbody.appendChild(tr);
+  });
+  
+  table.appendChild(tbody);
+  columnSettingContainer.appendChild(table);
+}
+
+async function saveColumnConfig() {
+  const office = selectedOfficeId(); if (!office) return;
+  const boardKeys = [];
+  const popupKeys = [];
+  
+  columnSettingContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    if (cb.checked) {
+      if (cb.dataset.type === 'board') boardKeys.push(cb.dataset.key);
+      if (cb.dataset.type === 'popup') popupKeys.push(cb.dataset.key);
+    }
+  });
+
+  try {
+    const res = await apiPost({ 
+      action: 'setColumnConfig', 
+      token: SESSION_TOKEN, 
+      office, 
+      config: { board: boardKeys, popup: popupKeys } 
+    });
+    if (res && res.ok) {
+      toast('カラム構成を保存しました');
+      // 現在の拠点が変更された拠点と同じなら、フロントエンドにも即座に反映
+      if (office === CURRENT_OFFICE_ID) {
+        OFFICE_COLUMN_CONFIG = { board: boardKeys, popup: popupKeys };
+        localStorage.setItem(SESSION_COLUMN_CONFIG_KEY, JSON.stringify(OFFICE_COLUMN_CONFIG));
+        if (typeof render === 'function') {
+          render();
+        }
+      }
+    } else {
+      toast('保存に失敗しました: ' + (res.error || '不明なエラー'), false);
+    }
+  } catch (e) {
+    console.error('saveColumnConfig error', e);
+    toast('通信エラーが発生しました', false);
+  }
+}
+
+/* 拠点管理 (Phase 7 - Super Admin用) */
+async function loadOffices() {
+  if (!officeTableBody) return;
+  try {
+    officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-gray">読み込み中...</td></tr>';
+    const res = await apiPost({ action: 'listOffices', token: SESSION_TOKEN });
+    if (res && Array.isArray(res.offices)) {
+      renderOfficeTable(res.offices);
+    } else {
+      officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-red">取得に失敗しました</td></tr>';
+    }
+  } catch (e) {
+    console.error('loadOffices error', e);
+    officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-red">通信エラーが発生しました</td></tr>';
+  }
+}
+
+function renderOfficeTable(offices) {
+  if (!officeTableBody) return;
+  officeTableBody.innerHTML = '';
+  
+  if (offices.length === 0) {
+    officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-gray">登録された拠点はありません</td></tr>';
+    return;
+  }
+  
+  offices.forEach(o => {
+    const tr = el('tr', {}, [
+      el('td', { text: o.id }),
+      el('td', { text: o.name || o.id }),
+      el('td', { class: 'u-text-center' }, [
+        el('button', { 
+          class: 'btn-danger btn-sm', 
+          text: '削除',
+          onclick: () => deleteOfficeSingle(o.id, o.name)
+        })
+      ])
+    ]);
+    officeTableBody.appendChild(tr);
+  });
+}
+
+async function addOffice() {
+  const officeId = document.getElementById('newOfficeId')?.value.trim();
+  const name = document.getElementById('newOfficeName')?.value.trim();
+  const password = document.getElementById('newOfficePw')?.value.trim();
+  const adminPassword = document.getElementById('newOfficeAdminPw')?.value.trim();
+  
+  if (!officeId || !name || !password || !adminPassword) {
+    toast('すべての項目を入力してください', false);
+    return;
+  }
+  
+  try {
+    const res = await apiPost({ 
+      action: 'addOffice', 
+      token: SESSION_TOKEN,
+      officeId, name, password, adminPassword
+    });
+    
+    if (res && res.ok) {
+      toast('拠点を追加しました');
+      // フォームをクリア
+      ['newOfficeId', 'newOfficeName', 'newOfficePw', 'newOfficeAdminPw'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      await loadOffices();
+    } else {
+      toast('追加に失敗しました: ' + (res.error || '不明なエラー'), false);
+    }
+  } catch (e) {
+    console.error('addOffice error', e);
+    toast('通信エラーが発生しました', false);
+  }
+}
+
+async function deleteOfficeSingle(id, name) {
+  if (!confirm(`拠点「${name || id}」を削除しますか？\nこの操作は取り消せません。`)) return;
+  
+  try {
+    const res = await apiPost({ action: 'deleteOffice', token: SESSION_TOKEN, officeId: id });
+    if (res && res.ok) {
+      toast('拠点を削除しました');
+      await loadOffices();
+    } else {
+      toast('削除に失敗しました: ' + (res.error || '不明なエラー'), false);
+    }
+  } catch (e) {
+    console.error('deleteOffice error', e);
+    toast('通信エラーが発生しました', false);
+  }
 }

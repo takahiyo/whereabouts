@@ -58,6 +58,33 @@ let contactHoldTimer = null;
 let contactScrollBound = false;
 let currentContactOverlay = null;
 
+/**
+ * IDからメンバー情報を取得する (Phase 4)
+ * @param {string} id
+ * @returns {Object|null}
+ */
+function findMemberById(id) {
+  if (!id || !Array.isArray(GROUPS)) return null;
+  for (const g of GROUPS) {
+    if (!g.members) continue;
+    const m = g.members.find(x => x.id === id);
+    if (m) return m;
+  }
+  return null;
+}
+
+/**
+ * 現在の拠点設定に基づき、ポップアップ表示対象のカラムキー配列を返す。
+ * @returns {string[]}
+ */
+function getEnabledPopupColumns() {
+  const defaultKeys = ['ext', 'mobile', 'email'];
+  if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.popup)) {
+    return defaultKeys;
+  }
+  return OFFICE_COLUMN_CONFIG.popup;
+}
+
 function clearContactHoldTimer() {
   if (contactHoldTimer) {
     clearTimeout(contactHoldTimer);
@@ -84,6 +111,7 @@ function handleContactEsc(e) {
 }
 
 function showContactPopup(member) {
+  if (!member) return;
   closeContactPopup();
   const overlay = el('div', { class: 'contact-overlay' });
   const dialogLabel = `${sanitizeText(member.name || '')}の連絡先`;
@@ -91,31 +119,35 @@ function showContactPopup(member) {
   const closeBtn = el('button', { type: 'button', class: 'contact-close', 'aria-label': '閉じる' }, ['×']);
   const title = el('h4', { class: 'contact-title', text: dialogLabel });
 
-  const extension = member.extension ? String(member.extension) : '';
-  const extensionRow = el('div', { class: 'contact-row' }, [
-    el('span', { class: 'contact-label', text: '内線' }),
-    extension
-      ? el('a', { class: 'contact-link', href: `tel:${extension}`, text: extension })
-      : el('span', { class: 'contact-empty', text: '未登録' })
-  ]);
-
-  const mobile = member.mobile ? String(member.mobile) : '';
-  const mobileRow = el('div', { class: 'contact-row' }, [
-    el('span', { class: 'contact-label', text: '携帯' }),
-    mobile
-      ? el('a', { class: 'contact-link', href: `tel:${mobile}`, text: mobile })
-      : el('span', { class: 'contact-empty', text: '未登録' })
-  ]);
-
-  const email = member.email ? String(member.email) : '';
-  const emailRow = el('div', { class: 'contact-row' }, [
-    el('span', { class: 'contact-label', text: 'メール' }),
-    email
-      ? el('a', { class: 'contact-link', href: `mailto:${encodeURIComponent(email)}`, text: email })
-      : el('span', { class: 'contact-empty', text: '未登録' })
-  ]);
-
-  const body = el('div', { class: 'contact-body' }, [extensionRow, mobileRow, emailRow]);
+  const popupKeys = getEnabledPopupColumns();
+  const body = el('div', { class: 'contact-body' });
+  
+  popupKeys.forEach(k => {
+    const def = getColumnDefinition(k);
+    if (!def) return;
+    
+    const val = String(member[k] || '').trim();
+    const row = el('div', { class: 'contact-row' }, [
+      el('span', { class: 'contact-label', text: def.label })
+    ]);
+    
+    if (val) {
+      let href = '';
+      // 特徴的なプレフィックス設定
+      if (k === 'ext' || k === 'mobile') href = `tel:${val}`;
+      else if (k === 'email') href = `mailto:${encodeURIComponent(val)}`;
+      
+      if (href) {
+        row.appendChild(el('a', { class: 'contact-link', href: href, text: val }));
+      } else {
+        // リンクではない通常の表示
+        row.appendChild(el('span', { class: 'contact-link', style: 'text-decoration:none; cursor:default;', text: val }));
+      }
+    } else {
+      row.appendChild(el('span', { class: 'contact-empty', text: '未登録' }));
+    }
+    body.appendChild(row);
+  });
 
   closeBtn.addEventListener('click', closeContactPopup);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeContactPopup(); });
@@ -126,18 +158,6 @@ function showContactPopup(member) {
   document.body.appendChild(overlay);
   currentContactOverlay = overlay;
   closeBtn.focus({ preventScroll: true });
-}
-
-function resolveContactInfo(tr, fallback) {
-  const nameText = tr?.querySelector('td.name')?.textContent || fallback?.name || '';
-  const mobileVal = tr ? (tr.dataset.mobile ?? '') : '';
-  const emailVal = tr ? (tr.dataset.email ?? '') : '';
-  return {
-    name: nameText,
-    mobile: (mobileVal || fallback?.mobile || '').trim(),
-    extension: (tr ? (tr.dataset.extension ?? '') : '').trim(),
-    email: (emailVal || fallback?.email || '').trim()
-  };
 }
 
 
@@ -216,59 +236,102 @@ function bindCandidatePanelGlobals() {
   });
 }
 
+/* --- 動的カラムユーティリティ (Phase 3) --- */
+/**
+ * 現在の拠点設定に基づき、表示対象のカラムキー配列を返す。
+ * 設定がない場合はデフォルトの6カラムを返す。
+ * @returns {string[]}
+ */
+function getEnabledColumns() {
+  const defaultKeys = ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
+  if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.columns)) {
+    return defaultKeys;
+  }
+  // 設定がある場合はそれを使用（ただし氏名は必須とする）
+  let keys = OFFICE_COLUMN_CONFIG.columns.slice();
+  if (!keys.includes('name')) keys.unshift('name');
+  return keys;
+}
+
 /* 行UI */
 function buildRow(member) {
-  const name = sanitizeText(member.name || "");
-  const ext = (member.ext && /^[0-9]{1,6}$/.test(String(member.ext))) ? String(member.ext) : "";
   const key = member.id;
   const rev = member.updated ? String(member.updated) : '0';
   const tr = el('tr', { id: `row-${key}` });
   tr.dataset.key = key;
   tr.dataset.rev = rev;
   tr.dataset.serverUpdated = rev;
-  tr.dataset.mobile = member.mobile ? String(member.mobile) : '';
-  tr.dataset.email = member.email ? String(member.email) : '';
-  tr.dataset.extension = ext;
+  
+  // 拡張データ（モバイル/メール/内線）はデータ属性に保持（ポップアップ等で使用）
+  tr.dataset.extension = member.ext || '';
+  tr.dataset.mobile = member.mobile || '';
+  tr.dataset.email = member.email || '';
 
-  const tdName = el('td', { class: 'name', 'data-label': '氏名' }); tdName.textContent = name;
+  const enabledKeys = getEnabledColumns();
 
-  const tdExt = el('td', { class: 'ext', 'data-label': '内線' }, [ext]); /* 表示のみ */
+  enabledKeys.forEach(colKey => {
+    const def = getColumnDefinition(colKey);
+    if (!def) return;
 
-  const workPlaceholder = '09:00-17:30';
-  const workInit = member.workHours == null ? '' : String(member.workHours);
-  const tdWork = el('td', { class: 'work', 'data-label': '業務時間' });
-  const workField = buildCandidateField({ id: `work-${key}`, name: 'workHours', placeholder: workPlaceholder, type: 'workHours', value: workInit });
-  tdWork.appendChild(el('label', { class: 'sr-only', for: `work-${key}`, text: '業務時間' }));
-  tdWork.appendChild(workField.wrapper);
+    const td = el('td', { class: def.tableClass, 'data-label': def.dataLabel });
+    
+    switch (colKey) {
+      case 'name':
+        td.textContent = sanitizeText(member.name || "");
+        break;
+      
+      case 'status': {
+        const sel = el('select', { id: `status-${key}`, name: 'status' });
+        td.appendChild(el('label', { class: 'sr-only', for: `status-${key}`, text: 'ステータス' }));
+        STATUSES.forEach(s => sel.appendChild(el('option', { value: s.value, text: s.value })));
+        sel.value = member.status || STATUSES[0]?.value || "";
+        td.appendChild(sel);
+        break;
+      }
+      
+      case 'time': {
+        const sel = el('select', { id: `time-${key}`, name: 'time' });
+        td.appendChild(el('label', { class: 'sr-only', for: `time-${key}`, text: '戻り時間' }));
+        sel.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
+        sel.value = member.time || "";
+        td.appendChild(sel);
+        break;
+      }
+      
+      case 'workHours': {
+        const val = member.workHours == null ? '' : String(member.workHours);
+        const field = buildCandidateField({ id: `work-${key}`, name: 'workHours', placeholder: '09:00-17:30', type: 'workHours', value: val });
+        td.appendChild(el('label', { class: 'sr-only', for: `work-${key}`, text: '業務時間' }));
+        td.appendChild(field.wrapper);
+        break;
+      }
+      
+      case 'tomorrowPlan': {
+        const sel = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
+        td.appendChild(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }));
+        const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
+        sel.appendChild(el('option', { value: '', text: '' }));
+        planOptions.forEach(v => sel.appendChild(el('option', { value: String(v), text: String(v) })));
+        sel.value = member.tomorrowPlan == null ? '' : String(member.tomorrowPlan);
+        td.appendChild(sel);
+        break;
+      }
+      
+      case 'note': {
+        const field = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: member.note || "" });
+        td.appendChild(field.wrapper);
+        break;
+      }
+      
+      default:
+        // ext, mobile, email 等の表示専用カラム
+        td.textContent = member[def.dbField] || "";
+        break;
+    }
+    
+    tr.appendChild(td);
+  });
 
-  const tdStatus = el('td', { class: 'status', 'data-label': 'ステータス' });
-  const selStatus = el('select', { id: `status-${key}`, name: 'status' });
-  tdStatus.appendChild(el('label', { class: 'sr-only', for: `status-${key}`, text: 'ステータス' }));
-  STATUSES.forEach(s => selStatus.appendChild(el('option', { value: s.value, text: s.value })));
-  selStatus.value = member.status || STATUSES[0]?.value || "";
-  tdStatus.appendChild(selStatus);
-
-  const tdTime = el('td', { class: 'time', 'data-label': '戻り時間' });
-  const selTime = el('select', { id: `time-${key}`, name: 'time' });
-  tdTime.appendChild(el('label', { class: 'sr-only', for: `time-${key}`, text: '戻り時間' }));
-  selTime.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
-  selTime.value = member.time || "";
-  tdTime.appendChild(selTime);
-
-  const tdPlan = el('td', { class: 'tomorrow-plan', 'data-label': '明日の予定' });
-  const selPlan = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
-  tdPlan.appendChild(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }));
-  const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
-  selPlan.appendChild(el('option', { value: '', text: '' }));
-  planOptions.forEach(v => selPlan.appendChild(el('option', { value: String(v), text: String(v) })));
-  selPlan.value = member.tomorrowPlan == null ? '' : String(member.tomorrowPlan);
-  tdPlan.appendChild(selPlan);
-
-  const tdNote = el('td', { class: 'note', 'data-label': '備考' });
-  const noteField = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: member.note || "" });
-  tdNote.appendChild(noteField.wrapper);
-
-  tr.append(tdName, tdExt, tdWork, tdStatus, tdTime, tdPlan, tdNote);
   return tr;
 }
 
@@ -339,26 +402,36 @@ function buildPanel(group, idx) {
   const gid = `grp-${idx}`; const sec = el('section', { class: 'panel', id: gid }); sec.dataset.groupIndex = String(idx);
   const title = fallbackGroupTitle(group, idx); sec.appendChild(el('h3', { class: 'title', text: title }));
   const table = el('table', { 'aria-label': `在席表（${title}）` });
-  table.appendChild(el('colgroup', {}, [
-    el('col', { class: 'col-name' }),
-    el('col', { class: 'col-work' }),
-    el('col', { class: 'col-status' }),
-    el('col', { class: 'col-time' }),
-    el('col', { class: 'col-tomorrow-plan' }),
-    el('col', { class: 'col-note' })
-  ]));
-  const thead = el('thead'); const thr = el('tr');
-  const headers = [
-    { label: '氏名', cls: 'name' },
-    { label: '業務時間', cls: 'work' },
-    { label: 'ステータス', cls: 'status' },
-    { label: '戻り時間', cls: 'time' },
-    { label: '明日の予定', cls: 'tomorrow-plan' },
-    { label: '備考', cls: 'note' }
-  ];
-  headers.forEach(h => thr.appendChild(el('th', { text: h.label, class: h.cls }))); thead.appendChild(thr); table.appendChild(thead);
-  const tbody = el('tbody'); group.members.forEach(m => { const r = buildRow(m); tbody.appendChild(r); }); table.appendChild(tbody);
-  sec.appendChild(table); return sec;
+  
+  const enabledKeys = getEnabledColumns();
+  
+  // colgroup の動的生成
+  const colgroup = el('colgroup');
+  enabledKeys.forEach(k => {
+    colgroup.appendChild(el('col', { class: `col-${k}` }));
+  });
+  table.appendChild(colgroup);
+
+  // thead の動的生成
+  const thead = el('thead');
+  const thr = el('tr');
+  enabledKeys.forEach(k => {
+    const def = getColumnDefinition(k);
+    if (def) {
+      thr.appendChild(el('th', { text: def.label, class: def.tableClass }));
+    }
+  });
+  thead.appendChild(thr);
+  table.appendChild(thead);
+
+  const tbody = el('tbody');
+  group.members.forEach(m => {
+    tbody.appendChild(buildRow(m));
+  });
+  table.appendChild(tbody);
+  
+  sec.appendChild(table);
+  return sec;
 }
 function render() {
   board.replaceChildren();
@@ -502,8 +575,8 @@ function wireEvents() {
       contactHoldTimer = null;
       if (!currentTargetTd) return;
       const tr = currentTargetTd.closest('tr');
-      const payload = resolveContactInfo(tr, null);
-      showContactPopup(payload);
+      const member = findMemberById(tr?.dataset.key);
+      if (member) showContactPopup(member);
       currentTargetTd = null;
     }, HOLD_DELAY_MS);
   };

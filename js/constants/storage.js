@@ -23,6 +23,9 @@ const SESSION_OFFICE_KEY = "presence-office";
 /** 拠点名保存キー */
 const SESSION_OFFICE_NAME_KEY = "presence-office-name";
 
+/** 拠点カラム設定保存キー (Phase 2) */
+const SESSION_COLUMN_CONFIG_KEY = "presence-column-config";
+
 // ============================================
 // ローカルストレージキー
 // ============================================

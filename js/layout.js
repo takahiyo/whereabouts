@@ -10,9 +10,27 @@
  */
 
 function getContainerWidth(){ const elc=board.parentElement||document.body; const r=elc.getBoundingClientRect(); return Math.max(0,Math.round(r.width)); }
+function getPanelMinWidth() {
+  const enabledKeys = typeof getEnabledColumns === 'function' ? getEnabledColumns() : ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
+  let total = 0;
+  enabledKeys.forEach(k => {
+    const def = typeof getColumnDefinition === 'function' ? getColumnDefinition(k) : null;
+    if (def) {
+      total += (def.defaultWidth || 100);
+    }
+  });
+  // パディングやボーダーの余白分を考慮
+  return Math.max(total + 20, 300);
+}
+
 function updateCols(){
   const w = getContainerWidth();
-  let n = Math.floor((w + GAP_PX) / (PANEL_MIN_PX + GAP_PX));
+  const panelMin = getPanelMinWidth();
+  
+  // CSS変数 --table-min-width を更新
+  board.style.setProperty('--table-min-width', `${panelMin}px`);
+
+  let n = Math.floor((w + GAP_PX) / (panelMin + GAP_PX));
   if (n < 2) {
     board.classList.add('force-cards');
     board.dataset.cols = '1';

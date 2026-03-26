@@ -60,6 +60,8 @@
           <div class="tab-buttons">
             <button class="tab-btn active" data-tab="basic">⚙️ 基本設定</button>
             <button class="tab-btn" data-tab="members">👥 メンバー管理</button>
+            <button class="tab-btn" data-tab="columns">📊 カラム構成</button>
+            <button id="btnTabOffices" class="tab-btn u-hidden" data-tab="offices">🏢 拠点管理</button>
             <button class="tab-btn" data-tab="notices">📢 お知らせ管理</button>
             <button class="tab-btn" data-tab="events">📅 イベント管理</button>
             <button class="tab-btn" data-tab="tools">🛠️ ツール / 出力</button>
@@ -182,6 +184,61 @@
               </div>
             </div>
           </div>
+        <!-- タブパネル: カラム構成 (Phase 6) -->
+        <div id="tabColumns" class="tab-panel" data-tab="columns">
+          <div class="member-save-bar">
+            <button id="btnColumnSave" class="btn-primary">💾 設定を保存</button>
+          </div>
+          <div class="admin-box">
+            <div class="admin-box-header">
+              <h4>📊 カラム表示・ポップアップ設定</h4>
+            </div>
+            <div class="admin-note">
+              各拠点の在籍表に表示するカラムと、氏名長押し時に表示する項目を選択できます。<br>
+              ※「氏名」と「ステータス」はシステム上必須のカラムです。
+            </div>
+            <div id="columnSettingContainer" class="column-setting-container">
+              <!-- JSで動的に生成 -->
+              <p class="u-text-center u-text-gray">設定を読み込み中...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- タブパネル: 拠点管理 (Phase 7 - Super Admin Only) -->
+        <div id="tabOffices" class="tab-panel" data-tab="offices">
+          <div class="admin-box">
+            <div class="admin-box-header">
+              <h4>🏢 拠点一覧・追加</h4>
+            </div>
+            <div class="admin-note">
+              システム全体の拠点を管理します。拠点を追加・削除できます。<br>
+              ※拠点を削除すると、その拠点のメンバーや設定もすべて削除されます。
+            </div>
+            <div class="office-add-form u-mb-3">
+              <div class="u-grid u-grid-2-cols u-gap-1">
+                <input type="text" id="newOfficeId" placeholder="拠点ID (例: tokyo_honsya)" class="u-w-100">
+                <input type="text" id="newOfficeName" placeholder="拠点名 (例: 東京本社)" class="u-w-100">
+                <input type="password" id="newOfficePw" placeholder="ユーザー用PW" class="u-w-100">
+                <input type="password" id="newOfficeAdminPw" placeholder="管理者用PW" class="u-w-100">
+              </div>
+              <button id="btnAddOffice" class="btn-primary u-w-100 u-mt-2">➕ 新しい拠点を追加</button>
+            </div>
+            <div class="admin-table-wrapper">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>拠点名</th>
+                    <th class="u-text-center">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="officeTableBody">
+                  <tr><td colspan="3" class="u-text-center u-text-gray">読み込み中...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         </div>
 
         <!-- タブパネル2: お知らせ管理 -->
@@ -1173,6 +1230,7 @@
   <script src="js/constants/timing.js" defer></script>
   <script src="js/constants/ui.js" defer></script>
   <script src="js/constants/defaults.js" defer></script>
+  <script src="js/constants/column-definitions.js" defer></script>
   <script src="js/globals.js" defer></script>
   <script src="js/utils.js" defer></script>
   <script src="js/services/csv.js" defer></script>

@@ -134,7 +134,13 @@ export default {
 
         console.log(`[Login Attempt] Office: ${officeId}, password provided: ${password ? 'Yes' : 'No'}`);
 
-        const office = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
+        // 拠点情報とカラム設定を結合して取得 (Phase 2)
+        const office = await env.DB.prepare(`
+          SELECT o.*, c.config_json as column_config 
+          FROM offices o 
+          LEFT JOIN office_column_config c ON o.id = c.office_id 
+          WHERE o.id = ?
+        `)
           .bind(officeId)
           .first();
 
@@ -144,9 +150,13 @@ export default {
         }
 
         let role = '';
-        if (password === office.admin_password) role = 'officeAdmin';
-        else if (password === office.password) role = 'user';
-        else {
+        if (password === env.DEV_TOKEN) {
+          role = 'superAdmin';
+        } else if (password === office.admin_password) {
+          role = 'officeAdmin';
+        } else if (password === office.password) {
+          role = 'user';
+        } else {
           console.warn(`[Login Failed] Invalid password for office: ${officeId}`);
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized', code: 'invalid_password' }), { headers: corsHeaders });
         }
@@ -158,7 +168,8 @@ export default {
             ok: true,
             role,
             office: officeId,
-            officeName: office.name || officeId
+            officeName: office.name || officeId,
+            columnConfig: office.column_config ? JSON.parse(office.column_config) : null
           }),
           { headers: corsHeaders }
         );
@@ -178,6 +189,11 @@ export default {
         const members = await env.DB.prepare('SELECT * FROM members WHERE office_id = ? ORDER BY display_order ASC, name ASC')
           .bind(officeId)
           .all();
+
+        // 拠点カラム設定を取得 (Phase 2)
+        const columnConfigRes = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
+          .bind(officeId)
+          .first();
 
         const groupsMap = new Map();
         (members.results || []).forEach(m => {
@@ -215,7 +231,8 @@ export default {
           groups,
           updated: Date.now(),
           maxUpdated,
-          serverNow: Date.now()
+          serverNow: Date.now(),
+          columnConfig: columnConfigRes ? JSON.parse(columnConfigRes.config_json) : null
         });
 
         if (statusCache) {
@@ -478,6 +495,44 @@ export default {
           .run();
 
         if (statusCache) ctx.waitUntil(statusCache.delete(`vacation:${tokenOffice}`));
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- GET COLUMN CONFIG (Phase 2) --- */
+      if (action === 'getColumnConfig') {
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+
+        const row = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
+          .bind(officeId)
+          .first();
+
+        return new Response(JSON.stringify({
+          ok: true,
+          config: row ? JSON.parse(row.config_json) : null
+        }), { headers: corsHeaders });
+      }
+
+      /* --- SET COLUMN CONFIG (Phase 2) --- */
+      if (action === 'setColumnConfig') {
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
+        const configJson = getParam('config'); // JSON文字列
+        if (!configJson) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+
+        const nowTs = Date.now();
+        await env.DB.prepare(`
+          INSERT INTO office_column_config (office_id, config_json, updated_at) 
+          VALUES (?, ?, ?) 
+          ON CONFLICT(office_id) DO UPDATE SET config_json = ?, updated_at = ?
+        `)
+          .bind(officeId, configJson, nowTs, configJson, nowTs)
+          .run();
+
+        if (statusCache) ctx.waitUntil(statusCache.delete(`config_v2:${officeId}`));
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -764,6 +819,38 @@ export default {
           ]));
         }
 
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- ADD OFFICE (Super Admin用) --- */
+      if (action === 'addOffice') {
+        if (tokenRole !== 'superAdmin') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const id = getParam('officeId');
+        const name = getParam('name');
+        const pw = getParam('password');
+        const apw = getParam('adminPassword');
+        if (!id || !name || !pw || !apw) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+
+        const nowTs = Date.now();
+        await env.DB.prepare('INSERT INTO offices (id, name, password, admin_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .bind(id, name, pw, apw, nowTs, nowTs)
+          .run();
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- DELETE OFFICE (Super Admin用) --- */
+      if (action === 'deleteOffice') {
+        if (tokenRole !== 'superAdmin') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const id = getParam('officeId');
+        if (!id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+
+        await env.DB.batch([
+          env.DB.prepare('DELETE FROM offices WHERE id = ?').bind(id),
+          env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(id),
+          env.DB.prepare('DELETE FROM notices WHERE office_id = ?').bind(id),
+          env.DB.prepare('DELETE FROM vacations WHERE office_id = ?').bind(id),
+          env.DB.prepare('DELETE FROM office_column_config WHERE office_id = ?').bind(id)
+        ]);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 

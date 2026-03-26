@@ -686,6 +686,16 @@ async function fetchConfigOnce(nocache = false) {
     if (shouldUpdate) {
       GROUPS = normalizeConfigClient({ groups });
       CONFIG_UPDATED = updated || Date.now();
+      
+      // カラム設定の更新 (Phase 3)
+      const columnConfig = cfg.columnConfig || cfg.config?.columnConfig || null;
+      OFFICE_COLUMN_CONFIG = columnConfig;
+      if (columnConfig) {
+        localStorage.setItem(SESSION_COLUMN_CONFIG_KEY, JSON.stringify(columnConfig));
+      } else {
+        localStorage.removeItem(SESSION_COLUMN_CONFIG_KEY);
+      }
+
       setupMenus(menus);
       render();
 
