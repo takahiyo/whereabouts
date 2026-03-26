@@ -62,20 +62,24 @@ export default {
       if (parseFailure) {
         console.warn(`[Request Parse Failed] content-type: ${contentType || 'unknown'}, rawTextLength: ${rawText.length}`);
       }
+      
+      // JSON文字列表現の "[object Object]" などを防ぐための安全なパース
+      const safeJSONParse = (str, fallback = null) => {
+        if (!str || typeof str !== 'string') return fallback;
+        const trimmed = str.trim();
+        if (!trimmed || trimmed.startsWith('[object')) return fallback;
+        try {
+          return JSON.parse(trimmed);
+        } catch (e) {
+          console.warn('[JSON Parse Error]', e.message, 'Data:', trimmed.substring(0, 100));
+          return fallback;
+        }
+      };
 
       const parseJsonParam = (value, fallback = {}) => {
         if (value == null) return fallback;
         if (typeof value === 'object') return value;
-        if (typeof value === 'string') {
-          const trimmed = value.trim();
-          if (!trimmed) return fallback;
-          try {
-            return JSON.parse(trimmed);
-          } catch {
-            return fallback;
-          }
-        }
-        return fallback;
+        return safeJSONParse(value, fallback);
       };
       const resolveRequestData = (rawBody) => {
         if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) return {};
@@ -149,9 +153,7 @@ export default {
           const configRow = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
             .bind(officeId)
             .first();
-          if (configRow && configRow.config_json && typeof configRow.config_json === 'string' && !configRow.config_json.startsWith('[object')) {
-            columnConfig = JSON.parse(configRow.config_json);
-          }
+          if (configRow) columnConfig = safeJSONParse(configRow.config_json);
         } catch (e) {
           console.warn('[Login] office_column_config error:', e);
         }
@@ -238,25 +240,13 @@ export default {
           });
         });
 
-        let parsedColumnConfig = null;
-        if (columnConfigRes && columnConfigRes.config_json) {
-          try {
-            const cj = columnConfigRes.config_json;
-            if (typeof cj === 'string' && !cj.startsWith('[object')) {
-              parsedColumnConfig = JSON.parse(cj);
-            }
-          } catch (e) {
-            console.error('[getConfig] columnConfig parse failed:', e);
-          }
-        }
-
         const responseBody = JSON.stringify({
           ok: true,
           groups,
           updated: Date.now(),
           maxUpdated,
           serverNow: Date.now(),
-          columnConfig: parsedColumnConfig
+          columnConfig: columnConfigRes ? safeJSONParse(columnConfigRes.config_json) : null
         });
 
         if (statusCache) {
@@ -468,7 +458,8 @@ export default {
       if (action === 'setVacation') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const dataStr = getParam('vacations') || getParam('data');
-        const list = Array.isArray(JSON.parse(dataStr)) ? JSON.parse(dataStr) : [JSON.parse(dataStr)];
+        const parsedData = safeJSONParse(dataStr);
+        const list = Array.isArray(parsedData) ? parsedData : (parsedData ? [parsedData] : []);
         const nowTs = Date.now();
 
         const statements = [];
@@ -511,7 +502,7 @@ export default {
 
       /* --- SET VACATION BITS --- */
       if (action === 'setVacationBits') {
-        const payload = JSON.parse(getParam('data') || '{}');
+        const payload = safeJSONParse(getParam('data'), {});
         if (!tokenOffice || !payload.id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
 
         await env.DB.prepare('UPDATE vacations SET members_bits = ?, updated = ? WHERE office_id = ? AND id = ?')
@@ -538,7 +529,7 @@ export default {
 
         return new Response(JSON.stringify({
           ok: true,
-          columnConfig: row ? JSON.parse(row.config_json) : null
+          columnConfig: row ? safeJSONParse(row.config_json) : null
         }), { headers: corsHeaders });
       }
 
@@ -580,7 +571,7 @@ export default {
         const office = await env.DB.prepare('SELECT auto_clear_config FROM offices WHERE id = ?')
           .bind(officeId)
           .first();
-        const settings = office && office.auto_clear_config ? JSON.parse(office.auto_clear_config) : { enabled: false, hour: 0, fields: [] };
+        const settings = office ? safeJSONParse(office.auto_clear_config, { enabled: false, hour: 0, fields: [] }) : { enabled: false, hour: 0, fields: [] };
         return new Response(JSON.stringify({ ok: true, settings }), { headers: corsHeaders });
       }
 
@@ -933,8 +924,8 @@ export default {
 
     for (const office of (offices.results || [])) {
       try {
-        const config = JSON.parse(office.auto_clear_config);
-        if (!config.enabled) continue;
+        const config = safeJSONParse(office.auto_clear_config);
+        if (!config || !config.enabled) continue;
 
         // 設定された時間と現在の時間が一致するか確認
         if (Number(config.hour) !== currentHour) continue;
