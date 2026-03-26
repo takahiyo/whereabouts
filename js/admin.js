@@ -2090,6 +2090,7 @@ async function loadColumnConfig() {
 }
 
 function renderColumnConfig(config) {
+  console.log('[renderColumnConfig] Starting render...', { config, container: !!columnSettingContainer });
   if (!columnSettingContainer) return;
   columnSettingContainer.innerHTML = '';
   
@@ -2149,6 +2150,7 @@ function renderColumnConfig(config) {
       onclick: saveColumnConfig 
     })
   ]));
+  console.log('[renderColumnConfig] Render complete.');
 }
 
 async function saveColumnConfig() {
