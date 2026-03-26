@@ -2172,7 +2172,7 @@ async function saveColumnConfig() {
       action: 'setColumnConfig', 
       token: SESSION_TOKEN, 
       office, 
-      config: { board: boardKeys, popup: popupKeys } 
+      config: JSON.stringify({ board: boardKeys, popup: popupKeys })
     });
     console.log('[saveColumnConfig] res:', res);
     if (res && res.ok) {
