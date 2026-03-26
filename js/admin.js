@@ -2123,7 +2123,7 @@ function renderColumnConfig(config) {
           'data-key': def.key, 
           'data-type': 'board',
           checked: isBoardEnabled || boardDisabled,
-          disabled: boardDisabled
+          disabled: !!boardDisabled
         })
       ]),
       el('td', { class: 'u-text-center' }, [
@@ -2132,7 +2132,7 @@ function renderColumnConfig(config) {
           'data-key': def.key, 
           'data-type': 'popup',
           checked: isPopupEnabled || (isPopupEnabled && popupDisabled),
-          disabled: popupDisabled
+          disabled: !!popupDisabled
         })
       ]),
       el('td', { text: def.description || '', class: 'u-hidden-mobile u-font-sm u-text-gray' })

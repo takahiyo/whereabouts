@@ -149,9 +149,11 @@ export default {
           const configRow = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
             .bind(officeId)
             .first();
-          if (configRow) columnConfig = JSON.parse(configRow.config_json);
+          if (configRow && configRow.config_json && typeof configRow.config_json === 'string' && !configRow.config_json.startsWith('[object')) {
+            columnConfig = JSON.parse(configRow.config_json);
+          }
         } catch (e) {
-          console.warn('[Login] office_column_config table may not exist yet');
+          console.warn('[Login] office_column_config error:', e);
         }
 
         let role = '';
@@ -236,13 +238,25 @@ export default {
           });
         });
 
+        let parsedColumnConfig = null;
+        if (columnConfigRes && columnConfigRes.config_json) {
+          try {
+            const cj = columnConfigRes.config_json;
+            if (typeof cj === 'string' && !cj.startsWith('[object')) {
+              parsedColumnConfig = JSON.parse(cj);
+            }
+          } catch (e) {
+            console.error('[getConfig] columnConfig parse failed:', e);
+          }
+        }
+
         const responseBody = JSON.stringify({
           ok: true,
           groups,
           updated: Date.now(),
           maxUpdated,
           serverNow: Date.now(),
-          columnConfig: columnConfigRes ? JSON.parse(columnConfigRes.config_json) : null
+          columnConfig: parsedColumnConfig
         });
 
         if (statusCache) {
@@ -535,11 +549,14 @@ export default {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
-        let configJson = getParam('config'); // オブジェクトまたは文字列
+        let configJson = getParam('config');
         if (configJson && typeof configJson !== 'string') {
           configJson = JSON.stringify(configJson);
         }
-        if (!configJson) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+        // "[object Object]" などの不正な文字列は保存させない
+        if (!configJson || (typeof configJson === 'string' && configJson.startsWith('[object'))) {
+          return new Response(JSON.stringify({ error: 'invalid_request_data' }), { headers: corsHeaders });
+        }
 
         const nowTs = Date.now();
         await env.DB.prepare(`
