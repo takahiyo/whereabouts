@@ -2203,7 +2203,7 @@ function renderColumnConfig(config) {
         min: '10',
         max: '1000'
       });
-      if (w.min != null && w.min !== '') minInput.value = String(w.min);
+      minInput.value = (w.min != null && w.min !== '') ? String(w.min) : '10';
 
       const maxInput = el('input', {
         type: 'number',
@@ -2214,7 +2214,7 @@ function renderColumnConfig(config) {
         min: '10',
         max: '1000'
       });
-      if (w.max != null && w.max !== '') maxInput.value = String(w.max);
+      maxInput.value = (w.max != null && w.max !== '') ? String(w.max) : '1000';
 
       widthGroup.append(
         el('span', { class: 'column-width-label', text: '最小' }),

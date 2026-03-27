@@ -55,6 +55,9 @@ function el(tag, attrs = {}, children = []) {
       if (v) e.setAttribute(k, k);
       else e.removeAttribute(k);
     }
+    else if (k === 'value' && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.tagName)) {
+      e.value = v;
+    }
     else e.setAttribute(k, String(v));
   }
   (children || []).forEach(c => e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
