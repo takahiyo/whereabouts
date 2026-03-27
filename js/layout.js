@@ -12,10 +12,15 @@
 function getContainerWidth(){ const elc=board.parentElement||document.body; const r=elc.getBoundingClientRect(); return Math.max(0,Math.round(r.width)); }
 function getPanelMinWidth() {
   const enabledKeys = typeof getEnabledColumns === 'function' ? getEnabledColumns() : ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
+  const colWidths = (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
   let total = 0;
   enabledKeys.forEach(k => {
     const def = typeof getColumnDefinition === 'function' ? getColumnDefinition(k) : null;
-    if (def) {
+    const w = colWidths[k];
+    if (w && w.min != null && w.min >= 10) {
+      // ユーザー指定の最小幅を優先
+      total += w.min;
+    } else if (def) {
       total += (def.defaultWidth || 100);
     }
   });

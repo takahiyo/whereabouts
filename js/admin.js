@@ -2090,11 +2090,13 @@ async function loadColumnConfig() {
 }
 
 function renderColumnConfig(config) {
-  console.log('[renderColumnConfig] Starting render...', { config, container: !!columnSettingContainer });
   if (!columnSettingContainer) return;
   columnSettingContainer.innerHTML = '';
-  
-  const table = el('table', { class: 'column-setting-table' }, [
+
+  const widths = (config.columnWidths && typeof config.columnWidths === 'object') ? config.columnWidths : {};
+
+  // --- 表示/非表示チェックボックス（従来互換） ---
+  const checkTable = el('table', { class: 'column-setting-table' }, [
     el('thead', {}, [
       el('tr', {}, [
         el('th', { text: 'カラム名' }),
@@ -2104,32 +2106,27 @@ function renderColumnConfig(config) {
       ])
     ])
   ]);
-  
-  const tbody = el('tbody');
-  // COLUMN_DEFINITIONS は js/constants/column-definitions.js で定義済み
+  const checkTbody = el('tbody');
   COLUMN_DEFINITIONS.forEach(def => {
     const isBoardEnabled = config.board.includes(def.key);
     const isPopupEnabled = config.popup.includes(def.key);
-    
-    // システム上必須のカラム
     const boardDisabled = (def.key === 'name' || def.key === 'status');
     const popupDisabled = !def.popupEligible;
-
     const tr = el('tr', {}, [
       el('td', { text: def.label }),
       el('td', { class: 'u-text-center' }, [
-        el('input', { 
-          type: 'checkbox', 
-          'data-key': def.key, 
+        el('input', {
+          type: 'checkbox',
+          'data-key': def.key,
           'data-type': 'board',
           checked: isBoardEnabled || boardDisabled,
           disabled: !!boardDisabled
         })
       ]),
       el('td', { class: 'u-text-center' }, [
-        el('input', { 
-          type: 'checkbox', 
-          'data-key': def.key, 
+        el('input', {
+          type: 'checkbox',
+          'data-key': def.key,
           'data-type': 'popup',
           checked: isPopupEnabled || (isPopupEnabled && popupDisabled),
           disabled: !!popupDisabled
@@ -2137,49 +2134,171 @@ function renderColumnConfig(config) {
       ]),
       el('td', { text: def.description || '', class: 'u-hidden-mobile u-font-sm u-text-gray' })
     ]);
-    tbody.appendChild(tr);
+    checkTbody.appendChild(tr);
   });
-  
-  table.appendChild(tbody);
-  columnSettingContainer.appendChild(table);
-  
+  checkTable.appendChild(checkTbody);
+  columnSettingContainer.appendChild(checkTable);
+
+  // --- ボードカラム順序 & 幅設定 ---
+  const orderSection = el('div', { class: 'admin-subsection column-order-section' });
+  orderSection.appendChild(el('h5', { text: '📐 ボードカラムの表示順序と幅' }));
+  orderSection.appendChild(el('p', { class: 'admin-note', text: '▲/▼ で表示順を変更。最小/最大の幅 (px) を指定すると、画面幅に関わらず制約されます。空欄は最小10・最大1000として動作します。最小と最大を同じ値にすると固定幅になります。' }));
+
+  const orderList = el('div', { id: 'columnOrderList', class: 'column-order-list' });
+
+  // ボード表示カラムの現在の並びを取得
+  const boardOrder = config.board.slice();
+
+  /** カラム順序リストの行を描画する */
+  function renderOrderItems() {
+    orderList.innerHTML = '';
+    boardOrder.forEach((key, idx) => {
+      const def = getColumnDefinition(key);
+      if (!def) return;
+      const w = widths[key] || {};
+      const isFixed = (def.key === 'name' || def.key === 'status');
+
+      const item = el('div', { class: 'column-order-item', 'data-key': key });
+
+      // 順番ラベル
+      const orderLabel = el('span', { class: 'column-order-num', text: String(idx + 1) });
+
+      // ▲/▼ ボタン
+      const moveActions = el('div', { class: 'column-order-actions' });
+      const upBtn = el('button', { class: 'btn-move-up', text: '▲', title: '上に移動' });
+      upBtn.disabled = (idx === 0);
+      upBtn.addEventListener('click', () => {
+        if (idx <= 0) return;
+        const tmp = boardOrder[idx - 1];
+        boardOrder[idx - 1] = boardOrder[idx];
+        boardOrder[idx] = tmp;
+        renderOrderItems();
+      });
+      const downBtn = el('button', { class: 'btn-move-down', text: '▼', title: '下に移動' });
+      downBtn.disabled = (idx === boardOrder.length - 1);
+      downBtn.addEventListener('click', () => {
+        if (idx >= boardOrder.length - 1) return;
+        const tmp = boardOrder[idx + 1];
+        boardOrder[idx + 1] = boardOrder[idx];
+        boardOrder[idx] = tmp;
+        renderOrderItems();
+      });
+      moveActions.append(upBtn, downBtn);
+
+      // カラム名
+      const nameLabel = el('span', { class: 'column-order-label', text: def.label });
+      if (isFixed) {
+        nameLabel.appendChild(el('span', { class: 'column-order-badge', text: '必須' }));
+      }
+
+      // 幅入力（最小・最大）
+      const widthGroup = el('div', { class: 'column-width-group' });
+
+      const minInput = el('input', {
+        type: 'number',
+        class: 'column-width-input',
+        'data-key': key,
+        'data-bound': 'min',
+        placeholder: '10',
+        min: '10',
+        max: '1000'
+      });
+      if (w.min != null && w.min !== '') minInput.value = String(w.min);
+
+      const maxInput = el('input', {
+        type: 'number',
+        class: 'column-width-input',
+        'data-key': key,
+        'data-bound': 'max',
+        placeholder: '1000',
+        min: '10',
+        max: '1000'
+      });
+      if (w.max != null && w.max !== '') maxInput.value = String(w.max);
+
+      widthGroup.append(
+        el('span', { class: 'column-width-label', text: '最小' }),
+        minInput,
+        el('span', { class: 'column-width-sep', text: '〜' }),
+        el('span', { class: 'column-width-label', text: '最大' }),
+        maxInput,
+        el('span', { class: 'column-width-unit', text: 'px' })
+      );
+
+      item.append(orderLabel, moveActions, nameLabel, widthGroup);
+      orderList.appendChild(item);
+    });
+  }
+
+  renderOrderItems();
+  orderSection.appendChild(orderList);
+  columnSettingContainer.appendChild(orderSection);
+
+  // --- 保存ボタン ---
   columnSettingContainer.appendChild(el('div', { class: 'u-mt-20 u-text-right' }, [
-    el('button', { 
-      class: 'btn-primary', 
-      text: 'カラム構成を拠点設定として保存', 
-      onclick: saveColumnConfig 
+    el('button', {
+      class: 'btn-primary',
+      text: 'カラム構成を拠点設定として保存',
+      onclick: saveColumnConfig
     })
   ]));
-  console.log('[renderColumnConfig] Render complete.');
 }
 
 async function saveColumnConfig() {
   const office = selectedOfficeId(); if (!office) return;
-  const boardKeys = [];
+
+  // ボード・ポップアップのチェックボックスからキーを収集
+  const checkedBoardKeys = new Set();
   const popupKeys = [];
-  
   columnSettingContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    if (cb.checked) {
-      if (cb.dataset.type === 'board') boardKeys.push(cb.dataset.key);
-      if (cb.dataset.type === 'popup') popupKeys.push(cb.dataset.key);
-    }
+    if (!cb.checked) return;
+    if (cb.dataset.type === 'board') checkedBoardKeys.add(cb.dataset.key);
+    if (cb.dataset.type === 'popup') popupKeys.push(cb.dataset.key);
   });
 
-  console.log('[saveColumnConfig] payload:', { office, boardKeys, popupKeys });
+  // 順序リストからボードキーを収集（チェックが入っているもののみ、順序維持）
+  const boardKeys = [];
+  const orderItems = columnSettingContainer.querySelectorAll('#columnOrderList .column-order-item');
+  orderItems.forEach(item => {
+    const key = item.dataset.key;
+    if (checkedBoardKeys.has(key)) {
+      boardKeys.push(key);
+    }
+  });
+  // チェックは入っているが順序リストにないもの（新たにチェックされたカラム）を末尾に追加
+  checkedBoardKeys.forEach(key => {
+    if (!boardKeys.includes(key)) boardKeys.push(key);
+  });
+
+  // 幅設定を収集
+  const columnWidths = {};
+  columnSettingContainer.querySelectorAll('.column-width-input').forEach(inp => {
+    const key = inp.dataset.key;
+    const bound = inp.dataset.bound; // 'min' or 'max'
+    const raw = inp.value.trim();
+    if (!raw) return;
+    let val = parseInt(raw, 10);
+    if (isNaN(val)) return;
+    // 限界値のクランプ
+    if (val < 10) val = 10;
+    if (val > 1000) val = 1000;
+    if (!columnWidths[key]) columnWidths[key] = {};
+    columnWidths[key][bound] = val;
+  });
+
+  const configPayload = { board: boardKeys, popup: popupKeys, columnWidths };
 
   try {
-    const res = await apiPost({ 
-      action: 'setColumnConfig', 
-      token: SESSION_TOKEN, 
-      office, 
-      config: JSON.stringify({ board: boardKeys, popup: popupKeys })
+    const res = await apiPost({
+      action: 'setColumnConfig',
+      token: SESSION_TOKEN,
+      office,
+      config: JSON.stringify(configPayload)
     });
-    console.log('[saveColumnConfig] res:', res);
     if (res && res.ok) {
       toast('カラム構成を保存しました');
-      // 現在の拠点が変更された拠点と同じなら、フロントエンドにも即座に反映
       if (office === CURRENT_OFFICE_ID) {
-        OFFICE_COLUMN_CONFIG = { board: boardKeys, popup: popupKeys };
+        OFFICE_COLUMN_CONFIG = configPayload;
         localStorage.setItem(SESSION_COLUMN_CONFIG_KEY, JSON.stringify(OFFICE_COLUMN_CONFIG));
         if (typeof render === 'function') {
           render();

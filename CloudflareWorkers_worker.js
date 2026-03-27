@@ -273,6 +273,22 @@ export default {
         return new Response(JSON.stringify({ ok: true, offices: offices.results }), { headers: corsHeaders });
       }
 
+      /* --- RENEW TOKEN --- */
+      if (action === 'renew') {
+        const token = getParam('token');
+        if (!token || !tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        
+        // 拠点名を取得
+        const officeData = await env.DB.prepare('SELECT name FROM offices WHERE id = ?').bind(tokenOffice).first();
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          role: tokenRole, 
+          office: tokenOffice, 
+          officeName: officeData ? officeData.name : tokenOffice,
+          exp: 3600000 
+        }), { headers: corsHeaders });
+      }
+
       /* --- GET / GET FOR (Differential Sync) --- */
       // Action: get / getFor - Get current member status for an office
       if (action === 'get' || action === 'getFor') {
@@ -367,6 +383,54 @@ export default {
           .run();
 
         if (statusCache) ctx.waitUntil(statusCache.delete(`tools:${tokenOffice}`));
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- GET EVENT COLOR MAP --- */
+      if (action === 'getEventColorMap') {
+        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = getParam('office') || tokenOffice;
+        
+        const row = await env.DB.prepare('SELECT colors_json, updated FROM event_color_maps WHERE office_id = ?')
+          .bind(officeId)
+          .first();
+          
+        const colors = row ? safeJSONParse(row.colors_json) : {};
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          colors: colors, 
+          updated: row ? row.updated : 0 
+        }), { headers: corsHeaders });
+      }
+
+      /* --- SET EVENT COLOR MAP --- */
+      if (action === 'setEventColorMap') {
+        if (!tokenOffice || tokenRole === 'user') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = getParam('office') || tokenOffice;
+        const dataRaw = getParam('data'); // JSON string from frontend
+        
+        // フロントエンドは JSON.stringify({ colors: payload }) を送ってくる
+        let incoming = safeJSONParse(dataRaw);
+        if (!incoming || typeof incoming.colors !== 'object') {
+          // data パラメータが単なるカラーマップの場合の互換性
+          if (incoming && typeof incoming === 'object' && !incoming.colors) {
+            incoming = { colors: incoming };
+          } else {
+            return new Response(JSON.stringify({ error: 'invalid_data' }), { headers: corsHeaders });
+          }
+        }
+
+        const colorsJson = JSON.stringify(incoming.colors);
+        const nowTs = Date.now();
+        
+        await env.DB.prepare(`
+          INSERT INTO event_color_maps (office_id, colors_json, updated)
+          VALUES (?, ?, ?)
+          ON CONFLICT(office_id) DO UPDATE SET
+            colors_json = excluded.colors_json,
+            updated = excluded.updated
+        `).bind(officeId, colorsJson, nowTs).run();
+
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 

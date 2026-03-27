@@ -88,3 +88,12 @@ CREATE TABLE IF NOT EXISTS office_column_config (
     updated_at INTEGER,
     FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
 );
+
+-- 行事カレンダー用日付カラー設定
+CREATE TABLE IF NOT EXISTS event_color_maps (
+    office_id TEXT PRIMARY KEY,
+    colors_json TEXT DEFAULT '{}',
+    updated INTEGER,
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+

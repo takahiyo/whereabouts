@@ -406,10 +406,23 @@ function buildPanel(group, idx) {
   
   const enabledKeys = getEnabledColumns();
   
-  // colgroup の動的生成
+  // colgroup の動的生成（幅制約を適用）
   const colgroup = el('colgroup');
+  const colWidths = (OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
   enabledKeys.forEach(k => {
-    colgroup.appendChild(el('col', { class: `col-${k}` }));
+    const colEl = el('col', { class: `col-${k}` });
+    const w = colWidths[k];
+    if (w) {
+      const minW = (w.min != null && w.min >= 10) ? w.min : null;
+      const maxW = (w.max != null && w.max >= 10) ? w.max : null;
+      if (minW != null) colEl.style.minWidth = `${minW}px`;
+      if (maxW != null) colEl.style.maxWidth = `${maxW}px`;
+      // min と max が同じなら固定幅
+      if (minW != null && maxW != null && minW === maxW) {
+        colEl.style.width = `${minW}px`;
+      }
+    }
+    colgroup.appendChild(colEl);
   });
   table.appendChild(colgroup);
 
