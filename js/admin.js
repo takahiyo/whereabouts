@@ -2142,7 +2142,7 @@ function renderColumnConfig(config) {
   // --- ボードカラム順序 & 幅設定 ---
   const orderSection = el('div', { class: 'admin-subsection column-order-section' });
   orderSection.appendChild(el('h5', { text: '📐 ボードカラムの表示順序と幅' }));
-  orderSection.appendChild(el('p', { class: 'admin-note', text: '▲/▼ で表示順を変更。最小/最大の幅 (px) を指定すると、画面幅に関わらず制約されます。空欄は最小10・最大1000として動作します。最小と最大を同じ値にすると固定幅になります。' }));
+  orderSection.appendChild(el('p', { class: 'admin-note', text: '▲/▼ で表示順を変更。最小/最大の幅 (px) を指定するとボード上のカラム幅が制約されます。初期値は各カラムの推奨幅です。最小と最大を同じ値にすると固定幅になります。' }));
 
   const orderList = el('div', { id: 'columnOrderList', class: 'column-order-list' });
 
@@ -2192,6 +2192,8 @@ function renderColumnConfig(config) {
       }
 
       // 幅入力（最小・最大）
+      // デフォルト値はカラム定義の defaultWidth を使用（SSOT）
+      const defaultW = def.defaultWidth || 100;
       const widthGroup = el('div', { class: 'column-width-group' });
 
       const minInput = el('input', {
@@ -2199,22 +2201,22 @@ function renderColumnConfig(config) {
         class: 'column-width-input',
         'data-key': key,
         'data-bound': 'min',
-        placeholder: '10',
+        placeholder: String(defaultW),
         min: '10',
         max: '1000'
       });
-      minInput.value = (w.min != null && w.min !== '') ? String(w.min) : '10';
+      minInput.value = (w.min != null && w.min !== '') ? String(w.min) : String(defaultW);
 
       const maxInput = el('input', {
         type: 'number',
         class: 'column-width-input',
         'data-key': key,
         'data-bound': 'max',
-        placeholder: '1000',
+        placeholder: String(defaultW),
         min: '10',
         max: '1000'
       });
-      maxInput.value = (w.max != null && w.max !== '') ? String(w.max) : '1000';
+      maxInput.value = (w.max != null && w.max !== '') ? String(w.max) : String(defaultW);
 
       widthGroup.append(
         el('span', { class: 'column-width-label', text: '最小' }),

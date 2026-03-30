@@ -299,49 +299,52 @@ th {
   color: var(--color-text-muted);
 }
 
+/* === カラムデフォルト幅（フォールバック） === */
+/* JS の columnWidths 設定がある場合はインラインスタイルで上書きされる */
+/* !important を使わないことで、JS からの動的な幅指定が優先される */
 col.col-name {
-  width: var(--w-name) !important;
+  width: var(--w-name);
 }
 
 /* 迚ｩ逅�崋螳�: width/min-/max-width繧団ol, th, td蜈ｨ縺ｦ縺ｧ蝗ｺ螳� (!important縺ｧ蠑ｷ蛻ｶ) */
 col.col-work,
 th.work,
 td.work {
-  width: var(--w-work) !important;
-  min-width: var(--w-work) !important;
-  max-width: var(--w-work) !important;
+  width: var(--w-work);
+  min-width: var(--w-work);
+  max-width: var(--w-work);
   box-sizing: border-box;
 }
 
 col.col-status,
 th.status,
 td.status {
-  width: var(--status-effective) !important;
-  min-width: var(--status-effective) !important;
-  max-width: var(--status-effective) !important;
+  width: var(--status-effective);
+  min-width: var(--status-effective);
+  max-width: var(--status-effective);
   box-sizing: border-box;
 }
 
 col.col-time,
 th.time,
 td.time {
-  width: var(--w-time) !important;
-  min-width: var(--w-time) !important;
-  max-width: var(--w-time) !important;
+  width: var(--w-time);
+  min-width: var(--w-time);
+  max-width: var(--w-time);
   box-sizing: border-box;
 }
 
 col.col-tomorrow-plan,
 th.tomorrow-plan,
 td.tomorrow-plan {
-  width: var(--w-tomorrow-plan) !important;
-  min-width: var(--w-tomorrow-plan) !important;
-  max-width: var(--w-tomorrow-plan) !important;
+  width: var(--w-tomorrow-plan);
+  min-width: var(--w-tomorrow-plan);
+  max-width: var(--w-tomorrow-plan);
   box-sizing: border-box;
 }
 
 col.col-note {
-  width: auto !important;
+  width: auto;
 }
 
 /* === 繧ｫ繝ｼ繝芽｡ｨ遉ｺ��1蛻暦ｼ画凾縺ｮ蠑ｷ蛻ｶ繝ｪ繧ｻ繝�ヨ === */
@@ -357,24 +360,12 @@ col.col-note {
   max-width: none !important;
 }
 
-/* === 繧ｫ繝ｼ繝芽｡ｨ遉ｺ��1蛻暦ｼ画凾縺ｮ蠑ｷ蛻ｶ繝ｪ繧ｻ繝�ヨ === */
-/* 繝代ロ繝ｫ陦ｨ遉ｺ逕ｨ縺ｮ !important 蝗ｺ螳壼ｹ�ｒ隗｣髯､縺励：lexbox繝ｬ繧､繧｢繧ｦ繝医ｒ蠕ｩ蜈� */
-#board.force-cards th,
-#board.force-cards td,
-#board.force-cards col,
-#board[data-cols="1"] th,
-#board[data-cols="1"] td,
-#board[data-cols="1"] col {
-  width: auto !important;
-  min-width: 0 !important;
-  max-width: none !important;
-}
 
 /* 豌丞錐繝ｻ蛯呵��縺ｮ蟷�宛邏�ｼ亥､壼�繝代ロ繝ｫ陦ｨ遉ｺ縺ｮ陬懷ｮ鯉ｼ� */
 td.name,
 th.name {
-  min-width: var(--w-name) !important;
-  max-width: var(--w-name-max) !important;
+  min-width: var(--w-name);
+  max-width: var(--w-name-max);
 }
 
 td.note,

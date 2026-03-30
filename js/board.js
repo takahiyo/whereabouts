@@ -406,33 +406,48 @@ function buildPanel(group, idx) {
   
   const enabledKeys = getEnabledColumns();
   
+  /**
+   * カラム幅の適用ヘルパー
+   * columnWidths 設定があればインラインスタイルで上書きし、
+   * CSS のデフォルト値よりも優先させる。
+   * @param {HTMLElement} element - 幅を適用する要素
+   * @param {Object|undefined} w - { min, max } の幅設定
+   */
+  const colWidths = (OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
+  const applyWidthStyle = (element, w) => {
+    if (!w) return;
+    const minW = (w.min != null && w.min >= 10) ? w.min : null;
+    const maxW = (w.max != null && w.max >= 10) ? w.max : null;
+    if (minW != null) element.style.minWidth = `${minW}px`;
+    if (maxW != null) element.style.maxWidth = `${maxW}px`;
+    // min と max が同じなら固定幅
+    if (minW != null && maxW != null && minW === maxW) {
+      element.style.width = `${minW}px`;
+    } else if (minW != null) {
+      // table-layout:fixed では col の width が初期幅として使われるため、
+      // min を width にも設定して基準幅とする
+      element.style.width = `${minW}px`;
+    }
+  };
+
   // colgroup の動的生成（幅制約を適用）
   const colgroup = el('colgroup');
-  const colWidths = (OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
   enabledKeys.forEach(k => {
     const colEl = el('col', { class: `col-${k}` });
-    const w = colWidths[k];
-    if (w) {
-      const minW = (w.min != null && w.min >= 10) ? w.min : null;
-      const maxW = (w.max != null && w.max >= 10) ? w.max : null;
-      if (minW != null) colEl.style.minWidth = `${minW}px`;
-      if (maxW != null) colEl.style.maxWidth = `${maxW}px`;
-      // min と max が同じなら固定幅
-      if (minW != null && maxW != null && minW === maxW) {
-        colEl.style.width = `${minW}px`;
-      }
-    }
+    applyWidthStyle(colEl, colWidths[k]);
     colgroup.appendChild(colEl);
   });
   table.appendChild(colgroup);
 
-  // thead の動的生成
+  // thead の動的生成（th にも幅制約を適用して確実にレンダリングに反映）
   const thead = el('thead');
   const thr = el('tr');
   enabledKeys.forEach(k => {
     const def = getColumnDefinition(k);
     if (def) {
-      thr.appendChild(el('th', { text: def.label, class: def.tableClass }));
+      const th = el('th', { text: def.label, class: def.tableClass });
+      applyWidthStyle(th, colWidths[k]);
+      thr.appendChild(th);
     }
   });
   thead.appendChild(thr);
