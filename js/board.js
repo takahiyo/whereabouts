@@ -413,19 +413,38 @@ function buildPanel(group, idx) {
    * @param {HTMLElement} element - 幅を適用する要素
    * @param {Object|undefined} w - { min, max } の幅設定
    */
+  const cssVarMap = {
+    name: 'var(--w-name, 94px)',
+    workHours: 'var(--w-work, 107px)',
+    status: 'var(--status-effective, 134px)',
+    time: 'var(--w-time, 85px)',
+    tomorrowPlan: 'var(--w-tomorrow-plan, 134px)',
+    note: 'auto'
+  };
+
   const colWidths = (OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
-  const applyWidthStyle = (element, w) => {
+  const applyWidthStyle = (element, w, k) => {
     if (!w) return;
     const minW = (w.min != null && w.min >= 10) ? w.min : null;
     const maxW = (w.max != null && w.max >= 10) ? w.max : null;
+    
     if (minW != null) element.style.minWidth = `${minW}px`;
     if (maxW != null) element.style.maxWidth = `${maxW}px`;
+
     // min と max が同じなら固定幅
     if (minW != null && maxW != null && minW === maxW) {
       element.style.width = `${minW}px`;
-    } else {
-      // 範囲指定の場合は、CSSのデフォルト固定幅を解除し table-layout: fixed の均等割振りに任せる
-      element.style.width = `auto`;
+    } else if (minW != null || maxW != null) {
+      // 範囲指定の場合は、CSSのデフォルト固定幅を clamp して適用する
+      // これにより、table-layout: fixed 環境下でも幅の制約が正確にブラウザへ伝わる
+      const baseW = cssVarMap[k] || '100px';
+      if (baseW === 'auto') {
+        element.style.width = 'auto'; // note等は残りの空間を埋める
+      } else {
+        const clampMin = minW != null ? `${minW}px` : '10px';
+        const clampMax = maxW != null ? `${maxW}px` : '2000px';
+        element.style.width = `clamp(${clampMin}, ${baseW}, ${clampMax})`;
+      }
     }
   };
 
@@ -433,7 +452,7 @@ function buildPanel(group, idx) {
   const colgroup = el('colgroup');
   enabledKeys.forEach(k => {
     const colEl = el('col', { class: `col-${k}` });
-    applyWidthStyle(colEl, colWidths[k]);
+    applyWidthStyle(colEl, colWidths[k], k);
     colgroup.appendChild(colEl);
   });
   table.appendChild(colgroup);
@@ -445,7 +464,7 @@ function buildPanel(group, idx) {
     const def = getColumnDefinition(k);
     if (def) {
       const th = el('th', { text: def.label, class: def.tableClass });
-      applyWidthStyle(th, colWidths[k]);
+      applyWidthStyle(th, colWidths[k], k);
       thr.appendChild(th);
     }
   });
