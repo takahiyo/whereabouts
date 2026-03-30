@@ -307,41 +307,58 @@ col.col-name {
 }
 
 /* 迚ｩ逅�崋螳�: width/min-/max-width繧団ol, th, td蜈ｨ縺ｦ縺ｧ蝗ｺ螳� (!important縺ｧ蠑ｷ蛻ｶ) */
+/* カラム幅固定: col, th で指定 */
 col.col-work,
-th.work,
-td.work {
+th.work {
   width: var(--w-work);
   min-width: var(--w-work);
   max-width: var(--w-work);
   box-sizing: border-box;
 }
 
+td.work {
+  box-sizing: border-box;
+}
+
+
 col.col-status,
-th.status,
-td.status {
+th.status {
   width: var(--status-effective);
   min-width: var(--status-effective);
   max-width: var(--status-effective);
   box-sizing: border-box;
 }
 
+td.status {
+  box-sizing: border-box;
+}
+
+
 col.col-time,
-th.time,
-td.time {
+th.time {
   width: var(--w-time);
   min-width: var(--w-time);
   max-width: var(--w-time);
   box-sizing: border-box;
 }
 
+td.time {
+  box-sizing: border-box;
+}
+
+
 col.col-tomorrow-plan,
-th.tomorrow-plan,
-td.tomorrow-plan {
+th.tomorrow-plan {
   width: var(--w-tomorrow-plan);
   min-width: var(--w-tomorrow-plan);
   max-width: var(--w-tomorrow-plan);
   box-sizing: border-box;
 }
+
+td.tomorrow-plan {
+  box-sizing: border-box;
+}
+
 
 col.col-note {
   width: auto;
@@ -362,11 +379,11 @@ col.col-note {
 
 
 /* 豌丞錐繝ｻ蛯呵��縺ｮ蟷�宛邏�ｼ亥､壼�繝代ロ繝ｫ陦ｨ遉ｺ縺ｮ陬懷ｮ鯉ｼ� */
-td.name,
 th.name {
   min-width: var(--w-name);
   max-width: var(--w-name-max);
 }
+
 
 td.note,
 th.note {

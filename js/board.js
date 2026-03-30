@@ -451,7 +451,9 @@ function buildPanel(group, idx) {
   // colgroup の動的生成（幅制約を適用）
   const colgroup = el('colgroup');
   enabledKeys.forEach(k => {
-    const colEl = el('col', { class: `col-${k}` });
+    const def = getColumnDefinition(k);
+    const tableClass = def ? def.tableClass : k;
+    const colEl = el('col', { class: `col-${tableClass}` });
     applyWidthStyle(colEl, colWidths[k], k);
     colgroup.appendChild(colEl);
   });
