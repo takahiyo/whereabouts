@@ -300,61 +300,48 @@ th {
 }
 
 /* === カラムデフォルト幅（フォールバック） === */
+/* SSOT マスター: js/constants/column-definitions.js の defaultWidth */
 /* JS の columnWidths 設定がある場合はインラインスタイルで上書きされる */
-/* !important を使わないことで、JS からの動的な幅指定が優先される */
+/* min-width/max-width は col/th に指定しない（JS側のインラインスタイルと競合するため） */
 col.col-name {
   width: var(--w-name);
 }
 
-/* 迚ｩ逅�崋螳�: width/min-/max-width繧団ol, th, td蜈ｨ縺ｦ縺ｧ蝗ｺ螳� (!important縺ｧ蠑ｷ蛻ｶ) */
-/* カラム幅固定: col, th で指定 */
-col.col-work,
-th.work {
+col.col-work {
   width: var(--w-work);
-  min-width: var(--w-work);
-  max-width: var(--w-work);
-  box-sizing: border-box;
 }
 
+th.work,
 td.work {
   box-sizing: border-box;
 }
 
 
-col.col-status,
-th.status {
+col.col-status {
   width: var(--status-effective);
-  min-width: var(--status-effective);
-  max-width: var(--status-effective);
-  box-sizing: border-box;
 }
 
+th.status,
 td.status {
   box-sizing: border-box;
 }
 
 
-col.col-time,
-th.time {
+col.col-time {
   width: var(--w-time);
-  min-width: var(--w-time);
-  max-width: var(--w-time);
-  box-sizing: border-box;
 }
 
+th.time,
 td.time {
   box-sizing: border-box;
 }
 
 
-col.col-tomorrow-plan,
-th.tomorrow-plan {
+col.col-tomorrow-plan {
   width: var(--w-tomorrow-plan);
-  min-width: var(--w-tomorrow-plan);
-  max-width: var(--w-tomorrow-plan);
-  box-sizing: border-box;
 }
 
+th.tomorrow-plan,
 td.tomorrow-plan {
   box-sizing: border-box;
 }

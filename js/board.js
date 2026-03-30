@@ -410,17 +410,11 @@ function buildPanel(group, idx) {
    * カラム幅の適用ヘルパー
    * columnWidths 設定があればインラインスタイルで上書きし、
    * CSS のデフォルト値よりも優先させる。
+   * SSOT: ベース幅は COLUMN_DEFINITIONS.defaultWidth を参照
    * @param {HTMLElement} element - 幅を適用する要素
    * @param {Object|undefined} w - { min, max } の幅設定
+   * @param {string} k - カラムキー
    */
-  const cssVarMap = {
-    name: 'var(--w-name, 94px)',
-    workHours: 'var(--w-work, 107px)',
-    status: 'var(--status-effective, 134px)',
-    time: 'var(--w-time, 85px)',
-    tomorrowPlan: 'var(--w-tomorrow-plan, 134px)',
-    note: 'auto'
-  };
 
   const colWidths = (OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
   const applyWidthStyle = (element, w, k) => {
@@ -435,12 +429,13 @@ function buildPanel(group, idx) {
     if (minW != null && maxW != null && minW === maxW) {
       element.style.width = `${minW}px`;
     } else if (minW != null || maxW != null) {
-      // 範囲指定の場合は、CSSのデフォルト固定幅を clamp して適用する
-      // これにより、table-layout: fixed 環境下でも幅の制約が正確にブラウザへ伝わる
-      const baseW = cssVarMap[k] || '100px';
-      if (baseW === 'auto') {
-        element.style.width = 'auto'; // note等は残りの空間を埋める
+      // 範囲指定の場合は、SSOT マスターの defaultWidth を clamp のベース値とする
+      const def = getColumnDefinition(k);
+      const isAutoWidth = (k === 'note'); // note は残りの空間を埋める
+      if (isAutoWidth) {
+        element.style.width = 'auto';
       } else {
+        const baseW = (def && def.defaultWidth) ? `${def.defaultWidth}px` : '100px';
         const clampMin = minW != null ? `${minW}px` : '10px';
         const clampMax = maxW != null ? `${maxW}px` : '2000px';
         element.style.width = `clamp(${clampMin}, ${baseW}, ${clampMax})`;

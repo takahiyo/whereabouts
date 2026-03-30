@@ -20,7 +20,7 @@ const COLUMN_DEFINITIONS = Object.freeze([
     required: true,
     tableClass: 'name',
     dataLabel: '氏名',
-    defaultWidth: 140,
+    defaultWidth: 94,
     popupEligible: false,
     cardEligible: true,
     description: 'メンバーの氏名'
@@ -33,7 +33,7 @@ const COLUMN_DEFINITIONS = Object.freeze([
     required: true,
     tableClass: 'status',
     dataLabel: 'ステータス',
-    defaultWidth: 100,
+    defaultWidth: 134,
     popupEligible: false,
     cardEligible: true,
     description: '現在の在席状況'
@@ -46,7 +46,7 @@ const COLUMN_DEFINITIONS = Object.freeze([
     required: false,
     tableClass: 'time',
     dataLabel: '戻り時間',
-    defaultWidth: 90,
+    defaultWidth: 85,
     popupEligible: false,
     cardEligible: true,
     description: '外出時の帰着予定時刻'
@@ -59,7 +59,7 @@ const COLUMN_DEFINITIONS = Object.freeze([
     required: false,
     tableClass: 'work',
     dataLabel: '業務時間',
-    defaultWidth: 130,
+    defaultWidth: 107,
     popupEligible: false,
     cardEligible: false,
     description: '当日の勤務シフト時間'
@@ -72,7 +72,7 @@ const COLUMN_DEFINITIONS = Object.freeze([
     required: false,
     tableClass: 'tomorrow-plan',
     dataLabel: '明日の予定',
-    defaultWidth: 120,
+    defaultWidth: 134,
     popupEligible: false,
     cardEligible: false,
     description: '翌営業日の予定'
@@ -85,7 +85,7 @@ const COLUMN_DEFINITIONS = Object.freeze([
     required: false,
     tableClass: 'note',
     dataLabel: '備考',
-    defaultWidth: 200,
+    defaultWidth: 87,
     popupEligible: false,
     cardEligible: true,
     description: '自由記述の補足情報'

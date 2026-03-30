@@ -13,15 +13,26 @@ function getContainerWidth(){ const elc=board.parentElement||document.body; cons
 function getPanelMinWidth() {
   const enabledKeys = typeof getEnabledColumns === 'function' ? getEnabledColumns() : ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
   const colWidths = (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
+
+  // SSOT: COLUMN_DEFINITIONS の defaultWidth をベース幅として使用
+  // ハードコーディングの baseWidths は廃止
   let total = 0;
   enabledKeys.forEach(k => {
     const def = typeof getColumnDefinition === 'function' ? getColumnDefinition(k) : null;
+    const baseW = (def && def.defaultWidth) || 100;
     const w = colWidths[k];
-    if (w && w.min != null && w.min >= 10) {
-      // ユーザー指定の最小幅を優先
-      total += w.min;
-    } else if (def) {
-      total += (def.defaultWidth || 100);
+    
+    if (w && (w.min != null || w.max != null)) {
+      const minW = (w.min != null && w.min >= 10) ? w.min : 10;
+      const maxW = (w.max != null && w.max >= 10) ? w.max : 2000;
+      
+      let effectiveW = baseW;
+      if (effectiveW < minW) effectiveW = minW;
+      if (effectiveW > maxW) effectiveW = maxW;
+      
+      total += effectiveW;
+    } else {
+      total += baseW;
     }
   });
   // パディングやボーダーの余白分を考慮
