@@ -423,10 +423,9 @@ function buildPanel(group, idx) {
     // min と max が同じなら固定幅
     if (minW != null && maxW != null && minW === maxW) {
       element.style.width = `${minW}px`;
-    } else if (minW != null) {
-      // table-layout:fixed では col の width が初期幅として使われるため、
-      // min を width にも設定して基準幅とする
-      element.style.width = `${minW}px`;
+    } else {
+      // 範囲指定の場合は、CSSのデフォルト固定幅を解除し table-layout: fixed の均等割振りに任せる
+      element.style.width = `auto`;
     }
   };
 
