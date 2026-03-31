@@ -278,7 +278,11 @@ function buildRow(member) {
     
     switch (colKey) {
       case 'name':
-        td.textContent = sanitizeText(member.name || "");
+        // 外字置換サービスを適用
+        const displayName = (typeof DictionaryService !== 'undefined') 
+          ? DictionaryService.formatName(member.name || "")
+          : (member.name || "");
+        td.textContent = sanitizeText(displayName);
         break;
       
       case 'status': {
@@ -416,8 +420,29 @@ function buildPanel(group, idx) {
    * @param {string} k - カラムキー
    */
 
+  // どのカラムを「強欲なストレッチ列 (width: 100%)」にするか決定
+  // 幅設定がないカラムのうち、最も右にあるものを採用する
   const colWidths = (OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
-  const applyWidthStyle = (element, w, k) => {
+  let stretchKey = null;
+  enabledKeys.forEach(k => {
+    const config = colWidths[k];
+    const def = getColumnDefinition(k);
+    if (!def) return;
+
+    let maxVal = null;
+    if (config && config.max) {
+      maxVal = parseInt(config.max);
+      if (isNaN(maxVal)) maxVal = null;
+    } else if (!config) {
+      maxVal = def.defaultWidth;
+      // 既存の note 自動拡張ルールを維持
+      if (k === 'note') maxVal = null;
+    }
+    // 指定値がない（null）のカラムをストレッチ候補とする
+    if (maxVal == null) stretchKey = k;
+  });
+
+  const applyWidthStyle = (element, w, k, isStretch) => {
     const def = getColumnDefinition(k);
     if (!def) return;
 
@@ -425,24 +450,34 @@ function buildPanel(group, idx) {
     let maxVal = null;
 
     if (w) {
-      if (w.min != null) minVal = w.min;
-      if (w.max != null) maxVal = w.max;
+      if (w.min != null && w.min !== '') {
+        const p = parseInt(w.min);
+        if (!isNaN(p)) minVal = p;
+      }
+      if (w.max != null && w.max !== '') {
+        const p = parseInt(w.max);
+        if (!isNaN(p)) maxVal = p;
+      }
     } else {
       minVal = def.defaultWidth;
       maxVal = def.defaultWidth;
-      if (k === 'note') maxVal = null; // note は未設定時は自動拡張
+      if (k === 'note') maxVal = null;
     }
 
     if (minVal != null) element.style.minWidth = `${minVal}px`;
 
     if (maxVal != null) {
       element.style.maxWidth = `${maxVal}px`;
-      // 最大値が設定されている場合は、その幅を目標値 (Preferred Width) として設定
       element.style.width = `${maxVal}px`;
     } else {
       element.style.maxWidth = 'none';
-      // 最大値がない（自動調整）のカラムを「強欲な列」として定義し、余白をすべて吸い取る
-      element.style.width = '100%';
+      if (isStretch) {
+        // ストレッチ担当カラムのみ、余白を吸い取る 100% を付与
+        element.style.width = '100%';
+      } else {
+        // それ以外の未指定カラムは内容に合わせる
+        element.style.width = 'auto';
+      }
     }
   };
 
@@ -452,7 +487,7 @@ function buildPanel(group, idx) {
     const def = getColumnDefinition(k);
     const tableClass = def ? def.tableClass : k;
     const colEl = el('col', { class: `col-${tableClass}` });
-    applyWidthStyle(colEl, colWidths[k], k);
+    applyWidthStyle(colEl, colWidths[k], k, k === stretchKey);
     colgroup.appendChild(colEl);
   });
   table.appendChild(colgroup);
