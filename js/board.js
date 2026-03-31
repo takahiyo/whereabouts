@@ -472,8 +472,8 @@ function buildPanel(group, idx) {
     } else {
       element.style.maxWidth = 'none';
       if (isStretch) {
-        // ストレッチ担当カラムのみ、余白を吸い取る 100% を付与
-        element.style.width = '100%';
+        // 100%を指定すると他のカラムの指定幅まで強制的に圧縮してしまうため、autoに緩和して自然な伸縮をさせる
+        element.style.width = 'auto';
       } else {
         // それ以外の未指定カラムは内容に合わせる
         element.style.width = 'auto';
