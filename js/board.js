@@ -418,27 +418,31 @@ function buildPanel(group, idx) {
 
   const colWidths = (OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
   const applyWidthStyle = (element, w, k) => {
-    if (!w) return;
-    const minW = (w.min != null && w.min >= 10) ? w.min : null;
-    const maxW = (w.max != null && w.max >= 10) ? w.max : null;
-    
-    if (minW != null) element.style.minWidth = `${minW}px`;
-    if (maxW != null) element.style.maxWidth = `${maxW}px`;
+    const def = getColumnDefinition(k);
+    if (!def) return;
 
-    // min と max が同じなら固定幅
-    if (minW != null && maxW != null && minW === maxW) {
-      element.style.width = `${minW}px`;
-    } else if (minW != null || maxW != null) {
-      // 範囲指定の場合は、SSOT マスターの defaultWidth を clamp のベース値とする
-      const def = getColumnDefinition(k);
-      const isAutoWidth = (k === 'note'); // note は残りの空間を埋める
-      if (isAutoWidth) {
+    let minVal = null;
+    let maxVal = null;
+
+    if (w) {
+      if (w.min != null) minVal = w.min;
+      if (w.max != null) maxVal = w.max;
+    } else {
+      minVal = def.defaultWidth;
+      maxVal = def.defaultWidth;
+      if (k === 'note') maxVal = null; // note は未設定時は自動拡張
+    }
+
+    if (minVal != null) element.style.minWidth = `${minVal}px`;
+    if (maxVal != null) element.style.maxWidth = `${maxVal}px`;
+
+    if (minVal != null && maxVal != null && minVal === maxVal) {
+      element.style.width = `${minVal}px`;
+    } else {
+      if (maxVal == null) {
         element.style.width = 'auto';
       } else {
-        const baseW = (def && def.defaultWidth) ? `${def.defaultWidth}px` : '100px';
-        const clampMin = minW != null ? `${minW}px` : '10px';
-        const clampMax = maxW != null ? `${maxW}px` : '2000px';
-        element.style.width = `clamp(${clampMin}, ${baseW}, ${clampMax})`;
+        element.style.width = '100%';
       }
     }
   };
@@ -460,7 +464,11 @@ function buildPanel(group, idx) {
   enabledKeys.forEach(k => {
     const def = getColumnDefinition(k);
     if (def) {
-      const th = el('th', { text: def.label, class: def.tableClass });
+      const thAttributes = { text: def.label, class: def.tableClass };
+      if (def.description) {
+        thAttributes.title = def.description;
+      }
+      const th = el('th', thAttributes);
       applyWidthStyle(th, colWidths[k], k);
       thr.appendChild(th);
     }

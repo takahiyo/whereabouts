@@ -20,7 +20,7 @@ const COLUMN_DEFINITIONS = Object.freeze([
     required: true,
     tableClass: 'name',
     dataLabel: '氏名',
-    defaultWidth: 94,
+    defaultWidth: 110,
     popupEligible: false,
     cardEligible: true,
     description: 'メンバーの氏名'

@@ -284,47 +284,17 @@ th {
 
 /* === カラムデフォルト幅 === */
 /* SSOT マスター: js/constants/column-definitions.js の defaultWidth */
-  width: var(--w-work);
-}
+/* JS の columnWidths 設定によりJS内で各セルの min-width/max-width、直幅が指定されるため、CSSからの固定幅の上書きは廃止しました */
 
 th.work,
-td.work {
-  box-sizing: border-box;
-}
-
-
-col.col-status {
-  width: var(--status-effective);
-}
-
+td.work,
 th.status,
-td.status {
-  box-sizing: border-box;
-}
-
-
-col.col-time {
-  width: var(--w-time);
-}
-
+td.status,
 th.time,
-td.time {
-  box-sizing: border-box;
-}
-
-
-col.col-tomorrow-plan {
-  width: var(--w-tomorrow-plan);
-}
-
+td.time,
 th.tomorrow-plan,
 td.tomorrow-plan {
   box-sizing: border-box;
-}
-
-
-col.col-note {
-  width: auto;
 }
 
 /* === 繧ｫ繝ｼ繝芽｡ｨ遉ｺ��1蛻暦ｼ画凾縺ｮ蠑ｷ蛻ｶ繝ｪ繧ｻ繝�ヨ === */
@@ -1539,17 +1509,57 @@ td.time.need-time select:focus~.time-hint {
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
 }
 
+.column-order-item-unified {
+  justify-content: flex-start;
+  gap: 16px;
+}
+
+.column-move-grp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.column-toggle-grp {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1 1 auto;
+}
+
+.column-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #374151;
+}
+
+.column-toggle-label input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 @media (max-width: 600px) {
   .column-order-item {
-    gap: 6px;
-    padding: 6px 8px;
+    gap: 8px;
+    padding: 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .column-move-grp, .column-toggle-grp, .column-width-group {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .column-width-group {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed #e5e7eb;
   }
 
-  .column-width-group {
-    margin-left: 0;
-    width: 100%;
-    justify-content: flex-end;
-  }
 
   .column-width-input {
     width: 56px;
