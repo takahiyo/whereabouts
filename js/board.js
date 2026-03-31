@@ -434,14 +434,15 @@ function buildPanel(group, idx) {
     }
 
     if (minVal != null) element.style.minWidth = `${minVal}px`;
-    if (maxVal != null) element.style.maxWidth = `${maxVal}px`;
 
-    if (minVal != null && maxVal != null && minVal === maxVal) {
-      element.style.width = `${minVal}px`;
+    if (maxVal != null) {
+      element.style.maxWidth = `${maxVal}px`;
+      // 最大値が設定されている場合は、その幅を目標値 (Preferred Width) として設定
+      element.style.width = `${maxVal}px`;
     } else {
-      // auto レイアウトでは width: auto にすることで、min/max の範囲内で内容に応じた調整が行われる
-      // 最大値が空（自動）の場合は、必要に応じて広がる
-      element.style.width = 'auto';
+      element.style.maxWidth = 'none';
+      // 最大値がない（自動調整）のカラムを「強欲な列」として定義し、余白をすべて吸い取る
+      element.style.width = '100%';
     }
   };
 

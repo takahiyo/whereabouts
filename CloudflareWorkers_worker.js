@@ -391,16 +391,21 @@ export default {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const officeId = getParam('office') || tokenOffice;
         
-        const row = await env.DB.prepare('SELECT colors_json, updated FROM event_color_maps WHERE office_id = ?')
-          .bind(officeId)
-          .first();
-          
-        const colors = row ? safeJSONParse(row.colors_json) : {};
-        return new Response(JSON.stringify({ 
-          ok: true, 
-          colors: colors, 
-          updated: row ? row.updated : 0 
-        }), { headers: corsHeaders });
+        try {
+          const row = await env.DB.prepare('SELECT colors_json, updated FROM event_color_maps WHERE office_id = ?')
+            .bind(officeId)
+            .first();
+            
+          const colors = row ? safeJSONParse(row.colors_json) : {};
+          return new Response(JSON.stringify({ 
+            ok: true, 
+            colors: colors, 
+            updated: row ? row.updated : 0 
+          }), { headers: corsHeaders });
+        } catch (e) {
+          console.error('[getEventColorMap Error]', e.message);
+          return new Response(JSON.stringify({ ok: true, colors: {}, updated: 0, warning: 'table_not_found' }), { headers: corsHeaders });
+        }
       }
 
       /* --- SET EVENT COLOR MAP --- */
@@ -423,15 +428,20 @@ export default {
         const colorsJson = JSON.stringify(incoming.colors);
         const nowTs = Date.now();
         
-        await env.DB.prepare(`
-          INSERT INTO event_color_maps (office_id, colors_json, updated)
-          VALUES (?, ?, ?)
-          ON CONFLICT(office_id) DO UPDATE SET
-            colors_json = excluded.colors_json,
-            updated = excluded.updated
-        `).bind(officeId, colorsJson, nowTs).run();
+        try {
+          await env.DB.prepare(`
+            INSERT INTO event_color_maps (office_id, colors_json, updated)
+            VALUES (?, ?, ?)
+            ON CONFLICT(office_id) DO UPDATE SET
+              colors_json = excluded.colors_json,
+              updated = excluded.updated
+          `).bind(officeId, colorsJson, nowTs).run();
 
-        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        } catch (e) {
+          console.error('[setEventColorMap Error]', e.message);
+          return new Response(JSON.stringify({ ok: false, error: 'server_error', detail: e.message }), { status: 500, headers: corsHeaders });
+        }
       }
 
       /* --- GET NOTICES --- */

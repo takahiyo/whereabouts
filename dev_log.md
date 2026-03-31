@@ -1,8 +1,20 @@
 # 開発ログ (dev_log.md)
 
+## 2026-03-31: 幅制約の強制適用（100% vs px ロジック）
+
+### 成功の境界線
+- `table-layout: auto` において、制限したい列に具体的数値を、伸ばしたい列に `width: 100%` を与えることで、ブラウザ側のレイアウト計算をユーザーの意図通りに誘導することに成功した。
+- `getEventColorMap` 等の例外処理により、DBテーブル不在時でも 500 エラーで停止しない堅牢な構成を実現した。
+
+### 失敗の事象（以前の試行）
+- 単に `max-width` を指定しても、`width: auto` 状態では内容（テキスト）の長さに押されて無視されてしまっていた。
 ## 2026-03-31: 500エラー解消と幅制約 (max-width) 反映の不具合修正
 
 ### 成功の境界線
+- [x] `js/board.js` の修正（ストレッチ列 `100%` と制限列 `px` の明示的指定）
+- [x] `CloudflareWorkers_worker.js` の修正（`getEventColorMap` 等の `try-catch` 追加）
+- [x] Browser Agent による動作検証（業務時間が 50px 程度まで縮小されるか）
+- [x] 開発ログ (`dev_log.md`) の更新
 - `styles.css` から `table-layout: fixed` を除去し、`table-layout: auto` に変更することで、カラムへの `max-width` 指定が有効に機能するようになった。
 - `CloudflareWorkers_worker.js` の `setColumnConfig` を `try-catch` で保護し、エラー時に 500 エラーではなく詳細なバックエンド情報を返却できるようになった。
 - `js/board.js` の `applyWidthStyle` を `auto` レイアウト環境下で最適に動作するように調整（固定幅以外は `width: auto` + `min/max-width`）。
