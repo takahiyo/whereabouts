@@ -11,11 +11,6 @@
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
-const btnDictionarySave = document.getElementById('btnDictionarySave');
-const gaijiTableBody = document.getElementById('gaijiTableBody');
-const furiganaTableBody = document.getElementById('furiganaTableBody');
-const btnAddGaiji = document.getElementById('btnAddGaiji');
-const btnAddFurigana = document.getElementById('btnAddFurigana');
 const columnSettingContainer = document.getElementById('columnSettingContainer');
 const btnAddOffice = document.getElementById('btnAddOffice');
 const officeTableBody = document.getElementById('officeTableBody');
@@ -212,8 +207,7 @@ if (adminModal) {
         notices: adminModal.querySelector('#tabNotices'),
         events: adminModal.querySelector('#tabEvents'),
         tools: adminModal.querySelector('#tabTools'),
-        columns: adminModal.querySelector('#tabColumns'),
-        dictionary: adminModal.querySelector('#tabDictionary')
+        columns: adminModal.querySelector('#tabColumns')
       };
       const panel = panelMap[targetTab];
       if (panel) {
@@ -241,8 +235,6 @@ if (adminModal) {
         await loadAdminTools();
       } else if (targetTab === 'columns') {
         await loadColumnConfig();
-      } else if (targetTab === 'dictionary') {
-        await loadDictionaryConfig();
       } else if (targetTab === 'offices') {
         await loadOffices();
       }
@@ -256,9 +248,6 @@ let adminToolsLoaded = false, adminToolsOfficeId = '';
 
 if (btnMemberSave) { btnMemberSave.addEventListener('click', () => handleMemberSave()); }
 if (btnColumnSave) { btnColumnSave.addEventListener('click', () => saveColumnConfig()); }
-if (btnDictionarySave) { btnDictionarySave.addEventListener('click', () => saveDictionaryConfig()); }
-if (btnAddGaiji) { btnAddGaiji.addEventListener('click', () => addDictionaryRow('gaijiTableBody')); }
-if (btnAddFurigana) { btnAddFurigana.addEventListener('click', () => addDictionaryRow('furiganaTableBody')); }
 if (btnAddOffice) { btnAddOffice.addEventListener('click', () => addOffice()); }
 if (memberEditForm) {
   memberEditForm.addEventListener('submit', (e) => {
@@ -503,10 +492,7 @@ function renderMemberTable() {
 
     const groupTd = document.createElement('td'); groupTd.textContent = m.group || '';
     const nameTd = document.createElement('td');
-    const displayName = (typeof DictionaryService !== 'undefined') 
-      ? DictionaryService.formatName(m.name || "")
-      : (m.name || "");
-    nameTd.textContent = displayName;
+    nameTd.textContent = m.name || "";
     const extTd = document.createElement('td'); extTd.className = 'numeric-cell'; extTd.textContent = m.ext || '';
     const mobileTd = document.createElement('td'); mobileTd.className = 'numeric-cell'; mobileTd.textContent = m.mobile || '';
 
@@ -2277,133 +2263,6 @@ async function saveColumnConfig(allKeys, uiState) {
 }
 
 /* 辞書設定 (Gaiji/Furigana) */
-async function loadDictionaryConfig() {
-  const office = selectedOfficeId(); if (!office) return;
-  try {
-    if (gaijiTableBody) gaijiTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-gray">読み込み中...</td></tr>';
-    if (furiganaTableBody) furiganaTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-gray">読み込み中...</td></tr>';
-    
-    // カラム構成設定（汎用設定ストア）から取得
-    const res = await apiPost({ action: 'getColumnConfig', token: SESSION_TOKEN, office });
-    const columnConfig = (res && res.columnConfig) || {};
-    const dictionaries = columnConfig.dictionaries || { gaiji: [], furigana: [] };
-    
-    renderDictionaryTable('gaijiTableBody', dictionaries.gaiji || []);
-    renderDictionaryTable('furiganaTableBody', dictionaries.furigana || []);
-    
-    // DictionaryServiceの同期
-    if (office === CURRENT_OFFICE_ID && typeof DictionaryService !== 'undefined') {
-      DictionaryService.init(dictionaries);
-    }
-  } catch (e) {
-    console.error('loadDictionaryConfig error', e);
-    toast('辞書設定の読み込みに失敗しました', false);
-  }
-}
-
-function renderDictionaryTable(tableBodyId, data) {
-  const tbody = document.getElementById(tableBodyId);
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  
-  if (data.length === 0) {
-    addDictionaryRow(tableBodyId); // 空行を1つ追加
-  } else {
-    data.forEach(item => addDictionaryRow(tableBodyId, item.key, item.value));
-  }
-}
-
-function addDictionaryRow(tableBodyId, key = '', value = '') {
-  const tbody = document.getElementById(tableBodyId);
-  if (!tbody) return;
-  
-  const tr = document.createElement('tr');
-  
-  const tdKey = document.createElement('td');
-  const inputKey = document.createElement('input');
-  inputKey.type = 'text';
-  inputKey.value = key;
-  inputKey.className = 'dictionary-input-key';
-  inputKey.placeholder = (tableBodyId === 'gaijiTableBody') ? '置換前（例：髙）' : '氏名（例：田中）';
-  tdKey.appendChild(inputKey);
-  
-  const tdVal = document.createElement('td');
-  const inputVal = document.createElement('input');
-  inputVal.type = 'text';
-  inputVal.value = value;
-  inputVal.className = 'dictionary-input-value';
-  inputVal.placeholder = (tableBodyId === 'gaijiTableBody') ? '置換後（例：高）' : '読み（例：たなか）';
-  tdVal.appendChild(inputVal);
-  
-  const tdAction = document.createElement('td');
-  tdAction.className = 'u-text-center';
-  const btnDel = document.createElement('button');
-  btnDel.textContent = '削除';
-  btnDel.className = 'btn-danger btn-sm';
-  btnDel.onclick = () => tr.remove();
-  tdAction.appendChild(btnDel);
-  
-  tr.appendChild(tdKey);
-  tr.appendChild(tdVal);
-  tr.appendChild(tdAction);
-  tbody.appendChild(tr);
-}
-
-async function saveDictionaryConfig() {
-  const office = selectedOfficeId(); if (!office) return;
-  
-  const gaiji = [];
-  const furigana = [];
-  
-  document.querySelectorAll('#gaijiTableBody tr').forEach(tr => {
-    const key = tr.querySelector('.dictionary-input-key')?.value.trim();
-    const val = tr.querySelector('.dictionary-input-value')?.value.trim();
-    if (key) gaiji.push({ key, value: val || '' });
-  });
-  
-  document.querySelectorAll('#furiganaTableBody tr').forEach(tr => {
-    const key = tr.querySelector('.dictionary-input-key')?.value.trim();
-    const val = tr.querySelector('.dictionary-input-value')?.value.trim();
-    if (key) furigana.push({ key, value: val || '' });
-  });
-  
-  const dictionaries = { gaiji, furigana };
-  
-  try {
-    // 既存のカラム設定を取得して辞書設定をマージする
-    const resGet = await apiPost({ action: 'getColumnConfig', token: SESSION_TOKEN, office });
-    const currentConfig = (resGet && resGet.columnConfig) || {};
-    const updatedConfig = { ...currentConfig, dictionaries };
-    
-    // カラム構成設定として保存（汎用的なJSONストレージとして使用）
-    const resSave = await apiPost({ 
-      action: 'setColumnConfig', 
-      token: SESSION_TOKEN, 
-      office, 
-      config: JSON.stringify(updatedConfig) 
-    });
-    
-    if (resSave && resSave.ok !== false) {
-      toast('辞書を保存しました');
-      if (office === CURRENT_OFFICE_ID) {
-        OFFICE_COLUMN_CONFIG = updatedConfig;
-        localStorage.setItem(SESSION_COLUMN_CONFIG_KEY, JSON.stringify(updatedConfig));
-        if (typeof DictionaryService !== 'undefined') {
-          DictionaryService.init(dictionaries);
-        }
-        // ボードの再描画
-        if (typeof render === 'function') render();
-      }
-    } else {
-      toast('保存に失敗しました', false);
-    }
-  } catch (e) {
-    console.error('saveDictionaryConfig error', e);
-    toast('通信エラーが発生しました', false);
-  }
-}
-
-
 /* 拠点管理 (Phase 7 - Super Admin用) */
 async function loadOffices() {
   if (!officeTableBody) return;

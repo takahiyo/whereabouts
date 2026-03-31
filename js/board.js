@@ -278,11 +278,7 @@ function buildRow(member) {
     
     switch (colKey) {
       case 'name':
-        // 外字置換サービスを適用
-        const displayName = (typeof DictionaryService !== 'undefined') 
-          ? DictionaryService.formatName(member.name || "")
-          : (member.name || "");
-        td.textContent = sanitizeText(displayName);
+        td.textContent = sanitizeText(member.name || "");
         break;
       
       case 'status': {

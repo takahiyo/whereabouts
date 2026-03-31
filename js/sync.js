@@ -698,13 +698,6 @@ async function fetchConfigOnce(nocache = false) {
 
       setupMenus(menus);
       
-      // 辞書設定の初期化 (Gaiji/Furigana)
-      if (typeof DictionaryService !== 'undefined') {
-        const dictionaries = cfg.dictionaries || cfg.config?.dictionaries || 
-                           (columnConfig && columnConfig.dictionaries) || 
-                           { gaiji: [], furigana: [] };
-        DictionaryService.init(dictionaries);
-      }
       
       render();
 

@@ -61,7 +61,6 @@
             <button class="tab-btn active" data-tab="basic">⚙️ 基本設定</button>
             <button class="tab-btn" data-tab="members">👥 メンバー管理</button>
             <button class="tab-btn" data-tab="columns">📊 カラム構成</button>
-            <button class="tab-btn" data-tab="dictionary">🔤 辞書設定</button>
             <button id="btnTabOffices" class="tab-btn u-hidden" data-tab="offices">🏢 拠点管理</button>
             <button class="tab-btn" data-tab="notices">📢 お知らせ管理</button>
             <button class="tab-btn" data-tab="events">📅 イベント管理</button>
@@ -202,65 +201,6 @@
             <div id="columnSettingContainer" class="column-setting-container">
               <!-- JSで動的に生成 -->
               <p class="u-text-center u-text-gray">設定を読み込み中...</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- タブパネル: 辞書設定 (Gaiji/Furigana) -->
-        <div id="tabDictionary" class="tab-panel" data-tab="dictionary">
-          <div class="member-save-bar">
-            <button id="btnDictionarySave" class="btn-primary">💾 辞書を保存</button>
-          </div>
-          <div class="admin-grid">
-            <!-- 外字置換辞書 -->
-            <div class="admin-box">
-              <div class="admin-box-header">
-                <h4>🔤 外字（特殊文字）置換設定</h4>
-              </div>
-              <div class="admin-note">
-                名簿に含まれる特殊文字（外字）を、ボード表示時に汎用的な文字へ自動置換します。<br>
-                例：「髙」→「高」、「﨑」→「崎」
-              </div>
-              <div class="dictionary-editor-container">
-                <table class="admin-table dictionary-table" id="gaijiTable">
-                  <thead>
-                    <tr>
-                      <th>置換前</th>
-                      <th>置換後</th>
-                      <th class="u-text-center">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody id="gaijiTableBody">
-                    <!-- JSで動的に生成 -->
-                  </tbody>
-                </table>
-                <button id="btnAddGaiji" class="btn-secondary u-mt-8">➕ 行を追加</button>
-              </div>
-            </div>
-
-            <!-- ふりがな辞書 -->
-            <div class="admin-box">
-              <div class="admin-box-header">
-                <h4>📖 ふりがな辞書</h4>
-              </div>
-              <div class="admin-note">
-                氏名に対応するふりがなを登録します。将来的な検索精度の向上やルビ表示に使用予約されています。
-              </div>
-              <div class="dictionary-editor-container">
-                <table class="admin-table dictionary-table" id="furiganaTable">
-                  <thead>
-                    <tr>
-                      <th>漢字（氏名）</th>
-                      <th>ふりがな</th>
-                      <th class="u-text-center">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody id="furiganaTableBody">
-                    <!-- JSで動的に生成 -->
-                  </tbody>
-                </table>
-                <button id="btnAddFurigana" class="btn-secondary u-mt-8">➕ 行を追加</button>
-              </div>
             </div>
           </div>
         </div>
@@ -1294,7 +1234,6 @@
   <script src="js/globals.js" defer></script>
   <script src="js/utils.js?v=20260327" defer></script>
   <script src="js/services/csv.js" defer></script>
-  <script src="js/services/dictionary.js" defer></script>
   <script src="js/layout.js" defer></script>
   <script src="js/filters.js" defer></script>
   <script src="js/board.js" defer></script>
