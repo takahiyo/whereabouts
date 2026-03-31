@@ -604,26 +604,37 @@ export default {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
-        let configJson = getParam('config');
-        if (configJson && typeof configJson !== 'string') {
-          configJson = JSON.stringify(configJson);
-        }
-        // "[object Object]" などの不正な文字列は保存させない
-        if (!configJson || (typeof configJson === 'string' && configJson.startsWith('[object'))) {
-          return new Response(JSON.stringify({ error: 'invalid_request_data' }), { headers: corsHeaders });
-        }
+        try {
+          // getParamRaw を使用して構造化データ（オブジェクト）も直接受け取れるようにする
+          const configRaw = getParamRaw('config');
+          let configJson = '';
+          
+          if (configRaw && typeof configRaw === 'object') {
+            configJson = JSON.stringify(configRaw);
+          } else if (typeof configRaw === 'string') {
+            configJson = configRaw;
+          }
 
-        const nowTs = Date.now();
-        await env.DB.prepare(`
-          INSERT INTO office_column_config (office_id, config_json, updated_at) 
-          VALUES (?, ?, ?) 
-          ON CONFLICT(office_id) DO UPDATE SET config_json = ?, updated_at = ?
-        `)
-          .bind(officeId, configJson, nowTs, configJson, nowTs)
-          .run();
+          // "[object Object]" などの不正な文字列は保存させない
+          if (!configJson || configJson.startsWith('[object')) {
+            return new Response(JSON.stringify({ ok: false, error: 'invalid_request_data' }), { headers: corsHeaders });
+          }
 
-        if (statusCache) ctx.waitUntil(statusCache.delete(`config_v2:${officeId}`));
-        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          const nowTs = Date.now();
+          await env.DB.prepare(`
+            INSERT INTO office_column_config (office_id, config_json, updated_at) 
+            VALUES (?, ?, ?) 
+            ON CONFLICT(office_id) DO UPDATE SET config_json = ?, updated_at = ?
+          `)
+            .bind(officeId, configJson, nowTs, configJson, nowTs)
+            .run();
+
+          if (statusCache) ctx.waitUntil(statusCache.delete(`config_v2:${officeId}`));
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        } catch (e) {
+          console.error('[setColumnConfig Error]', e.message);
+          return new Response(JSON.stringify({ ok: false, error: 'server_error', detail: e.message }), { status: 500, headers: corsHeaders });
+        }
       }
 
       /* --- GET OFFICE SETTINGS --- */

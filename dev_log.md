@@ -1,5 +1,22 @@
 # 開発ログ (dev_log.md)
 
+## 2026-03-31: 500エラー解消と幅制約 (max-width) 反映の不具合修正
+
+### 成功の境界線
+- `styles.css` から `table-layout: fixed` を除去し、`table-layout: auto` に変更することで、カラムへの `max-width` 指定が有効に機能するようになった。
+- `CloudflareWorkers_worker.js` の `setColumnConfig` を `try-catch` で保護し、エラー時に 500 エラーではなく詳細なバックエンド情報を返却できるようになった。
+- `js/board.js` の `applyWidthStyle` を `auto` レイアウト環境下で最適に動作するように調整（固定幅以外は `width: auto` + `min/max-width`）。
+
+### 失敗の事象（解決済み）
+- カラムの最大幅を 50 に設定しても画面が変化しない → `fixed` レイアウトが `max-width` を無視していたことが原因。
+- 拠点設定の保存時に 500 エラーが発生 → Worker側の例外処理不足により、テーブル不在等のエラーでクラッシュしていた。
+
+### 失敗の根本原因
+- 従来の `table-layout: fixed` 設定は均等割り付けには向いていたが、今回導入した「柔軟な最小・最大幅指定 (Requirement 3)」とは技術的に相反するものであった。
+- Worker の `setColumnConfig` ハンドラが DB 操作に対してフェイルセーフな設計になっていなかった。
+
+### 次のアプローチ
+- カラム幅を厳格に制御したい場合は `min == max` を指定し、内容に応じて変動させたい場合は `auto` レイアウトの特性（`min/max-width`）を最大限活用するようにユーザーに案内する。
 ## 2026-03-31: カラム構成UIの統合とSSOT化
 
 ### 成功の境界線

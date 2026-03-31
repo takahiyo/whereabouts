@@ -439,11 +439,9 @@ function buildPanel(group, idx) {
     if (minVal != null && maxVal != null && minVal === maxVal) {
       element.style.width = `${minVal}px`;
     } else {
-      if (maxVal == null) {
-        element.style.width = 'auto';
-      } else {
-        element.style.width = '100%';
-      }
+      // auto レイアウトでは width: auto にすることで、min/max の範囲内で内容に応じた調整が行われる
+      // 最大値が空（自動）の場合は、必要に応じて広がる
+      element.style.width = 'auto';
     }
   };
 
