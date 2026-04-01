@@ -224,7 +224,7 @@ header .status-filter {
 .board {
   display: grid;
   gap: var(--gap);
-  grid-template-columns: repeat(var(--cols, auto-fit), minmax(min(100%, 760px), 1fr));
+  grid-template-columns: repeat(var(--cols, auto-fit), minmax(min(100%, var(--board-width, 760px)), 1fr));
 }
 
 .board[data-cols="1"] {
@@ -300,10 +300,7 @@ td.tomorrow-plan {
 /* 郢昜ｻ｣繝ｭ郢晢ｽｫ髯ｦ・ｨ驕会ｽｺ騾包ｽｨ邵ｺ・ｮ !important 陜暦ｽｺ陞ｳ螢ｼ・ｹ・ｽ・帝囓・｣鬮ｯ・､邵ｺ蜉ｱﾂ・嗟exbox郢晢ｽｬ郢ｧ・､郢ｧ・｢郢ｧ・ｦ郢晏現・定包ｽｩ陷茨ｿｽ */
 #board.force-cards th,
 #board.force-cards td,
-#board.force-cards col,
-#board[data-cols="1"] th,
-#board[data-cols="1"] td,
-#board[data-cols="1"] col {
+#board.force-cards col {
   width: auto !important;
   min-width: 0 !important;
   max-width: none !important;
@@ -771,27 +768,21 @@ td.time.need-time select:focus~.time-hint {
 }
 
 /* === JSによる強制適用時も同じスタイルを適用（メディアクエリ外でも有効に） === */
-#board.force-cards,
-#board[data-cols="1"] {
+#board.force-cards {
   display: block;
 }
 #board.force-cards colgroup,
-#board[data-cols="1"] colgroup,
-#board.force-cards thead,
-#board[data-cols="1"] thead {
+#board.force-cards thead {
   display: none;
 }
-#board.force-cards table,
-#board[data-cols="1"] table {
+#board.force-cards table {
   table-layout: auto !important;
   min-width: unset !important;
 }
-#board.force-cards tbody,
-#board[data-cols="1"] tbody {
+#board.force-cards tbody {
   display: block;
 }
-#board.force-cards tbody tr,
-#board[data-cols="1"] tbody tr {
+#board.force-cards tbody tr {
   display: flex !important;
   flex-wrap: wrap !important;
   gap: 8px 12px !important;
@@ -801,8 +792,7 @@ td.time.need-time select:focus~.time-hint {
   margin: 10px 0 !important;
   background: #fff !important;
 }
-#board.force-cards tbody td,
-#board[data-cols="1"] tbody td {
+#board.force-cards tbody td {
   border: none !important;
   padding: 0 !important;
   display: flex !important;
@@ -812,23 +802,20 @@ td.time.need-time select:focus~.time-hint {
   min-width: 140px !important;
   background: transparent !important;
 }
-#board.force-cards tbody td::before,
-#board[data-cols="1"] tbody td::before {
+#board.force-cards tbody td::before {
   content: attr(data-label) !important;
   font-weight: 600;
   color: #6B7280;
   min-width: 6em;
   flex: 0 0 auto;
 }
-#board.force-cards tbody td.name,
-#board[data-cols="1"] tbody td.name {
+#board.force-cards tbody td.name {
   order: 0 !important;
   flex: 1 1 100% !important;
   font-weight: 800 !important;
   font-size: 15px !important;
 }
-#board.force-cards tbody td.name::before,
-#board[data-cols="1"] tbody td.name::before {
+#board.force-cards tbody td.name::before {
   content: "" !important;
   display: none !important;
 }
@@ -852,8 +839,7 @@ td.time.need-time select:focus~.time-hint {
   order: 5 !important;
   flex: 1 1 100% !important;
 }
-#board.force-cards tbody td.ext,
-#board[data-cols="1"] tbody td.ext {
+#board.force-cards tbody td.ext {
   display: none !important;
 }
 

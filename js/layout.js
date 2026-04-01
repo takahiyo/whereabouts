@@ -10,13 +10,17 @@
  */
 
 function getContainerWidth(){ const elc=board.parentElement||document.body; const r=elc.getBoundingClientRect(); return Math.max(0,Math.round(r.width)); }
-function getPanelMinWidth() {
-  // 拠点設定に固定の最小幅がある場合はそれを優先 (Phase 8)
+function getBoardWidth() {
+  // ボード（パネル）の固定幅。これを基準にカード表示しきい値やグリッドの列数を計算する (ユーザー要望: 1つの設定で管理)
   if (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.layoutConfig && OFFICE_COLUMN_CONFIG.layoutConfig.panelMinWidth) {
     const val = parseInt(OFFICE_COLUMN_CONFIG.layoutConfig.panelMinWidth, 10);
-    if (!isNaN(val)) return val;
+    if (!isNaN(val) && val > 0) return val;
   }
+  return typeof PANEL_MIN_PX !== 'undefined' ? PANEL_MIN_PX : 760;
+}
 
+function getTableMinWidth() {
+  // テーブル自体の最小幅。パネル内での横スクロールを判定するために使用
   const enabledKeys = typeof getEnabledColumns === 'function' ? getEnabledColumns() : ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
   const colWidths = (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
 
@@ -40,19 +44,22 @@ function getPanelMinWidth() {
 
 function updateCols(){
   const w = getContainerWidth();
-  const panelMin = getPanelMinWidth();
+  const boardWidth = getBoardWidth();
+  const tableMin = getTableMinWidth();
   
-  // 拠点設定のカード表示しきい値 (Phase 8)
-  let cardBp = CARD_BREAKPOINT_PX || 760;
+  // ユーザー要望「ボード幅設定は1つ」に基づき、カード表示しきい値もboardWidthと同期。
+  // Admin画面の別設定があれば優先。
+  let cardBp = boardWidth;
   if (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.layoutConfig && OFFICE_COLUMN_CONFIG.layoutConfig.cardBreakpoint) {
     const val = parseInt(OFFICE_COLUMN_CONFIG.layoutConfig.cardBreakpoint, 10);
-    if (!isNaN(val)) {
+    if (!isNaN(val) && val > 0) {
       cardBp = val;
     }
   }
 
-  // CSS変数 --table-min-width を更新
-  board.style.setProperty('--table-min-width', `${panelMin}px`);
+  // CSS変数 --table-min-width と --board-width を更新
+  board.style.setProperty('--table-min-width', `${tableMin}px`);
+  board.style.setProperty('--board-width', `${boardWidth}px`);
 
   // カード表示への強制切り替え判定
   if (w < cardBp) {
@@ -62,14 +69,10 @@ function updateCols(){
     return;
   }
 
-  let n = Math.floor((w + GAP_PX) / (panelMin + GAP_PX));
-  if (n < 2) {
-    board.classList.add('force-cards');
-    board.dataset.cols = '1';
-    board.style.removeProperty('--cols');
-    return;
-  }
+  let n = Math.floor((w + GAP_PX) / (boardWidth + GAP_PX));
+  if (n < 1) n = 1;
   if (n > MAX_COLS) n = MAX_COLS;
+  
   board.style.setProperty('--cols', String(n));
   board.dataset.cols = String(n);
   board.classList.remove('force-cards');
