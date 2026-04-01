@@ -459,18 +459,21 @@ function buildPanel(group, idx) {
       if (k === 'note') maxVal = null;
     }
 
-    if (minVal != null) element.style.minWidth = `${minVal}px`;
+    if (minVal != null) {
+      element.style.minWidth = `${minVal}px`;
+    }
 
     if (maxVal != null) {
-      element.style.maxWidth = `${maxVal}px`;
+      // 最大幅指定がある場合、それを基本幅および最大幅として適用
       element.style.width = `${maxVal}px`;
+      element.style.maxWidth = `${maxVal}px`;
     } else {
       element.style.maxWidth = 'none';
       if (isStretch) {
-        // 100%を指定すると他のカラムの指定幅まで強制的に圧縮してしまうため、autoに緩和して自然な伸縮をさせる
+        // 最大幅未指定のカラムのみが余計な余白を吸収するように auto に設定
         element.style.width = 'auto';
       } else {
-        // それ以外の未指定カラムは内容に合わせる
+        // その他の不定幅
         element.style.width = 'auto';
       }
     }

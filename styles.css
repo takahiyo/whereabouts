@@ -246,6 +246,7 @@ header .status-filter {
 
 table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -265,6 +266,7 @@ thead th {
 
 th,
 td {
+  box-sizing: border-box;
   border: 1px solid var(--line);
   padding: 6px;
   font-size: 14px
@@ -284,17 +286,6 @@ th {
 /* === 繧ｫ繝ｩ繝繝・ヵ繧ｩ繝ｫ繝亥ｹ・=== */
 /* SSOT 繝槭せ繧ｿ繝ｼ: js/constants/column-definitions.js 縺ｮ defaultWidth */
 /* JS 縺ｮ columnWidths 險ｭ螳壹↓繧医ｊJS蜀・〒蜷・そ繝ｫ縺ｮ min-width/max-width縲∫峩蟷・′謖・ｮ壹＆繧後ｋ縺溘ａ縲，SS縺九ｉ縺ｮ蝗ｺ螳壼ｹ・・荳頑嶌縺阪・蟒・ｭ｢縺励∪縺励◆ */
-
-th.work,
-td.work,
-th.status,
-td.status,
-th.time,
-td.time,
-th.tomorrow-plan,
-td.tomorrow-plan {
-  box-sizing: border-box;
-}
 
 /* === 郢ｧ・ｫ郢晢ｽｼ郢晁歓・｡・ｨ驕会ｽｺ・ｽ・ｽ1陋ｻ證ｦ・ｼ逕ｻ蜃ｾ邵ｺ・ｮ陟托ｽｷ陋ｻ・ｶ郢晢ｽｪ郢ｧ・ｻ郢晢ｿｽ繝ｨ === */
 /* 郢昜ｻ｣繝ｭ郢晢ｽｫ髯ｦ・ｨ驕会ｽｺ騾包ｽｨ邵ｺ・ｮ !important 陜暦ｽｺ陞ｳ螢ｼ・ｹ・ｽ・帝囓・｣鬮ｯ・､邵ｺ蜉ｱﾂ・嗟exbox郢晢ｽｬ郢ｧ・､郢ｧ・｢郢ｧ・ｦ郢晏現・定包ｽｩ陷茨ｿｽ */
