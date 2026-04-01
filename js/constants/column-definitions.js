@@ -133,9 +133,17 @@ const COLUMN_DEFINITIONS = Object.freeze([
 
 /**
  * キーからカラム定義を取得する
+ * 拠点独自のカスタムカラム定義(OFFICE_COLUMN_CONFIG.customColumns)があればそれを優先し、
+ * なければシステムデフォルト(COLUMN_DEFINITIONS)を返す。
  * @param {string} key - カラムキー
  * @returns {Object|null}
  */
 function getColumnDefinition(key) {
+  // 1. 拠点カスタムカラムの検索
+  if (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && Array.isArray(OFFICE_COLUMN_CONFIG.customColumns)) {
+    const customDef = OFFICE_COLUMN_CONFIG.customColumns.find(d => d.key === key);
+    if (customDef) return customDef;
+  }
+  // 2. システム標準カラムの検索
   return COLUMN_DEFINITIONS.find(d => d.key === key) || null;
 }

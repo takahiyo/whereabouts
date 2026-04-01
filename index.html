@@ -203,6 +203,21 @@
               <p class="u-text-center u-text-gray">設定を読み込み中...</p>
             </div>
           </div>
+          
+          <div class="admin-box u-mt-16">
+            <div class="admin-box-header u-flex-between-center">
+              <h4>🛠️ カスタムカラムの設計（拠点独自機能）</h4>
+              <button id="btnAddCustomColumn" class="btn-primary btn-sm">➕ 新規カラム追加</button>
+            </div>
+            <div class="admin-note">
+              拠点独自の新しい入力項目を作成できます。「新規カラム追加」ボタンで追加し、名称や種類を設定してください。<br>
+              ※ 追加したカラムは、上の「カラム表示設定」でボードやポップアップに表示するか設定できます。
+            </div>
+            <div id="customColumnEditor" class="custom-column-editor-container">
+              <!-- JSで動的に生成 -->
+              <p class="u-text-center u-text-gray u-my-12">カスタムカラムはありません。</p>
+            </div>
+          </div>
         </div>
 
         <!-- タブパネル: 拠点管理 (Phase 7 - Super Admin Only) -->

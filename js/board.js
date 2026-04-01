@@ -41,7 +41,15 @@ function buildCandidateList(options) {
 
 function renderCandidatePanel(panel, type) {
   if (!panel) return;
-  const options = type === 'workHours' ? (MENUS?.businessHours || []) : (MENUS?.noteOptions || []);
+  let options = [];
+  const def = getColumnDefinition(type);
+  if (type === 'workHours') {
+    options = MENUS?.businessHours || [];
+  } else if (type === 'note') {
+    options = MENUS?.noteOptions || [];
+  } else if (def && Array.isArray(def.options)) {
+    options = def.options;
+  }
   panel.replaceChildren();
   panel.appendChild(buildCandidateList(options));
 }
@@ -324,8 +332,44 @@ function buildRow(member) {
       }
       
       default:
-        // ext, mobile, email 等の表示専用カラム
-        td.textContent = member[def.dbField] || "";
+        if (def.type === 'textual' || def.type === 'text') {
+          const input = el('input', { type: 'text', name: colKey, class: 'candidate-input', style: 'width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 4px;' });
+          input.value = member[colKey] || '';
+          // 依存関係の評価
+          if (def.dependsOn && def.dependsOn.column) {
+            const pVal = member[def.dependsOn.column] || '';
+            if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
+               input.disabled = true;
+            }
+          }
+          td.appendChild(input);
+        } else if (def.type === 'select') {
+          const sel = el('select', { id: `${colKey}-${key}`, name: colKey, class: 'admin-input', style: 'width: 100%; padding: 4px;' });
+          td.appendChild(el('label', { class: 'sr-only', for: `${colKey}-${key}`, text: def.label }));
+          const opts = def.options || [];
+          sel.appendChild(el('option', { value: '', text: '' }));
+          opts.forEach(v => sel.appendChild(el('option', { value: String(v), text: String(v) })));
+          sel.value = member[colKey] || '';
+          if (def.dependsOn && def.dependsOn.column) {
+            const pVal = member[def.dependsOn.column] || '';
+            if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
+               sel.disabled = true;
+            }
+          }
+          td.appendChild(sel);
+        } else if (def.type === 'candidate') {
+          const field = buildCandidateField({ id: `${colKey}-${key}`, name: colKey, placeholder: def.label, type: colKey, value: member[colKey] || '' });
+          if (def.dependsOn && def.dependsOn.column) {
+            const pVal = member[def.dependsOn.column] || '';
+            if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
+               field.input.disabled = true;
+            }
+          }
+          td.appendChild(field.wrapper);
+        } else {
+          // ext, mobile, email 等の表示専用カラム
+          td.textContent = member[def.dbField || colKey] || "";
+        }
         break;
     }
     
@@ -570,14 +614,30 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(
 function getRowStateByTr(tr) {
   if (!tr) return { ext: "", workHours: "", status: STATUSES[0]?.value || "在席", time: "", tomorrowPlan: "", note: "" };
   const workHoursInput = tr.querySelector('input[name="workHours"]');
-  return {
+  const state = {
     ext: tr.querySelector('td.ext')?.textContent.trim() || "",
     workHours: workHoursInput ? workHoursInput.value : "",
-    status: tr.querySelector('select[name="status"]').value,
-    time: tr.querySelector('select[name="time"]').value,
+    status: tr.querySelector('select[name="status"]')?.value || STATUSES[0]?.value || "在席",
+    time: tr.querySelector('select[name="time"]')?.value || "",
     tomorrowPlan: tr.querySelector('select[name="tomorrowPlan"]')?.value || "",
-    note: tr.querySelector('input[name="note"]').value
+    note: tr.querySelector('input[name="note"]')?.value || ""
   };
+
+  const enabledKeys = getEnabledColumns();
+  enabledKeys.forEach(colKey => {
+    if (['name', 'status', 'time', 'workHours', 'tomorrowPlan', 'note', 'ext', 'mobile', 'email'].includes(colKey)) return;
+    const def = getColumnDefinition(colKey);
+    if (!def) return;
+    if (def.type === 'textual' || def.type === 'text' || def.type === 'candidate') {
+      const input = tr.querySelector(`input[name="${colKey}"]`);
+      if (input) state[colKey] = input.value;
+    } else if (def.type === 'select') {
+      const select = tr.querySelector(`select[name="${colKey}"]`);
+      if (select) state[colKey] = select.value;
+    }
+  });
+
+  return state;
 }
 function getRowState(id) { return getRowStateByTr(document.getElementById(`row-${id}`)); }
 function getState() { const data = {}; board.querySelectorAll("tbody tr").forEach(tr => { data[tr.dataset.key] = getRowStateByTr(tr); }); return data; }
@@ -768,6 +828,12 @@ function wireEvents() {
     const key = tr.dataset.key;
     if (t.name === 'note') { debounceRowPush(key); return; }
     if (t.name === 'workHours') { debounceRowPush(key); return; }
+    
+    // カスタムカラム(候補やテキスト)
+    const def = getColumnDefinition(t.name);
+    if (def && (def.type === 'textual' || def.type === 'candidate' || def.type === 'text')) {
+      debounceRowPush(key);
+    }
   });
 
   // 変更（ステータス/時間/明日の予定）
@@ -798,6 +864,20 @@ function wireEvents() {
       }
       const timeDisabledAfter = timeSel?.getAttribute('aria-disabled') === 'true';
 
+      // 汎用依存関係の適用
+      const enabledKeys = getEnabledColumns();
+      enabledKeys.forEach(colKey => {
+        const cDef = getColumnDefinition(colKey);
+        if (cDef && cDef.dependsOn && cDef.dependsOn.column === t.name) {
+          const isActive = Array.isArray(cDef.dependsOn.values) && cDef.dependsOn.values.includes(t.value);
+          const cInput = tr.querySelector(`input[name="${colKey}"], select[name="${colKey}"]`);
+          if (cInput) {
+            cInput.disabled = !isActive;
+            if (!isActive && cInput.value) { cInput.value = ''; }
+          }
+        }
+      });
+
 
       if (!isEditingTime && clearOnSet.has(t.value)) {
         if (timeSel) timeSel.value = '';
@@ -817,6 +897,14 @@ function wireEvents() {
 
       ensureTimePrompt(tr);
       if (t.dataset) t.dataset.lastCommittedValue = t.value;
+      debounceRowPush(key);
+      return;
+    }
+    
+    // カスタムカラムのselect等の変更
+    const def = getColumnDefinition(t.name);
+    if (def && def.type === 'select') {
+      t.dataset.editing = '1';
       debounceRowPush(key);
       return;
     }

@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS members (
     ext TEXT,
     mobile TEXT,
     email TEXT,
+    custom_fields TEXT DEFAULT '{}',
     updated INTEGER, -- 同期用のタイムスタンプ (ms)
     PRIMARY KEY (office_id, id),
     FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE

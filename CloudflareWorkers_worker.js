@@ -228,7 +228,8 @@ export default {
             ext: m.ext,
             mobile: m.mobile,
             email: m.email,
-            updated: m.updated
+            updated: m.updated,
+            ...(m.custom_fields ? safeJSONParse(m.custom_fields, {}) : {})
           });
         });
 
@@ -331,7 +332,8 @@ export default {
             rev: m.updated,
             ext: m.ext,
             mobile: m.mobile,
-            email: m.email
+            email: m.email,
+            ...(m.custom_fields ? safeJSONParse(m.custom_fields, {}) : {})
           };
           if (m.updated > maxUpdated) maxUpdated = m.updated;
         });
@@ -792,6 +794,19 @@ export default {
             if (m.mobile !== undefined) { query += 'mobile=?, '; params.push(m.mobile); }
             if (m.email !== undefined) { query += 'email=?, '; params.push(m.email); }
 
+            // Extract custom fields mapping
+            const standardKeys = new Set(['status', 'time', 'note', 'workHours', 'tomorrowPlan', 'ext', 'mobile', 'email', 'updated', 'serverUpdated', 'rev', 'id', 'name', 'group', 'order']);
+            const customUpdates = {};
+            for (const key of Object.keys(m)) {
+              if (!standardKeys.has(key)) {
+                customUpdates[key] = m[key];
+              }
+            }
+            if (Object.keys(customUpdates).length > 0) {
+              query += "custom_fields=json_patch(COALESCE(custom_fields, '{}'), ?), ";
+              params.push(JSON.stringify(customUpdates));
+            }
+
             // 末尾のカンマとスペースを削除
             if (query.endsWith(', ')) {
               query = query.slice(0, -2);
@@ -866,7 +881,7 @@ export default {
 
         // 全メンバーのステータスを保持しつつ名前・グループ・順序を更新
         // 手順: まず既存データを取得し、削除後に再挿入で更新
-        const existingRes = await env.DB.prepare('SELECT id, status, time, note, work_hours, ext, mobile, email FROM members WHERE office_id = ?')
+        const existingRes = await env.DB.prepare('SELECT id, status, time, note, work_hours, ext, mobile, email, custom_fields FROM members WHERE office_id = ?')
           .bind(officeId)
           .all();
 
@@ -880,7 +895,8 @@ export default {
             tomorrow_plan: m.tomorrow_plan || '',
             ext: m.ext || '',
             mobile: m.mobile || '',
-            email: m.email || ''
+            email: m.email || '',
+            custom_fields: m.custom_fields || '{}'
           });
         });
 
@@ -898,8 +914,8 @@ export default {
               // 既存データがあれば status, time, note, work_hours などを引き継ぐ
               const existing = existingMap.get(id) || {};
               statements.push(env.DB.prepare(`
-                INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, tomorrow_plan, work_hours, ext, mobile, email, updated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, tomorrow_plan, work_hours, ext, mobile, email, custom_fields, updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).bind(
                 id,
                 officeId,
@@ -914,6 +930,7 @@ export default {
                 m.ext || existing.ext || '',
                 m.mobile || existing.mobile || '',
                 m.email || existing.email || '',
+                existing.custom_fields || '{}',
                 nowTs
               ));
             }

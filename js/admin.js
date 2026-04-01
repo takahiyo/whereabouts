@@ -246,7 +246,7 @@ if (adminModal) {
 let adminMemberList = [], adminMemberData = {}, adminGroupOrder = [], adminMembersLoaded = false;
 let adminToolsLoaded = false, adminToolsOfficeId = '';
 /* カラム構成の編集状態保持用 */
-let adminColumnAllKeys = [], adminColumnUiState = {}, adminColumnLcPrefix = 'adminColumnLc_';
+let adminColumnAllKeys = [], adminColumnUiState = {}, adminCustomColumnsState = [], adminColumnLcPrefix = 'adminColumnLc_';
 
 if (btnMemberSave) { btnMemberSave.addEventListener('click', () => handleMemberSave()); }
 if (btnColumnSave) { btnColumnSave.addEventListener('click', () => saveColumnConfig()); }
@@ -2099,8 +2099,13 @@ function renderColumnConfig(config) {
   const widths = (config.columnWidths && typeof config.columnWidths === 'object') ? config.columnWidths : {};
 
   const allKeys = [];
+  // Ensure we also grab keys from customColumns
+  const customCols = Array.isArray(config.customColumns) ? config.customColumns : [];
+  adminCustomColumnsState = JSON.parse(JSON.stringify(customCols));
+  
   (config.board || []).forEach(k => { if (getColumnDefinition(k) && !allKeys.includes(k)) allKeys.push(k); });
   COLUMN_DEFINITIONS.forEach(def => { if (!allKeys.includes(def.key)) allKeys.push(def.key); });
+  adminCustomColumnsState.forEach(def => { if (!allKeys.includes(def.key)) allKeys.push(def.key); });
 
   const uiState = {};
   allKeys.forEach(k => {
@@ -2234,7 +2239,155 @@ function renderColumnConfig(config) {
   renderOrderItems();
   orderSection.appendChild(orderList);
   columnSettingContainer.appendChild(orderSection);
+
+  // カスタムカラムエディタの描画
+  renderCustomColumnEditor();
 }
+
+/**
+ * カスタムカラム編集UIの描画
+ */
+function renderCustomColumnEditor() {
+  const container = document.getElementById('customColumnEditor');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (adminCustomColumnsState.length === 0) {
+    container.innerHTML = '<p class="u-text-center u-text-gray u-my-12">現在、作成されたカスタムカラムはありません。</p>';
+    return;
+  }
+
+  adminCustomColumnsState.forEach((col, idx) => {
+    const box = el('div', { class: 'custom-column-item', style: 'border: 1px solid var(--border); padding: 12px; margin-bottom: 12px; border-radius: 4px; background: var(--bg-secondary);' });
+    
+    // ヘッダー部
+    const header = el('div', { class: 'u-flex-between-center u-mb-2' });
+    header.appendChild(el('strong', { text: `カラム：${col.label || col.key}` }));
+    const delBtn = el('button', { class: 'btn-danger btn-sm', text: '削除' });
+    delBtn.onclick = () => {
+      if (confirm(`カスタムカラム "${col.label}" を削除しますか？\n※既存の設定から削除され、復元できません。`)) {
+        adminCustomColumnsState.splice(idx, 1);
+        renderCustomColumnEditor();
+        // プレビュー等も更新
+        const fakeConfig = { board: adminColumnAllKeys.filter(k=>adminColumnUiState[k]?.board), popup: adminColumnAllKeys.filter(k=>adminColumnUiState[k]?.popup), customColumns: adminCustomColumnsState };
+        renderColumnConfig(fakeConfig);
+      }
+    };
+    header.appendChild(delBtn);
+    box.appendChild(header);
+
+    // フォーム部
+    const grid = el('div', { style: 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;' });
+
+    // 表示名
+    const labelGroup = el('div');
+    labelGroup.appendChild(el('label', { text: '表示名', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+    const labelInput = el('input', { type: 'text', class: 'admin-input', value: col.label });
+    labelInput.oninput = e => col.label = e.target.value;
+    labelGroup.appendChild(labelInput);
+    grid.appendChild(labelGroup);
+
+    // 種類
+    const typeGroup = el('div');
+    typeGroup.appendChild(el('label', { text: '種類', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+    const typeSel = el('select', { class: 'admin-input' });
+    typeSel.innerHTML = `
+      <option value="textual">テキスト（自由入力）</option>
+      <option value="select">リスト（選択のみ・ステータス型）</option>
+      <option value="candidate">候補リスト（選択＋自由入力・備考型）</option>
+    `;
+    // We map custom types: text -> textual (to distinguish from builtin text type), select -> select, candidate -> candidate
+    typeSel.value = col.type || 'textual';
+    typeSel.onchange = e => {
+      col.type = e.target.value;
+      renderCustomColumnEditor();
+    };
+    typeGroup.appendChild(typeSel);
+    grid.appendChild(typeGroup);
+
+    box.appendChild(grid);
+
+    // オプション（選択肢） - select / candidate の場合のみ表示
+    if (col.type === 'select' || col.type === 'candidate') {
+      const optGroup = el('div', { style: 'margin-top: 12px;' });
+      optGroup.appendChild(el('label', { text: '選択肢（カンマ区切りで入力）', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      const optInput = el('input', { type: 'text', class: 'admin-input', value: (col.options || []).join(',') });
+      optInput.oninput = e => {
+        col.options = e.target.value.split(',').map(s => s.trim()).filter(s => s);
+      };
+      optGroup.appendChild(optInput);
+      box.appendChild(optGroup);
+    }
+
+    // 依存関係（簡易版：親カラムとその値）
+    const depGroup = el('div', { style: 'margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border);' });
+    depGroup.appendChild(el('label', { text: '条件付き編集（特定の条件を満たす場合のみ入力可能にする）', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+    
+    const depFlex = el('div', { style: 'display: flex; gap: 8px; align-items: center;' });
+    const useDepCb = el('input', { type: 'checkbox' });
+    useDepCb.checked = !!col.dependsOn;
+    
+    const depColSel = el('select', { class: 'admin-input', style: 'width: 120px;' });
+    depColSel.innerHTML = '<option value="">(親カラム)</option><option value="status">ステータス</option>';
+    
+    const depValInput = el('input', { type: 'text', class: 'admin-input', placeholder: '親の値(例: 外出)', style: 'flex: 1;' });
+    
+    if (col.dependsOn) {
+      depColSel.value = col.dependsOn.column || '';
+      depValInput.value = (col.dependsOn.values || []).join(',');
+    }
+
+    const updateDep = () => {
+      if (useDepCb.checked) {
+        col.dependsOn = {
+          column: depColSel.value,
+          values: depValInput.value.split(',').map(s => s.trim()).filter(s => s)
+        };
+      } else {
+        delete col.dependsOn;
+      }
+    };
+
+    useDepCb.onchange = () => {
+      depColSel.disabled = !useDepCb.checked;
+      depValInput.disabled = !useDepCb.checked;
+      updateDep();
+    };
+    depColSel.onchange = updateDep;
+    depValInput.oninput = updateDep;
+    
+    depColSel.disabled = !useDepCb.checked;
+    depValInput.disabled = !useDepCb.checked;
+
+    depFlex.appendChild(useDepCb);
+    depFlex.appendChild(depColSel);
+    depFlex.appendChild(el('span', { text: 'が次の値の時:', style: 'font-size: 12px;' }));
+    depFlex.appendChild(depValInput);
+    depGroup.appendChild(depFlex);
+    
+    box.appendChild(depGroup);
+
+    container.appendChild(box);
+  });
+}
+
+document.getElementById('btnAddCustomColumn')?.addEventListener('click', () => {
+  const keyName = 'custom_' + Date.now().toString(36);
+  adminCustomColumnsState.push({
+    key: keyName,
+    label: '新しい項目',
+    type: 'textual',
+    defaultWidth: 100,
+    tableClass: keyName,
+    dataLabel: '新しい項目',
+    popupEligible: true
+  });
+  renderCustomColumnEditor();
+  // リストを更新するために fakeConfig を流し込む
+  const fakeConfig = { board: adminColumnAllKeys.filter(k=>adminColumnUiState[k]?.board), popup: adminColumnAllKeys.filter(k=>adminColumnUiState[k]?.popup), customColumns: adminCustomColumnsState };
+  renderColumnConfig(fakeConfig);
+});
+
 
 async function saveColumnConfig(allKeysArg, uiStateArg, layoutConfigArg) {
   const office = selectedOfficeId(); if (!office) return;
@@ -2277,7 +2430,7 @@ async function saveColumnConfig(allKeysArg, uiStateArg, layoutConfigArg) {
     }
   });
 
-  const configPayload = { board: boardKeys, popup: popupKeys, columnWidths, layoutConfig };
+  const configPayload = { board: boardKeys, popup: popupKeys, columnWidths, layoutConfig, customColumns: adminCustomColumnsState };
 
   try {
     const res = await apiPost({
