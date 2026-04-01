@@ -283,94 +283,100 @@ function buildRow(member) {
 
     const td = el('td', { class: def.tableClass, 'data-label': def.dataLabel });
     
-    switch (colKey) {
-      case 'name':
-        td.textContent = sanitizeText(member.name || "");
-        break;
-      
-      case 'status': {
-        const sel = el('select', { id: `status-${key}`, name: 'status' });
-        td.appendChild(el('label', { class: 'sr-only', for: `status-${key}`, text: 'ステータス' }));
-        STATUSES.forEach(s => sel.appendChild(el('option', { value: s.value, text: s.value })));
-        sel.value = member.status || STATUSES[0]?.value || "";
-        td.appendChild(sel);
-        break;
-      }
-      
-      case 'time': {
-        const sel = el('select', { id: `time-${key}`, name: 'time' });
-        td.appendChild(el('label', { class: 'sr-only', for: `time-${key}`, text: '戻り時間' }));
-        sel.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
-        sel.value = member.time || "";
-        td.appendChild(sel);
-        break;
-      }
-      
-      case 'workHours': {
-        const val = member.workHours == null ? '' : String(member.workHours);
-        const field = buildCandidateField({ id: `work-${key}`, name: 'workHours', placeholder: '09:00-17:30', type: 'workHours', value: val });
-        td.appendChild(el('label', { class: 'sr-only', for: `work-${key}`, text: '業務時間' }));
-        td.appendChild(field.wrapper);
-        break;
-      }
-      
-      case 'tomorrowPlan': {
-        const sel = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
-        td.appendChild(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }));
-        const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
-        sel.appendChild(el('option', { value: '', text: '' }));
-        planOptions.forEach(v => sel.appendChild(el('option', { value: String(v), text: String(v) })));
-        sel.value = member.tomorrowPlan == null ? '' : String(member.tomorrowPlan);
-        td.appendChild(sel);
-        break;
-      }
-      
-      case 'note': {
-        const field = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: member.note || "" });
-        td.appendChild(field.wrapper);
-        break;
-      }
-      
-      default:
-        if (def.type === 'textual' || def.type === 'text') {
-          const input = el('input', { type: 'text', name: colKey, class: 'candidate-input', style: 'width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 4px;' });
-          input.value = member[colKey] || '';
-          // 依存関係の評価
-          if (def.dependsOn && def.dependsOn.column) {
-            const pVal = member[def.dependsOn.column] || '';
-            if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
-               input.disabled = true;
-            }
+    // カスタマイズされているか判定
+    const baseSys = COLUMN_DEFINITIONS.find(c => c.key === colKey);
+    const isCustomized = !baseSys || def.type !== baseSys.type || (def.options && def.options.length > 0) || def.dependsOn;
+
+    // nameガラムは特別扱い
+    if (colKey === 'name') {
+      td.textContent = sanitizeText(member.name || "");
+      tr.appendChild(td);
+      return;
+    }
+
+    if (isCustomized) {
+      // 汎用ビルダー（カスタムカラムや設定変更されたシステムカラム）
+      if (def.type === 'textual' || def.type === 'text') {
+        const input = el('input', { type: 'text', name: colKey, class: 'candidate-input', style: 'width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 4px;' });
+        input.value = member[colKey] || '';
+        if (def.dependsOn && def.dependsOn.column) {
+          const pVal = member[def.dependsOn.column] || '';
+          if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
+             input.disabled = true;
           }
-          td.appendChild(input);
-        } else if (def.type === 'select') {
-          const sel = el('select', { id: `${colKey}-${key}`, name: colKey, class: 'admin-input', style: 'width: 100%; padding: 4px;' });
-          td.appendChild(el('label', { class: 'sr-only', for: `${colKey}-${key}`, text: def.label }));
-          const opts = def.options || [];
-          sel.appendChild(el('option', { value: '', text: '' }));
-          opts.forEach(v => sel.appendChild(el('option', { value: String(v), text: String(v) })));
-          sel.value = member[colKey] || '';
-          if (def.dependsOn && def.dependsOn.column) {
-            const pVal = member[def.dependsOn.column] || '';
-            if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
-               sel.disabled = true;
-            }
-          }
-          td.appendChild(sel);
-        } else if (def.type === 'candidate') {
-          const field = buildCandidateField({ id: `${colKey}-${key}`, name: colKey, placeholder: def.label, type: colKey, value: member[colKey] || '' });
-          if (def.dependsOn && def.dependsOn.column) {
-            const pVal = member[def.dependsOn.column] || '';
-            if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
-               field.input.disabled = true;
-            }
-          }
-          td.appendChild(field.wrapper);
-        } else {
-          // ext, mobile, email 等の表示専用カラム
-          td.textContent = member[def.dbField || colKey] || "";
         }
-        break;
+        td.appendChild(input);
+      } else if (def.type === 'select') {
+        const sel = el('select', { id: `${colKey}-${key}`, name: colKey, class: 'admin-input', style: 'width: 100%; padding: 4px;' });
+        td.appendChild(el('label', { class: 'sr-only', for: `${colKey}-${key}`, text: def.label }));
+        const opts = def.options || [];
+        sel.appendChild(el('option', { value: '', text: '' }));
+        opts.forEach(v => sel.appendChild(el('option', { value: String(v), text: String(v) })));
+        sel.value = member[colKey] || '';
+        if (def.dependsOn && def.dependsOn.column) {
+          const pVal = member[def.dependsOn.column] || '';
+          if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
+             sel.disabled = true;
+          }
+        }
+        td.appendChild(sel);
+      } else if (def.type === 'candidate') {
+        const field = buildCandidateField({ id: `${colKey}-${key}`, name: colKey, placeholder: def.label, type: colKey, value: member[colKey] || '' });
+        if (def.dependsOn && def.dependsOn.column) {
+          const pVal = member[def.dependsOn.column] || '';
+          if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
+             field.input.disabled = true;
+          }
+        }
+        td.appendChild(field.wrapper);
+      } else {
+        td.textContent = member[def.dbField || colKey] || "";
+      }
+    } else {
+      // システム標準のビルダー
+      switch (colKey) {
+        case 'status': {
+          const sel = el('select', { id: `status-${key}`, name: 'status' });
+          td.appendChild(el('label', { class: 'sr-only', for: `status-${key}`, text: 'ステータス' }));
+          STATUSES.forEach(s => sel.appendChild(el('option', { value: s.value, text: s.value })));
+          sel.value = member.status || STATUSES[0]?.value || "";
+          td.appendChild(sel);
+          break;
+        }
+        case 'time': {
+          const sel = el('select', { id: `time-${key}`, name: 'time' });
+          td.appendChild(el('label', { class: 'sr-only', for: `time-${key}`, text: '戻り時間' }));
+          sel.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
+          sel.value = member.time || "";
+          td.appendChild(sel);
+          break;
+        }
+        case 'workHours': {
+          const val = member.workHours == null ? '' : String(member.workHours);
+          const field = buildCandidateField({ id: `work-${key}`, name: 'workHours', placeholder: '09:00-17:30', type: 'workHours', value: val });
+          td.appendChild(el('label', { class: 'sr-only', for: `work-${key}`, text: '業務時間' }));
+          td.appendChild(field.wrapper);
+          break;
+        }
+        case 'tomorrowPlan': {
+          const sel = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
+          td.appendChild(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }));
+          const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
+          sel.appendChild(el('option', { value: '', text: '' }));
+          planOptions.forEach(v => sel.appendChild(el('option', { value: String(v), text: String(v) })));
+          sel.value = member.tomorrowPlan == null ? '' : String(member.tomorrowPlan);
+          td.appendChild(sel);
+          break;
+        }
+        case 'note': {
+          const field = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: member.note || "" });
+          td.appendChild(field.wrapper);
+          break;
+        }
+        default:
+          td.textContent = member[def.dbField || colKey] || "";
+          break;
+      }
     }
     
     tr.appendChild(td);
@@ -614,24 +620,20 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(
 function getRowStateByTr(tr) {
   if (!tr) return { ext: "", workHours: "", status: STATUSES[0]?.value || "在席", time: "", tomorrowPlan: "", note: "" };
   const workHoursInput = tr.querySelector('input[name="workHours"]');
-  const state = {
-    ext: tr.querySelector('td.ext')?.textContent.trim() || "",
-    workHours: workHoursInput ? workHoursInput.value : "",
-    status: tr.querySelector('select[name="status"]')?.value || STATUSES[0]?.value || "在席",
-    time: tr.querySelector('select[name="time"]')?.value || "",
-    tomorrowPlan: tr.querySelector('select[name="tomorrowPlan"]')?.value || "",
-    note: tr.querySelector('input[name="note"]')?.value || ""
-  };
+  const state = {};
 
   const enabledKeys = getEnabledColumns();
   enabledKeys.forEach(colKey => {
-    if (['name', 'status', 'time', 'workHours', 'tomorrowPlan', 'note', 'ext', 'mobile', 'email'].includes(colKey)) return;
+    // 編集・更新に関わらない純粋な表示用フィールドはスキップ
+    if (colKey === 'name' || colKey === 'ext' || colKey === 'mobile' || colKey === 'email') return;
+
     const def = getColumnDefinition(colKey);
     if (!def) return;
+
     if (def.type === 'textual' || def.type === 'text' || def.type === 'candidate') {
       const input = tr.querySelector(`input[name="${colKey}"]`);
       if (input) state[colKey] = input.value;
-    } else if (def.type === 'select') {
+    } else if (def.type === 'select' || def.type === 'time-select') {
       const select = tr.querySelector(`select[name="${colKey}"]`);
       if (select) state[colKey] = select.value;
     }

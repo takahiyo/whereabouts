@@ -2092,36 +2092,64 @@ async function loadColumnConfig() {
   }
 }
 
+let adminColumnsSetup = []; // 統合されたカラム設定の配列
+
 function renderColumnConfig(config) {
   if (!columnSettingContainer) return;
   columnSettingContainer.innerHTML = '';
 
   const widths = (config.columnWidths && typeof config.columnWidths === 'object') ? config.columnWidths : {};
+  const customCols = Array.isArray(config.customColumns) ? config.customColumns : [];
 
   const allKeys = [];
-  // Ensure we also grab keys from customColumns
-  const customCols = Array.isArray(config.customColumns) ? config.customColumns : [];
-  adminCustomColumnsState = JSON.parse(JSON.stringify(customCols));
-  
-  (config.board || []).forEach(k => { if (getColumnDefinition(k) && !allKeys.includes(k)) allKeys.push(k); });
-  COLUMN_DEFINITIONS.forEach(def => { if (!allKeys.includes(def.key)) allKeys.push(def.key); });
-  adminCustomColumnsState.forEach(def => { if (!allKeys.includes(def.key)) allKeys.push(def.key); });
+  const setupPropsMap = {}; // key -> properties
 
-  const uiState = {};
-  allKeys.forEach(k => {
+  // ヘルパー: stateを構築
+  const addKeyToSetup = (k, sourceDef) => {
+    if (allKeys.includes(k)) return;
+    allKeys.push(k);
+    
+    // widths や ui state (board/popup)
     const w = widths[k] || {};
-    const def = getColumnDefinition(k);
-    uiState[k] = {
-      board: (config.board || []).includes(k) || k === 'name' || k === 'status',
-      popup: (config.popup || []).includes(k),
-      min: w.min != null ? w.min : '',
-      max: w.max != null ? w.max : ''
-    };
-  });
+    const isBoard = (config.board || []).includes(k) || k === 'name' || k === 'status';
+    const isPopup = (config.popup || []).includes(k);
+    
+    // Is it a built-in system key?
+    const sysDef = COLUMN_DEFINITIONS.find(c => c.key === k);
+    const isSystem = !!sysDef;
 
-  // モジュールレベル変数に現在の状態を同期
+    // Use custom column data if available (override)
+    let custDef = customCols.find(c => c.key === k);
+    let finalDef = custDef || sysDef || sourceDef || { key: k, label: k, type: 'textual' };
+
+    setupPropsMap[k] = {
+      key: k,
+      label: finalDef.label || k,
+      type: finalDef.type || 'textual',
+      options: finalDef.options ? [...finalDef.options] : [],
+      dependsOn: finalDef.dependsOn ? JSON.parse(JSON.stringify(finalDef.dependsOn)) : null,
+      board: isBoard,
+      popup: isPopup,
+      min: w.min != null ? w.min : '',
+      max: w.max != null ? w.max : '',
+      isSystem: isSystem,
+      popupEligible: finalDef.popupEligible === undefined ? true : finalDef.popupEligible
+    };
+  };
+
+  (config.board || []).forEach(k => addKeyToSetup(k));
+  COLUMN_DEFINITIONS.forEach(def => addKeyToSetup(def.key, def));
+  customCols.forEach(def => addKeyToSetup(def.key, def));
+
+  // Build the array
+  adminColumnsSetup = allKeys.map(k => setupPropsMap[k]);
+
+  // モジュールレベル変数に同期（互換性担保用）
   adminColumnAllKeys = allKeys;
-  adminColumnUiState = uiState;
+  adminColumnUiState = {};
+  adminColumnsSetup.forEach(col => {
+    adminColumnUiState[col.key] = { board: col.board, popup: col.popup, min: col.min, max: col.max };
+  });
 
   // レイアウト設定 (Phase 8: レスポンシブしきい値)
   const layoutConfig = config.layoutConfig || {};
@@ -2151,286 +2179,292 @@ function renderColumnConfig(config) {
   responsiveSection.appendChild(layoutGrid);
   columnSettingContainer.appendChild(responsiveSection);
 
-
   const orderSection = el('div', { class: 'admin-subsection column-order-section' });
-  orderSection.appendChild(el('h5', { text: '📐 カラム表示設定と幅指定' }));
-  orderSection.appendChild(el('p', { class: 'admin-note', text: '「ボード」列にチェックを入れると表に表示され、「ポップアップ」にチェックを入れると名前クリック時の連絡先として表示されます。▲/▼で並べ替え可能。最小/最大の幅を指定するとボード上のカラム幅が制約されます。最大幅を空にすると、画面幅に合わせて自動調整されます。' }));
-
+  orderSection.appendChild(el('h5', { text: '📐 カラムごとの設定（表示・幅・種類・機能）' }));
+  
   const orderList = el('div', { id: 'columnOrderList', class: 'column-order-list' });
 
-  function renderOrderItems() {
+  function renderColumnListItems() {
     orderList.innerHTML = '';
-    allKeys.forEach((key, idx) => {
-      const def = getColumnDefinition(key);
-      if (!def) return;
-      const boardDisabled = (key === 'name' || key === 'status');
-      const popupDisabled = !def.popupEligible;
+    adminColumnsSetup.forEach((col, idx) => {
+      // name は削除不可・非表示不可の絶対項目
+      const isName = (col.key === 'name');
+      const isStatus = (col.key === 'status');
+      const boardDisabled = isName || isStatus;
+      const popupDisabled = !col.popupEligible;
 
-      const item = el('div', { class: 'column-order-item column-order-item-unified', 'data-key': key });
+      const item = el('div', { class: 'column-order-item unified-column-item', style: 'flex-direction: column; align-items: stretch; border: 1px solid var(--border); margin-bottom: 8px; padding: 12px; border-radius: 4px; background: var(--bg-secondary);' });
 
-      const moveGrp = el('div', { class: 'column-move-grp' }, [
-        el('span', { class: 'column-order-num', text: String(idx + 1) })
-      ]);
-      const moveActions = el('div', { class: 'column-order-actions' });
+      // 上部バー: 並び替え, トグル, 削除, 展開
+      const topBar = el('div', { style: 'display: flex; align-items: center; gap: 12px;' });
+      
+      const moveActions = el('div', { class: 'column-order-actions', style: 'flex-shrink: 0;' });
       const upBtn = el('button', { class: 'btn-move-up', text: '▲', title: '上に移動' });
       upBtn.disabled = (idx === 0);
       upBtn.addEventListener('click', () => {
         if (idx <= 0) return;
-        const tmp = allKeys[idx - 1];
-        allKeys[idx - 1] = allKeys[idx];
-        allKeys[idx] = tmp;
-        renderOrderItems();
+        const tmp = adminColumnsSetup[idx - 1];
+        adminColumnsSetup[idx - 1] = adminColumnsSetup[idx];
+        adminColumnsSetup[idx] = tmp;
+        renderColumnListItems();
       });
       const downBtn = el('button', { class: 'btn-move-down', text: '▼', title: '下に移動' });
-      downBtn.disabled = (idx === allKeys.length - 1);
+      downBtn.disabled = (idx === adminColumnsSetup.length - 1);
       downBtn.addEventListener('click', () => {
-        if (idx >= allKeys.length - 1) return;
-        const tmp = allKeys[idx + 1];
-        allKeys[idx + 1] = allKeys[idx];
-        allKeys[idx] = tmp;
-        renderOrderItems();
+        if (idx >= adminColumnsSetup.length - 1) return;
+        const tmp = adminColumnsSetup[idx + 1];
+        adminColumnsSetup[idx + 1] = adminColumnsSetup[idx];
+        adminColumnsSetup[idx] = tmp;
+        renderColumnListItems();
       });
       moveActions.append(upBtn, downBtn);
-      moveGrp.appendChild(moveActions);
-
-      const nameLabel = el('span', { class: 'column-order-label', text: def.label });
-      if (boardDisabled) nameLabel.appendChild(el('span', { class: 'column-order-badge', text: '必須' }));
-      moveGrp.appendChild(nameLabel);
-
-      const toggleGrp = el('div', { class: 'column-toggle-grp' });
       
-      const boardCb = el('input', { type: 'checkbox', 'data-key': key, 'data-type': 'board', disabled: !!boardDisabled });
-      boardCb.checked = uiState[key].board;
-      boardCb.addEventListener('change', e => uiState[key].board = e.target.checked);
+      const titleSpan = el('strong', { text: col.label, style: 'min-width: 120px;' });
+      if (isName) titleSpan.appendChild(el('span', { class: 'column-order-badge', text: '必須', style: 'margin-left: 8px;' }));
+      if (!col.isSystem) titleSpan.appendChild(el('span', { class: 'column-order-badge', text: '独自', style: 'margin-left: 8px; background: var(--accent); color: white;' }));
+
+      const toggleGrp = el('div', { class: 'column-toggle-grp', style: 'flex: 1;' });
+      const boardCb = el('input', { type: 'checkbox', disabled: !!boardDisabled });
+      boardCb.checked = col.board;
+      boardCb.addEventListener('change', e => col.board = e.target.checked);
       const boardLabel = el('label', { class: 'column-toggle-label' });
-      boardLabel.append(boardCb, document.createTextNode(' ボード'));
+      boardLabel.append(boardCb, document.createTextNode(' ボード表示'));
 
-      const popupCb = el('input', { type: 'checkbox', 'data-key': key, 'data-type': 'popup', disabled: !!popupDisabled });
-      popupCb.checked = uiState[key].popup;
-      popupCb.addEventListener('change', e => uiState[key].popup = e.target.checked);
+      const popupCb = el('input', { type: 'checkbox', disabled: !!popupDisabled });
+      popupCb.checked = col.popup;
+      popupCb.addEventListener('change', e => col.popup = e.target.checked);
       const popupLabel = el('label', { class: 'column-toggle-label' });
-      popupLabel.append(popupCb, document.createTextNode(' ポップアップ'));
-
+      popupLabel.append(popupCb, document.createTextNode(' ポップアップ表示'));
       toggleGrp.append(boardLabel, popupLabel);
 
-      const widthGroup = el('div', { class: 'column-width-group' });
-      const defaultW = def.defaultWidth || 100;
+      const actionGrp = el('div', { style: 'display: flex; gap: 8px;' });
       
-      const minInput = el('input', { type: 'number', class: 'column-width-input', placeholder: String(defaultW), min: '10', max: '1000' });
-      minInput.value = uiState[key].min;
-      minInput.addEventListener('input', e => uiState[key].min = e.target.value);
+      const expandBtn = el('button', { class: 'btn-primary btn-sm', text: '詳細設定 🔽' });
+      let expanded = false;
+
+      const dupBtn = el('button', { class: 'btn-primary btn-sm', style: 'background: var(--text-muted);', text: '複製' });
+      dupBtn.onclick = () => {
+        const newKey = 'custom_' + Date.now().toString(36);
+        const dupSetup = JSON.parse(JSON.stringify(col));
+        dupSetup.key = newKey;
+        dupSetup.label = dupSetup.label + '（コピー）';
+        dupSetup.isSystem = false;
+        adminColumnsSetup.splice(idx + 1, 0, dupSetup);
+        renderColumnListItems();
+      };
       
+      const delBtn = el('button', { class: 'btn-danger btn-sm', text: '削除' });
+      delBtn.disabled = isName; // nameは削除禁止
+      delBtn.onclick = () => {
+        if (confirm(`「${col.label}」を削除しますか？\n（既存の入力値やこのカラムに依存する設定が機能しなくなります）`)) {
+          adminColumnsSetup.splice(idx, 1);
+          renderColumnListItems();
+        }
+      };
+      
+      actionGrp.append(dupBtn, delBtn, expandBtn);
+      topBar.append(moveActions, titleSpan, toggleGrp, actionGrp);
+      item.appendChild(topBar);
+
+      // 詳細設定パネル (アコーディオン)
+      const detailPanel = el('div', { style: 'display: none; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); grid-template-columns: 1fr 1fr; gap: 12px;' });
+      
+      expandBtn.onclick = () => {
+        expanded = !expanded;
+        expandBtn.textContent = expanded ? '詳細設定 🔼' : '詳細設定 🔽';
+        detailPanel.style.display = expanded ? 'grid' : 'none';
+      };
+
+      // 表示名
+      const labelGroup = el('div');
+      labelGroup.appendChild(el('label', { text: '表示名', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      const labelInput = el('input', { type: 'text', class: 'admin-input', value: col.label });
+      labelInput.oninput = e => { col.label = e.target.value; titleSpan.firstChild.textContent = col.label; };
+      labelGroup.appendChild(labelInput);
+      detailPanel.appendChild(labelGroup);
+
+      // 種類
+      const typeGroup = el('div');
+      typeGroup.appendChild(el('label', { text: '種類', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      const typeSel = el('select', { class: 'admin-input' });
+      typeSel.innerHTML = `
+        <option value="textual">テキスト（自由入力）</option>
+        <option value="select">リスト（選択のみ・ステータス型）</option>
+        <option value="candidate">候補リスト（選択＋自由入力・備考型）</option>
+      `;
+      typeSel.value = col.type || 'textual';
+      
+      const optGroup = el('div', { style: 'margin-top: 12px;' });
+      optGroup.style.display = (col.type === 'select' || col.type === 'candidate') ? 'block' : 'none';
+      optGroup.appendChild(el('label', { text: '選択肢（カンマ区切り）', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      const optInput = el('input', { type: 'text', class: 'admin-input', value: (col.options || []).join(',') });
+      optInput.oninput = e => { col.options = e.target.value.split(',').map(s => s.trim()).filter(s => s); };
+      optGroup.appendChild(optInput);
+
+      typeSel.onchange = e => {
+        col.type = e.target.value;
+        optGroup.style.display = (col.type === 'select' || col.type === 'candidate') ? 'block' : 'none';
+      };
+      typeGroup.append(typeSel, optGroup);
+      detailPanel.appendChild(typeGroup);
+
+      // 幅グループ
+      const widthGroup = el('div', { class: 'column-width-group', style: 'flex-direction: column; align-items: flex-start; justify-content: flex-start;' });
+      widthGroup.appendChild(el('label', { text: 'ボード上での列幅 (px)', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      const wFlex = el('div', { style: 'display:flex; align-items:center; gap:4px;' });
+      const minInput = el('input', { type: 'number', class: 'column-width-input', placeholder: '100', min: '10', max: '1000' });
+      minInput.value = col.min;
+      minInput.addEventListener('input', e => col.min = e.target.value);
       const maxInput = el('input', { type: 'number', class: 'column-width-input', placeholder: '自動', min: '10', max: '1000' });
-      maxInput.value = uiState[key].max;
-      maxInput.addEventListener('input', e => uiState[key].max = e.target.value);
+      maxInput.value = col.max;
+      maxInput.addEventListener('input', e => col.max = e.target.value);
+      wFlex.append(el('span', { text:'最小', style:'font-size:12px;' }), minInput, el('span', { text:'〜' }), el('span', { text:'最大', style:'font-size:12px;' }), maxInput);
+      widthGroup.appendChild(wFlex);
+      detailPanel.appendChild(widthGroup);
 
-      widthGroup.append(
-        el('span', { class: 'column-width-label', text: '最小' }), minInput,
-        el('span', { class: 'column-width-sep', text: '〜' }),
-        el('span', { class: 'column-width-label', text: '最大' }), maxInput,
-        el('span', { class: 'column-width-unit', text: 'px' })
-      );
+      // 依存関係
+      const depGroup = el('div');
+      depGroup.appendChild(el('label', { text: '条件付き編集（特定の条件を満たす場合のみ入力可能にする）', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      
+      const depFlex = el('div', { style: 'display: flex; gap: 8px; align-items: center; margin-top: 8px;' });
+      const useDepCb = el('input', { type: 'checkbox' });
+      useDepCb.checked = !!col.dependsOn;
+      
+      const depColSel = el('select', { class: 'admin-input', style: 'width: 120px;' });
+      depColSel.innerHTML = '<option value="">(親カラム)</option>';
+      adminColumnsSetup.forEach(c => {
+         if (c.key !== col.key) {
+           depColSel.appendChild(el('option', { value: c.key, text: c.label }));
+         }
+      });
+      
+      const depValInput = el('input', { type: 'text', class: 'admin-input', placeholder: '親の値(例: 外出)', style: 'flex: 1;' });
+      
+      if (col.dependsOn) {
+        depColSel.value = col.dependsOn.column || '';
+        depValInput.value = (col.dependsOn.values || []).join(',');
+      }
 
-      item.append(moveGrp, toggleGrp, widthGroup);
+      const updateDep = () => {
+        if (useDepCb.checked) {
+          col.dependsOn = {
+            column: depColSel.value,
+            values: depValInput.value.split(',').map(s => s.trim()).filter(s => s)
+          };
+        } else {
+          col.dependsOn = null;
+        }
+      };
+
+      useDepCb.onchange = () => {
+        depColSel.disabled = !useDepCb.checked;
+        depValInput.disabled = !useDepCb.checked;
+        updateDep();
+      };
+      depColSel.onchange = updateDep;
+      depValInput.oninput = updateDep;
+      
+      depColSel.disabled = !useDepCb.checked;
+      depValInput.disabled = !useDepCb.checked;
+
+      depFlex.append(useDepCb, depColSel, el('span', { text: 'が次の値の時:', style: 'font-size: 12px;' }), depValInput);
+      depGroup.appendChild(depFlex);
+      detailPanel.appendChild(depGroup);
+
+      item.appendChild(detailPanel);
       orderList.appendChild(item);
     });
   }
 
-  renderOrderItems();
+  renderColumnListItems();
   orderSection.appendChild(orderList);
   columnSettingContainer.appendChild(orderSection);
-
-  // カスタムカラムエディタの描画
-  renderCustomColumnEditor();
-}
-
-/**
- * カスタムカラム編集UIの描画
- */
-function renderCustomColumnEditor() {
-  const container = document.getElementById('customColumnEditor');
-  if (!container) return;
-  container.innerHTML = '';
-
-  if (adminCustomColumnsState.length === 0) {
-    container.innerHTML = '<p class="u-text-center u-text-gray u-my-12">現在、作成されたカスタムカラムはありません。</p>';
-    return;
-  }
-
-  adminCustomColumnsState.forEach((col, idx) => {
-    const box = el('div', { class: 'custom-column-item', style: 'border: 1px solid var(--border); padding: 12px; margin-bottom: 12px; border-radius: 4px; background: var(--bg-secondary);' });
-    
-    // ヘッダー部
-    const header = el('div', { class: 'u-flex-between-center u-mb-2' });
-    header.appendChild(el('strong', { text: `カラム：${col.label || col.key}` }));
-    const delBtn = el('button', { class: 'btn-danger btn-sm', text: '削除' });
-    delBtn.onclick = () => {
-      if (confirm(`カスタムカラム "${col.label}" を削除しますか？\n※既存の設定から削除され、復元できません。`)) {
-        adminCustomColumnsState.splice(idx, 1);
-        renderCustomColumnEditor();
-        // プレビュー等も更新
-        const fakeConfig = { board: adminColumnAllKeys.filter(k=>adminColumnUiState[k]?.board), popup: adminColumnAllKeys.filter(k=>adminColumnUiState[k]?.popup), customColumns: adminCustomColumnsState };
-        renderColumnConfig(fakeConfig);
-      }
-    };
-    header.appendChild(delBtn);
-    box.appendChild(header);
-
-    // フォーム部
-    const grid = el('div', { style: 'display: grid; grid-template-columns: 1fr 1fr; gap: 12px;' });
-
-    // 表示名
-    const labelGroup = el('div');
-    labelGroup.appendChild(el('label', { text: '表示名', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
-    const labelInput = el('input', { type: 'text', class: 'admin-input', value: col.label });
-    labelInput.oninput = e => col.label = e.target.value;
-    labelGroup.appendChild(labelInput);
-    grid.appendChild(labelGroup);
-
-    // 種類
-    const typeGroup = el('div');
-    typeGroup.appendChild(el('label', { text: '種類', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
-    const typeSel = el('select', { class: 'admin-input' });
-    typeSel.innerHTML = `
-      <option value="textual">テキスト（自由入力）</option>
-      <option value="select">リスト（選択のみ・ステータス型）</option>
-      <option value="candidate">候補リスト（選択＋自由入力・備考型）</option>
-    `;
-    // We map custom types: text -> textual (to distinguish from builtin text type), select -> select, candidate -> candidate
-    typeSel.value = col.type || 'textual';
-    typeSel.onchange = e => {
-      col.type = e.target.value;
-      renderCustomColumnEditor();
-    };
-    typeGroup.appendChild(typeSel);
-    grid.appendChild(typeGroup);
-
-    box.appendChild(grid);
-
-    // オプション（選択肢） - select / candidate の場合のみ表示
-    if (col.type === 'select' || col.type === 'candidate') {
-      const optGroup = el('div', { style: 'margin-top: 12px;' });
-      optGroup.appendChild(el('label', { text: '選択肢（カンマ区切りで入力）', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
-      const optInput = el('input', { type: 'text', class: 'admin-input', value: (col.options || []).join(',') });
-      optInput.oninput = e => {
-        col.options = e.target.value.split(',').map(s => s.trim()).filter(s => s);
-      };
-      optGroup.appendChild(optInput);
-      box.appendChild(optGroup);
-    }
-
-    // 依存関係（簡易版：親カラムとその値）
-    const depGroup = el('div', { style: 'margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border);' });
-    depGroup.appendChild(el('label', { text: '条件付き編集（特定の条件を満たす場合のみ入力可能にする）', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
-    
-    const depFlex = el('div', { style: 'display: flex; gap: 8px; align-items: center;' });
-    const useDepCb = el('input', { type: 'checkbox' });
-    useDepCb.checked = !!col.dependsOn;
-    
-    const depColSel = el('select', { class: 'admin-input', style: 'width: 120px;' });
-    depColSel.innerHTML = '<option value="">(親カラム)</option><option value="status">ステータス</option>';
-    
-    const depValInput = el('input', { type: 'text', class: 'admin-input', placeholder: '親の値(例: 外出)', style: 'flex: 1;' });
-    
-    if (col.dependsOn) {
-      depColSel.value = col.dependsOn.column || '';
-      depValInput.value = (col.dependsOn.values || []).join(',');
-    }
-
-    const updateDep = () => {
-      if (useDepCb.checked) {
-        col.dependsOn = {
-          column: depColSel.value,
-          values: depValInput.value.split(',').map(s => s.trim()).filter(s => s)
-        };
-      } else {
-        delete col.dependsOn;
-      }
-    };
-
-    useDepCb.onchange = () => {
-      depColSel.disabled = !useDepCb.checked;
-      depValInput.disabled = !useDepCb.checked;
-      updateDep();
-    };
-    depColSel.onchange = updateDep;
-    depValInput.oninput = updateDep;
-    
-    depColSel.disabled = !useDepCb.checked;
-    depValInput.disabled = !useDepCb.checked;
-
-    depFlex.appendChild(useDepCb);
-    depFlex.appendChild(depColSel);
-    depFlex.appendChild(el('span', { text: 'が次の値の時:', style: 'font-size: 12px;' }));
-    depFlex.appendChild(depValInput);
-    depGroup.appendChild(depFlex);
-    
-    box.appendChild(depGroup);
-
-    container.appendChild(box);
-  });
 }
 
 document.getElementById('btnAddCustomColumn')?.addEventListener('click', () => {
   const keyName = 'custom_' + Date.now().toString(36);
-  adminCustomColumnsState.push({
+  adminColumnsSetup.push({
     key: keyName,
     label: '新しい項目',
     type: 'textual',
-    defaultWidth: 100,
-    tableClass: keyName,
-    dataLabel: '新しい項目',
+    options: [],
+    dependsOn: null,
+    board: true,
+    popup: false,
+    min: '',
+    max: '',
+    isSystem: false,
     popupEligible: true
   });
-  renderCustomColumnEditor();
-  // リストを更新するために fakeConfig を流し込む
-  const fakeConfig = { board: adminColumnAllKeys.filter(k=>adminColumnUiState[k]?.board), popup: adminColumnAllKeys.filter(k=>adminColumnUiState[k]?.popup), customColumns: adminCustomColumnsState };
+  // 画面再描画
+  const fakeConfig = extractConfigFromSetup();
   renderColumnConfig(fakeConfig);
 });
 
-
-async function saveColumnConfig(allKeysArg, uiStateArg, layoutConfigArg) {
-  const office = selectedOfficeId(); if (!office) return;
-
-  // 引数がない場合は Module scope の変数から取得
-  const allKeys = allKeysArg || adminColumnAllKeys;
-  const uiState = uiStateArg || adminColumnUiState;
-  
-  // レイアウト設定は DOM から最新を取得
-  const cardBpEl = document.getElementById(adminColumnLcPrefix + 'cardBreakpoint');
-  const panelMinEl = document.getElementById(adminColumnLcPrefix + 'panelMinWidth');
-  const layoutConfig = layoutConfigArg || {
-    cardBreakpoint: cardBpEl?.value ? parseInt(cardBpEl.value, 10) : null,
-    panelMinWidth: panelMinEl?.value ? parseInt(panelMinEl.value, 10) : null
-  };
-
-  if (!allKeys || !uiState) {
-    console.error('[saveColumnConfig] No config data found.');
-    return;
-  }
+// UI全体のadminColumnsSetupから保存用の構成オブジェクトを作成する
+function extractConfigFromSetup() {
   const boardKeys = [];
   const popupKeys = [];
   const columnWidths = {};
+  const customColumns = [];
 
-  allKeys.forEach(key => {
-    if (uiState[key].board) boardKeys.push(key);
-    if (uiState[key].popup) popupKeys.push(key);
+  adminColumnsSetup.forEach(col => {
+    if (col.board) boardKeys.push(col.key);
+    if (col.popup) popupKeys.push(col.key);
 
-    const minRaw = uiState[key].min;
-    const maxRaw = uiState[key].max;
+    const minRaw = col.min;
+    const maxRaw = col.max;
     let minW, maxW;
-    
     if (minRaw !== '') { minW = parseInt(minRaw, 10); if (!isNaN(minW)) { minW = Math.max(10, Math.min(minW, 1000)); } else { minW = null; } }
     if (maxRaw !== '') { maxW = parseInt(maxRaw, 10); if (!isNaN(maxW)) { maxW = Math.max(10, Math.min(maxW, 1000)); } else { maxW = null; } }
     
     if (minW != null || maxW != null) {
-      columnWidths[key] = {};
-      if (minW != null) columnWidths[key].min = minW;
-      if (maxW != null) columnWidths[key].max = maxW;
+      columnWidths[col.key] = {};
+      if (minW != null) columnWidths[col.key].min = minW;
+      if (maxW != null) columnWidths[col.key].max = maxW;
+    }
+
+    // 抽出条件: システム定義ではない、もしくはシステム定義だがプロパティが変更されている場合
+    const baseSys = COLUMN_DEFINITIONS.find(c => c.key === col.key);
+    const overrides = {
+      key: col.key,
+      label: col.label,
+      type: col.type,
+      options: col.options,
+      dependsOn: col.dependsOn,
+      popupEligible: col.popupEligible,
+      tableClass: col.key,
+      dataLabel: col.label
+    };
+
+    if (!baseSys) {
+      customColumns.push(overrides);
+    } else {
+      // システムカラムから何等かの変更があるかチェック
+      const isLabelChanged = (baseSys.label !== col.label);
+      const isTypeChanged = (baseSys.type !== col.type) && !(!baseSys.type && col.type === 'textual');
+      const isOptsChanged = (JSON.stringify(baseSys.options || []) !== JSON.stringify(col.options || []));
+      const isDepChanged = (JSON.stringify(baseSys.dependsOn || null) !== JSON.stringify(col.dependsOn || null));
+      
+      if (isLabelChanged || isTypeChanged || isOptsChanged || isDepChanged) {
+        customColumns.push(overrides);
+      }
     }
   });
 
-  const configPayload = { board: boardKeys, popup: popupKeys, columnWidths, layoutConfig, customColumns: adminCustomColumnsState };
+  const cardBpEl = document.getElementById(adminColumnLcPrefix + 'cardBreakpoint');
+  const panelMinEl = document.getElementById(adminColumnLcPrefix + 'panelMinWidth');
+  const layoutConfig = {
+    cardBreakpoint: cardBpEl?.value ? parseInt(cardBpEl.value, 10) : null,
+    panelMinWidth: panelMinEl?.value ? parseInt(panelMinEl.value, 10) : null
+  };
+
+  return { board: boardKeys, popup: popupKeys, columnWidths, layoutConfig, customColumns };
+}
+
+async function saveColumnConfig() {
+  const office = selectedOfficeId(); if (!office) return;
+  const configPayload = extractConfigFromSetup();
 
   try {
     const res = await apiPost({

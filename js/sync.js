@@ -854,21 +854,34 @@ function applyState(data) {
     }
 
     const tr = document.getElementById(`row-${k}`);
-    const s = tr?.querySelector('select[name="status"]'), t = tr?.querySelector('select[name="time"]'), p = tr?.querySelector('select[name="tomorrowPlan"]'), w = tr?.querySelector('input[name="workHours"]'), n = tr?.querySelector('input[name="note"]');
-    if (!tr || !s || !t || !p || !w) { ensureRowControls(tr); }
-    const extTd = tr?.querySelector('td.ext');
-    if (extTd && v && v.ext !== undefined) {
-      const extVal = String(v.ext || '').replace(/[^0-9]/g, '');
-      extTd.textContent = extVal;
-    }
+    ensureRowControls(tr);
+
     if (tr) {
-      if (v && v.mobile !== undefined) { tr.dataset.mobile = String(v.mobile ?? '').trim(); }
-      if (v && v.email !== undefined) { tr.dataset.email = String(v.email ?? '').trim(); }
+      if (v.ext !== undefined) {
+        const extTd = tr.querySelector('td.ext');
+        if (extTd) extTd.textContent = String(v.ext || '').replace(/[^0-9]/g, '');
+      }
+      if (v.mobile !== undefined) { tr.dataset.mobile = String(v.mobile ?? '').trim(); }
+      if (v.email !== undefined) { tr.dataset.email = String(v.email ?? '').trim(); }
+
+      const enabledKeys = getEnabledColumns();
+      enabledKeys.forEach(colKey => {
+        if (['name', 'ext', 'mobile', 'email'].includes(colKey)) return;
+        if (v[colKey] !== undefined) {
+          const input = tr.querySelector(`input[name="${colKey}"], select[name="${colKey}"]`);
+          const val = (v[colKey] === null) ? '' : String(v[colKey]);
+          if (input && input.value !== val) {
+             input.value = val;
+          }
+        }
+      });
+
+      const s = tr.querySelector('[name="status"]');
+      const t = tr.querySelector('[name="time"]');
+      if (s && t && typeof toggleTimeEnable === 'function') {
+        toggleTimeEnable(s, t);
+      }
     }
-    if (v.status && STATUSES.some(x => x.value === v.status)) setIfNeeded(s, v.status);
-    setIfNeeded(w, (v && typeof v.workHours === 'string') ? v.workHours : (v && v.workHours == null ? '' : String(v?.workHours ?? '')));
-    setIfNeeded(t, v.time || ""); setIfNeeded(p, v.tomorrowPlan || ""); setIfNeeded(n, v.note || "");
-    if (s && t) toggleTimeEnable(s, t);
 
     const remoteRev = Number(v?.rev ?? v?.serverUpdated ?? 0);
     const localRev = Number(tr?.dataset.rev || STATE_CACHE[k]?.rev || 0);

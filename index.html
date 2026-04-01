@@ -191,31 +191,19 @@
             <button id="btnColumnSave" class="btn-primary">💾 設定を保存</button>
           </div>
           <div class="admin-box">
-            <div class="admin-box-header">
-              <h4>📊 カラム表示・ポップアップ設定</h4>
-            </div>
-            <div class="admin-note">
-              各拠点の在籍表に表示するカラムと、氏名長押し時に表示する項目を選択できます。<br>
-              ※「氏名」と「ステータス」はシステム上必須のカラムです。
-            </div>
-            <div id="columnSettingContainer" class="column-setting-container">
-              <!-- JSで動的に生成 -->
-              <p class="u-text-center u-text-gray">設定を読み込み中...</p>
-            </div>
-          </div>
-          
-          <div class="admin-box u-mt-16">
             <div class="admin-box-header u-flex-between-center">
-              <h4>🛠️ カスタムカラムの設計（拠点独自機能）</h4>
-              <button id="btnAddCustomColumn" class="btn-primary btn-sm">➕ 新規カラム追加</button>
+              <h4>🎛️ カラム一括エディター</h4>
+              <button id="btnAddCustomColumn" class="btn-primary btn-sm">➕ カラム新規追加</button>
             </div>
             <div class="admin-note">
-              拠点独自の新しい入力項目を作成できます。「新規カラム追加」ボタンで追加し、名称や種類を設定してください。<br>
-              ※ 追加したカラムは、上の「カラム表示設定」でボードやポップアップに表示するか設定できます。
+              この拠点の在籍表に表示する全てのカラム（標準・独自）を一括で管理します。<br>
+              左端のボタンで並び替え、各カラム内の入力フォームで名称や種類や幅などを変更・削除・複製できます。<br>
+              ※「氏名」のようなシステム必須カラムの削除は禁止されています。
             </div>
-            <div id="customColumnEditor" class="custom-column-editor-container">
-              <!-- JSで動的に生成 -->
-              <p class="u-text-center u-text-gray u-my-12">カスタムカラムはありません。</p>
+            
+            <div id="columnSettingContainer" class="column-setting-container">
+              <!-- JSでレスポンシブ設定やカラム一覧が動的に生成されます -->
+              <p class="u-text-center u-text-gray u-my-12">設定を読み込み中...</p>
             </div>
           </div>
         </div>
