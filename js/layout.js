@@ -13,7 +13,8 @@ function getContainerWidth(){ const elc=board.parentElement||document.body; cons
 function getPanelMinWidth() {
   // 拠点設定に固定の最小幅がある場合はそれを優先 (Phase 8)
   if (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.layoutConfig && OFFICE_COLUMN_CONFIG.layoutConfig.panelMinWidth) {
-    return parseInt(OFFICE_COLUMN_CONFIG.layoutConfig.panelMinWidth, 10);
+    const val = parseInt(OFFICE_COLUMN_CONFIG.layoutConfig.panelMinWidth, 10);
+    if (!isNaN(val)) return val;
   }
 
   const enabledKeys = typeof getEnabledColumns === 'function' ? getEnabledColumns() : ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
@@ -22,16 +23,19 @@ function getPanelMinWidth() {
   let total = 0;
   enabledKeys.forEach(k => {
     const def = typeof getColumnDefinition === 'function' ? getColumnDefinition(k) : null;
-    let minW = def && def.defaultWidth ? def.defaultWidth : 100;
+    let minW = def && def.defaultWidth ? Number(def.defaultWidth) : 100;
 
     const w = colWidths[k];
     if (w && w.min != null) {
-      minW = w.min;
+      const configMin = Number(w.min);
+      if (!isNaN(configMin)) {
+        minW = configMin;
+      }
     }
     total += minW;
   });
 
-  return Math.max(total + 20, 300); // パディング等考慮
+  return Math.max(Number(total) + 20, 300); // パディング等考慮
 }
 
 function updateCols(){
@@ -39,7 +43,13 @@ function updateCols(){
   const panelMin = getPanelMinWidth();
   
   // 拠点設定のカード表示しきい値 (Phase 8)
-  const cardBp = (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.layoutConfig && OFFICE_COLUMN_CONFIG.layoutConfig.cardBreakpoint) || CARD_BREAKPOINT_PX || 760;
+  let cardBp = CARD_BREAKPOINT_PX || 760;
+  if (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.layoutConfig && OFFICE_COLUMN_CONFIG.layoutConfig.cardBreakpoint) {
+    const val = parseInt(OFFICE_COLUMN_CONFIG.layoutConfig.cardBreakpoint, 10);
+    if (!isNaN(val)) {
+      cardBp = val;
+    }
+  }
 
   // CSS変数 --table-min-width を更新
   board.style.setProperty('--table-min-width', `${panelMin}px`);

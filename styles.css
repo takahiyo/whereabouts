@@ -3,11 +3,11 @@
   /* 繧ｫ繝ｩ繝蟷・・ js/constants/column-definitions.js 繧偵・繧ｹ繧ｿ繝ｼ縺ｨ縺励゛S縺九ｉ蜍慕噪縺ｫ --table-min-width 遲峨ｒ險ｭ螳壹☆繧・*/
   /* 繝ｦ繝ｼ繧ｶ繝ｼ縺後檎ｮ｡逅・判髱｢ > 諡轤ｹ險ｭ螳壹阪〒險ｭ螳壹＠縺滓怙蟆上・譛螟ｧ蛟､縺ｫ繧医ｊ荳頑嶌縺阪＆繧後ｋ */
 
-  /* 郢ｧ・ｹ郢晉ｹｧ・ｿ郢ｧ・ｹ陋ｻ諤懶ｽｹ: --status-fixed 邵ｺ・ｫ郢ｧ蛹ｻ・玖叉鬆大ｶ檎ｸｺ讎雁ｺ・ｺ包ｽｺ蜻磯共隲､・ｧ驍ｯ・ｭ隰厄ｽｼ */
+  /* ステータス幅: --status-fixed が拠点設定にある場合はそれを優先 */
   --status-effective: var(--status-fixed, 134px);
 
-  /* 郢昜ｻ｣繝ｭ郢晢ｽｫ郢晉ｹ晄じﾎ晁ｭ帚ぎ陝・ｸ橸ｽｹ・ｼSOT: 陷茨ｽｨ陋ｻ min 陝ｷ陷ｷ驛・ｽｨ闌ｨ・ｼ
-     邵ｺ阮呵濤・定叉蜿･螻鍋ｹｧ荵昴Τ郢晞亂ﾎ晉ｸｺ・ｧ邵ｺ・ｯ table 邵ｺ min-width 郢ｧ蜑・ｽｿ譎・亜邵ｺ蜉ｱ竄ｬ・拌nel 邵ｺ譴ｧ・ｨ・ｪ郢ｧ・ｹ郢ｧ・ｯ郢晢ｽｭ郢晢ｽｼ郢晢ｽｫ */
+  /* テーブル最小幅 SSOT: 拠点 min 幅設定
+     未設定時は table の min-width 属性使用時と同様、panel の横スクロールを制御 */
   --table-min-width: 700px;
 
   --gap: 20px;
@@ -16,7 +16,7 @@
   --bg: #fafafa;
   --header-height: 56px;
 
-  /* === 郢ｧ・ｫ郢晢ｽｩ郢晢ｽｼ郢昜ｻ｣ﾎ樒ｹ昴Κ (SSOT) === */
+  /* === カラーパレット (SSOT) === */
   --color-white: #ffffff;
   --color-black: #000000;
   --color-gray-50: #f9fafb;
@@ -59,7 +59,7 @@
   --color-indigo-100: #e0e7ff;
   --color-indigo-200: #c7d2fe;
 
-  /* 隶匁ｺｯ陋ｻ・･郢ｧ・ｫ郢晢ｽｩ郢晢ｽｼ */
+  /* 基本のカラー定義 */
   --color-border: var(--line);
   --color-panel-bg: var(--bg);
   --color-header-bg: var(--color-white);
@@ -73,7 +73,7 @@
   --color-btn-notices-bg: var(--color-amber-50);
   --color-btn-notices-border: var(--color-amber-400);
   --color-btn-admin-bg: #e7f8e7;
-  /* 陟墓瑳謫よｿｶ・ｲ驍ｯ・ｭ隰・*/
+  /* ボタングループのボーダー */
   --color-btn-admin-border: #b7e6b7;
   --color-btn-event-bg: var(--color-pink-50);
   --color-btn-event-border: var(--color-pink-200);
@@ -175,10 +175,10 @@ header .manual-btn {
 header .qr-btn {
   background: #f0fdf4; /* green-50邵ｺ・ｫ騾ｶ・ｸ陟冶侭笘・ｹｧ荵昶ｲ隴丞ｮ茨ｽ､・ｺ騾ｧ竊題棔逕ｻ辟夂ｸｺ蠕娯・邵ｺ笳・ｹｧ竏壹￡郢晢ｽｪ郢晢ｽｼ郢晢ｽｳ驍会ｽｻ郢ｧ蜻域ｲｻ騾包ｽｨ */
   border-color: #bbf7d0; /* green-200騾ｶ・ｸ陟・*/
-  display: none; /* 郢晢ｽｭ郢ｧ・ｰ郢ｧ・､郢晢ｽｳ陟慕霜・｡・ｨ驕会ｽｺ */
+  display: none; /* リクエストにより非表示 */
 }
 
-/* 郢晁ｼ斐≦郢晢ｽｫ郢ｧ・ｿUI蛹ｻﾎ溽ｹｧ・ｰ郢ｧ・､郢晢ｽｳ陟募ｾ檎ｸｺ・ｿ髯ｦ・ｨ驕会ｽｺ */
+/* 検索/フィルタUIをモバイル等での表示スペース確保のため非表示 */
 .name-filter,
 .status-filter {
   display: none;
@@ -215,7 +215,7 @@ header .status-filter {
   flex: 0 0 auto;
 }
 
-/* 騾ｶ・､鬮ｱ・｢ */
+/* 枠 */
 .wrap {
   width: 100%;
   margin: 0 auto;
