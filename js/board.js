@@ -243,7 +243,6 @@ function bindCandidatePanelGlobals() {
  * @returns {string[]}
  */
 function getEnabledColumns() {
-  console.log('[board.js] Initializing render with configuration:', OFFICE_COLUMN_CONFIG);
   const defaultKeys = ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.board)) {
     return defaultKeys;

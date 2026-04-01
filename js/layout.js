@@ -42,13 +42,19 @@ function getTableMinWidth() {
   return Math.max(Number(total) + 20, 300); // パディング等考慮
 }
 
+let lastW = -1;
+let lastTableMin = -1;
+let lastBoardWidth = -1;
+let lastN = -1;
+let lastIsForceCards = null;
+
 function updateCols(){
+  if (!board) return;
   const w = getContainerWidth();
   const boardWidth = getBoardWidth();
   const tableMin = getTableMinWidth();
   
-  // ユーザー要望「ボード幅設定は1つ」に基づき、カード表示しきい値もboardWidthと同期。
-  // Admin画面の別設定があれば優先。
+  // 拠点設定のカード表示しきい値 (Phase 8)
   let cardBp = boardWidth;
   if (typeof OFFICE_COLUMN_CONFIG !== 'undefined' && OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.layoutConfig && OFFICE_COLUMN_CONFIG.layoutConfig.cardBreakpoint) {
     const val = parseInt(OFFICE_COLUMN_CONFIG.layoutConfig.cardBreakpoint, 10);
@@ -57,22 +63,38 @@ function updateCols(){
     }
   }
 
-  // CSS変数 --table-min-width と --board-width を更新
+  // 変動がない場合はスキップ (ResizeObserver の無限ループ防止)
+  const isForceCards = (w < cardBp);
+  let n = Math.floor((w + GAP_PX) / (boardWidth + GAP_PX));
+  if (n < 1) n = 1;
+  if (n > MAX_COLS) n = MAX_COLS;
+
+  if (w === lastW && 
+      boardWidth === lastBoardWidth && 
+      tableMin === lastTableMin && 
+      n === lastN && 
+      isForceCards === lastIsForceCards) {
+    return;
+  }
+
+  lastW = w;
+  lastBoardWidth = boardWidth;
+  lastTableMin = tableMin;
+  lastN = n;
+  lastIsForceCards = isForceCards;
+
+  // CSS変数の更新
   board.style.setProperty('--table-min-width', `${tableMin}px`);
   board.style.setProperty('--board-width', `${boardWidth}px`);
 
   // カード表示への強制切り替え判定
-  if (w < cardBp) {
+  if (isForceCards) {
     board.classList.add('force-cards');
     board.dataset.cols = '1';
     board.style.removeProperty('--cols');
     return;
   }
 
-  let n = Math.floor((w + GAP_PX) / (boardWidth + GAP_PX));
-  if (n < 1) n = 1;
-  if (n > MAX_COLS) n = MAX_COLS;
-  
   board.style.setProperty('--cols', String(n));
   board.dataset.cols = String(n);
   board.classList.remove('force-cards');
@@ -84,7 +106,10 @@ function startGridObserver(){
   }
   window.removeEventListener('resize', updateCols);
   if(typeof ResizeObserver!=='undefined'){
-    ro=new ResizeObserver(updateCols);
+    ro=new ResizeObserver(() => {
+      // requestAnimationFrame を使い、ブラウザの描画サイクルに合わせることでループのリスクを低減
+      window.requestAnimationFrame(updateCols);
+    });
     ro.observe(board.parentElement||document.body);
   }else{
     window.addEventListener('resize', updateCols, {passive:true});
