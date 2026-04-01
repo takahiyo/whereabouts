@@ -2112,6 +2112,35 @@ function renderColumnConfig(config) {
     };
   });
 
+  // レイアウト設定 (Phase 8: レスポンシブしきい値)
+  const layoutConfig = config.layoutConfig || {};
+  const responsiveSection = el('div', { class: 'admin-subsection layout-config-section' });
+  responsiveSection.appendChild(el('h5', { text: '📱 レスポンシブ・画面切り替え設定' }));
+  responsiveSection.appendChild(el('p', { class: 'admin-note', text: '画面幅に応じたカード表示や列数の自動切り替えタイミングを調整します。' }));
+
+  const layoutGrid = el('div', { class: 'layout-config-grid', style: 'display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;' });
+
+  const cardBpDiv = el('div', { class: 'config-item' }, [
+    el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'カード表示切り替え幅 (px)' }),
+    el('p', { class: 'admin-note', style: 'margin: 0 0 8px;', text: 'この幅を下回ると、表形式からカード表示（モバイル向け）に強制的に切り替わります。' })
+  ]);
+  const cardBpInput = el('input', { type: 'number', class: 'admin-input', placeholder: String(CARD_BREAKPOINT_PX), value: layoutConfig.cardBreakpoint || '' });
+  cardBpInput.style.width = '120px';
+  cardBpDiv.appendChild(cardBpInput);
+
+  const panelMinDiv = el('div', { class: 'config-item' }, [
+    el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'ボードの最小幅 (px)' }),
+    el('p', { class: 'admin-note', style: 'margin: 0 0 8px;', text: '1ボードあたりに必要な最小幅を指定します。2列・3列の自動判定に使用されます。' })
+  ]);
+  const panelMinInput = el('input', { type: 'number', class: 'admin-input', placeholder: String(PANEL_MIN_PX), value: layoutConfig.panelMinWidth || '' });
+  panelMinInput.style.width = '120px';
+  panelMinDiv.appendChild(panelMinInput);
+
+  layoutGrid.append(cardBpDiv, panelMinDiv);
+  responsiveSection.appendChild(layoutGrid);
+  columnSettingContainer.appendChild(responsiveSection);
+
+
   const orderSection = el('div', { class: 'admin-subsection column-order-section' });
   orderSection.appendChild(el('h5', { text: '📐 カラム表示設定と幅指定' }));
   orderSection.appendChild(el('p', { class: 'admin-note', text: '「ボード」列にチェックを入れると表に表示され、「ポップアップ」にチェックを入れると名前クリック時の連絡先として表示されます。▲/▼で並べ替え可能。最小/最大の幅を指定するとボード上のカラム幅が制約されます。最大幅を空にすると、画面幅に合わせて自動調整されます。' }));
@@ -2205,12 +2234,18 @@ function renderColumnConfig(config) {
     el('button', {
       class: 'btn-primary',
       text: 'カラム構成を拠点設定として保存',
-      onclick: () => saveColumnConfig(allKeys, uiState)
+      onclick: () => {
+        const lc = {
+          cardBreakpoint: cardBpInput.value ? parseInt(cardBpInput.value, 10) : null,
+          panelMinWidth: panelMinInput.value ? parseInt(panelMinInput.value, 10) : null
+        };
+        saveColumnConfig(allKeys, uiState, lc);
+      }
     })
   ]));
 }
 
-async function saveColumnConfig(allKeys, uiState) {
+async function saveColumnConfig(allKeys, uiState, layoutConfig) {
   const office = selectedOfficeId(); if (!office) return;
 
   const boardKeys = [];
@@ -2235,7 +2270,7 @@ async function saveColumnConfig(allKeys, uiState) {
     }
   });
 
-  const configPayload = { board: boardKeys, popup: popupKeys, columnWidths };
+  const configPayload = { board: boardKeys, popup: popupKeys, columnWidths, layoutConfig };
 
   try {
     const res = await apiPost({
