@@ -63,12 +63,21 @@ function updateCols(){
     }
   }
 
-  // 変動がない場合はスキップ (ResizeObserver の無限ループ防止)
-  const isForceCards = (w < cardBp);
+  // カラム数を先に計算
   let n = Math.floor((w + GAP_PX) / (boardWidth + GAP_PX));
+
+  // ユーザー要望: 800px〜1400pxの間は強制的に1列
+  if (w >= 800 && w <= 1400) {
+    n = 1;
+  }
+
   if (n < 1) n = 1;
   if (n > MAX_COLS) n = MAX_COLS;
 
+  // 拠点設定のカード表示しきい値 (Phase 8)、または1列しか表示できない場合はカード表示
+  const isForceCards = (w < cardBp) || (n < 2);
+
+  // 変動がない場合はスキップ (ResizeObserver の無限ループ防止)
   if (w === lastW && 
       boardWidth === lastBoardWidth && 
       tableMin === lastTableMin && 
