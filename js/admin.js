@@ -245,6 +245,8 @@ if (adminModal) {
 /* メンバー管理 */
 let adminMemberList = [], adminMemberData = {}, adminGroupOrder = [], adminMembersLoaded = false;
 let adminToolsLoaded = false, adminToolsOfficeId = '';
+/* カラム構成の編集状態保持用 */
+let adminColumnAllKeys = [], adminColumnUiState = {}, adminColumnLcPrefix = 'adminColumnLc_';
 
 if (btnMemberSave) { btnMemberSave.addEventListener('click', () => handleMemberSave()); }
 if (btnColumnSave) { btnColumnSave.addEventListener('click', () => saveColumnConfig()); }
@@ -2112,6 +2114,10 @@ function renderColumnConfig(config) {
     };
   });
 
+  // モジュールレベル変数に現在の状態を同期
+  adminColumnAllKeys = allKeys;
+  adminColumnUiState = uiState;
+
   // レイアウト設定 (Phase 8: レスポンシブしきい値)
   const layoutConfig = config.layoutConfig || {};
   const responsiveSection = el('div', { class: 'admin-subsection layout-config-section' });
@@ -2124,7 +2130,7 @@ function renderColumnConfig(config) {
     el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'カード表示切り替え幅 (px)' }),
     el('p', { class: 'admin-note', style: 'margin: 0 0 8px;', text: 'この幅を下回ると、表形式からカード表示（モバイル向け）に強制的に切り替わります。' })
   ]);
-  const cardBpInput = el('input', { type: 'number', class: 'admin-input', placeholder: String(CARD_BREAKPOINT_PX), value: layoutConfig.cardBreakpoint || '' });
+  const cardBpInput = el('input', { id: adminColumnLcPrefix + 'cardBreakpoint', type: 'number', class: 'admin-input', placeholder: String(CARD_BREAKPOINT_PX), value: layoutConfig.cardBreakpoint || '' });
   cardBpInput.style.width = '120px';
   cardBpDiv.appendChild(cardBpInput);
 
@@ -2132,7 +2138,7 @@ function renderColumnConfig(config) {
     el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'ボードの最小幅 (px)' }),
     el('p', { class: 'admin-note', style: 'margin: 0 0 8px;', text: '1ボードあたりに必要な最小幅を指定します。2列・3列の自動判定に使用されます。' })
   ]);
-  const panelMinInput = el('input', { type: 'number', class: 'admin-input', placeholder: String(PANEL_MIN_PX), value: layoutConfig.panelMinWidth || '' });
+  const panelMinInput = el('input', { id: adminColumnLcPrefix + 'panelMinWidth', type: 'number', class: 'admin-input', placeholder: String(PANEL_MIN_PX), value: layoutConfig.panelMinWidth || '' });
   panelMinInput.style.width = '120px';
   panelMinDiv.appendChild(panelMinInput);
 
@@ -2228,26 +2234,27 @@ function renderColumnConfig(config) {
   renderOrderItems();
   orderSection.appendChild(orderList);
   columnSettingContainer.appendChild(orderSection);
-
-  // --- 保存ボタン ---
-  columnSettingContainer.appendChild(el('div', { class: 'u-mt-20 u-text-right' }, [
-    el('button', {
-      class: 'btn-primary',
-      text: 'カラム構成を拠点設定として保存',
-      onclick: () => {
-        const lc = {
-          cardBreakpoint: cardBpInput.value ? parseInt(cardBpInput.value, 10) : null,
-          panelMinWidth: panelMinInput.value ? parseInt(panelMinInput.value, 10) : null
-        };
-        saveColumnConfig(allKeys, uiState, lc);
-      }
-    })
-  ]));
 }
 
-async function saveColumnConfig(allKeys, uiState, layoutConfig) {
+async function saveColumnConfig(allKeysArg, uiStateArg, layoutConfigArg) {
   const office = selectedOfficeId(); if (!office) return;
 
+  // 引数がない場合は Module scope の変数から取得
+  const allKeys = allKeysArg || adminColumnAllKeys;
+  const uiState = uiStateArg || adminColumnUiState;
+  
+  // レイアウト設定は DOM から最新を取得
+  const cardBpEl = document.getElementById(adminColumnLcPrefix + 'cardBreakpoint');
+  const panelMinEl = document.getElementById(adminColumnLcPrefix + 'panelMinWidth');
+  const layoutConfig = layoutConfigArg || {
+    cardBreakpoint: cardBpEl?.value ? parseInt(cardBpEl.value, 10) : null,
+    panelMinWidth: panelMinEl?.value ? parseInt(panelMinEl.value, 10) : null
+  };
+
+  if (!allKeys || !uiState) {
+    console.error('[saveColumnConfig] No config data found.');
+    return;
+  }
   const boardKeys = [];
   const popupKeys = [];
   const columnWidths = {};
