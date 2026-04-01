@@ -712,7 +712,6 @@ td.time.need-time select:focus~.time-hint {
   }
 
   tbody td.name {
-    order: 0;
     flex: 1 1 100%;
     font-weight: 800;
     font-size: 15px;
@@ -728,7 +727,6 @@ td.time.need-time select:focus~.time-hint {
   }
 
   tbody td.work {
-    order: 1;
     flex: 1 1 100%;
   }
 
@@ -738,22 +736,18 @@ td.time.need-time select:focus~.time-hint {
   }
 
   tbody td.status {
-    order: 2;
     flex: 1 1 100%;
   }
 
   tbody td.time {
-    order: 3;
     flex: 1 1 100%;
   }
 
   tbody td.tomorrow-plan {
-    order: 4;
     flex: 1 1 100%;
   }
 
   tbody td.note {
-    order: 5;
     flex: 1 1 100%;
   }
 }
@@ -801,7 +795,6 @@ td.time.need-time select:focus~.time-hint {
   flex: 0 0 auto;
 }
 #board.force-cards tbody td.name {
-  order: 0 !important;
   flex: 1 1 100% !important;
   font-weight: 800 !important;
   font-size: 15px !important;
@@ -811,23 +804,18 @@ td.time.need-time select:focus~.time-hint {
   display: none !important;
 }
 #board.force-cards tbody td.work {
-  order: 1 !important;
   flex: 1 1 100% !important;
 }
 #board.force-cards tbody td.status {
-  order: 2 !important;
   flex: 1 1 100% !important;
 }
 #board.force-cards tbody td.time {
-  order: 3 !important;
   flex: 1 1 100% !important;
 }
 #board.force-cards tbody td.tomorrow-plan {
-  order: 4 !important;
   flex: 1 1 100% !important;
 }
 #board.force-cards tbody td.note {
-  order: 5 !important;
   flex: 1 1 100% !important;
 }
 #board.force-cards tbody td.ext {

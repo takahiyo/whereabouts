@@ -2130,6 +2130,7 @@ function renderColumnConfig(config) {
       dependsOn: finalDef.dependsOn ? JSON.parse(JSON.stringify(finalDef.dependsOn)) : null,
       board: isBoard,
       popup: isPopup,
+      card: (config.card || []).includes(k) || (config.card == null && isBoard), // config.cardがない場合はboardに合わせる
       min: w.min != null ? w.min : '',
       max: w.max != null ? w.max : '',
       isSystem: isSystem,
@@ -2235,7 +2236,17 @@ function renderColumnConfig(config) {
       popupCb.addEventListener('change', e => col.popup = e.target.checked);
       const popupLabel = el('label', { class: 'column-toggle-label' });
       popupLabel.append(popupCb, document.createTextNode(' ポップアップ表示'));
-      toggleGrp.append(boardLabel, popupLabel);
+
+      const cardCb = el('input', { type: 'checkbox' });
+      cardCb.checked = col.card;
+      cardCb.addEventListener('change', e => {
+        col.card = e.target.checked;
+        renderCardOrderListItems();
+      });
+      const cardLabel = el('label', { class: 'column-toggle-label' });
+      cardLabel.append(cardCb, document.createTextNode(' カード表示'));
+
+      toggleGrp.append(boardLabel, popupLabel, cardLabel);
 
       const actionGrp = el('div', { style: 'display: flex; gap: 8px;' });
       
@@ -2379,6 +2390,69 @@ function renderColumnConfig(config) {
   renderColumnListItems();
   orderSection.appendChild(orderList);
   columnSettingContainer.appendChild(orderSection);
+
+  // カード表示順序設定セクション
+  const cardOrderSection = el('div', { class: 'admin-subsection card-order-section', style: 'margin-top: 32px; border-top: 2px solid var(--border); padding-top: 20px;' });
+  cardOrderSection.appendChild(el('h5', { text: '📱 カード表示（1列表示）の順序設定' }));
+  cardOrderSection.appendChild(el('p', { class: 'admin-note', text: 'モバイル表示時のフィールドの並び順を個別に調整できます（ドラッグ不可、矢印で移動）。' }));
+  
+  const cardOrderList = el('div', { id: 'cardOrderList', class: 'column-order-list' });
+
+  // カード表示順序の管理用（config.cardがあればそれを初期順序とし、なければboard順）
+  let cardOrderKeys = config.card ? config.card.slice() : adminColumnsSetup.filter(c => c.card).map(c => c.key);
+
+  function renderCardOrderListItems() {
+    cardOrderList.innerHTML = '';
+    // 有効なキーのみフィルタリング
+    const activeKeys = cardOrderKeys.filter(k => adminColumnsSetup.find(c => c.key === k && c.card));
+    // adminColumnsSetupにあってcardOrderKeysにない「新規追加されたcard有効項目」を追加
+    adminColumnsSetup.forEach(c => {
+      if (c.card && !activeKeys.includes(c.key)) activeKeys.push(c.key);
+    });
+    cardOrderKeys = activeKeys;
+
+    cardOrderKeys.forEach((k, idx) => {
+      const col = adminColumnsSetup.find(c => c.key === k);
+      if (!col) return;
+
+      const item = el('div', { class: 'column-order-item card-order-item', style: 'display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); margin-bottom: 4px; padding: 8px 12px; border-radius: 4px; background: var(--bg-white);' });
+      
+      const moveActions = el('div', { class: 'column-order-actions', style: 'flex-shrink: 0;' });
+      const upBtn = el('button', { class: 'btn-move-up', text: '▲', title: '上に移動' });
+      upBtn.disabled = (idx === 0);
+      upBtn.addEventListener('click', () => {
+        if (idx <= 0) return;
+        const tmp = cardOrderKeys[idx - 1];
+        cardOrderKeys[idx - 1] = cardOrderKeys[idx];
+        cardOrderKeys[idx] = tmp;
+        renderCardOrderListItems();
+      });
+      const downBtn = el('button', { class: 'btn-move-down', text: '▼', title: '下に移動' });
+      downBtn.disabled = (idx === cardOrderKeys.length - 1);
+      downBtn.addEventListener('click', () => {
+        if (idx >= cardOrderKeys.length - 1) return;
+        const tmp = cardOrderKeys[idx + 1];
+        cardOrderKeys[idx + 1] = cardOrderKeys[idx];
+        cardOrderKeys[idx] = tmp;
+        renderCardOrderListItems();
+      });
+      moveActions.append(upBtn, downBtn);
+      
+      const label = el('span', { text: col.label, style: 'font-weight: 600;' });
+      item.append(moveActions, label);
+      cardOrderList.appendChild(item);
+    });
+    
+    // クロージャ経由で外部からアクセス可能にする
+    cardOrderSection.dataset.cardKeys = JSON.stringify(cardOrderKeys);
+  }
+
+  // extractConfigFromSetup で参照できるように関数を公開
+  window._getCardOrderKeys = () => cardOrderKeys;
+
+  renderCardOrderListItems();
+  cardOrderSection.appendChild(cardOrderList);
+  columnSettingContainer.appendChild(cardOrderSection);
 }
 
 document.getElementById('btnAddCustomColumn')?.addEventListener('click', () => {
@@ -2466,7 +2540,9 @@ function extractConfigFromSetup() {
     panelMinWidth: panelMinEl?.value ? parseInt(panelMinEl.value, 10) : null
   };
 
-  return { board: boardKeys, popup: popupKeys, columnWidths, layoutConfig, customColumns };
+  const cardKeys = (typeof window._getCardOrderKeys === 'function') ? window._getCardOrderKeys() : boardKeys;
+
+  return { board: boardKeys, popup: popupKeys, card: cardKeys, columnWidths, layoutConfig, customColumns };
 }
 
 async function saveColumnConfig() {

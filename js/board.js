@@ -261,6 +261,20 @@ function getEnabledColumns() {
   return keys;
 }
 
+/**
+ * 現在の拠点設定に基づき、カード表示（1列表示）時のカラム順序を返す。
+ * 設定がない場合はボード表示の順序(getEnabledColumns)をデフォルトとする。
+ * @returns {string[]}
+ */
+function getCardColumns() {
+  if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.card)) {
+    return getEnabledColumns();
+  }
+  let keys = OFFICE_COLUMN_CONFIG.card.slice();
+  if (!keys.includes('name')) keys.unshift('name');
+  return keys;
+}
+
 /* 行UI */
 function buildRow(member) {
   const key = member.id;
@@ -276,12 +290,19 @@ function buildRow(member) {
   tr.dataset.email = member.email || '';
 
   const enabledKeys = getEnabledColumns();
+  const cardKeys = getCardColumns();
 
   enabledKeys.forEach(colKey => {
     const def = getColumnDefinition(colKey);
     if (!def) return;
 
     const td = el('td', { class: def.tableClass, 'data-label': def.dataLabel });
+    
+    // カード表示用の順序をインラインスタイルで設定（CSS flex order用）
+    const cardIdx = cardKeys.indexOf(colKey);
+    if (cardIdx !== -1) {
+      td.style.order = String(cardIdx);
+    }
     
     // カスタマイズされているか判定
     const baseSys = COLUMN_DEFINITIONS.find(c => c.key === colKey);
