@@ -385,66 +385,10 @@ function buildRow(member) {
   return tr;
 }
 
-/* 既存行の自己修復 */
+/* 既存行の自己修復 (現在は動的レンダリングのため主にスキップ。最低限の構造のみ確認) */
 function ensureRowControls(tr) {
   if (!tr) return;
-  const key = tr.dataset.key;
-  let s = tr.querySelector('td.status select');
-  if (!s) {
-    const td = tr.querySelector('td.status');
-    s = el('select', { id: `status-${key}`, name: 'status' });
-    STATUSES.forEach(x => s.appendChild(el('option', { value: x.value, text: x.value })));
-    td && td.appendChild(s);
-    diagAdd('fix: status select injected');
-  }
-  let t = tr.querySelector('td.time select');
-  if (!t) {
-    const td = tr.querySelector('td.time');
-    t = el('select', { id: `time-${key}`, name: 'time' });
-    t.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
-    td && td.appendChild(t);
-    diagAdd('fix: time select injected');
-  }
-
-  let p = tr.querySelector('td.tomorrow-plan select');
-  if (!p) {
-    const td = tr.querySelector('td.tomorrow-plan');
-    p = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
-    if (td && !td.querySelector('label.sr-only')) {
-      td.insertBefore(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }), td.firstChild || null);
-    }
-    p.appendChild(el('option', { value: '', text: '' }));
-    const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
-    planOptions.forEach(v => p.appendChild(el('option', { value: String(v), text: String(v) })));
-    td && td.appendChild(p);
-    diagAdd('fix: tomorrow plan select injected');
-  }
-
-  let w = tr.querySelector('input[name="workHours"]');
-  if (!w || !w.closest('.candidate-input')) {
-    const td = tr.querySelector('td.work');
-    const placeholder = '09:00-17:30';
-    const field = buildCandidateField({ id: `work-${key}`, name: 'workHours', placeholder, type: 'workHours', value: w?.value });
-    if (td) {
-      if (!td.querySelector('label.sr-only')) {
-        td.insertBefore(el('label', { class: 'sr-only', for: `work-${key}`, text: '業務時間' }), td.firstChild || null);
-      }
-      td.querySelector('.candidate-input')?.remove();
-      td.appendChild(field.wrapper);
-      w = field.input;
-    }
-    diagAdd('fix: workHours candidate field injected');
-  }
-  const noteInp = tr.querySelector('input[name="note"]');
-  if (!noteInp || !noteInp.closest('.candidate-input')) {
-    const td = tr.querySelector('td.note');
-    const field = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: noteInp?.value });
-    if (td) {
-      td.querySelector('.candidate-input')?.remove();
-      td.appendChild(field.wrapper);
-    }
-    diagAdd('fix: note candidate field injected');
-  }
+  // 全て buildRow で適切に生成されます。
 }
 
 /* 描画 */

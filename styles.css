@@ -4316,9 +4316,69 @@ td.time.need-time select:focus~.time-hint {
   border-radius: 8px;
 }
 
+/* === トースト通知 (Toast Notifications) === */
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.toast-panel {
+  padding: 14px 28px;
+  border-radius: 50px; /* カプセル形状 */
+  background: rgba(31, 41, 55, 0.9);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
+}
+
+/* 成功時：心地よいグリーン */
+.toast--success .toast-panel {
+  background: rgba(5, 150, 105, 0.9); /* green-600 */
+}
+
+/* エラー時：警告のレッド */
+.toast--error .toast-panel {
+  background: rgba(220, 38, 38, 0.9); /* red-600 */
+}
+
+/* レスポンシブ用位置調整 */
+@media (max-width: 720px) {
+  .toast {
+    bottom: 80px; /* モバイルではフッターボタン等に重ならないよう少し上げる */
+  }
+  .toast-panel {
+    padding: 12px 20px;
+    font-size: 14px;
+    white-space: normal;
+    text-align: center;
+  }
+}
+
 /* 繝ｬ繧ｹ繝昴Φ繧ｷ繝也畑髱櫁｡ｨ遉ｺ */
 @media (max-width: 768px) {
   .u-hidden-mobile {
     display: none !important;
   }
 }
+

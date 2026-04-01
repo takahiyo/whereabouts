@@ -2452,6 +2452,13 @@ function extractConfigFromSetup() {
     }
   });
 
+  // セーフティガード: name と status は常に boardKeys に含める
+  if (!boardKeys.includes('name')) boardKeys.unshift('name');
+  if (!boardKeys.includes('status')) {
+    const idxName = boardKeys.indexOf('name');
+    boardKeys.splice(idxName + 1, 0, 'status');
+  }
+
   const cardBpEl = document.getElementById(adminColumnLcPrefix + 'cardBreakpoint');
   const panelMinEl = document.getElementById(adminColumnLcPrefix + 'panelMinWidth');
   const layoutConfig = {
@@ -2498,7 +2505,6 @@ async function loadOffices() {
   try {
     officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-gray">読み込み中...</td></tr>';
     const res = await apiPost({ action: 'listOffices', token: SESSION_TOKEN });
-    console.log('[loadOffices] res:', res);
     if (res && res.ok && Array.isArray(res.offices)) {
       renderOfficeTable(res.offices);
     } else {
@@ -2555,7 +2561,6 @@ async function addOffice() {
     
     if (res && res.ok) {
       toast('拠点を追加しました');
-      // フォームをクリア
       ['newOfficeId', 'newOfficeName', 'newOfficePw', 'newOfficeAdminPw'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -2586,3 +2591,4 @@ async function deleteOfficeSingle(id, name) {
     toast('通信エラーが発生しました', false);
   }
 }
+
