@@ -150,8 +150,12 @@
                 </div>
               </form>
               <div class="admin-subsection">
-                <h5>📦 グループ並び替え</h5>
-                <div class="admin-note">↑↓ボタンでグループの並び順を変更できます。保存時はメンバー順を維持したままグループ順のみ反映されます。</div>
+                <h5>📦 グループ管理・並べ替え</h5>
+                <div class="admin-note">グループの追加、名称変更（クリック）、並び替え、削除ができます。</div>
+                <div class="group-add-row u-mt-8">
+                  <input type="text" id="groupAddInput" placeholder="新しいグループ名を入力" aria-label="新規グループ名" />
+                  <button type="button" id="btnGroupAdd" class="btn-primary">➕ 追加</button>
+                </div>
                 <div id="groupOrderList" class="group-order-list"></div>
                 <div id="groupOrderEmpty" class="admin-note u-mt-6">グループがありません。</div>
               </div>

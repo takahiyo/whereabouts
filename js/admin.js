@@ -266,6 +266,29 @@ if (btnMemberFilterClear) {
   });
 }
 
+// グループ追加
+const btnGroupAdd = document.getElementById('btnGroupAdd');
+const groupAddInput = document.getElementById('groupAddInput');
+if (btnGroupAdd && groupAddInput) {
+  btnGroupAdd.addEventListener('click', () => {
+    const name = groupAddInput.value.trim();
+    if (!name) { toast('グループ名を入力してください', false); return; }
+    if (adminGroupOrder.includes(name)) { toast('既に存在するグループ名です', false); return; }
+    adminGroupOrder.push(name);
+    groupAddInput.value = '';
+    normalizeMemberOrdering();
+    renderGroupOrderList();
+    refreshMemberGroupOptions();
+    toast(`グループ「${name}」を追加しました`);
+  });
+  groupAddInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      btnGroupAdd.click();
+    }
+  });
+}
+
 function setMemberTableMessage(msg) {
   if (!memberTableBody) return;
   memberTableBody.textContent = '';
@@ -357,35 +380,133 @@ function normalizeMemberOrdering(options = {}) {
 function renderGroupOrderList() {
   if (!groupOrderList) return;
   groupOrderList.textContent = '';
+  // 空文字を除外したユニークなリスト
   const order = [...new Set(adminGroupOrder.filter(g => (g || '').trim() !== ''))];
   if (groupOrderEmpty) {
     groupOrderEmpty.style.display = order.length ? 'none' : 'block';
   }
+
   order.forEach((groupName, idx) => {
     const item = document.createElement('div');
     item.className = 'group-order-item';
     item.dataset.groupName = groupName;
+
+    // 名称表示用ラベル
     const label = document.createElement('span');
     label.className = 'group-order-label';
     label.textContent = groupName;
+    label.title = 'クリックして名称変更';
+    label.addEventListener('click', () => {
+      // インライン編集に切り替え
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'group-edit-input';
+      input.value = groupName;
+      
+      const finishEdit = () => {
+        const newName = input.value.trim();
+        if (newName && newName !== groupName) {
+          renameGroup(groupName, newName);
+        } else {
+          // 変更なし、または空なら元に戻す
+          item.replaceChild(label, input);
+        }
+      };
+
+      input.addEventListener('blur', finishEdit);
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') input.blur();
+      });
+
+      item.replaceChild(input, label);
+      input.focus();
+    });
+
     const actions = document.createElement('div');
     actions.className = 'group-order-actions';
+
     const upBtn = document.createElement('button');
     upBtn.className = 'btn-move-up';
     upBtn.textContent = '▲';
     upBtn.title = '上に移動';
     upBtn.disabled = idx === 0;
-    upBtn.addEventListener('click', () => moveGroupOrder(groupName, -1));
+    upBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moveGroupOrder(groupName, -1);
+    });
+
     const downBtn = document.createElement('button');
     downBtn.className = 'btn-move-down';
     downBtn.textContent = '▼';
     downBtn.title = '下に移動';
     downBtn.disabled = idx === order.length - 1;
-    downBtn.addEventListener('click', () => moveGroupOrder(groupName, 1));
-    actions.append(upBtn, downBtn);
-    item.append(actions, label);
+    downBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moveGroupOrder(groupName, 1);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-group-del';
+    delBtn.innerHTML = '🗑️';
+    delBtn.title = 'グループを削除';
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteGroup(groupName);
+    });
+
+    actions.append(upBtn, downBtn, delBtn);
+    item.append(label, actions);
     groupOrderList.appendChild(item);
   });
+}
+
+function renameGroup(oldName, newName) {
+  if (!newName || oldName === newName) return;
+  if (adminGroupOrder.includes(newName)) {
+    toast(`「${newName}」は既に使用されています`, false);
+    renderGroupOrderList();
+    return;
+  }
+
+  // グループ順序の更新
+  const idx = adminGroupOrder.indexOf(oldName);
+  if (idx >= 0) {
+    adminGroupOrder[idx] = newName;
+  }
+
+  // メンバー情報の更新
+  adminMemberList.forEach(m => {
+    if (m.group === oldName) {
+      m.group = newName;
+    }
+  });
+
+  normalizeMemberOrdering();
+  renderGroupOrderList();
+  renderMemberTable();
+  refreshMemberGroupOptions();
+  toast(`グループ名を「${newName}」に変更しました`);
+}
+
+function deleteGroup(groupName) {
+  const membersCount = adminMemberList.filter(m => m.group === groupName).length;
+  let msg = `グループ「${groupName}」を削除しますか？`;
+  if (membersCount > 0) {
+    msg += `\n注意：このグループに所属する ${membersCount} 名のメンバーも同時に削除されます。`;
+  }
+
+  if (!confirm(msg)) return;
+
+  // グループ順序から削除
+  adminGroupOrder = adminGroupOrder.filter(g => g !== groupName);
+  // メンバーリストから削除
+  adminMemberList = adminMemberList.filter(m => m.group !== groupName);
+
+  normalizeMemberOrdering();
+  renderGroupOrderList();
+  renderMemberTable();
+  refreshMemberGroupOptions();
+  toast(`グループ「${groupName}」を削除しました`);
 }
 
 function moveGroupOrder(groupName, dir) {
