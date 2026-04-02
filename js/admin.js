@@ -11,7 +11,10 @@
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
-const columnSettingContainer = document.getElementById('columnSettingContainer');
+function renderColumnConfig(config) {
+  console.log('[DEBUG] Calling renderColumnConfig');
+  const columnSettingContainer = document.getElementById('columnSettingContainer');
+}
 const btnAddOffice = document.getElementById('btnAddOffice');
 const officeTableBody = document.getElementById('officeTableBody');
 if (adminOfficeSel) {
@@ -558,7 +561,9 @@ function filteredMemberList() {
   });
 }
 
-function renderMemberTable() {
+  function renderMemberTable() {
+    console.log('[DEBUG] Calling renderMemberTable');
+    const container = document.getElementById('memberTableBody');
   if (!memberTableBody) { return; }
   memberTableBody.textContent = '';
   if (!adminMemberList.length) {

@@ -209,38 +209,39 @@ header .name-filter {
 
 .tab-panel[data-tab="members"] .member-table-wrap {
   overflow: auto;
-  max-height: calc(100vh - 380px); /* フィルタ行とバーの高さを考慮 */
-  border: 1px solid var(--border);
+  max-height: calc(90vh - 350px);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
 }
 
-.tab-panel[data-tab="members"] table {
+.tab-panel[data-tab="members"] table.member-table {
   width: 100%;
-  table-layout: fixed; /* 固定レイアウトに変更 */
+  table-layout: auto;
   border-collapse: collapse;
   font-size: 13px;
+  min-width: 800px;
 }
 
-/* 各列の幅を厳密に定義 */
+/* 各列の最小幅を確保 (極端に縮まないように) */
 .tab-panel[data-tab="members"] th:nth-child(1),
-.tab-panel[data-tab="members"] td:nth-child(1) { width: 60px; text-align: center; } /* 順番 */
+.tab-panel[data-tab="members"] td:nth-child(1) { min-width: 55px; text-align: center; } /* 順番 */
 .tab-panel[data-tab="members"] th:nth-child(2),
-.tab-panel[data-tab="members"] td:nth-child(2) { width: 120px; } /* グループ */
+.tab-panel[data-tab="members"] td:nth-child(2) { min-width: 110px; } /* グループ */
 .tab-panel[data-tab="members"] th:nth-child(3),
-.tab-panel[data-tab="members"] td:nth-child(3) { width: 140px; } /* 氏名 */
+.tab-panel[data-tab="members"] td:nth-child(3) { min-width: 130px; } /* 氏名 */
 .tab-panel[data-tab="members"] th:nth-child(4),
-.tab-panel[data-tab="members"] td:nth-child(4) { width: 70px; } /* 内線 */
+.tab-panel[data-tab="members"] td:nth-child(4) { min-width: 65px; } /* 内線 */
 .tab-panel[data-tab="members"] th:nth-child(5),
-.tab-panel[data-tab="members"] td:nth-child(5) { width: 120px; } /* 携帯 */
+.tab-panel[data-tab="members"] td:nth-child(5) { min-width: 120px; } /* 携帯 */
 .tab-panel[data-tab="members"] th:nth-child(6),
-.tab-panel[data-tab="members"] td:nth-child(6) { width: 180px; } /* Email */
+.tab-panel[data-tab="members"] td:nth-child(6) { min-width: 160px; } /* Email */
 .tab-panel[data-tab="members"] th:nth-child(7),
-.tab-panel[data-tab="members"] td:nth-child(7) { width: 100px; text-align: center; } /* 操作 */
+.tab-panel[data-tab="members"] td:nth-child(7) { min-width: 95px; text-align: center; } /* 操作 */
 
 .tab-panel[data-tab="members"] th,
 .tab-panel[data-tab="members"] td {
-  padding: 8px 6px;
+  padding: 8px 6px !important;
   border-bottom: 1px solid #e5e7eb;
   white-space: nowrap;
   overflow: hidden;
@@ -778,7 +779,7 @@ td.time.need-time select:focus~.time-hint {
     flex: 1 1 100%;
   }
 
-  /* 陷・ｽ・ｷ螢ｹ・ｽ郢ｧ・ｫ郢晢ｽｼ郢晁歓・｡・ｨ驕会ｽｺ邵ｺ・ｧ邵ｺ・ｯ鬮ｱ讚・ｽ｡・ｨ驕会ｽｺ・ｽ逎ｯﾂ・｣驍ｨ・｡陷亥現・ｽ郢晢ｿｽ・ｽ郢ｧ・｢郢晢ｿｽ・ｽ邵ｺ・ｸ驕假ｽｻ陷榊桁・ｼ・ｽ */
+  /* 陷€・ｽ・ｷ螢ｹ・ｽ郢ｧ・ｫ郢晢ｽｼ郢晁歓・｡・ｨ驕会ｽｺ邵ｺ・ｧ邵ｺ・ｯ鬮ｱ讚・ｽ｡・ｨ驕会ｽｺ・ｽ逎ｯﾂ€・｣驍ｨ・｡陷亥現・ｽ郢晢ｿｽ・ｽ郢ｧ・｢郢晢ｿｽ・ｽ邵ｺ・ｸ驕假ｽｻ陷榊桁・ｼ・ｽ */
   tbody td.ext {
     display: none !important;
   }
@@ -997,7 +998,8 @@ td.time.need-time select:focus~.time-hint {
 
 .admin-card-body {
   flex: 1 1 auto;
-  overflow-y: auto; /* 全タブ共通でスクロールを保障 */
+  overflow-y: auto; 
+  min-height: 0;
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -1005,7 +1007,26 @@ td.time.need-time select:focus~.time-hint {
   background: var(--color-gray-50);
 }
 
-/* カラム構成アイテムの視認性向上 */
+/* カラム構成アイテム (Image 1) の視認性向上 */
+.unified-column-item,
+.column-order-item {
+  background: #ffffff !important;
+  border: 2px solid #cbd5e1 !important; /* 境界線を太く */
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.unified-column-item:nth-child(even) {
+  background: #f8fafc !important; /* 1行おきに色を変える */
+}
+
+.unified-column-item:hover {
+  border-color: var(--color-blue-400) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
 .column-setting-item {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -1331,68 +1352,25 @@ td.time.need-time select:focus~.time-hint {
 }
 
 .member-save-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
+  position: sticky;
+  bottom: -24px; /* 親のpadding分を相殺して固定感 */
+  left: -24px;
+  right: -24px;
+  width: calc(100% + 48px);
   z-index: 1000;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  padding: 15px;
-  padding-right: 40px;
-  /* 騾包ｽｻ鬮ｱ・｢陷ｿ・ｳ驕ｶ・ｯ邵ｺ荵晢ｽ芽氣莉｣・鬮ｮ・｢邵ｺ・ｽ */
+  padding: 15px 40px;
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.95);
   border-top: 1px solid #ccc;
   box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+  margin-top: auto;
 }
 
-.member-table-wrap {
-  overflow: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  max-height: 60vh;
-  background: #fff;
-}
-
-.member-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-  min-width: 1580px;
-  table-layout: fixed;
-}
-
-.member-table th,
-.member-table td {
-  border-bottom: 1px solid #e5e7eb;
-  padding: 4px 8px;
-  text-align: left;
-  vertical-align: middle;
-  word-break: break-word;
-  height: auto;
-}
-
-.member-table th {
-  background: #f9fafb;
-  color: #374151;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.member-table tr:last-child td {
-  border-bottom: none;
-}
-
-.member-row-actions {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  align-items: center;
-}
+/* .member-table 関連の重複定義を削除・統合しました（上部 210-239行目付近に集約） */
 
 /* --- 鬯・ｿｽ蛻・崕蜉ｱ・ｽ郢ｧ・ｹ郢ｧ・ｿ郢ｧ・､郢晢ｽｫ --- */
 .member-order-cell {
