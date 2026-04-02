@@ -549,6 +549,14 @@ function render() {
 
   try {
     const frag = document.createDocumentFragment();
+    if (!GROUPS || GROUPS.length === 0) {
+      const emptyDiv = el('div', { 
+        class: 'u-text-center u-text-gray u-p-40', 
+        text: '表示するメンバーがいません。拠点を変更するか、管理者にお問い合わせください。' 
+      });
+      board.appendChild(emptyDiv);
+      return;
+    }
     GROUPS.forEach((g, i) => {
       try {
         frag.appendChild(buildPanel(g, i, enabledKeys, cardKeys));
@@ -568,10 +576,17 @@ function render() {
 
   // 修正箇所: u-hidden クラスを削除し、確実に表示されるようにする
   board.classList.remove('u-hidden');
+  board.style.display = 'block'; // 安全策
 
   // 自己修復
   board.querySelectorAll('tbody tr').forEach(ensureRowControls);
   wireEvents(); recolor();
+  
+  // ★追加: 最新のステータス情報(STATE_CACHE)を即座に適用して初期化を防ぐ
+  if (typeof applyState === 'function' && typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
+    applyState(STATE_CACHE);
+  }
+
   try {
     startGridObserver();
   } catch (e) {

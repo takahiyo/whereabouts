@@ -836,8 +836,12 @@ async function handleMemberSave() {
       CONFIG_UPDATED = cfgToSet.updated;
       if (typeof render === 'function') {
         render();
-        // ★修正: 最新の保存データ(dataObj)をUIに即座に反映
+        // ★修正: 保存後、即座に現在のステータス(STATE_CACHE)を再適用して表示を同期する
         if (typeof applyState === 'function') {
+          if (typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
+            applyState(STATE_CACHE);
+          }
+          // 保存対象のデータ（連絡先など）も念のため適用
           applyState(dataObj);
         }
       }
@@ -2692,6 +2696,10 @@ async function saveColumnConfig() {
         localStorage.setItem(SESSION_COLUMN_CONFIG_KEY, JSON.stringify(OFFICE_COLUMN_CONFIG));
         if (typeof render === 'function') {
           render();
+          // ★追加: カラム構成変更後も最新ステータスを維持する
+          if (typeof applyState === 'function' && typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
+            applyState(STATE_CACHE);
+          }
         }
       }
     } else {

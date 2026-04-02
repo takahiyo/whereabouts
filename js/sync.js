@@ -684,8 +684,12 @@ async function fetchConfigOnce(nocache = false) {
 
     const shouldUpdate = (updated && updated !== CONFIG_UPDATED) || (!updated && CONFIG_UPDATED === 0);
     if (shouldUpdate) {
-      GROUPS = normalizeConfigClient({ groups });
-      CONFIG_UPDATED = updated || Date.now();
+      const normalizedGroups = normalizeConfigClient({ groups });
+      // 空のグループでも許容するが、データ構造が壊れている場合はスキップ
+      if (Array.isArray(normalizedGroups)) {
+        GROUPS = normalizedGroups;
+        CONFIG_UPDATED = updated || Date.now();
+      }
       
       // カラム設定の更新 (Phase 3)
       const columnConfig = cfg.columnConfig || cfg.config?.columnConfig || null;
@@ -698,12 +702,13 @@ async function fetchConfigOnce(nocache = false) {
 
       setupMenus(menus);
       
-      
       render();
 
       // ★追加: DOM描画直後に最新キャッシュを適用
-      if (Object.keys(STATE_CACHE).length > 0) {
-        applyState(STATE_CACHE);
+      if (typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
+        if (typeof applyState === 'function') {
+          applyState(STATE_CACHE);
+        }
       }
     }
   }
