@@ -998,13 +998,14 @@ td.time.need-time select:focus~.time-hint {
 
 .admin-card-body {
   flex: 1 1 auto;
-  overflow-y: auto; 
+  overflow-y: auto;
   min-height: 0;
   padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
   background: var(--color-gray-50);
+}
+/* ボディ内の隙間調整 */
+.admin-card-body > .tab-panel.active {
+  display: block;
 }
 
 /* カラム構成アイテム (Image 1) の視認性向上 */
@@ -1352,23 +1353,13 @@ td.time.need-time select:focus~.time-hint {
 }
 
 .member-save-bar {
-  position: sticky;
-  bottom: -24px; /* 親のpadding分を相殺して固定感 */
-  left: -24px;
-  right: -24px;
-  width: calc(100% + 48px);
-  z-index: 1000;
   display: flex;
   justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  padding: 15px 40px;
-  box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.95);
-  border-top: 1px solid #ccc;
-  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
-  margin-top: auto;
+  padding: 10px 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
 }
+/* 元のsticky/fixed設定を解除 */
 
 /* .member-table 関連の重複定義を削除・統合しました（上部 210-239行目付近に集約） */
 
