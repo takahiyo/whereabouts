@@ -2504,10 +2504,10 @@ function renderColumnConfig(config) {
 
       const actionGrp = el('div', { style: 'display: flex; gap: 8px;' });
       
-      const expandBtn = el('button', { class: 'btn-primary btn-sm', text: '詳細設定 🔽' });
+      const expandBtn = el('button', { class: 'btn-primary btn-sm', text: '⚙ 詳細' });
       let expanded = false;
 
-      const dupBtn = el('button', { class: 'btn-primary btn-sm', style: 'background: var(--text-muted);', text: '複製' });
+      const dupBtn = el('button', { class: 'btn-secondary btn-sm', text: '複製' });
       dupBtn.onclick = () => {
         const newKey = 'custom_' + Date.now().toString(36);
         const dupSetup = JSON.parse(JSON.stringify(col));
@@ -2536,7 +2536,7 @@ function renderColumnConfig(config) {
       
       expandBtn.onclick = () => {
         expanded = !expanded;
-        expandBtn.textContent = expanded ? '詳細設定 🔼' : '詳細設定 🔽';
+        expandBtn.textContent = expanded ? '⚙ 閉じる' : '⚙ 詳細';
         detailPanel.style.display = expanded ? 'grid' : 'none';
       };
 

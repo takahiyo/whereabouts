@@ -3724,6 +3724,25 @@ td.time.need-time select:focus~.time-hint {
   transition: background .2s;
 }
 
+/* --- btn-sm: コンパクトボタン（カラム構成・拠点管理等） --- */
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+/* カラム構成タブ内のアクションボタン視認性向上 */
+.column-order-item .btn-sm,
+.column-order-item .btn-primary,
+.column-order-item .btn-secondary,
+.column-order-item .btn-danger {
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .btn-success:hover {
   background: #059669;
 }
@@ -3803,20 +3822,21 @@ td.time.need-time select:focus~.time-hint {
 
 .btn-move-up,
 .btn-move-down {
-  background: #6b7280;
+  background: #4b5563;
   color: #fff;
-  border: none;
-  width: 28px;
-  height: 28px;
+  border: 1px solid #374151;
+  width: 26px;
+  height: 26px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background .2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .btn-move-up:hover {
