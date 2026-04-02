@@ -839,6 +839,76 @@ td.time.need-time select:focus~.time-hint {
   border: 0;
 }
 
+/* === ログイン画面 (Login Screen) === */
+.login {
+  display: flex !important; /* u-hidden が消えた後に有効になる */
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 85vh;
+  padding: 20px;
+}
+
+#loginForm.card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-white);
+  padding: 32px;
+  border-radius: 16px;
+  border: 1px solid var(--color-gray-200);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#loginForm h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--color-gray-900);
+  text-align: center;
+}
+
+#loginForm p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--color-gray-600);
+  text-align: center;
+}
+
+#loginForm select#officeSel,
+#loginForm input#pw {
+  width: 100%;
+  margin: 0;
+}
+
+#loginForm button#btnLogin {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-blue-600);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 8px;
+}
+
+#loginForm button#btnLogin:hover {
+  background: var(--color-blue-700);
+}
+
+.login-msg {
+  min-height: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-red-600);
+  margin-top: 8px;
+}
+
 .admin-modal {
   position: fixed;
   inset: 0;
