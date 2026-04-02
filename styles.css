@@ -273,10 +273,13 @@ header .status-filter {
 }
 
 .board[data-cols="1"] .panel {
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
   width: calc(100% + 32px); /* body margin 16px * 2 を相殺 */
   margin-left: -16px;
   margin-right: -16px;
-  max-width: none;
+  max-width: none !important;
   border-radius: 0; /* 端まで広げる場合は角丸を消す */
 }
 
@@ -984,7 +987,7 @@ td.time.need-time select:focus~.time-hint {
   width: min(1280px, 95vw);
   max-width: 100%;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr); /* 1frに明確な最小値0を与え、内容に引きずられて膨らまないようにする */
   overflow: hidden;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
@@ -998,7 +1001,9 @@ td.time.need-time select:focus~.time-hint {
 .admin-card-body {
   flex: 1 1 auto;
   overflow-y: auto;
-  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Grid子要素として重要 */
   padding: 24px;
   background: var(--color-gray-50);
 }

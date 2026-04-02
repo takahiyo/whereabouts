@@ -14,14 +14,18 @@
 - **実施した修正**: `.admin-card` を CSS Grid (`grid-template-rows: auto 1fr`) に変更し、ボディ部分に `1fr` を割り当てた。
 - **結果**: ユーザー報告により「状況が変わらない」ことを確認。
 
-### 2026-04-02 調査 2 (完了)
-- **分析結果**: `max-height` 指定と Grid の相性、および `min-height: 0` の不足により、一部の環境でスクロールが発生していなかった。
+### 2026-04-02 調査 2 (抜本的修正完了)
+- **分析結果**: 
+  - CSS Grid の `1fr` 指定だけでは、内部コンテンツの量に応じて行が膨張し、スクロールバーが発生しない原因となっていた。
+  - 背景スクロールは `body` だけでなく `html` 要素のロックも必要。
 - **実施内容**:
-  1. `.admin-card` に `height: 90vh` を適用し、画面幅に対する高さを固定。これにより内部の `1fr` ボディに確実な制約を与えた。
-  2. `body.modal-open` を導入し、モーダル表示中の背景スクロールを物理的に遮断 (`overflow: hidden`)。
-  3. `js/auth.js` の `showAdminModal` を拡張し、背景のロックと要素寸法のデバッグ計測機能を追加。
-  4. カード表示時の左右余白を、`body` のマージン分（16px * 2）を `calc` で相殺することで完全に消去。
-- **結果記録**: ユーザーによる再確認待ち。ログには `scrollHeight > offsetHeight` が `true` になっているかを表示するようにした。
+  1. `.admin-card` の Grid 行指定を `auto minmax(0, 1fr)` に変更（内容に関わらず縮小を許可）。
+  2. `.admin-card-body` に `min-height: 0` と `display: flex` を追加し、スクロール検知を安定化。
+  3. `js/auth.js` にて `document.documentElement` (html) もロック対象に追加。
+  4. レスポンシブ表示時の `.panel` 幅制限を `!important` で強制除去。
+- **確認事項**:
+  - コンソールログで `scrollHeight > offsetHeight` が `true` になっているか。
+  - カード表示（1列）で左右のマージンが消滅しているか。
 
 ## 対応工程状況
 - [x] `DEBUG_LOG.md` の作成

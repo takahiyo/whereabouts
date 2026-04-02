@@ -168,22 +168,34 @@ function ensureAuthUI() {
 function showAdminModal(yes) {
   const isShow = !!yes;
   adminModal.classList.toggle('show', isShow);
+  
+  // 背景ロックの徹底 (htmlとbodyの両方をロック)
   document.body.classList.toggle('modal-open', isShow);
+  document.documentElement.classList.toggle('modal-open', isShow);
   
   if (isShow) {
-    // 繝・ヰ繝・げ繝ｭ繧ｰ: 陦ｨ遉ｺ逶ｴ蠕後・鬮倥＆繧呈ｸｬ螳壹＠縺ｦ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ荳崎ｶｳ繧堤｢ｺ隱・
-    setTimeout(() => {
+    // デバッグログ: 表示直後の高さを複数回（レンダリング完了を見越して）測定
+    const logDimensions = (label) => {
       const card = adminModal.querySelector('.admin-card');
       const body = adminModal.querySelector('.admin-card-body');
+      const activeTab = adminModal.querySelector('.tab-panel.active');
       if (card && body) {
-        console.log('[DEBUG] Admin Panel Dimensions:');
+        console.log(`[DEBUG] Admin Panel Dimensions (${label}):`);
         console.log(`  Window innerHeight: ${window.innerHeight}px`);
         console.log(`  Modal Card offsetHeight: ${card.offsetHeight}px (Expected <= ${window.innerHeight * 0.9}px)`);
         console.log(`  Modal Body scrollHeight: ${body.scrollHeight}px`);
         console.log(`  Modal Body offsetHeight: ${body.offsetHeight}px`);
+        if (activeTab) {
+          console.log(`  Active Tab (${activeTab.id}) scrollHeight: ${activeTab.scrollHeight}px`);
+        }
         console.log(`  Needs Scroll: ${body.scrollHeight > body.offsetHeight}`);
       }
-    }, 300);
+    };
+
+    setTimeout(() => logDimensions('300ms delay'), 300);
+    setTimeout(() => logDimensions('1000ms delay (Data Load Focus)'), 1000);
+  } else {
+    // 閉じるときにログを消さない（記録のため）
   }
 }
 function showQrModal(yes) { qrModal.classList.toggle('show', !!yes); }
