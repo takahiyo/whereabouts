@@ -242,25 +242,33 @@ if (adminModal) {
         await loadOffices();
       }
 
-      // ★デバッグログ: レンダリング完了後 (500ms待機)
+      // ★ CSS反映の問題を回避: JSから直接スクロールを強制設定する
       setTimeout(() => {
+        const card = document.querySelector('.admin-card');
+        const header = document.querySelector('.admin-card-header');
         const body = document.querySelector('.admin-card-body');
         const activePanel = document.querySelector('.tab-panel.active');
-        if (body && activePanel) {
-          console.log(`[DEBUG] Tab Switch Completed: ${targetTab}`);
-          console.log(`  Body - scrollHeight: ${body.scrollHeight}px, offsetHeight: ${body.offsetHeight}px`);
-          console.log(`  Panel - scrollHeight: ${activePanel.scrollHeight}px, offsetHeight: ${activePanel.offsetHeight}px`);
-          console.log(`  Needs Scroll: ${body.scrollHeight > body.offsetHeight}`);
+        if (card && header && body) {
+          // カードの高さからヘッダーの高さを引いて、ボディの正確な高さを算出
+          const cardH = card.offsetHeight;
+          const headerH = header.offsetHeight;
+          const bodyH = cardH - headerH;
           
-          // 子要素に overflow: hidden がないかチェック
-          Array.from(activePanel.children).forEach(child => {
-            const style = window.getComputedStyle(child);
-            if (style.overflow === 'hidden' || style.overflowY === 'hidden') {
-              console.warn(`[DEBUG] Potential Culprit: child ${child.className} has overflow: hidden`);
-            }
-          });
+          // 強制的にインラインスタイルで高さとoverflowを設定
+          body.style.height = bodyH + 'px';
+          body.style.maxHeight = bodyH + 'px';
+          body.style.overflowY = 'auto';
+          body.style.display = 'block';
+          
+          console.log(`[SCROLL-FIX] Tab: ${targetTab}`);
+          console.log(`  Card: ${cardH}px, Header: ${headerH}px → Body forced to: ${bodyH}px`);
+          if (activePanel) {
+            console.log(`  Panel content: ${activePanel.scrollHeight}px`);
+            console.log(`  Body scrollHeight after fix: ${body.scrollHeight}px`);
+            console.log(`  Scroll enabled: ${body.scrollHeight > bodyH}`);
+          }
         }
-      }, 500);
+      }, 300);
     });
   });
 }
