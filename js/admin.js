@@ -11,10 +11,7 @@
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
-function renderColumnConfig(config) {
-  console.log('[DEBUG] Calling renderColumnConfig');
-  const columnSettingContainer = document.getElementById('columnSettingContainer');
-}
+// renderColumnConfig はファイル後半（2300行目付近）の実装を使用します。ここでの空の定義を削除。
 const btnAddOffice = document.getElementById('btnAddOffice');
 const officeTableBody = document.getElementById('officeTableBody');
 if (adminOfficeSel) {
@@ -216,6 +213,9 @@ if (adminModal) {
       if (panel) {
         panel.classList.add('active');
         resetPanelScroll(panel);
+
+        // ★デバッグログ: タブ切り替え直後
+        console.log(`[DEBUG] Tab Switch Initiated: ${targetTab}`);
       }
 
       if (targetTab === 'notices') {
@@ -241,6 +241,26 @@ if (adminModal) {
       } else if (targetTab === 'offices') {
         await loadOffices();
       }
+
+      // ★デバッグログ: レンダリング完了後 (500ms待機)
+      setTimeout(() => {
+        const body = document.querySelector('.admin-card-body');
+        const activePanel = document.querySelector('.tab-panel.active');
+        if (body && activePanel) {
+          console.log(`[DEBUG] Tab Switch Completed: ${targetTab}`);
+          console.log(`  Body - scrollHeight: ${body.scrollHeight}px, offsetHeight: ${body.offsetHeight}px`);
+          console.log(`  Panel - scrollHeight: ${activePanel.scrollHeight}px, offsetHeight: ${activePanel.offsetHeight}px`);
+          console.log(`  Needs Scroll: ${body.scrollHeight > body.offsetHeight}`);
+          
+          // 子要素に overflow: hidden がないかチェック
+          Array.from(activePanel.children).forEach(child => {
+            const style = window.getComputedStyle(child);
+            if (style.overflow === 'hidden' || style.overflowY === 'hidden') {
+              console.warn(`[DEBUG] Potential Culprit: child ${child.className} has overflow: hidden`);
+            }
+          });
+        }
+      }, 500);
     });
   });
 }

@@ -1008,8 +1008,11 @@ td.time.need-time select:focus~.time-hint {
   background: var(--color-gray-50);
 }
 /* ボディ内の隙間調整 */
-.admin-card-body > .tab-panel.active {
-  display: block;
+/* すべてのタブパネルを一貫してFlexコンテナ化し、親のBody内で正しく溢れを検知させる */
+.tab-panel.active {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1 1 auto;
 }
 
 /* カラム構成アイテム (Image 1) の視認性向上 */
@@ -1194,9 +1197,7 @@ td.time.need-time select:focus~.time-hint {
   padding-bottom: 100px;
 }
 
-.tab-panel.active {
-  display: block;
-}
+/* Consolidated above */
 
 .admin-grid {
   display: grid;
@@ -1273,11 +1274,13 @@ td.time.need-time select:focus~.time-hint {
   margin-top: 4px;
 }
 
-.members-panel {
+.members-panel,
+.columns-panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-height: 0;
+  flex: 1 1 auto;
 }
 
 /* 髢ｾ・ｪ陷榊｢難ｽｶ莠･謔蛾坎・ｭ陞ｳ・ｽ UI */
