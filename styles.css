@@ -93,6 +93,10 @@ body {
   color: var(--color-text-main);
 }
 
+body.modal-open {
+  overflow: hidden !important;
+}
+
 /* 郢晏･繝｣郢昶ぎ */
 header {
   position: sticky;
@@ -269,9 +273,11 @@ header .status-filter {
 }
 
 .board[data-cols="1"] .panel {
-  width: 100%;
+  width: calc(100% + 32px); /* body margin 16px * 2 を相殺 */
+  margin-left: -16px;
+  margin-right: -16px;
   max-width: none;
-  margin-inline: auto;
+  border-radius: 0; /* 端まで広げる場合は角丸を消す */
 }
 
 #board.force-cards {
@@ -974,11 +980,11 @@ td.time.need-time select:focus~.time-hint {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
-  max-height: 90vh; /* ブラウザの高さを超えない */
+  height: 90vh; /* max-heightではなくheightを強制して内部スクロールを確実にする */
   width: min(1280px, 95vw);
   max-width: 100%;
   display: grid;
-  grid-template-rows: auto 1fr; /* ヘッダーは自動、ボディは残り全部（1fr）*/
+  grid-template-rows: auto 1fr;
   overflow: hidden;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }

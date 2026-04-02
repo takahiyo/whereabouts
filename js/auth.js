@@ -165,7 +165,27 @@ function ensureAuthUI() {
   nameFilter.style.display = loggedIn ? 'inline-block' : 'none';
   statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
 }
-function showAdminModal(yes) { adminModal.classList.toggle('show', !!yes); }
+function showAdminModal(yes) {
+  const isShow = !!yes;
+  adminModal.classList.toggle('show', isShow);
+  document.body.classList.toggle('modal-open', isShow);
+  
+  if (isShow) {
+    // 繝・ヰ繝・げ繝ｭ繧ｰ: 陦ｨ遉ｺ逶ｴ蠕後・鬮倥＆繧呈ｸｬ螳壹＠縺ｦ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ荳崎ｶｳ繧堤｢ｺ隱・
+    setTimeout(() => {
+      const card = adminModal.querySelector('.admin-card');
+      const body = adminModal.querySelector('.admin-card-body');
+      if (card && body) {
+        console.log('[DEBUG] Admin Panel Dimensions:');
+        console.log(`  Window innerHeight: ${window.innerHeight}px`);
+        console.log(`  Modal Card offsetHeight: ${card.offsetHeight}px (Expected <= ${window.innerHeight * 0.9}px)`);
+        console.log(`  Modal Body scrollHeight: ${body.scrollHeight}px`);
+        console.log(`  Modal Body offsetHeight: ${body.offsetHeight}px`);
+        console.log(`  Needs Scroll: ${body.scrollHeight > body.offsetHeight}`);
+      }
+    }, 300);
+  }
+}
 function showQrModal(yes) { qrModal.classList.toggle('show', !!yes); }
 function showToolsModal(yes) { toolsModal.classList.toggle('show', !!yes); }
 function showEventModal(yes) {
