@@ -209,7 +209,7 @@ header .name-filter {
 
 .tab-panel[data-tab="members"] .member-table-wrap {
   overflow: auto;
-  max-height: calc(100vh - 350px);
+  max-height: calc(100vh - 380px); /* フィルタ行とバーの高さを考慮 */
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
@@ -217,40 +217,34 @@ header .name-filter {
 
 .tab-panel[data-tab="members"] table {
   width: 100%;
-  table-layout: auto; 
+  table-layout: fixed; /* 固定レイアウトに変更 */
   border-collapse: collapse;
-  font-size: 13px; /* 少し小さめに */
+  font-size: 13px;
 }
+
+/* 各列の幅を厳密に定義 */
+.tab-panel[data-tab="members"] th:nth-child(1),
+.tab-panel[data-tab="members"] td:nth-child(1) { width: 60px; text-align: center; } /* 順番 */
+.tab-panel[data-tab="members"] th:nth-child(2),
+.tab-panel[data-tab="members"] td:nth-child(2) { width: 120px; } /* グループ */
+.tab-panel[data-tab="members"] th:nth-child(3),
+.tab-panel[data-tab="members"] td:nth-child(3) { width: 140px; } /* 氏名 */
+.tab-panel[data-tab="members"] th:nth-child(4),
+.tab-panel[data-tab="members"] td:nth-child(4) { width: 70px; } /* 内線 */
+.tab-panel[data-tab="members"] th:nth-child(5),
+.tab-panel[data-tab="members"] td:nth-child(5) { width: 120px; } /* 携帯 */
+.tab-panel[data-tab="members"] th:nth-child(6),
+.tab-panel[data-tab="members"] td:nth-child(6) { width: 180px; } /* Email */
+.tab-panel[data-tab="members"] th:nth-child(7),
+.tab-panel[data-tab="members"] td:nth-child(7) { width: 100px; text-align: center; } /* 操作 */
 
 .tab-panel[data-tab="members"] th,
 .tab-panel[data-tab="members"] td {
   padding: 8px 6px;
   border-bottom: 1px solid #e5e7eb;
-  white-space: nowrap; 
-}
-
-/* 各列の最小幅・最大幅調整 */
-.tab-panel[data-tab="members"] th:nth-child(1),
-.tab-panel[data-tab="members"] td:nth-child(1) { width: 40px; text-align: center; } /* 順番 */
-.tab-panel[data-tab="members"] th:nth-child(2),
-.tab-panel[data-tab="members"] td:nth-child(2) { min-width: 80px; } /* グループ */
-.tab-panel[data-tab="members"] th:nth-child(3),
-.tab-panel[data-tab="members"] td:nth-child(3) { min-width: 100px; } /* 氏名 */
-.tab-panel[data-tab="members"] th:nth-child(4),
-.tab-panel[data-tab="members"] td:nth-child(4) { width: 60px; } /* 内線 */
-.tab-panel[data-tab="members"] th:nth-child(5),
-.tab-panel[data-tab="members"] td:nth-child(5) { width: 120px; } /* 携帯 */
-
-.tab-panel[data-tab="members"] td.member-email-cell {
-  max-width: 180px; /* さらに絞る */
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tab-panel[data-tab="members"] td.member-row-actions {
-  width: 100px;
-  text-align: center;
 }
 
 header #statusFilter,
@@ -1003,11 +997,35 @@ td.time.need-time select:focus~.time-hint {
 
 .admin-card-body {
   flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 20px;
+  overflow-y: auto; /* 全タブ共通でスクロールを保障 */
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
+  background: var(--color-gray-50);
+}
+
+/* カラム構成アイテムの視認性向上 */
+.column-setting-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.column-setting-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  border-color: var(--color-blue-300);
+}
+
+.column-setting-header {
+  border-bottom: 2px solid var(--color-gray-100);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .notice-modal-card {
