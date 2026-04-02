@@ -2468,7 +2468,8 @@ document.getElementById('btnAddCustomColumn')?.addEventListener('click', () => {
     min: '',
     max: '',
     isSystem: false,
-    popupEligible: true
+    popupEligible: true,
+    card: true
   });
   // 画面再描画
   const fakeConfig = extractConfigFromSetup();
@@ -2540,7 +2541,14 @@ function extractConfigFromSetup() {
     panelMinWidth: panelMinEl?.value ? parseInt(panelMinEl.value, 10) : null
   };
 
-  const cardKeys = (typeof window._getCardOrderKeys === 'function') ? window._getCardOrderKeys() : boardKeys;
+  const rawCardKeys = (typeof window._getCardOrderKeys === 'function') ? window._getCardOrderKeys() : boardKeys;
+  // 有効なキーのみにフィルタリング (adminColumnsSetupに存在し、cardがtrueのもの)
+  const cardKeys = Array.isArray(rawCardKeys) 
+    ? rawCardKeys.filter(k => adminColumnsSetup.some(c => c.key === k && c.card))
+    : boardKeys;
+
+  // name は常に含める
+  if (!cardKeys.includes('name')) cardKeys.unshift('name');
 
   return { board: boardKeys, popup: popupKeys, card: cardKeys, columnWidths, layoutConfig, customColumns };
 }

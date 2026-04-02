@@ -276,25 +276,25 @@ function getCardColumns() {
 }
 
 /* 行UI */
-function buildRow(member) {
-  const key = member.id;
-  const rev = member.updated ? String(member.updated) : '0';
-  const tr = el('tr', { id: `row-${key}` });
-  tr.dataset.key = key;
-  tr.dataset.rev = rev;
-  tr.dataset.serverUpdated = rev;
-  
+function buildRow(member, enabledKeys, cardKeys) {
+  const key = member.id || member.key || "";
+  const tr = el('tr', { id: `row-${key}`, 'data-key': key });
+
+  // enabledKeys と cardKeys が未定義の場合は再取得（フォールバック）
+  if (!enabledKeys) enabledKeys = getEnabledColumns();
+  if (!cardKeys) cardKeys = getCardColumns();
+
   // 拡張データ（モバイル/メール/内線）はデータ属性に保持（ポップアップ等で使用）
   tr.dataset.extension = member.ext || '';
   tr.dataset.mobile = member.mobile || '';
   tr.dataset.email = member.email || '';
 
-  const enabledKeys = getEnabledColumns();
-  const cardKeys = getCardColumns();
-
   enabledKeys.forEach(colKey => {
     const def = getColumnDefinition(colKey);
-    if (!def) return;
+    if (!def) {
+      console.warn(`[buildRow] Column definition not found for key: ${colKey}`);
+      return;
+    }
 
     const td = el('td', { class: def.tableClass, 'data-label': def.dataLabel });
     
@@ -413,12 +413,13 @@ function ensureRowControls(tr) {
 }
 
 /* 描画 */
-function buildPanel(group, idx) {
+function buildPanel(g, idx, enabledKeys, cardKeys) {
   const gid = `grp-${idx}`; const sec = el('section', { class: 'panel', id: gid }); sec.dataset.groupIndex = String(idx);
-  const title = fallbackGroupTitle(group, idx); sec.appendChild(el('h3', { class: 'title', text: title }));
+  const title = fallbackGroupTitle(g, idx); sec.appendChild(el('h3', { class: 'title', text: title }));
   const table = el('table', { 'aria-label': `在席表（${title}）` });
   
-  const enabledKeys = getEnabledColumns();
+  if (!enabledKeys) enabledKeys = getEnabledColumns();
+  if (!cardKeys) cardKeys = getCardColumns();
   
   /**
    * カラム幅の適用ヘルパー
@@ -524,19 +525,46 @@ function buildPanel(group, idx) {
   table.appendChild(thead);
 
   const tbody = el('tbody');
-  group.members.forEach(m => {
-    tbody.appendChild(buildRow(m));
-  });
+  if (Array.isArray(g.members)) {
+    g.members.forEach(m => {
+      try {
+        tbody.appendChild(buildRow(m, enabledKeys, cardKeys));
+      } catch (e) {
+        console.error(`[buildPanel] Failed to build row for member: ${m.name}`, e);
+      }
+    });
+  }
   table.appendChild(tbody);
   
   sec.appendChild(table);
   return sec;
 }
 function render() {
+  if (!board) return;
   board.replaceChildren();
-  const frag = document.createDocumentFragment();
-  GROUPS.forEach((g, i) => frag.appendChild(buildPanel(g, i)));
-  board.appendChild(frag);
+
+  // 表示設定を一度だけ取得（キャッシュ）
+  const enabledKeys = getEnabledColumns();
+  const cardKeys = getCardColumns();
+
+  try {
+    const frag = document.createDocumentFragment();
+    GROUPS.forEach((g, i) => {
+      try {
+        frag.appendChild(buildPanel(g, i, enabledKeys, cardKeys));
+      } catch (e) {
+        console.error(`[render] Failed to build panel for group indexed ${i}`, e);
+      }
+    });
+    board.appendChild(frag);
+  } catch (e) {
+    console.error('[render] Critical failure in render loop:', e);
+    const errDiv = el('div', { 
+      class: 'u-text-center u-text-red u-p-20', 
+      text: '表示データの構築に失敗しました。ページを再読み込みしてください。' 
+    });
+    board.appendChild(errDiv);
+  }
 
   // 修正箇所: u-hidden クラスを削除し、確実に表示されるようにする
   board.classList.remove('u-hidden');
