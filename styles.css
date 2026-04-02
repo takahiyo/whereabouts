@@ -197,7 +197,7 @@ header .qr-btn {
   min-width: 170px;
 }
 
-/* 郢晏･繝｣郢昶ぎ陷隶諛・ｽｴ・｢郢晄㈱繝｣郢ｧ・ｯ郢ｧ・ｹ邵ｺ・ｮ陜暦ｽｺ陞ｳ螢ｼ・ｹ - 陋ｻ譎・ｄ髯ｦ・ｨ驕会ｽｺ郢ｧ蟶晄直髯ｦ・ｨ驕会ｽｺ(none)邵ｺ・ｫ陞溽判蟲ｩ邵ｺ蜉ｱ繝｡郢晢ｽｩ邵ｺ・､邵ｺ蝓ｼ莠溯ｱ・ｽ｢ */
+/* 郢晏€･繝｣郢昶ぎ陷€隶€諛・ｽｴ・｢郢晄㈱繝｣郢ｧ・ｯ郢ｧ・ｹ邵ｺ・ｮ陜暦ｽｺ陞ｳ螢ｼ・ｹ - 陋ｻ譎・ｄ髯ｦ・ｨ驕会ｽｺ郢ｧ蟶晄直髯ｦ・ｨ驕会ｽｺ(none)邵ｺ・ｫ陞溽判蟲ｩ邵ｺ蜉ｱ繝｡郢晢ｽｩ邵ｺ・､邵ｺ蝓ｼ莠溯ｱ・ｽ｢ */
 header #nameFilter,
 header .name-filter {
   display: none;
@@ -205,6 +205,52 @@ header .name-filter {
   min-width: 220px;
   max-width: 50vw;
   flex: 0 0 auto;
+}
+
+.tab-panel[data-tab="members"] .member-table-wrap {
+  overflow: auto;
+  max-height: calc(100vh - 350px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.tab-panel[data-tab="members"] table {
+  width: 100%;
+  table-layout: auto; 
+  border-collapse: collapse;
+  font-size: 13px; /* 少し小さめに */
+}
+
+.tab-panel[data-tab="members"] th,
+.tab-panel[data-tab="members"] td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap; 
+}
+
+/* 各列の最小幅・最大幅調整 */
+.tab-panel[data-tab="members"] th:nth-child(1),
+.tab-panel[data-tab="members"] td:nth-child(1) { width: 40px; text-align: center; } /* 順番 */
+.tab-panel[data-tab="members"] th:nth-child(2),
+.tab-panel[data-tab="members"] td:nth-child(2) { min-width: 80px; } /* グループ */
+.tab-panel[data-tab="members"] th:nth-child(3),
+.tab-panel[data-tab="members"] td:nth-child(3) { min-width: 100px; } /* 氏名 */
+.tab-panel[data-tab="members"] th:nth-child(4),
+.tab-panel[data-tab="members"] td:nth-child(4) { width: 60px; } /* 内線 */
+.tab-panel[data-tab="members"] th:nth-child(5),
+.tab-panel[data-tab="members"] td:nth-child(5) { width: 120px; } /* 携帯 */
+
+.tab-panel[data-tab="members"] td.member-email-cell {
+  max-width: 180px; /* さらに絞る */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-panel[data-tab="members"] td.member-row-actions {
+  width: 100px;
+  text-align: center;
 }
 
 header #statusFilter,
@@ -4262,19 +4308,33 @@ td.time.need-time select:focus~.time-hint {
   margin-bottom: 8px;
 }
 
-#adminClose {
+/* 基本設定などの汎用ボタンをカプセル型に */
+.admin-subsection button,
+.admin-row button {
   padding: .35rem .9rem;
   border: 1px solid var(--line);
-  border-radius: 999px; /* 丸型に統一 */
+  border-radius: 999px;
   background: #f3f4f6;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 13px;
-  font-weight: bold;
+  font-weight: 600;
 }
 
-#adminClose:hover {
+.admin-subsection button:hover,
+.admin-row button:hover {
   background: #e5e7eb;
+}
+
+/* 特定のプライマリボタンを強調 */
+#btnImport, #btnRenameOffice, #btnSetPw {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+#btnImport:hover, #btnRenameOffice:hover, #btnSetPw:hover {
+  background: #e0e7ff;
 }
 
 .login-msg {
