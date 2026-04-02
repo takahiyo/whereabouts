@@ -251,12 +251,35 @@ let adminColumnAllKeys = [], adminColumnUiState = {}, adminCustomColumnsState = 
 if (btnMemberSave) { btnMemberSave.addEventListener('click', () => handleMemberSave()); }
 if (btnColumnSave) { btnColumnSave.addEventListener('click', () => saveColumnConfig()); }
 if (btnAddOffice) { btnAddOffice.addEventListener('click', () => addOffice()); }
-if (memberEditForm) {
-  memberEditForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    submitMemberEdit();
-  });
-}
+  if (memberEditForm) {
+    memberEditForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitMemberEdit();
+    });
+  }
+
+  const btnOpenAddMember = document.getElementById('btnOpenAddMember');
+  if (btnOpenAddMember) {
+    btnOpenAddMember.addEventListener('click', () => {
+      openAddMemberModal();
+    });
+  }
+
+  const btnCloseMemberAdd = document.getElementById('btnCloseMemberAdd');
+  if (btnCloseMemberAdd) {
+    btnCloseMemberAdd.addEventListener('click', () => {
+      closeAddMemberModal();
+    });
+  }
+
+  const memberAddModal = document.getElementById('memberAddModal');
+  if (memberAddModal) {
+    memberAddModal.addEventListener('click', (e) => {
+      if (e.target === memberAddModal) {
+        closeAddMemberModal();
+      }
+    });
+  }
 if (memberEditReset) { memberEditReset.addEventListener('click', () => openMemberEditor(null)); }
 if (memberFilterInput) { memberFilterInput.addEventListener('input', renderMemberTable); }
 if (btnMemberFilterClear) {
@@ -721,18 +744,13 @@ function renderMemberTable() {
     const actionRow = document.createElement('div');
     actionRow.className = 'member-row-actions'; // 横並び用クラス
 
-    const editBtn = document.createElement('button');
-    editBtn.textContent = '編集';
-    editBtn.className = 'btn-secondary';
-    editBtn.title = '詳細編集フォームを開く';
-    editBtn.addEventListener('click', () => openMemberEditor(m));
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '削除';
+    deleteBtn.className = 'btn-danger';
+    deleteBtn.title = 'メンバーを削除';
+    deleteBtn.addEventListener('click', () => deleteMember(m.id));
 
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '削除';
-    delBtn.className = 'btn-danger';
-    delBtn.addEventListener('click', () => deleteMember(m.id));
-
-    actionRow.append(editBtn, delBtn);
+    actionRow.appendChild(deleteBtn);
     actionTd.appendChild(actionRow);
     // ------------------------------------------
 
@@ -746,22 +764,18 @@ function renderMemberTable() {
 
 
 function openMemberEditor(member) {
-  if (memberEditId) memberEditId.value = member?.id || '';
-  if (memberEditName) memberEditName.value = member?.name || '';
-  if (memberEditExt) memberEditExt.value = member?.ext || '';
-  if (memberEditMobile) memberEditMobile.value = member?.mobile || '';
-  if (memberEditEmail) memberEditEmail.value = member?.email || '';
-  if (memberEditGroup) memberEditGroup.value = member?.group || '';
+  // member 引数が渡された場合は無視し、常に新規追加（空の状態）にする
+  if (memberEditId) memberEditId.value = '';
+  if (memberEditName) memberEditName.value = '';
+  if (memberEditExt) memberEditExt.value = '';
+  if (memberEditMobile) memberEditMobile.value = '';
+  if (memberEditEmail) memberEditEmail.value = '';
+  if (memberEditGroup) memberEditGroup.value = '';
+  
   if (memberEditModeLabel) {
-    memberEditModeLabel.textContent = member ? `編集中：${member.name || ''}` : '新規追加／編集フォーム';
+    memberEditModeLabel.textContent = '新規メンバー登録フォーム';
   }
   refreshMemberGroupOptions();
-  if (memberEditTop && adminModal?.contains(memberEditTop)) {
-    memberEditTop.scrollIntoView({ block: 'start' });
-  }
-  if (memberEditName) {
-    memberEditName.focus({ preventScroll: true });
-  }
 }
 
 function refreshMemberGroupOptions() {
@@ -797,7 +811,24 @@ function submitMemberEdit() {
   normalizeMemberOrdering();
   renderGroupOrderList();
   renderMemberTable();
-  openMemberEditor(null);
+  closeAddMemberModal();
+}
+
+function openAddMemberModal() {
+  const modal = document.getElementById('memberAddModal');
+  if (modal) {
+    openMemberEditor(null);
+    modal.classList.remove('u-hidden');
+    document.body.style.overflow = 'hidden'; // 背景スクロール防止
+  }
+}
+
+function closeAddMemberModal() {
+  const modal = document.getElementById('memberAddModal');
+  if (modal) {
+    modal.classList.add('u-hidden');
+    document.body.style.overflow = '';
+  }
 }
 
 function generateMemberId() { return `member_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }

@@ -111,14 +111,18 @@
         <!-- タブパネル: メンバー管理 -->
         <div id="tabMembers" class="tab-panel" data-tab="members">
           <div class="member-save-bar">
-            <button id="btnMemberSave" class="btn-primary">💾 保存</button>
+            <button id="btnMemberSave" class="btn-primary">💾 変更を保存</button>
+            <button id="btnOpenAddMember" class="btn-group-add">➕ 新規メンバー追加</button>
           </div>
           <div class="members-panel">
-            <div class="admin-box" id="memberEditTop">
+            <!-- モーダル形式に変更 -->
+            <div id="memberAddModal" class="admin-modal-overlay u-hidden">
+              <div class="admin-box member-add-popup" id="memberEditTop">
               <div class="admin-box-header">
-                <h4>👥 メンバー一覧・編集</h4>
+                <h4>👥 メンバー登録</h4>
+                <button type="button" class="btn-close-modal" id="btnCloseMemberAdd">✕</button>
               </div>
-              <div class="admin-note">ドラッグまたは↑↓ボタンで並び替え、編集ボタンで詳細を更新できます。</div>
+              <div class="admin-note">各項目をクリックして直接編集、ドラッグまたは↑↓ボタンで並び替えができます。</div>
               <form id="memberEditForm" class="member-edit-form member-inline-form">
                 <input type="hidden" id="memberEditId" />
                 <div class="member-edit-grid">
@@ -141,14 +145,16 @@
                 </div>
                 <div class="member-edit-actions">
                   <div class="member-edit-actions-left">
-                    <span id="memberEditModeLabel" class="member-edit-mode">新規追加／編集フォーム</span>
+                    <span id="memberEditModeLabel" class="member-edit-mode">新規メンバー登録フォーム</span>
                   </div>
                   <div class="member-edit-actions-right">
-                    <button type="button" id="memberEditReset" class="btn-secondary">フォームをクリア</button>
-                    <button type="submit" class="btn-primary">💾 追加／更新</button>
+                    <button type="button" id="memberEditReset" class="btn-secondary">入力クリア</button>
+                    <button type="submit" class="btn-primary">➕ メンバーを登録</button>
                   </div>
                 </div>
               </form>
+            </div>
+          </div>
               <div class="admin-subsection">
                 <h5>📦 グループ管理・並べ替え</h5>
                 <div class="admin-note">グループの追加、名称変更（クリック）、並び替え、削除ができます。</div>
