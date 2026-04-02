@@ -141,12 +141,12 @@ async function logout() {
 
 function updateAuthUI() {
   if (SESSION_TOKEN) {
-    if (loginEl) loginEl.style.display = 'none';
-    if (board) board.style.display = 'block';
+    if (loginEl) loginEl.classList.add('u-hidden');
+    if (board) board.classList.remove('u-hidden');
     ensureAuthUI();
   } else {
-    if (loginEl) loginEl.style.display = 'flex';
-    if (board) board.style.display = 'none';
+    if (loginEl) loginEl.classList.remove('u-hidden');
+    if (board) board.classList.add('u-hidden');
     ensureAuthUI();
   }
 }

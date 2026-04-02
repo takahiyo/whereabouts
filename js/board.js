@@ -568,7 +568,6 @@ function render() {
 
   // 修正箇所: u-hidden クラスを削除し、確実に表示されるようにする
   board.classList.remove('u-hidden');
-  board.style.display = '';
 
   // 自己修復
   board.querySelectorAll('tbody tr').forEach(ensureRowControls);
