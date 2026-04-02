@@ -276,9 +276,9 @@ header .status-filter {
   background-color: transparent;
   border: none;
   box-shadow: none;
-  width: calc(100% + 32px); /* body margin 16px * 2 を相殺 */
-  margin-left: -16px;
-  margin-right: -16px;
+  width: calc(100% + 22px); /* body margin 16px*2 を相殺し、左右5pxずつ余白を確保 */
+  margin-left: -11px;
+  margin-right: -11px;
   max-width: none !important;
   border-radius: 0; /* 端まで広げる場合は角丸を消す */
 }
@@ -999,20 +999,14 @@ td.time.need-time select:focus~.time-hint {
 }
 
 .admin-card-body {
-  flex: 1 1 auto;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* Grid子要素として重要 */
+  min-height: 0; /* Grid子要素: コンテンツより小さくなることを許可 */
   padding: 24px;
   background: var(--color-gray-50);
 }
-/* ボディ内の隙間調整 */
-/* すべてのタブパネルを一貫してFlexコンテナ化し、親のBody内で正しく溢れを検知させる */
+
 .tab-panel.active {
-  display: flex !important;
-  flex-direction: column;
-  flex: 1 1 auto;
+  display: block;
 }
 
 /* カラム構成アイテム (Image 1) の視認性向上 */
@@ -1197,7 +1191,7 @@ td.time.need-time select:focus~.time-hint {
   padding-bottom: 100px;
 }
 
-/* Consolidated above */
+
 
 .admin-grid {
   display: grid;
@@ -1280,7 +1274,6 @@ td.time.need-time select:focus~.time-hint {
   flex-direction: column;
   gap: 16px;
   min-height: 0;
-  flex: 1 1 auto;
 }
 
 /* 髢ｾ・ｪ陷榊｢難ｽｶ莠･謔蛾坎・ｭ陞ｳ・ｽ UI */
