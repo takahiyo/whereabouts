@@ -733,6 +733,7 @@ function renderMemberTable() {
     });
 
     const emailTd = document.createElement('td');
+    emailTd.className = 'member-email-cell';
     emailTd.textContent = m.email || '';
     makeCellEditable(emailTd, m.id, 'email', {
       validation: (v) => (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) ? 'Emailの形式が不正です' : null

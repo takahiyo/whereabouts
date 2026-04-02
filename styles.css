@@ -2469,13 +2469,7 @@ td.time.need-time select:focus~.time-hint {
   color: var(--color-text-main);
 }
 
-.member-save-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  gap: 12px;
-}
+/* 消去: 上記に統合 */
 
 .auto-clear-field-item {
   margin: 0;
