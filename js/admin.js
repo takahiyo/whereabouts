@@ -2412,22 +2412,19 @@ function renderColumnConfig(config) {
   // レイアウト設定 (Phase 8: レスポンシブしきい値)
   const layoutConfig = config.layoutConfig || {};
   const responsiveSection = el('div', { class: 'admin-subsection layout-config-section' });
-  responsiveSection.appendChild(el('h5', { text: '📱 レスポンシブ・画面切り替え設定' }));
-  responsiveSection.appendChild(el('p', { class: 'admin-note', text: '画面幅に応じたカード表示や列数の自動切り替えタイミングを調整します。' }));
+  responsiveSection.appendChild(el('h5', { text: '📱 レスポンシブ設定' }));
 
-  const layoutGrid = el('div', { class: 'layout-config-grid', style: 'display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;' });
+  const layoutGrid = el('div', { class: 'layout-config-grid', style: 'display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;' });
 
   const cardBpDiv = el('div', { class: 'config-item' }, [
-    el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'カード表示切り替え幅 (px)' }),
-    el('p', { class: 'admin-note', style: 'margin: 0 0 8px;', text: 'この幅を下回ると、表形式からカード表示（モバイル向け）に強制的に切り替わります。' })
+    el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'カード切替幅 (px)' })
   ]);
   const cardBpInput = el('input', { id: adminColumnLcPrefix + 'cardBreakpoint', type: 'number', class: 'admin-input', placeholder: String(CARD_BREAKPOINT_PX), value: layoutConfig.cardBreakpoint || '' });
   cardBpInput.style.width = '120px';
   cardBpDiv.appendChild(cardBpInput);
 
   const panelMinDiv = el('div', { class: 'config-item' }, [
-    el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'ボードの最小幅 (px)' }),
-    el('p', { class: 'admin-note', style: 'margin: 0 0 8px;', text: '1ボードあたりに必要な最小幅を指定します。2列・3列の自動判定に使用されます。' })
+    el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'ボード最小幅 (px)' })
   ]);
   const panelMinInput = el('input', { id: adminColumnLcPrefix + 'panelMinWidth', type: 'number', class: 'admin-input', placeholder: String(PANEL_MIN_PX), value: layoutConfig.panelMinWidth || '' });
   panelMinInput.style.width = '120px';
@@ -2438,7 +2435,7 @@ function renderColumnConfig(config) {
   columnSettingContainer.appendChild(responsiveSection);
 
   const orderSection = el('div', { class: 'admin-subsection column-order-section' });
-  orderSection.appendChild(el('h5', { text: '📐 カラムごとの設定（表示・幅・種類・機能）' }));
+  orderSection.appendChild(el('h5', { text: '📐 カラム設定' }));
   
   const orderList = el('div', { id: 'columnOrderList', class: 'column-order-list' });
 
@@ -2649,9 +2646,8 @@ function renderColumnConfig(config) {
   columnSettingContainer.appendChild(orderSection);
 
   // カード表示順序設定セクション
-  const cardOrderSection = el('div', { class: 'admin-subsection card-order-section', style: 'margin-top: 32px; border-top: 2px solid var(--border); padding-top: 20px;' });
-  cardOrderSection.appendChild(el('h5', { text: '📱 カード表示（1列表示）の順序設定' }));
-  cardOrderSection.appendChild(el('p', { class: 'admin-note', text: 'モバイル表示時のフィールドの並び順を個別に調整できます（ドラッグ不可、矢印で移動）。' }));
+  const cardOrderSection = el('div', { class: 'admin-subsection card-order-section', style: 'margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;' });
+  cardOrderSection.appendChild(el('h5', { text: '📱 カード表示の順序' }));
   
   const cardOrderList = el('div', { id: 'cardOrderList', class: 'column-order-list' });
 
