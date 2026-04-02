@@ -1276,6 +1276,13 @@ td.time.need-time select:focus~.time-hint {
   min-height: 0;
 }
 
+/* カラム構成タブ: 縦スクロールを有効化（ユーザー管理タブと同様にスクロールで全要素を閲覧可能にする） */
+.tab-panel[data-tab="columns"] .column-setting-container {
+  overflow-y: auto;
+  max-height: calc(90vh - 350px);
+  padding-right: 4px;
+}
+
 /* 髢ｾ・ｪ陷榊｢難ｽｶ莠･謔蛾坎・ｭ陞ｳ・ｽ UI */
 .auto-clear-setting-row {
   display: flex;
