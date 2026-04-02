@@ -613,22 +613,107 @@ function renderMemberTable() {
     orderTd.appendChild(orderWrapper);
     // ------------------------------------------
 
-    const groupTd = document.createElement('td'); groupTd.textContent = m.group || '';
+    // --- [修正] 属性列: インライン編集を可能にする ---
+    const makeCellEditable = (td, memberId, fieldKey, options = {}) => {
+      const { validation, numeric = false, list = null } = options;
+      td.classList.add('editable-cell');
+      td.title = 'クリックして編集';
+      
+      const originalValue = td.textContent;
+      
+      td.addEventListener('click', function onClick() {
+        if (td.querySelector('input')) return;
+        
+        const input = document.createElement('input');
+        input.type = numeric ? 'tel' : 'text';
+        input.className = 'member-inline-input';
+        if (list) input.setAttribute('list', list);
+        input.value = td.textContent || '';
+        
+        const finishEdit = () => {
+          const newValue = input.value.trim();
+          if (newValue === td.textContent) {
+            td.textContent = newValue;
+            return;
+          }
+          
+          // バリデーション
+          if (validation) {
+            const error = validation(newValue);
+            if (error) {
+              toast(error, false);
+              td.textContent = originalValue;
+              return;
+            }
+          }
+          
+          // データ更新
+          const mIdx = adminMemberList.findIndex(m => m.id === memberId);
+          if (mIdx >= 0) {
+            adminMemberList[mIdx][fieldKey] = newValue;
+            // 名簿の並び替え・再描画
+            normalizeMemberOrdering();
+            renderMemberTable();
+            if (fieldKey === 'group') {
+              renderGroupOrderList(); // グループ名が変わった可能性
+              refreshMemberGroupOptions();
+            }
+          }
+        };
+        
+        input.addEventListener('blur', finishEdit);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') input.blur();
+          if (e.key === 'Escape') {
+            input.value = originalValue;
+            input.blur();
+          }
+        });
+        
+        td.textContent = '';
+        td.appendChild(input);
+        input.focus();
+      });
+    };
+
+    const groupTd = document.createElement('td');
+    groupTd.textContent = m.group || '';
+    makeCellEditable(groupTd, m.id, 'group', {
+      list: 'memberGroupOptions',
+      validation: (v) => !v ? '所属グループは必須です' : null
+    });
+
     const nameTd = document.createElement('td');
-    nameTd.textContent = m.name || "";
-    const extTd = document.createElement('td'); extTd.className = 'numeric-cell'; extTd.textContent = m.ext || '';
-    const mobileTd = document.createElement('td'); mobileTd.className = 'numeric-cell'; mobileTd.textContent = m.mobile || '';
+    nameTd.textContent = m.name || '';
+    makeCellEditable(nameTd, m.id, 'name', {
+      validation: (v) => !v ? '氏名は必須です' : null
+    });
+
+    const extTd = document.createElement('td');
+    extTd.className = 'numeric-cell';
+    extTd.textContent = m.ext || '';
+    makeCellEditable(extTd, m.id, 'ext', {
+      numeric: true,
+      validation: (v) => (v && !/^\d{1,6}$/.test(v.replace(/[^0-9]/g, ''))) ? '内線は数字のみで入力してください（最大6桁）' : null
+    });
+
+    const mobileTd = document.createElement('td');
+    mobileTd.className = 'numeric-cell';
+    mobileTd.textContent = m.mobile || '';
+    makeCellEditable(mobileTd, m.id, 'mobile', {
+      numeric: true,
+      validation: (v) => {
+        const d = (v || '').replace(/[^0-9]/g, '');
+        if (v && (d.length < 10 || d.length > 11)) return '携帯番号は10〜11桁の数字で入力してください';
+        return null;
+      }
+    });
 
     const emailTd = document.createElement('td');
-    if (m.email) {
-      const [localPart, domainPart] = m.email.split('@');
-      const emailWrap = document.createElement('div'); emailWrap.className = 'member-email';
-      const localSpan = document.createElement('span'); localSpan.textContent = localPart || m.email; emailWrap.appendChild(localSpan);
-      if (domainPart !== undefined) {
-        const domainSpan = document.createElement('span'); domainSpan.className = 'email-domain'; domainSpan.textContent = '@' + domainPart; emailWrap.appendChild(domainSpan);
-      }
-      emailTd.appendChild(emailWrap);
-    }
+    emailTd.textContent = m.email || '';
+    makeCellEditable(emailTd, m.id, 'email', {
+      validation: (v) => (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) ? 'Emailの形式が不正です' : null
+    });
 
     // --- [修正] 右端: 操作列 (横並びコンテナ) ---
     const actionTd = document.createElement('td');
@@ -639,6 +724,7 @@ function renderMemberTable() {
     const editBtn = document.createElement('button');
     editBtn.textContent = '編集';
     editBtn.className = 'btn-secondary';
+    editBtn.title = '詳細編集フォームを開く';
     editBtn.addEventListener('click', () => openMemberEditor(m));
 
     const delBtn = document.createElement('button');
