@@ -296,9 +296,11 @@ function buildRow(member, enabledKeys, cardKeys) {
       return;
     }
 
-    const td = el('td', { class: def.tableClass, 'data-label': def.dataLabel });
+    const td = el('td', { class: colKey });
+    // カード表示用に見出し(ラベル)を持たせる
+    td.setAttribute('data-label', def.label || '');
     
-    // カード表示用の順序をインラインスタイルで設定（CSS flex order用）
+    // カード表示用の順序をインラインスタイルで設定
     const cardIdx = cardKeys.indexOf(colKey);
     if (cardIdx !== -1) {
       td.style.order = String(cardIdx);
@@ -576,7 +578,7 @@ function render() {
 
   // 修正箇所: u-hidden クラスを削除し、確実に表示されるようにする
   board.classList.remove('u-hidden');
-  board.style.display = 'block'; // 安全策
+  // board.style.display = 'block'; // ★バグ修正: これがあると CSS Grid が無効化されるため削除
 
   // 自己修復
   board.querySelectorAll('tbody tr').forEach(ensureRowControls);

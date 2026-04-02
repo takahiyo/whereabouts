@@ -75,7 +75,7 @@ function updateCols(){
   if (n > MAX_COLS) n = MAX_COLS;
 
   // 拠点設定のカード表示しきい値 (Phase 8)、または1列しか表示できない場合はカード表示
-  const isForceCards = (w < cardBp) || (n < 2);
+  const isForceCards = (w < cardBp) || (n <= 1);
 
   // 変動がない場合はスキップ (ResizeObserver の無限ループ防止)
   if (w === lastW && 

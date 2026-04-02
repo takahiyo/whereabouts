@@ -228,7 +228,15 @@ header .status-filter {
 }
 
 .board[data-cols="1"] {
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap);
+}
+.board[data-cols="1"] .panel {
+  width: 100%;
+  max-width: var(--board-width, 760px);
+  margin-inline: auto;
 }
 
 #board.force-cards {
@@ -754,7 +762,10 @@ td.time.need-time select:focus~.time-hint {
 
 /* === JSによる強制適用時も同じスタイルを適用（メディアクエリ外でも有効に） === */
 #board.force-cards {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 #board.force-cards colgroup,
 #board.force-cards thead {
