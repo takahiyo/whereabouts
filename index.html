@@ -197,20 +197,15 @@
         </div>
         <!-- タブパネル: カラム構成 (Phase 6) -->
         <div id="tabColumns" class="tab-panel" data-tab="columns">
-          <div class="member-save-bar">
-            <button id="btnColumnSave" class="btn-primary">💾 設定を保存</button>
-          </div>
           <div class="columns-panel">
-            <div class="admin-box-header u-flex-between-center">
+            <div class="columns-toolbar">
               <h4>🎛️ カラム一括エディター</h4>
-              <button id="btnAddCustomColumn" class="btn-primary btn-sm">➕ カラム新規追加</button>
+              <span class="admin-note columns-toolbar-note">↕並び替え・名称・種類・幅を一括管理 ※必須カラムの削除不可</span>
+              <div class="columns-toolbar-actions">
+                <button id="btnAddCustomColumn" class="btn-primary btn-sm">➕ カラム新規追加</button>
+                <button id="btnColumnSave" class="btn-primary">💾 設定を保存</button>
+              </div>
             </div>
-            <div class="admin-note">
-              この拠点の在籍表に表示する全てのカラム（標準・独自）を一括で管理します。<br>
-              左端のボタンで並び替え、各カラム内の入力フォームで名称や種類や幅などを変更・削除・複製できます。<br>
-              ※「氏名」のようなシステム必須カラムの削除は禁止されています。
-            </div>
-            
             <div id="columnSettingContainer" class="column-setting-container">
               <!-- JSでレスポンシブ設定やカラム一覧が動的に生成されます -->
               <p class="u-text-center u-text-gray u-my-12">設定を読み込み中...</p>
