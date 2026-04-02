@@ -1426,12 +1426,10 @@ td.time.need-time select:focus~.time-hint {
   gap: 2px;
 }
 
-/* 霎滂ｽ｡陷会ｽｹ陋ｹ謔ｶ・・ｹｧ蠕娯螺驕假ｽｻ陷崎ｼ費ｿｽ郢ｧ・ｿ郢晢ｽｳ邵ｺ・ｮ郢ｧ・ｹ郢ｧ・ｿ郢ｧ・､郢晢ｽｫ */
-.btn-move-up:disabled,
-.btn-move-down:disabled {
-  opacity: 0.3;
-  cursor: default;
-  pointer-events: none;
+/* メンバー管理タブ等の無効化ボタン（共通化により移行済み、互換性のために一部保持） */
+.member-order-cell .btn-move-up:disabled,
+.member-order-cell .btn-move-down:disabled {
+  opacity: 0.4;
 }
 
 #groupOrderList.group-order-list {
@@ -3729,6 +3727,10 @@ td.time.need-time select:focus~.time-hint {
   padding: 4px 10px;
   font-size: 12px;
   border-radius: 4px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* カラム構成タブ内のアクションボタン視認性向上 */
@@ -3820,38 +3822,51 @@ td.time.need-time select:focus~.time-hint {
   background: #fef3c7;
 }
 
+/* --- 並べ替えボタン（↑↓）の統一スタイル --- */
 .btn-move-up,
 .btn-move-down {
-  background: #4b5563;
-  color: #fff;
-  border: 1px solid #374151;
+  background: #374151; /* より濃いグレーでコントラストを強調 */
+  color: #ffffff;
+  border: 1px solid #1f2937;
   width: 26px;
   height: 26px;
+  min-width: 26px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
   padding: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background .2s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: all .2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.btn-move-up:hover {
-  background: #4b5563;
-}
-
+.btn-move-up:hover,
 .btn-move-down:hover {
-  background: #4b5563;
+  background: #111827; /* ホバー時にさらに濃く */
+  border-color: #000;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.btn-move-up:active,
+.btn-move-down:active {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .btn-move-up:disabled,
 .btn-move-down:disabled {
-  background: #d1d5db;
+  background: #9ca3af !important;
+  color: #f3f4f6 !important;
+  border-color: #d1d5db !important;
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.4;
+  box-shadow: none;
+  transform: none;
+  pointer-events: none;
 }
 
 /* === 陷奇ｽｰ陋ｻ・ｷ騾包ｽｨ郢ｧ・ｹ郢ｧ・ｿ郢ｧ・､郢晢ｽｫ (SSOT: JS雎包ｽｨ陷茨ｽ･陞溽判辟夂ｸｺ・ｮ陋ｻ・ｩ騾包ｽｨ) === */
@@ -4360,22 +4375,38 @@ td.time.need-time select:focus~.time-hint {
   margin-bottom: 8px;
 }
 
-/* 基本設定などの汎用ボタンをカプセル型に */
+/* 基本設定などの汎用ボタンを視覚的に強化（白飛び防止） */
 .admin-subsection button,
 .admin-row button {
-  padding: .35rem .9rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #f3f4f6;
+  padding: .4rem 1rem;
+  border: 1px solid #cbd5e1; /* 少し濃いボーダー */
+  border-radius: 6px; /* Pillから角丸ボタンに変更し、デザインを統一 */
+  background: #f8fafc; /* 白すぎないグレー */
+  color: #334155;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 13px;
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .admin-subsection button:hover,
 .admin-row button:hover {
-  background: #e5e7eb;
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* プライマリ等の既存クラスが指定されている場合は、そちらの配色を優先 */
+.admin-subsection button.btn-primary,
+.admin-row button.btn-primary,
+.admin-subsection button.btn-secondary,
+.admin-row button.btn-secondary,
+.admin-subsection button.btn-danger,
+.admin-row button.btn-danger,
+.admin-subsection button.btn-success,
+.admin-row button.btn-success {
+  border-radius: 6px !important; /* ピル型から統一 */
 }
 
 /* 特定のプライマリボタンを強調 */

@@ -481,7 +481,7 @@ function renderGroupOrderList() {
     });
 
     const delBtn = document.createElement('button');
-    delBtn.className = 'btn-group-del';
+    delBtn.className = 'btn-danger btn-sm';
     delBtn.innerHTML = '🗑️';
     delBtn.title = 'グループを削除';
     delBtn.addEventListener('click', (e) => {
@@ -761,7 +761,7 @@ function filteredMemberList() {
 
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = '削除';
-    deleteBtn.className = 'btn-danger';
+    deleteBtn.className = 'btn-danger btn-sm';
     deleteBtn.title = 'メンバーを削除';
     deleteBtn.addEventListener('click', () => deleteMember(m.id));
 
