@@ -1276,46 +1276,45 @@ td.time.need-time select:focus~.time-hint {
   min-height: 0;
 }
 
-/* カラム構成タブ: ツールバー（タイトル・説明・ボタンを1行に集約） */
+/* カラム構成タブ: ツールバー（タイトル＋ボタンを1行に集約） */
 .columns-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 8px 0;
+  gap: 10px;
+  padding: 6px 0;
   border-bottom: 1px solid #e5e7eb;
-  margin-bottom: 8px;
 }
 .columns-toolbar h4 {
   margin: 0;
   white-space: nowrap;
-}
-.columns-toolbar-note {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin-top: 0;
+  font-size: 15px;
 }
 .columns-toolbar-actions {
   display: flex;
-  gap: 8px;
-  flex-shrink: 0;
+  gap: 6px;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
-/* カラム構成タブ: 縦スクロールを有効化（ユーザー管理タブと同様にスクロールで全要素を閲覧可能にする） */
-.tab-panel[data-tab="columns"] .column-setting-container {
-  overflow-y: auto;
-  max-height: calc(90vh - 300px);
-  padding-right: 4px;
-  padding-bottom: 40px;
-}
-
-/* カラム構成タブ: 不要なパネル下部余白を削除（スクロール領域を最大化） */
+/* カラム構成タブ: 縦スクロール + スペース効率化 */
 .tab-panel[data-tab="columns"] {
   padding-bottom: 0;
 }
 .tab-panel[data-tab="columns"] .columns-panel {
-  gap: 4px;
+  gap: 0;
+}
+.tab-panel[data-tab="columns"] .column-setting-container {
+  overflow-y: auto;
+  max-height: calc(90vh - 260px);
+  padding-right: 4px;
+  padding-bottom: 40px;
+}
+.tab-panel[data-tab="columns"] .admin-subsection {
+  padding: 8px;
+  gap: 6px;
+}
+.tab-panel[data-tab="columns"] .admin-subsection h5 {
+  font-size: 13px;
 }
 
 /* 髢ｾ・ｪ陷榊｢難ｽｶ莠･謔蛾坎・ｭ陞ｳ・ｽ UI */
@@ -1660,13 +1659,7 @@ td.time.need-time select:focus~.time-hint {
 
 @media (max-width: 600px) {
   .columns-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-  .columns-toolbar-actions {
-    margin-left: 0;
-    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   .column-order-item {
