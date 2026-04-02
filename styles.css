@@ -1060,14 +1060,43 @@ td.time.need-time select:focus~.time-hint {
 .tab-btn {
   padding: .35rem .9rem;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 999px; /* 丸型に統一 */
   background: #f3f4f6;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .tab-btn.active {
   background: #e7f8e7;
   border-color: #b7e6b7;
+}
+
+.btn-group-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  padding: .35rem .9rem;
+  border-radius: 999px; /* 丸型に統一 */
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-group-add:hover {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+}
+
+.btn-close-capsule {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
 }
 
 .tab-panel {
@@ -4231,6 +4260,21 @@ td.time.need-time select:focus~.time-hint {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+}
+
+#adminClose {
+  padding: .35rem .9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px; /* 丸型に統一 */
+  background: #f3f4f6;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+#adminClose:hover {
+  background: #e5e7eb;
 }
 
 .login-msg {
