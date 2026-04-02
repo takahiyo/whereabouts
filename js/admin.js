@@ -242,33 +242,14 @@ if (adminModal) {
         await loadOffices();
       }
 
-      // ★ CSS反映の問題を回避: JSから直接スクロールを強制設定する
-      setTimeout(() => {
-        const card = document.querySelector('.admin-card');
-        const header = document.querySelector('.admin-card-header');
-        const body = document.querySelector('.admin-card-body');
-        const activePanel = document.querySelector('.tab-panel.active');
-        if (card && header && body) {
-          // カードの高さからヘッダーの高さを引いて、ボディの正確な高さを算出
-          const cardH = card.offsetHeight;
-          const headerH = header.offsetHeight;
-          const bodyH = cardH - headerH;
-          
-          // 強制的にインラインスタイルで高さとoverflowを設定
-          body.style.height = bodyH + 'px';
-          body.style.maxHeight = bodyH + 'px';
-          body.style.overflowY = 'auto';
-          body.style.display = 'block';
-          
-          console.log(`[SCROLL-FIX] Tab: ${targetTab}`);
-          console.log(`  Card: ${cardH}px, Header: ${headerH}px → Body forced to: ${bodyH}px`);
-          if (activePanel) {
-            console.log(`  Panel content: ${activePanel.scrollHeight}px`);
-            console.log(`  Body scrollHeight after fix: ${body.scrollHeight}px`);
-            console.log(`  Scroll enabled: ${body.scrollHeight > bodyH}`);
-          }
-        }
-      }, 300);
+      // CSS Grid レイアウトに委ね、前回のインラインスタイル残留をクリア
+      const body = document.querySelector('.admin-card-body');
+      if (body) {
+        body.style.removeProperty('height');
+        body.style.removeProperty('max-height');
+        body.style.removeProperty('overflow-y');
+        body.style.removeProperty('display');
+      }
     });
   });
 }

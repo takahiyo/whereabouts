@@ -174,30 +174,14 @@ function showAdminModal(yes) {
   document.documentElement.classList.toggle('modal-open', isShow);
   
   if (isShow) {
-    // ★ JSからスクロールを強制設定（CSSキャッシュに依存しない）
-    const forceBodyScroll = (label) => {
-      const card = adminModal.querySelector('.admin-card');
-      const header = adminModal.querySelector('.admin-card-header');
-      const body = adminModal.querySelector('.admin-card-body');
-      if (card && header && body) {
-        const cardH = card.offsetHeight;
-        const headerH = header.offsetHeight;
-        const bodyH = cardH - headerH;
-        
-        // インラインスタイルで直接高さを強制
-        body.style.height = bodyH + 'px';
-        body.style.maxHeight = bodyH + 'px';
-        body.style.overflowY = 'auto';
-        body.style.display = 'block';
-        
-        console.log(`[SCROLL-FIX] Modal Open (${label}):`);
-        console.log(`  Card: ${cardH}px, Header: ${headerH}px → Body: ${bodyH}px`);
-        console.log(`  Body scrollHeight: ${body.scrollHeight}px, Scroll needed: ${body.scrollHeight > bodyH}`);
-      }
-    };
-
-    setTimeout(() => forceBodyScroll('300ms'), 300);
-    setTimeout(() => forceBodyScroll('1000ms'), 1000);
+    // CSS Grid レイアウトに委ね、インラインスタイルの残留をクリア
+    const body = adminModal.querySelector('.admin-card-body');
+    if (body) {
+      body.style.removeProperty('height');
+      body.style.removeProperty('max-height');
+      body.style.removeProperty('overflow-y');
+      body.style.removeProperty('display');
+    }
   } else {
     // 閉じるときにログを消さない（記録のため）
   }
