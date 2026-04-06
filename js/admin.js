@@ -2854,7 +2854,7 @@ async function saveColumnConfig() {
       toast('カラム構成を保存しました');
       if (office === CURRENT_OFFICE_ID) {
         OFFICE_COLUMN_CONFIG = configPayload;
-        localStorage.setItem(SESSION_COLUMN_CONFIG_KEY, JSON.stringify(OFFICE_COLUMN_CONFIG));
+        localStorage.setItem(getColumnConfigKey(office), JSON.stringify(OFFICE_COLUMN_CONFIG));
         if (typeof render === 'function') {
           render();
           // ★追加: カラム構成変更後も最新ステータスを維持する

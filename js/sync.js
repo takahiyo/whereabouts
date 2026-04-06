@@ -694,10 +694,11 @@ async function fetchConfigOnce(nocache = false) {
       // カラム設定の更新 (Phase 3)
       const columnConfig = cfg.columnConfig || cfg.config?.columnConfig || null;
       OFFICE_COLUMN_CONFIG = columnConfig;
+      const configKey = getColumnConfigKey(CURRENT_OFFICE_ID);
       if (columnConfig) {
-        localStorage.setItem(SESSION_COLUMN_CONFIG_KEY, JSON.stringify(columnConfig));
+        localStorage.setItem(configKey, JSON.stringify(columnConfig));
       } else {
-        localStorage.removeItem(SESSION_COLUMN_CONFIG_KEY);
+        localStorage.removeItem(configKey);
       }
 
       setupMenus(menus);

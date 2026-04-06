@@ -28,6 +28,13 @@ async function checkLogin() {
       SESSION_TOKEN = 'worker_session';
       CURRENT_OFFICE_ID = storedOffice;
       CURRENT_ROLE = storedRole;
+      
+      // ★追加: 拠点ごとのカラム設定を復元
+      try {
+        const savedConfig = localStorage.getItem(getColumnConfigKey(CURRENT_OFFICE_ID));
+        if (savedConfig) OFFICE_COLUMN_CONFIG = JSON.parse(savedConfig);
+      } catch (e) { console.error(e); }
+
       updateAuthUI();
       if (typeof startRemoteSync === 'function') startRemoteSync(true);
       if (typeof startConfigWatch === 'function') startConfigWatch();
@@ -80,10 +87,13 @@ async function login(officeInput, passwordInput) {
     localStorage.setItem(LOCAL_OFFICE_KEY, result.office);
     localStorage.setItem(LOCAL_ROLE_KEY, result.role);
     localStorage.setItem(LOCAL_OFFICE_NAME_KEY, result.officeName || result.office);
+    
+    // ★修正: 拠点ごとのキーで保存
+    const configKey = getColumnConfigKey(result.office);
     if (result.columnConfig) {
-      localStorage.setItem(SESSION_COLUMN_CONFIG_KEY, JSON.stringify(result.columnConfig));
+      localStorage.setItem(configKey, JSON.stringify(result.columnConfig));
     } else {
-      localStorage.removeItem(SESSION_COLUMN_CONFIG_KEY);
+      localStorage.removeItem(configKey);
     }
 
     SESSION_TOKEN = 'worker_session';
@@ -133,7 +143,8 @@ async function logout() {
     localStorage.removeItem(LOCAL_OFFICE_KEY);
     localStorage.removeItem(LOCAL_ROLE_KEY);
     localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
-    localStorage.removeItem(SESSION_COLUMN_CONFIG_KEY);
+    // 全ての拠点のキャッシュを消すのは過剰なので、現在の拠点のものだけ消す
+    localStorage.removeItem(getColumnConfigKey(CURRENT_OFFICE_ID));
     toast("ログオフしました");
     setTimeout(() => location.reload(), 500);
   } catch (e) {

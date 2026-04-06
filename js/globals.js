@@ -91,7 +91,9 @@ let SESSION_TOKEN = localStorage.getItem(SESSION_KEY) || '';
 /** 拠点カラム設定 (Phase 3) */
 let OFFICE_COLUMN_CONFIG = null;
 try {
-  const savedConfig = localStorage.getItem('presence-column-config');
+  // 自動ログイン等のため、拠点IDが判明している場合はそこから読み込む
+  const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
+  const savedConfig = localStorage.getItem(getColumnConfigKey(storedOffice));
   if (savedConfig) OFFICE_COLUMN_CONFIG = JSON.parse(savedConfig);
 } catch (e) {
   console.error("Failed to load column config from storage:", e);
