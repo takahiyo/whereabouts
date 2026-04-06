@@ -208,7 +208,8 @@ if (adminModal) {
         notices: adminModal.querySelector('#tabNotices'),
         events: adminModal.querySelector('#tabEvents'),
         tools: adminModal.querySelector('#tabTools'),
-        columns: adminModal.querySelector('#tabColumns')
+        columns: adminModal.querySelector('#tabColumns'),
+        offices: adminModal.querySelector('#tabOffices')
       };
       const panel = panelMap[targetTab];
       if (panel) {
