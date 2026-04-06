@@ -906,9 +906,30 @@ function buildMemberSavePayload() {
     const mems = grouped.get(gName) || [];
     // if (!mems.length) return; // 空グループも保持する
     mems.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    // ★修正: render()で正しく表示されるよう、現在のステータス情報(STATE_CACHE優先)を含める
+    const groupsMembers = mems.map((m, idx) => {
+      const live = (typeof STATE_CACHE !== 'undefined' ? STATE_CACHE[m.id] : {}) || {};
+      const existing = adminMemberData[m.id] || {};
+      const merged = { ...existing, ...live };
+      return {
+        id: m.id,
+        name: m.name,
+        ext: m.ext,
+        mobile: m.mobile,
+        email: m.email,
+        workHours: merged.workHours == null ? '' : String(merged.workHours || m.workHours || ''),
+        status: merged.status || '',
+        time: merged.time || '',
+        note: merged.note || '',
+        tomorrowPlan: merged.tomorrowPlan || '',
+        _order: idx
+      };
+    });
+
     groups.push({
       title: gName,
-      members: mems.map((m, idx) => ({ id: m.id, name: m.name, ext: m.ext, mobile: m.mobile, email: m.email, workHours: m.workHours || '', _order: idx }))
+      members: groupsMembers
     });
   });
 
@@ -968,12 +989,9 @@ async function handleMemberSave() {
       CONFIG_UPDATED = cfgToSet.updated;
       if (typeof render === 'function') {
         render();
-        // ★修正: 保存後、即座に現在のステータス(STATE_CACHE)を再適用して表示を同期する
+        // ★修正: render()内部でもSTATE_CACHEは適用されるが、
+        // 今回保存した最新の連絡先情報(dataObj)を確実に反映させる
         if (typeof applyState === 'function') {
-          if (typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
-            applyState(STATE_CACHE);
-          }
-          // 保存対象のデータ（連絡先など）も念のため適用
           applyState(dataObj);
         }
       }
