@@ -72,9 +72,15 @@ async function refreshPublicOfficeSelect(selectedId){
   if(offices.length===0){
     offices=configuredOfficesFallback();
   }
-  // 【追加】拠点が一つも存在しない場合、開発者が入るためのダミー項目を追加
+  // 【救済】拠点がゼロの場合
   if(offices.length===0 && !apiFailed){
     offices.push({ id: 'admin', name: 'システム管理 (新規セットアップ用)' });
+  }
+  // 【DEBUG】開発モード（isDev=true）なら常に開発者用入り口を表示する
+  if (typeof isDev !== 'undefined' && isDev) {
+    if (!offices.some(o => o.id === 'admin')) {
+      offices.push({ id: 'admin', name: '【DEBUG】開発者ログイン' });
+    }
   }
 
   if(offices.length===0){
