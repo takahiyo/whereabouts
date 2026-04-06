@@ -2857,12 +2857,7 @@ function extractConfigFromSetup() {
     }
   });
 
-  // セーフティガード: name と status は常に boardKeys に含める
-  if (!boardKeys.includes('name')) boardKeys.unshift('name');
-  if (!boardKeys.includes('status')) {
-    const idxName = boardKeys.indexOf('name');
-    boardKeys.splice(idxName + 1, 0, 'status');
-  }
+  // セーフティガード廃止（管理者が明示的に選ばない限り追加しない）
 
   const cardBpEl = document.getElementById(adminColumnLcPrefix + 'cardBreakpoint');
   const panelMinEl = document.getElementById(adminColumnLcPrefix + 'panelMinWidth');
@@ -2877,8 +2872,7 @@ function extractConfigFromSetup() {
     ? rawCardKeys.filter(k => adminColumnsSetup.some(c => c.key === k && c.card))
     : boardKeys;
 
-  // name は常に含める
-  if (!cardKeys.includes('name')) cardKeys.unshift('name');
+  // name強制注入を停止
 
   return { board: boardKeys, popup: popupKeys, card: cardKeys, columnWidths, layoutConfig, customColumns };
 }

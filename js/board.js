@@ -86,9 +86,8 @@ function findMemberById(id) {
  * @returns {string[]}
  */
 function getEnabledPopupColumns() {
-  const defaultKeys = ['ext', 'mobile', 'email'];
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.popup)) {
-    return defaultKeys;
+    return []; // デフォルトを廃止し、空を返す
   }
   return OFFICE_COLUMN_CONFIG.popup;
 }
@@ -251,14 +250,10 @@ function bindCandidatePanelGlobals() {
  * @returns {string[]}
  */
 function getEnabledColumns() {
-  const defaultKeys = ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.board)) {
-    return defaultKeys;
+    return []; // デフォルトを廃止し、未設定なら空を返す
   }
-  // 設定がある場合はそれを使用（ただし氏名は必須とする）
-  let keys = OFFICE_COLUMN_CONFIG.board.slice();
-  if (!keys.includes('name')) keys.unshift('name');
-  return keys;
+  return OFFICE_COLUMN_CONFIG.board; // 氏名の強制注入も廃止
 }
 
 /**
@@ -270,9 +265,7 @@ function getCardColumns() {
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.card)) {
     return getEnabledColumns();
   }
-  let keys = OFFICE_COLUMN_CONFIG.card.slice();
-  if (!keys.includes('name')) keys.unshift('name');
-  return keys;
+  return OFFICE_COLUMN_CONFIG.card; // 氏名の強制注入を停止
 }
 
 /* 行UI */
