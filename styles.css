@@ -1290,6 +1290,7 @@ td.time.need-time select:focus~.time-hint {
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  flex-shrink: 0; /* フレックスボックス内で縮小して不当に収まるのを防ぎ、スクロールを誘発する */
 }
 
 .admin-box-header {
@@ -1332,7 +1333,7 @@ td.time.need-time select:focus~.time-hint {
 .tab-panel.active {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1; /* height: 100% よりフレックスボックス内での挙動が安定する */
   min-height: 0;
   overflow-y: auto; /* 基本はパネル自体をスクロールさせる */
 }
