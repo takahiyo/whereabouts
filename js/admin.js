@@ -2729,8 +2729,8 @@ function renderColumnConfig(config) {
   
   const cardOrderList = el('div', { id: 'cardOrderList', class: 'column-order-list' });
 
-  // カード表示順序の管理用（config.cardがあればそれを初期順序とし、なければboard順）
-  let cardOrderKeys = config.card ? config.card.slice() : adminColumnsSetup.filter(c => c.card).map(c => c.key);
+  // カード表示順序の管理用（safeConfig.cardがあればそれを初期順序とし、なければboard順）
+  let cardOrderKeys = (safeConfig.card && Array.isArray(safeConfig.card)) ? safeConfig.card.slice() : adminColumnsSetup.filter(c => c.card).map(c => c.key);
 
   function renderCardOrderListItems() {
     cardOrderList.innerHTML = '';
