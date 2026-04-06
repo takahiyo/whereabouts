@@ -139,24 +139,31 @@ export default {
         console.log(`[Login Attempt] Office: ${officeId}, password provided: ${password ? 'Yes' : 'No'}`);
 
         // 1. DEV_TOKEN (マスターキー) チェックを最優先
-        if (env.DEV_TOKEN && password === env.DEV_TOKEN) {
-          console.log(`[Login Success] Master Key Login. Office Context: ${officeId}, Role: superAdmin`);
-          
-          // 拠点がDBに存在するか試みる（名前などを引くため）
-          const existingOffice = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
-            .bind(officeId)
-            .first();
+        if (env.DEV_TOKEN) {
+          if (password === env.DEV_TOKEN) {
+            console.log(`[Login Success] Master Key Login. Office Context: ${officeId}, Role: superAdmin`);
+            
+            // 拠点がDBに存在するか試みる（名前などを引くため）
+            const existingOffice = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
+              .bind(officeId)
+              .first();
 
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              role: 'superAdmin',
-              office: officeId,
-              officeName: (existingOffice && existingOffice.name) ? existingOffice.name : (officeId || 'システム管理'),
-              columnConfig: null // superAdmin の場合は管理パネルから全拠点を操作可能
-            }),
-            { headers: corsHeaders }
-          );
+            return new Response(
+              JSON.stringify({
+                ok: true,
+                role: 'superAdmin',
+                office: officeId,
+                officeName: (existingOffice && existingOffice.name) ? existingOffice.name : (officeId || 'システム管理'),
+                workerVersion: 'v2.1', // 確実に最新 Worker が動いているか確認用
+                columnConfig: null
+              }),
+              { headers: corsHeaders }
+            );
+          } else {
+            console.warn(`[Login Debug] DEV_TOKEN exists but password mismatch. Input: ${password ? 'Yes' : 'No'}`);
+          }
+        } else {
+          console.error('[Login Debug] env.DEV_TOKEN is UNDEFINED in this worker.');
         }
 
         // 2. 通常のログイン (拠点情報が必要)
