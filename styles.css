@@ -4884,3 +4884,50 @@ td.time.need-time select:focus~.time-hint {
   }
 }
 
+/* === 開発者用：拠点切り替えセクション === */
+.admin-office-row {
+  background: var(--color-blue-50);
+  border-bottom: 1px solid var(--color-blue-200);
+  padding: 12px 24px;
+}
+
+.admin-office-selector-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-office-row label {
+  font-weight: 700;
+  color: var(--color-blue-700);
+  white-space: nowrap;
+}
+
+#adminOfficeSel {
+  width: auto;
+  min-width: 200px;
+  max-width: 300px;
+  border-color: var(--color-blue-200);
+  background-color: var(--color-white);
+  font-weight: 600;
+}
+
+#adminOfficeSel:focus {
+  border-color: var(--color-blue-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  outline: none;
+}
+
+.admin-office-hint {
+  font-size: 12px;
+  color: var(--color-blue-600);
+  opacity: 0.8;
+}
+
+@media (max-width: 720px) {
+  .admin-office-row {
+    padding: 12px 16px;
+  }
+}
+

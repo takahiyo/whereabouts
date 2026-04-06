@@ -70,6 +70,8 @@ async function login(officeInput, passwordInput) {
     const result = await resp.json();
 
     if (!result.ok) {
+      // デバッグ用に Worker からのレスポンスを詳細表示
+      console.warn("[Login Debug] Auth Failure Payload:", result);
       throw new Error("認証に失敗しました。オフィスIDまたはパスワードを確認してください。");
     }
 

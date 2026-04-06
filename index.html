@@ -71,6 +71,14 @@
       </div>
 
       <div class="admin-card-body">
+        <!-- 開発者用：拠点切り替え行 -->
+        <div id="adminOfficeRow" class="admin-office-row u-hidden">
+          <div class="admin-office-selector-inner">
+            <label for="adminOfficeSel">📍 管理対象拠点:</label>
+            <select id="adminOfficeSel"></select>
+            <span class="admin-office-hint">※拠点を切り替えると、設定内容もその拠点のものに切り替わります。</span>
+          </div>
+        </div>
 
         <!-- タブパネル1: 基本設定 -->
         <div id="tabBasic" class="tab-panel active" data-tab="basic">
