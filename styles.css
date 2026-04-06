@@ -211,12 +211,19 @@ header .name-filter {
   flex: 0 0 auto;
 }
 
+.tab-panel[data-tab="members"] .members-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .tab-panel[data-tab="members"] .member-table-wrap {
+  flex: 1;
   overflow: auto;
-  max-height: calc(90vh - 250px); /* 100px 拡大 (グループ管理移動分) */
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+  min-height: 0; /* flex子要素で縮小を許可 */
 }
 
 .tab-panel[data-tab="members"] table.member-table {
@@ -999,14 +1006,32 @@ td.time.need-time select:focus~.time-hint {
 }
 
 .admin-card-body {
-  overflow-y: auto;
-  min-height: 0; /* Grid子要素: コンテンツより小さくなることを許可 */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* 子要素側でスクロールさせるため、外側は隠す */
+  min-height: 0;
   padding: 24px;
   background: var(--color-gray-50);
 }
 
+.tab-panel {
+  display: none;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto; /* 基本はパネル単位でスクロール */
+}
+
 .tab-panel.active {
   display: block;
+}
+
+.tab-panel.active[data-tab="members"],
+.tab-panel.active[data-tab="columns"],
+.tab-panel.active[data-tab="notices"],
+.tab-panel.active[data-tab="groups"] {
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden; /* 内部に専用スクロールエリアがある場合は外を止める */
 }
 
 /* カラム構成アイテム (Image 1) の視認性向上 */
@@ -1301,13 +1326,14 @@ td.time.need-time select:focus~.time-hint {
   padding-bottom: 0;
 }
 .tab-panel[data-tab="columns"] .columns-panel {
-  gap: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 .tab-panel[data-tab="columns"] .column-setting-container {
+  flex: 1;
   overflow-y: auto;
-  max-height: calc(90vh - 260px);
   padding-right: 4px;
-  padding-bottom: 40px;
 }
 .tab-panel[data-tab="columns"] .admin-subsection {
   padding: 8px;
@@ -1432,11 +1458,27 @@ td.time.need-time select:focus~.time-hint {
   opacity: 0.4;
 }
 
+.groups-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.groups-panel .admin-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 #groupOrderList.group-order-list {
+  flex: 1;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 12px;
+  padding-right: 4px;
 }
 
 #groupOrderList .group-order-item {
@@ -3628,6 +3670,8 @@ td.time.need-time select:focus~.time-hint {
 .tools-manager {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 
 .notices-manager-toolbar,
@@ -3643,13 +3687,13 @@ td.time.need-time select:focus~.time-hint {
 
 .notices-manager-scroll,
 .tools-manager-scroll {
-  flex: 1 1 auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
   padding: 12px 0 8px;
-  max-height: calc(80vh - 280px);
+  min-height: 0;
 }
 
 .notices-manager-info,
