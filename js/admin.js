@@ -2403,9 +2403,8 @@ function renderColumnConfig(config) {
     
     // widths や ui state (board/popup)
     const w = widths[k] || {};
-    // 未設定状態では全て false にする
-    const isBoard = isUnconfigured ? false : ((safeConfig.board || []).includes(k) || k === 'name' || k === 'status');
-    const isPopup = isUnconfigured ? false : (safeConfig.popup || []).includes(k);
+    const isBoard = (safeConfig.board || []).includes(k);
+    const isPopup = (safeConfig.popup || []).includes(k);
     
     // Is it a built-in system key?
     const sysDef = COLUMN_DEFINITIONS.find(c => c.key === k);
@@ -2423,7 +2422,7 @@ function renderColumnConfig(config) {
       dependsOn: finalDef.dependsOn ? JSON.parse(JSON.stringify(finalDef.dependsOn)) : null,
       board: isBoard,
       popup: isPopup,
-      card: isUnconfigured ? false : ((safeConfig.card || []).includes(k) || (safeConfig.card == null && isBoard)),
+      card: (safeConfig.card || []).includes(k),
       min: w.min != null ? w.min : '',
       max: w.max != null ? w.max : '',
       isSystem: isSystem,
@@ -2518,10 +2517,7 @@ function renderColumnConfig(config) {
   function renderColumnListItems() {
     orderList.innerHTML = '';
     adminColumnsSetup.forEach((col, idx) => {
-      // name は削除不可・非表示不可の絶対項目
-      const isName = (col.key === 'name');
-      const isStatus = (col.key === 'status');
-      const boardDisabled = isName || isStatus;
+      const boardDisabled = false; // 全ての制限を解除
       const popupDisabled = !col.popupEligible;
 
       const item = el('div', { class: 'column-order-item unified-column-item', style: 'flex-direction: column; align-items: stretch; border: 1px solid var(--border); margin-bottom: 8px; padding: 12px; border-radius: 4px; background: var(--bg-secondary);' });
@@ -2551,7 +2547,6 @@ function renderColumnConfig(config) {
       moveActions.append(upBtn, downBtn);
       
       const titleSpan = el('strong', { text: col.label, style: 'min-width: 120px;' });
-      if (isName) titleSpan.appendChild(el('span', { class: 'column-order-badge', text: '必須', style: 'margin-left: 8px;' }));
       if (!col.isSystem) titleSpan.appendChild(el('span', { class: 'column-order-badge', text: '独自', style: 'margin-left: 8px; background: var(--accent); color: white;' }));
 
       const toggleGrp = el('div', { class: 'column-toggle-grp', style: 'flex: 1;' });
@@ -2595,11 +2590,17 @@ function renderColumnConfig(config) {
       };
       
       const delBtn = el('button', { class: 'btn-danger btn-sm', text: '削除' });
-      delBtn.disabled = isName; // nameは削除禁止
+      // 制限を全廃。管理者が完全にコントロールできるようにする。
       delBtn.onclick = () => {
-        if (confirm(`「${col.label}」を削除しますか？\n（既存の入力値やこのカラムに依存する設定が機能しなくなります）`)) {
+        const isThisName = (col.key === 'name');
+        const confirmMsg = isThisName 
+          ? '「氏名」カラムを削除すると、ボードに名前が表示されなくなります。よろしいですか？'
+          : `「${col.label}」を削除しますか？`;
+        
+        if (confirm(confirmMsg)) {
           adminColumnsSetup.splice(idx, 1);
           renderColumnListItems();
+          renderCardOrderListItems(); // 削除時にカード順序も連動させる
         }
       };
       
