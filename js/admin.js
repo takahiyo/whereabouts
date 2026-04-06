@@ -2432,7 +2432,10 @@ function renderColumnConfig(config) {
   };
 
   (safeConfig.board || []).forEach(k => addKeyToSetup(k));
-  COLUMN_DEFINITIONS.forEach(def => addKeyToSetup(def.key, def));
+  // 未設定状態ではシステムカラムを自動追加しない（空のリストを表示）
+  if (!isUnconfigured) {
+    COLUMN_DEFINITIONS.forEach(def => addKeyToSetup(def.key, def));
+  }
   customCols.forEach(def => addKeyToSetup(def.key, def));
 
   // Build the array
@@ -2446,7 +2449,7 @@ function renderColumnConfig(config) {
   });
 
   // レイアウト設定 (Phase 8: レスポンシブしきい値)
-  const layoutConfig = config.layoutConfig || {};
+  const layoutConfig = safeConfig.layoutConfig || {};
   const responsiveSection = el('div', { class: 'admin-subsection layout-config-section' });
   responsiveSection.appendChild(el('h5', { text: '📱 レスポンシブ設定' }));
 
@@ -2472,7 +2475,46 @@ function renderColumnConfig(config) {
 
   const orderSection = el('div', { class: 'admin-subsection column-order-section' });
   orderSection.appendChild(el('h5', { text: '📐 カラム設定' }));
-  
+
+  // 未設定状態: システムカラム追加用UIを表示
+  if (isUnconfigured || adminColumnsSetup.length === 0) {
+    const emptyMsg = el('p', { class: 'u-text-center u-text-gray', style: 'margin: 16px 0;', text: 'この拠点にはカラム設定がありません。下のボタンからカラムを追加してください。' });
+    orderSection.appendChild(emptyMsg);
+  }
+
+  // システムカラム追加ボタン群
+  const sysAddSection = el('div', { style: 'margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;' });
+  sysAddSection.appendChild(el('span', { text: 'システムカラム: ', style: 'font-weight: 700; font-size: 0.85em;' }));
+  const existingKeys = new Set(adminColumnsSetup.map(c => c.key));
+  COLUMN_DEFINITIONS.forEach(def => {
+    if (existingKeys.has(def.key)) return;
+    const addBtn = el('button', { class: 'btn-secondary btn-sm', text: `+ ${def.label}`, title: `「${def.label}」を追加` });
+    addBtn.addEventListener('click', () => {
+      adminColumnsSetup.push({
+        key: def.key,
+        label: def.label,
+        type: def.type || 'textual',
+        options: [],
+        dependsOn: null,
+        board: def.key === 'name' || def.key === 'status',
+        popup: !!def.popupEligible,
+        card: false,
+        min: '',
+        max: '',
+        isSystem: true,
+        popupEligible: def.popupEligible === undefined ? true : def.popupEligible
+      });
+      const rebuilt = extractConfigFromSetup();
+      renderColumnConfig(rebuilt);
+    });
+    sysAddSection.appendChild(addBtn);
+  });
+  // 全候補が追加済みなら非表示
+  if (sysAddSection.querySelectorAll('button').length === 0) {
+    sysAddSection.style.display = 'none';
+  }
+  orderSection.appendChild(sysAddSection);
+
   const orderList = el('div', { id: 'columnOrderList', class: 'column-order-list' });
 
   function renderColumnListItems() {
