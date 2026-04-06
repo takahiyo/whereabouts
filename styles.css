@@ -1044,25 +1044,7 @@ td.time.need-time select:focus~.time-hint {
   background: var(--color-gray-50);
 }
 
-.tab-panel {
-  display: none;
-  height: 100%;
-  min-height: 0;
-  overflow-y: auto; /* 基本はパネル単位でスクロール */
-}
-
-.tab-panel.active {
-  display: block;
-}
-
-.tab-panel.active[data-tab="members"],
-.tab-panel.active[data-tab="columns"],
-.tab-panel.active[data-tab="notices"],
-.tab-panel.active[data-tab="groups"] {
-  display: flex;
-  flex-direction: column;
-  overflow-y: hidden; /* 内部に専用スクロールエリアがある場合は外を止める */
-}
+/* tab-panel の定義は後方の統合ブロック（1326行付近）に一本化済み */
 
 /* カラム構成アイテム (Image 1) の視認性向上 */
 .unified-column-item,
