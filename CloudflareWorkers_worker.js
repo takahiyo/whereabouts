@@ -138,7 +138,28 @@ export default {
 
         console.log(`[Login Attempt] Office: ${officeId}, password provided: ${password ? 'Yes' : 'No'}`);
 
-        // 拠点情報を取得（テーブル不在によるエラー回避のため、JOINを一時的に削除）
+        // 1. DEV_TOKEN (マスターキー) チェックを最優先
+        if (env.DEV_TOKEN && password === env.DEV_TOKEN) {
+          console.log(`[Login Success] Master Key Login. Office Context: ${officeId}, Role: superAdmin`);
+          
+          // 拠点がDBに存在するか試みる（名前などを引くため）
+          const existingOffice = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
+            .bind(officeId)
+            .first();
+
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              role: 'superAdmin',
+              office: officeId,
+              officeName: (existingOffice && existingOffice.name) ? existingOffice.name : (officeId || 'システム管理'),
+              columnConfig: null // superAdmin の場合は管理パネルから全拠点を操作可能
+            }),
+            { headers: corsHeaders }
+          );
+        }
+
+        // 2. 通常のログイン (拠点情報が必要)
         const office = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
           .bind(officeId)
           .first();
@@ -159,9 +180,7 @@ export default {
         }
 
         let role = '';
-        if (password === env.DEV_TOKEN) {
-          role = 'superAdmin';
-        } else if (password === office.admin_password) {
+        if (password === office.admin_password) {
           role = 'officeAdmin';
         } else if (password === office.password) {
           role = 'user';

@@ -72,6 +72,11 @@ async function refreshPublicOfficeSelect(selectedId){
   if(offices.length===0){
     offices=configuredOfficesFallback();
   }
+  // 【追加】拠点が一つも存在しない場合、開発者が入るためのダミー項目を追加
+  if(offices.length===0 && !apiFailed){
+    offices.push({ id: 'admin', name: 'システム管理 (新規セットアップ用)' });
+  }
+
   if(offices.length===0){
     officeSel.textContent='';
     setSelectMessage(officeSel, apiFailed ? '取得できませんでした。再読込してください' : '拠点が設定されていません');
