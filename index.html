@@ -59,6 +59,7 @@
         <div class="admin-tabs">
           <div class="tab-buttons">
             <button class="tab-btn active" data-tab="basic">⚙️ 基本設定</button>
+            <button class="tab-btn" data-tab="groups">📁 グループ管理</button>
             <button class="tab-btn" data-tab="members">👥 メンバー管理</button>
             <button class="tab-btn" data-tab="columns">📊 カラム構成</button>
             <button id="btnTabOffices" class="tab-btn u-hidden" data-tab="offices">🏢 拠点管理</button>
@@ -104,6 +105,27 @@
                   <button id="btnSetPw">更新</button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- タブパネル: グループ管理 -->
+        <div id="tabGroups" class="tab-panel" data-tab="groups">
+          <div class="groups-panel">
+            <div class="admin-box">
+              <div class="admin-box-header">
+                <h4>📦 グループ管理・並べ替え</h4>
+              </div>
+              <div class="admin-note">
+                グループの追加、名称変更（クリック）、並び替え、削除ができます。<br>
+                ※グループを削除すると、所属するメンバーも削除されるためご注意ください。
+              </div>
+              <div class="group-add-row u-mt-12">
+                <input type="text" id="groupAddInput" placeholder="新しいグループ名を入力" aria-label="新規グループ名" />
+                <button type="button" id="btnGroupAdd" class="btn-primary">➕ 追加</button>
+              </div>
+              <div id="groupOrderList" class="group-order-list"></div>
+              <div id="groupOrderEmpty" class="admin-note u-mt-6">グループがありません。</div>
             </div>
           </div>
         </div>
@@ -154,16 +176,6 @@
               </form>
             </div>
           </div>
-              <div class="admin-subsection">
-                <h5>📦 グループ管理・並べ替え</h5>
-                <div class="admin-note">グループの追加、名称変更（クリック）、並び替え、削除ができます。</div>
-                <div class="group-add-row u-mt-8">
-                  <input type="text" id="groupAddInput" placeholder="新しいグループ名を入力" aria-label="新規グループ名" />
-                  <button type="button" id="btnGroupAdd" class="btn-primary">➕ 追加</button>
-                </div>
-                <div id="groupOrderList" class="group-order-list"></div>
-                <div id="groupOrderEmpty" class="admin-note u-mt-6">グループがありません。</div>
-              </div>
               <div class="member-filter-row">
                 <label for="memberFilterInput" class="member-filter-label">氏名フィルター</label>
                 <div class="member-filter-controls">

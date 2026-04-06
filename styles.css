@@ -213,7 +213,7 @@ header .name-filter {
 
 .tab-panel[data-tab="members"] .member-table-wrap {
   overflow: auto;
-  max-height: calc(90vh - 350px);
+  max-height: calc(90vh - 250px); /* 100px 拡大 (グループ管理移動分) */
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -1452,6 +1452,20 @@ td.time.need-time select:focus~.time-hint {
   position: relative;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.groups-panel .admin-box {
+  margin-bottom: 0;
+}
+
+.group-add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.group-add-row input {
+  flex: 1;
 }
 
 #groupOrderList .group-order-item:hover {

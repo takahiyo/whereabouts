@@ -203,6 +203,7 @@ if (adminModal) {
       adminTabPanels.forEach(panel => panel.classList.remove('active'));
       const panelMap = {
         basic: adminModal.querySelector('#tabBasic'),
+        groups: adminModal.querySelector('#tabGroups'),
         members: adminModal.querySelector('#tabMembers'),
         notices: adminModal.querySelector('#tabNotices'),
         events: adminModal.querySelector('#tabEvents'),
@@ -224,8 +225,12 @@ if (adminModal) {
         }
       } else if (targetTab === 'basic') {
         // no-op for now
+      } else if (targetTab === 'groups') {
+        if (!adminMembersLoaded) { await loadAdminMembers(); }
+        else { renderGroupOrderList(); }
       } else if (targetTab === 'members') {
         if (!adminMembersLoaded) { await loadAdminMembers(); }
+        else { renderMemberTable(); }
       } else if (targetTab === 'events') {
         refreshVacationOfficeOptions();
         const officeId = (vacationOfficeSelect?.value) || adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
