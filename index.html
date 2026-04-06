@@ -188,34 +188,34 @@
               </form>
             </div>
           </div>
-              <div class="member-filter-row">
-                <label for="memberFilterInput" class="member-filter-label">氏名フィルター</label>
-                <div class="member-filter-controls">
-                  <input id="memberFilterInput" type="search" placeholder="在席確認表の氏名で絞り込み" aria-label="氏名フィルター" />
-                  <button id="btnMemberFilterClear" class="btn-secondary" type="button">クリア</button>
-                  <button id="btnOpenAddMember" class="btn-group-add" style="margin-left: auto;">➕ 新規メンバー追加</button>
-                </div>
-              </div>
-              <div class="member-table-wrap">
-                <table class="member-table">
-                  <thead>
-                    <tr>
-                      <th>順番</th>
-                      <th>グループ</th>
-                      <th>氏名</th>
-                      <th>内線</th>
-                      <th>携帯</th>
-                      <th>Email</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody id="memberTableBody">
-                    <tr>
-                      <td colspan="7" class="u-text-center u-text-gray">読み込み待ち</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+          <div class="member-filter-row">
+            <label for="memberFilterInput" class="member-filter-label">氏名フィルター</label>
+            <div class="member-filter-controls">
+              <input id="memberFilterInput" type="search" placeholder="在席確認表の氏名で絞り込み" aria-label="氏名フィルター" />
+              <button id="btnMemberFilterClear" class="btn-secondary" type="button">クリア</button>
+              <button id="btnOpenAddMember" class="btn-group-add" style="margin-left: auto;">➕ 新規メンバー追加</button>
+            </div>
+          </div>
+          <div class="member-table-wrap">
+            <table class="member-table">
+              <thead>
+                <tr>
+                  <th>順番</th>
+                  <th>グループ</th>
+                  <th>氏名</th>
+                  <th>内線</th>
+                  <th>携帯</th>
+                  <th>Email</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="memberTableBody">
+                <tr>
+                  <td colspan="7" class="u-text-center u-text-gray">読み込み待ち</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
         <!-- タブパネル: カラム構成 (Phase 6) -->
         <div id="tabColumns" class="tab-panel" data-tab="columns">
@@ -226,7 +226,10 @@
               <button id="btnColumnSave" class="btn-primary btn-sm">💾 保存</button>
             </div>
           </div>
-            </div>
+          <div id="columnSettingContainer" class="column-setting-container">
+            <!-- JSでレスポンシブ設定やカラム一覧が動的に生成されます -->
+            <p class="u-text-center u-text-gray u-my-12">設定を読み込み中...</p>
+          </div>
         </div>
 
         <!-- タブパネル: 拠点管理 (Phase 7 - Super Admin Only) -->

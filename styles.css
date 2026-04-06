@@ -217,6 +217,10 @@ header .name-filter {
   height: 100%;
 }
 
+.tab-panel[data-tab="members"] .member-filter-row {
+  flex: 0 0 auto;
+}
+
 .tab-panel[data-tab="members"] .member-table-wrap {
   flex: 1;
   overflow: auto;
@@ -1333,15 +1337,12 @@ td.time.need-time select:focus~.time-hint {
 .tab-panel[data-tab="columns"] {
   padding-bottom: 0;
 }
-.tab-panel[data-tab="columns"] .columns-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
+/* .columns-panel ラッパーはこのタブでは不等値なので直接 container を拡張 */
 .tab-panel[data-tab="columns"] .column-setting-container {
   flex: 1;
   overflow-y: auto;
   padding-right: 4px;
+  min-height: 0;
 }
 .tab-panel[data-tab="columns"] .admin-subsection {
   padding: 8px;
