@@ -1293,32 +1293,40 @@ td.time.need-time select:focus~.time-hint {
   margin-top: 4px;
 }
 
-.members-panel,
-.columns-panel {
+.tab-panel.active {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  height: 100%;
   min-height: 0;
 }
 
-/* カラム構成タブ: ツールバー（タイトル＋ボタンを1行に集約） */
-.columns-toolbar {
+/* 共通ツールバー（タイトル＋ボタンを1行に集約） */
+.admin-toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 0;
+  gap: 12px;
+  padding: 8px 0 16px;
   border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 16px;
+  flex: 0 0 auto;
 }
-.columns-toolbar h4 {
+.admin-toolbar h4 {
   margin: 0;
   white-space: nowrap;
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-gray-800);
 }
-.columns-toolbar-actions {
+.admin-toolbar-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
   flex-shrink: 0;
+}
+.admin-toolbar-info {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-left: 8px;
 }
 
 /* カラム構成タブ: 縦スクロール + スペース効率化 */
@@ -3678,11 +3686,10 @@ td.time.need-time select:focus~.time-hint {
 .tools-manager-toolbar {
   flex: 0 0 auto;
   background: #fff;
-  padding: 8px 0 12px;
+  padding: 0 0 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border-bottom: 1px solid #e5e7eb;
 }
 
 .notices-manager-scroll,

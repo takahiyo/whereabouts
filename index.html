@@ -58,14 +58,14 @@
         <!-- タブナビゲーション -->
         <div class="admin-tabs">
           <div class="tab-buttons">
-            <button class="tab-btn active" data-tab="basic">⚙️ 基本設定</button>
-            <button class="tab-btn" data-tab="groups">📁 グループ管理</button>
-            <button class="tab-btn" data-tab="members">👥 メンバー管理</button>
-            <button class="tab-btn" data-tab="columns">📊 カラム構成</button>
-            <button id="btnTabOffices" class="tab-btn u-hidden" data-tab="offices">🏢 拠点管理</button>
-            <button class="tab-btn" data-tab="notices">📢 お知らせ管理</button>
-            <button class="tab-btn" data-tab="events">📅 イベント管理</button>
-            <button class="tab-btn" data-tab="tools">🛠️ ツール / 出力</button>
+            <button class="tab-btn active" data-tab="basic">⚙️ 基本</button>
+            <button class="tab-btn" data-tab="groups">📁 グループ</button>
+            <button class="tab-btn" data-tab="members">👥 メンバー</button>
+            <button class="tab-btn" data-tab="columns">📊 カラム</button>
+            <button id="btnTabOffices" class="tab-btn u-hidden" data-tab="offices">🏢 拠点</button>
+            <button class="tab-btn" data-tab="notices">📢 お知らせ</button>
+            <button class="tab-btn" data-tab="events">📅 イベント</button>
+            <button class="tab-btn" data-tab="tools">🛠️ ツール</button>
           </div>
         </div>
       </div>
@@ -74,6 +74,9 @@
 
         <!-- タブパネル1: 基本設定 -->
         <div id="tabBasic" class="tab-panel active" data-tab="basic">
+          <div class="admin-toolbar">
+            <h4>⚙️ 基本設定</h4>
+          </div>
           <div class="admin-grid">
             <div class="admin-box admin-box-stacked">
               <h4>📁 CSV管理</h4>
@@ -111,31 +114,40 @@
 
         <!-- タブパネル: グループ管理 -->
         <div id="tabGroups" class="tab-panel" data-tab="groups">
-          <div class="groups-panel">
-            <div class="admin-box">
-              <div class="admin-box-header">
-                <h4>📦 グループ管理・並べ替え</h4>
-              </div>
-              <div class="admin-note">
-                グループの追加、名称変更（クリック）、並び替え、削除ができます。<br>
-                ※グループを削除すると、所属するメンバーも削除されるためご注意ください。
-              </div>
-              <div class="group-add-row u-mt-12">
-                <input type="text" id="groupAddInput" placeholder="新しいグループ名を入力" aria-label="新規グループ名" />
-                <button type="button" id="btnGroupAdd" class="btn-primary">➕ 追加</button>
-              </div>
-              <div id="groupOrderList" class="group-order-list"></div>
-              <div id="groupOrderEmpty" class="admin-note u-mt-6">グループがありません。</div>
+          <div class="admin-toolbar">
+            <h4>📁 グループ操作</h4>
+          </div>
+
+          <div class="admin-box">
+            <div class="admin-box-header">
+              <strong>グループ追加</strong>
             </div>
+            <div class="group-add-row u-mt-12">
+              <input type="text" id="groupAddInput" placeholder="新しいグループ名を入力" aria-label="新規グループ名" />
+              <button type="button" id="btnGroupAdd" class="btn-primary">➕ 追加</button>
+            </div>
+          </div>
+
+          <div class="admin-box u-mt-16">
+            <div class="admin-box-header">
+              <strong>並べ替え・名称変更・削除</strong>
+            </div>
+            <div class="admin-note">
+              ドラッグで並べ替え、名前をクリックして編集できます。
+            </div>
+            <div id="groupOrderList" class="group-order-list"></div>
+            <div id="groupOrderEmpty" class="admin-note u-mt-6">グループがありません。</div>
           </div>
         </div>
 
         <!-- タブパネル: メンバー管理 -->
         <div id="tabMembers" class="tab-panel" data-tab="members">
-          <div class="member-save-bar">
-            <button id="btnMemberSave" class="btn-primary">💾 変更を保存</button>
+          <div class="admin-toolbar">
+            <h4>👥 メンバー管理</h4>
+            <div class="admin-toolbar-actions">
+              <button id="btnMemberSave" class="btn-primary btn-sm">💾 変更を保存</button>
+            </div>
           </div>
-          <div class="members-panel">
             <!-- モーダル形式に変更 -->
             <div id="memberAddModal" class="admin-modal-overlay u-hidden">
               <div class="admin-box member-add-popup" id="memberEditTop">
@@ -204,24 +216,17 @@
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
         </div>
         <!-- タブパネル: カラム構成 (Phase 6) -->
         <div id="tabColumns" class="tab-panel" data-tab="columns">
-          <div class="columns-panel">
-            <div class="columns-toolbar">
-              <h4>🎛️ カラム構成</h4>
-              <div class="columns-toolbar-actions">
-                <button id="btnAddCustomColumn" class="btn-primary btn-sm">➕ 新規追加</button>
-                <button id="btnColumnSave" class="btn-primary btn-sm">💾 保存</button>
-              </div>
-            </div>
-            <div id="columnSettingContainer" class="column-setting-container">
-              <!-- JSでレスポンシブ設定やカラム一覧が動的に生成されます -->
-              <p class="u-text-center u-text-gray u-my-12">設定を読み込み中...</p>
+          <div class="admin-toolbar">
+            <h4>🎛️ カラム構成</h4>
+            <div class="admin-toolbar-actions">
+              <button id="btnAddCustomColumn" class="btn-primary btn-sm">➕ 新規追加</button>
+              <button id="btnColumnSave" class="btn-primary btn-sm">💾 保存</button>
             </div>
           </div>
+            </div>
         </div>
 
         <!-- タブパネル: 拠点管理 (Phase 7 - Super Admin Only) -->
@@ -262,16 +267,20 @@
 
         <!-- タブパネル2: お知らせ管理 -->
         <div id="tabNotices" class="tab-panel" data-tab="notices">
+          <div class="admin-toolbar">
+            <h4>📢 お知らせ管理</h4>
+            <div class="admin-toolbar-actions">
+              <button id="btnLoadNotices" class="btn-secondary btn-sm">🔄 読み込み</button>
+              <button id="btnSaveNotices" class="btn-success btn-sm">💾 保存</button>
+            </div>
+          </div>
           <div class="notices-manager">
             <div class="notices-manager-toolbar">
               <div class="notices-manager-info">
-                <p>お知らせの順番はドラッグ&ドロップまたは↑↓ボタンで入れ替えられます。上にあるものから順に表示されます。</p>
-                <p>「表示する」チェックで公開/非公開を切り替えられます。削除ボタンを押すと確認ダイアログが表示されます。</p>
+                <p>上にあるものから順に表示されます。ドラッグして並び替え可能です。</p>
               </div>
               <div class="notices-manager-actions">
-                <button id="btnAddNotice" class="btn-primary">➕ お知らせを追加</button>
-                <button id="btnLoadNotices" class="btn-secondary">🔄 読み込み</button>
-                <button id="btnSaveNotices" class="btn-success">💾 保存</button>
+                <button id="btnAddNotice" class="btn-primary">➕ お知らせを新規追加</button>
               </div>
             </div>
 
@@ -283,11 +292,16 @@
 
         <!-- タブパネル3: イベント管理 -->
         <div id="tabEvents" class="tab-panel" data-tab="events">
+          <div class="admin-toolbar">
+            <h4>📅 イベント管理</h4>
+            <div class="admin-toolbar-actions">
+              <button id="btnExportEvent" class="btn-secondary btn-sm">📄 エクスポート</button>
+            </div>
+          </div>
           <div class="vacation-grid">
             <div class="admin-box">
               <div class="u-flex-between-center u-mb-8">
                 <h4 class="u-m-0">登録済みのイベント</h4>
-                <button id="btnExportEvent" class="btn-secondary u-font-13">📄 イベントをエクスポート</button>
               </div>
               <div class="vacation-table-wrap">
                 <table class="vacation-table">
@@ -391,7 +405,9 @@
 
         <!-- タブパネル4: ツール管理 -->
         <div id="tabTools" class="tab-panel" data-tab="tools">
-          <!-- 項目自動消去設定 -->
+          <div class="admin-toolbar">
+            <h4>🛠️ ツール・設定</h4>
+          </div>
           <div class="admin-box u-mb-16">
             <h4>🔄 項目自動消去設定</h4>
             <div class="admin-subsection">
