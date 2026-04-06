@@ -2368,10 +2368,8 @@ async function loadColumnConfig() {
     }
     const res = await apiPost({ action: 'getColumnConfig', token: SESSION_TOKEN, office });
     console.log('[loadColumnConfig] res:', res);
-    const config = (res && res.columnConfig) || { 
-      board: ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'], 
-      popup: ['ext', 'mobile', 'email'] 
-    };
+    // サーバーに設定がない場合は null のまま渡す（新拠点＝未設定状態）
+    const config = (res && res.columnConfig) || null;
     console.log('[loadColumnConfig] Using config:', config);
     renderColumnConfig(config);
   } catch (e) {
@@ -2388,8 +2386,12 @@ function renderColumnConfig(config) {
   if (!columnSettingContainer) return;
   columnSettingContainer.innerHTML = '';
 
-  const widths = (config.columnWidths && typeof config.columnWidths === 'object') ? config.columnWidths : {};
-  const customCols = Array.isArray(config.customColumns) ? config.customColumns : [];
+  // config が null の場合は「未設定状態」: 全カラムを board=false, popup=false で表示
+  const isUnconfigured = !config;
+  const safeConfig = config || { board: [], popup: [], card: [] };
+
+  const widths = (safeConfig.columnWidths && typeof safeConfig.columnWidths === 'object') ? safeConfig.columnWidths : {};
+  const customCols = Array.isArray(safeConfig.customColumns) ? safeConfig.customColumns : [];
 
   const allKeys = [];
   const setupPropsMap = {}; // key -> properties
@@ -2401,8 +2403,9 @@ function renderColumnConfig(config) {
     
     // widths や ui state (board/popup)
     const w = widths[k] || {};
-    const isBoard = (config.board || []).includes(k) || k === 'name' || k === 'status';
-    const isPopup = (config.popup || []).includes(k);
+    // 未設定状態では全て false にする
+    const isBoard = isUnconfigured ? false : ((safeConfig.board || []).includes(k) || k === 'name' || k === 'status');
+    const isPopup = isUnconfigured ? false : (safeConfig.popup || []).includes(k);
     
     // Is it a built-in system key?
     const sysDef = COLUMN_DEFINITIONS.find(c => c.key === k);
@@ -2420,7 +2423,7 @@ function renderColumnConfig(config) {
       dependsOn: finalDef.dependsOn ? JSON.parse(JSON.stringify(finalDef.dependsOn)) : null,
       board: isBoard,
       popup: isPopup,
-      card: (config.card || []).includes(k) || (config.card == null && isBoard), // config.cardがない場合はboardに合わせる
+      card: isUnconfigured ? false : ((safeConfig.card || []).includes(k) || (safeConfig.card == null && isBoard)),
       min: w.min != null ? w.min : '',
       max: w.max != null ? w.max : '',
       isSystem: isSystem,
@@ -2428,7 +2431,7 @@ function renderColumnConfig(config) {
     };
   };
 
-  (config.board || []).forEach(k => addKeyToSetup(k));
+  (safeConfig.board || []).forEach(k => addKeyToSetup(k));
   COLUMN_DEFINITIONS.forEach(def => addKeyToSetup(def.key, def));
   customCols.forEach(def => addKeyToSetup(def.key, def));
 
