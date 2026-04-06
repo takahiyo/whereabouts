@@ -2432,10 +2432,8 @@ function renderColumnConfig(config) {
   };
 
   (safeConfig.board || []).forEach(k => addKeyToSetup(k));
-  // 未設定状態ではシステムカラムを自動追加しない（空のリストを表示）
-  if (!isUnconfigured) {
-    COLUMN_DEFINITIONS.forEach(def => addKeyToSetup(def.key, def));
-  }
+  (safeConfig.popup || []).forEach(k => addKeyToSetup(k));
+  (safeConfig.card || []).forEach(k => addKeyToSetup(k));
   customCols.forEach(def => addKeyToSetup(def.key, def));
 
   // Build the array
