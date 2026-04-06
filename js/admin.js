@@ -23,6 +23,15 @@ if (adminOfficeSel) {
     if (document.getElementById('tabMembers')?.classList.contains('active')) {
       loadAdminMembers(true);
     }
+    if (document.getElementById('tabGroups')?.classList.contains('active')) {
+      loadAdminMembers(true);
+    }
+    if (document.getElementById('tabColumns')?.classList.contains('active')) {
+      loadColumnConfig();
+    }
+    if (document.getElementById('tabNotices')?.classList.contains('active')) {
+      autoLoadNoticesOnAdminOpen();
+    }
     if (document.getElementById('tabEvents')?.classList.contains('active')) {
       loadVacationsList();
     }
