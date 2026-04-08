@@ -44,6 +44,8 @@ export async function login(email, password) {
     const user = userCredential.user;
 
     if (!user.emailVerified) {
+      // [AFTER] 未認証の場合は自動で確認メールを再送する
+      await sendEmailVerification(user);
       return { ok: false, error: 'email_not_verified' };
     }
 
