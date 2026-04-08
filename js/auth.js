@@ -117,7 +117,12 @@ export async function checkLogin() {
           }
         } else {
           console.error('【DEBUG】Worker 同期失敗:', resp);
-          showError(`システムエラー: ${resp.message || resp.error || '不明なエラー'}`);
+          // [FIX] サーバー側でメール未認証判定された場合は、クライアントの状態に関わらず強制遷移させる
+          if (resp.error === 'email_not_verified') {
+            switchAuthView('verify');
+          } else {
+            showError(`システムエラー: ${resp.message || resp.error || '不明なエラー'}`);
+          }
           resolve(false);
         }
       } else {
