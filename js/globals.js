@@ -99,6 +99,26 @@ try {
   console.error("Failed to load column config from storage:", e);
 }
 
+// 拠点名の初期化 (localStorage から復元)
+if (!CURRENT_OFFICE_NAME) {
+  CURRENT_OFFICE_NAME = localStorage.getItem(LOCAL_OFFICE_NAME_KEY) || '';
+}
+
+/**
+ * ヘッダーのタイトルボタン表示を更新する (SSOT)
+ * @param {string} [officeName] 
+ */
+function updateTitleBtn(officeName) {
+  if (officeName) CURRENT_OFFICE_NAME = officeName;
+  if (!titleBtn) return;
+
+  if (CURRENT_OFFICE_NAME) {
+    titleBtn.textContent = `${CURRENT_OFFICE_NAME}${TITLE_SEPARATOR}${TITLE_SUFFIX}`;
+  } else {
+    titleBtn.textContent = TITLE_SUFFIX;
+  }
+}
+
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     resumeRemoteSyncOnVisible = remotePullTimer != null;

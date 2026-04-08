@@ -66,6 +66,7 @@ export async function checkLogin() {
         role: storedRole || 'user',
         officeName: localStorage.getItem(LOCAL_OFFICE_NAME_KEY) || storedOffice
       });
+      if (typeof updateTitleBtn === 'function') updateTitleBtn();
       resolve(true);
       isBooting = false;
       return;
@@ -199,7 +200,10 @@ async function finalizeLogin(data) {
   localStorage.setItem(SESSION_KEY, SESSION_TOKEN);
   localStorage.setItem(LOCAL_OFFICE_KEY, CURRENT_OFFICE_ID);
   localStorage.setItem(LOCAL_ROLE_KEY, CURRENT_ROLE);
-  localStorage.setItem(LOCAL_OFFICE_NAME_KEY, data.officeName || CURRENT_OFFICE_ID);
+  const officeName = data.officeName || CURRENT_OFFICE_ID;
+  localStorage.setItem(LOCAL_OFFICE_NAME_KEY, officeName);
+  
+  if (typeof updateTitleBtn === 'function') updateTitleBtn(officeName);
 
   console.log('【DEBUG】finalizeLogin 実行:', { office: data.office, role: data.role });
 
