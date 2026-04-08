@@ -4413,10 +4413,6 @@ td.time.need-time select:focus~.time-hint {
   width: 160px;
 }
 
-.u-hidden {
-  display: none;
-}
-
 .u-bold {
   font-weight: bold;
 }

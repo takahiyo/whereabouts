@@ -123,21 +123,42 @@ export async function checkLogin() {
  * UI の切り替え
  */
 function switchAuthView(view) {
+  console.log(`【DEBUG】switchAuthView 遷移先: ${view}`);
   // 全て隠す
   const areas = ['loginFormArea', 'signupFormArea', 'verifyEmailArea', 'createOfficeArea'];
-  areas.forEach(id => document.getElementById(id)?.classList.add('u-hidden'));
+  areas.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('u-hidden');
+    } else {
+      console.warn(`【DEBUG】警告: 要素が見つかりません: ${id}`);
+    }
+  });
 
-  if (loginEl) loginEl.classList.remove('u-hidden');
+  if (loginEl) {
+    loginEl.classList.remove('u-hidden');
+    console.log('【DEBUG】#login コンテナを表示しました');
+  } else {
+    console.error('【DEBUG】エラー: #login 要素が DOM に存在しません');
+  }
   if (board) board.classList.add('u-hidden');
 
-  if (view === 'officeLogin' || view === 'adminPortal') {
-    document.getElementById('loginFormArea')?.classList.remove('u-hidden');
-  } else if (view === 'signup') {
-    document.getElementById('signupFormArea')?.classList.remove('u-hidden');
-  } else if (view === 'verify') {
-    document.getElementById('verifyEmailArea')?.classList.remove('u-hidden');
-  } else if (view === 'createOffice') {
-    document.getElementById('createOfficeArea')?.classList.remove('u-hidden');
+  const targetId = {
+    'officeLogin': 'loginFormArea',
+    'adminPortal': 'loginFormArea',
+    'signup': 'signupFormArea',
+    'verify': 'verifyEmailArea',
+    'createOffice': 'createOfficeArea'
+  }[view];
+
+  if (targetId) {
+    const targetEl = document.getElementById(targetId);
+    if (targetEl) {
+      targetEl.classList.remove('u-hidden');
+      console.log(`【DEBUG】エリアを表示しました: ${targetId}`);
+    } else {
+      console.error(`【DEBUG】エラー: 表示対象の要素が見つかりません: ${targetId}`);
+    }
   }
 }
 
