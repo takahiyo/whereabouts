@@ -6,10 +6,12 @@
  */
 
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  // Firebase コンソールから取得したプロジェクト設定
+  apiKey: "AIzaSyA_CKaAyt7aiZ0tXgv-0lHviCVV4y8urBQ",
+  authDomain: "whereabouts-f3388.firebaseapp.com",
+  projectId: "whereabouts-f3388",
+  storageBucket: "whereabouts-f3388.firebasestorage.app",
+  messagingSenderId: "578171146712",
+  appId: "1:578171146712:web:b36ba48f99eae97f6ba2ad",
+  measurementId: "G-SLXCBCX483"
 };

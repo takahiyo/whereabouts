@@ -12,6 +12,7 @@ import {
   watchAuthState,
   getValidToken as getFbToken
 } from './firebase-auth.js';
+import { firebaseConfig } from './firebase-config.js';
 
 // DOM Elements
 const loginEl = document.getElementById('login');
@@ -213,6 +214,12 @@ document.getElementById('btnSimpleLogin')?.addEventListener('click', async () =>
 document.getElementById('btnAuthSignup')?.addEventListener('click', async () => {
   const email = document.getElementById('signupEmail').value;
   const pw = document.getElementById('signupPw').value;
+
+  // Firebase設定チェック
+  if (!firebaseConfig || firebaseConfig.apiKey === 'YOUR_API_KEY') {
+    return showError('【設定不備】Firebaseの設定が完了していません。js/firebase-config.js を編集してください。');
+  }
+
   if (!email || pw.length < 6) return showError('正しいメールアドレスと6文字以上のパスワードを入力してください。');
 
   const res = await fbSignup(email, pw);
