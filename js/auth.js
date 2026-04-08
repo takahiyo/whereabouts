@@ -14,9 +14,15 @@ import {
 } from './firebase-auth.js';
 
 // DOM Elements
-const officeLoginArea = document.getElementById('officeLoginArea');
-const adminPortalArea = document.getElementById('adminPortalArea');
+const loginEl = document.getElementById('login');
+const board = document.getElementById('board');
 const loginMsg = document.getElementById('loginMsg');
+const adminBtn = document.getElementById('adminBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const toolsBtn = document.getElementById('toolsBtn');
+const manualBtn = document.getElementById('manualBtn');
+const qrBtn = document.getElementById('qrBtn');
+const qrModal = document.getElementById('qrModal');
 
 // Auth State Variables
 let isBooting = true;
@@ -103,8 +109,6 @@ function switchAuthView(view) {
   const areas = ['loginFormArea', 'signupFormArea', 'verifyEmailArea', 'createOfficeArea'];
   areas.forEach(id => document.getElementById(id)?.classList.add('u-hidden'));
 
-  const loginEl = document.getElementById('login');
-  const board = document.getElementById('board');
   if (loginEl) loginEl.classList.remove('u-hidden');
   if (board) board.classList.add('u-hidden');
 
