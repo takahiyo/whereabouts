@@ -11,11 +11,69 @@
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
+
+/**
+ * 管理モーダルを開く
+ */
+function openAdminModal() {
+  if (!adminModal) return;
+  adminModal.classList.add('show');
+  adminModal.style.display = 'flex';
+  
+  // 初期データの読み込み
+  if (!adminMembersLoaded) {
+    loadAdminMembers(true);
+  }
+  
+  // 必要に応じてお知らせなどの自動読み込み
+  if (typeof autoLoadNoticesOnAdminOpen === 'function') {
+    autoLoadNoticesOnAdminOpen();
+  }
+  
+  // 管理者には拠点選択を表示するように戻す（将来的なマルチ拠点対応を見越して）
+  // ただし現在のSSOT原則に基づき、CURRENT_OFFICE_IDを初期値とする
+  if (adminOfficeSel && CURRENT_OFFICE_ID) {
+    adminOfficeSel.value = CURRENT_OFFICE_ID;
+  }
+}
+
+/**
+ * 管理モーダルを閉じる
+ */
+function closeAdminModal() {
+  if (!adminModal) return;
+  adminModal.classList.remove('show');
+  adminModal.style.display = 'none';
+}
+
+// ボタンにリスナーを登録
+if (adminBtn) {
+  adminBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    openAdminModal();
+  });
+}
+if (adminClose) {
+  adminClose.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeAdminModal();
+  });
+}
+
+// グローバルに公開（auth.jsなどからの呼び出し用）
+window.openAdminModal = openAdminModal;
+window.closeAdminModal = closeAdminModal;
+
 // renderColumnConfig はファイル後半（2300行目付近）の実装を使用します。ここでの空の定義を削除。
 const btnAddOffice = document.getElementById('btnAddOffice');
 const officeTableBody = document.getElementById('officeTableBody');
 if (adminOfficeSel) {
   adminOfficeSel.addEventListener('change', () => {
+    // データ隔離: 管理者は自分の拠点のみ。SuperAdminのみ切り替えを許可（将来用）
+    if (CURRENT_ROLE !== 'superAdmin') {
+      adminOfficeSel.value = CURRENT_OFFICE_ID;
+      return;
+    }
     adminSelectedOfficeId = adminOfficeSel.value || '';
     adminMembersLoaded = false; adminMemberList = []; setMemberTableMessage('読み込み待ち');
     adminToolsLoaded = false; adminToolsOfficeId = '';
@@ -1465,7 +1523,10 @@ function refreshVacationOfficeOptions() {
 }
 
 function getVacationTargetOffice() {
-  const office = (vacationOfficeSelect && vacationOfficeSelect.value) || selectedOfficeId();
+  // データ隔離: 常にログイン中の拠点を優先
+  const office = (CURRENT_ROLE === 'superAdmin' && vacationOfficeSelect) 
+    ? (vacationOfficeSelect.value || CURRENT_OFFICE_ID)
+    : CURRENT_OFFICE_ID;
   if (!office) { toast('対象拠点を選択してください', false); }
   return office;
 }
@@ -2003,7 +2064,10 @@ async function handleVacationDelete() {
 
 /* Admin API */
 function selectedOfficeId() {
-  const office = adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
+  // データ隔離: 常にログイン中の拠点を優先
+  const office = (CURRENT_ROLE === 'superAdmin')
+    ? (adminSelectedOfficeId || CURRENT_OFFICE_ID)
+    : CURRENT_OFFICE_ID;
   if (!office) { toast('操作対象拠点を選択してください', false); }
   return office;
 }
@@ -2954,10 +3018,10 @@ function renderOfficeTable(offices) {
 }
 
 async function addOffice() {
-  const officeId = document.getElementById('newOfficeId')?.value.trim();
-  const name = document.getElementById('newOfficeName')?.value.trim();
-  const password = document.getElementById('newOfficePw')?.value.trim();
-  const adminPassword = document.getElementById('newOfficeAdminPw')?.value.trim();
+  const officeId = document.getElementById('adminNewOfficeId')?.value.trim();
+  const name = document.getElementById('adminNewOfficeName')?.value.trim();
+  const password = document.getElementById('adminNewOfficePw')?.value.trim();
+  const adminPassword = document.getElementById('adminNewOfficeAdminPw')?.value.trim();
   
   if (!officeId || !name || !password || !adminPassword) {
     toast('すべての項目を入力してください', false);
@@ -2973,7 +3037,7 @@ async function addOffice() {
     
     if (res && res.ok) {
       toast('拠点を追加しました');
-      ['newOfficeId', 'newOfficeName', 'newOfficePw', 'newOfficeAdminPw'].forEach(id => {
+      ['adminNewOfficeId', 'adminNewOfficeName', 'adminNewOfficePw', 'adminNewOfficeAdminPw'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
       });

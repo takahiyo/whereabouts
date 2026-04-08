@@ -98,3 +98,18 @@ CREATE TABLE IF NOT EXISTS event_color_maps (
     FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
 );
 
+-- ユーザー管理テーブル (Phase 2 追加)
+-- Firebase Authentication の UID と 拠点(office) を紐付ける。
+CREATE TABLE IF NOT EXISTS users (
+    firebase_uid TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    office_id TEXT, -- 所属拠点ID
+    role TEXT DEFAULT 'staff', -- 'owner' (契約者/管理者), 'staff' (一般利用者)
+    created_at INTEGER,
+    updated_at INTEGER,
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE SET NULL
+);
+
+-- ユーザー検索用のインデックス
+CREATE INDEX IF NOT EXISTS idx_users_office ON users(office_id);
+

@@ -11,13 +11,14 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 
-  <!-- CSP：Worker への POST を許可 -->
+  <!-- CSP：Firebase と Worker への通信を許可 -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self';
-               script-src 'self';
-               connect-src 'self' https://whereabouts.taka-hiyo.workers.dev https://whereabouts-dev.taka-hiyo.workers.dev;
-               style-src 'self' 'unsafe-inline';
-               img-src 'self' data:;
-               font-src 'self';
+               script-src 'self' 'unsafe-eval' https://www.gstatic.com https://*.firebaseapp.com;
+               connect-src 'self' https://whereabouts.taka-hiyo.workers.dev https://whereabouts-dev.taka-hiyo.workers.dev https://*.googleapis.com https://*.firebaseio.com;
+               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+               img-src 'self' data: https://www.gstatic.com;
+               font-src 'self' https://fonts.gstatic.com;
+               frame-src 'self' https://*.firebaseapp.com;
                object-src 'none';
                base-uri 'self';
                form-action 'self'">
@@ -253,10 +254,10 @@
             </div>
             <div class="office-add-form u-mb-3">
               <div class="u-grid u-grid-2-cols u-gap-1">
-                <input type="text" id="newOfficeId" placeholder="拠点ID (例: tokyo_honsya)" class="u-w-100">
-                <input type="text" id="newOfficeName" placeholder="拠点名 (例: 東京本社)" class="u-w-100">
-                <input type="password" id="newOfficePw" placeholder="ユーザー用PW" class="u-w-100">
-                <input type="password" id="newOfficeAdminPw" placeholder="管理者用PW" class="u-w-100">
+                <input type="text" id="adminNewOfficeId" placeholder="拠点ID (例: tokyo_honsya)" class="u-w-100">
+                <input type="text" id="adminNewOfficeName" placeholder="拠点名 (例: 東京本社)" class="u-w-100">
+                <input type="password" id="adminNewOfficePw" placeholder="ユーザー用PW" class="u-w-100">
+                <input type="password" id="adminNewOfficeAdminPw" placeholder="管理者用PW" class="u-w-100">
               </div>
               <button id="btnAddOffice" class="btn-primary u-w-100 u-mt-2">➕ 新しい拠点を追加</button>
             </div>
@@ -1222,18 +1223,57 @@
     </div>
   </div>
 
-  <!-- ログイン -->
+  <!-- ログイン / サインアップ UI -->
   <div id="login" class="login u-hidden">
-    <form id="loginForm" class="card">
-      <h2>在席確認表</h2>
-      <p>拠点IDとパスワードを入力してください</p>
-      <input type="text" name="username" id="dummyUsername" tabindex="-1" aria-hidden="true" class="u-visually-hidden"
-        autocomplete="username">
-      <input type="text" id="officeSel" placeholder="拠点ID (例: tokyo_honsya)" autocomplete="username" />
-      <input type="password" id="pw" placeholder="Password" autocomplete="current-password" />
-      <button id="btnLogin" type="button">ログイン</button>
+    <div id="loginForm" class="card">
+      <h2 id="authTitle">在席確認表</h2>
+
+      <!-- 統合ログインフォーム (ID または メール) -->
+      <div id="loginFormArea">
+        <p class="u-font-09em u-mb-8">拠点名 または メールアドレスでログイン</p>
+        <input type="text" id="loginOfficeId" placeholder="オフィス名 (例: 株式会社ABC 本社) または Email" autocomplete="username" />
+        <input type="password" id="loginPassword" placeholder="パスワード" autocomplete="current-password" />
+        <button id="btnSimpleLogin" type="button" class="u-mt-16">ログイン</button>
+        
+        <p class="u-mt-24 u-font-08em u-text-center">
+          新規開設（管理者登録）をご希望ですか？ 
+          <br class="u-mobile-only">
+          <a href="#" id="linkGotoSignup" class="u-link-blue">こちらから開始</a>
+        </p>
+      </div>
+
+      <!-- 2. サインアップ（管理者登録） -->
+      <div id="signupFormArea" class="u-hidden">
+        <p class="u-font-09em u-mb-8">管理者（オーナー）新規登録</p>
+        <input type="email" id="signupEmail" placeholder="メールアドレス" />
+        <input type="password" id="signupPw" placeholder="パスワード (6文字以上)" />
+        <button id="btnAuthSignup" type="button" class="u-mt-16">登録して実在確認へ</button>
+        <p class="u-mt-16 u-font-08em">
+          <a href="#" id="linkGotoLogin" class="u-link-blue">ログインに戻る</a>
+        </p>
+      </div>
+
+      <!-- 3. メール認証待ち -->
+      <div id="verifyEmailArea" class="u-hidden">
+        <p class="u-mb-8">📩 確認メールを送信しました</p>
+        <p class="u-font-08em">メール内のリンクをクリックして認証を完了させた後、この画面に戻ってログインしてください。</p>
+        <button id="btnVerifyDone" type="button" class="u-mt-16">完了してログイン画面へ</button>
+      </div>
+
+      <!-- 4. 拠点作成 -->
+      <div id="createOfficeArea" class="u-hidden">
+        <p class="u-mb-8">🏢 新しい拠点を立ち上げる</p>
+        <input type="text" id="newOfficeId" placeholder="オフィスID (半角英数字、例: abc_honsya)" />
+        <input type="text" id="newOfficeName" placeholder="オフィス名 (例: 株式会社ABC 本社)" />
+        <div class="u-grid-2 u-mt-8">
+          <input type="password" id="newOfficePw" placeholder="一般用パスワード" />
+          <input type="password" id="newOfficeAdminPw" placeholder="管理者用パスワード" />
+        </div>
+        <button id="btnCreateOffice" type="button" class="u-mt-16">拠点を登録して開始</button>
+      </div>
+
       <div id="loginMsg" class="login-msg" aria-live="polite"></div>
-    </form>
+    </div>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -1264,9 +1304,9 @@
       </div>
       <div class="qr-modal-body">
         <div class="qr-container">
-          <img src="QR_Whereabouts.png" alt="在籍確認表アクセス用QRコード" class="qr-image">
+          <div id="qrOutput" class="qr-image-container"></div>
         </div>
-        <p class="qr-help">このQRコードをスマートフォンで読み取るか、ブラウザのURLをコピーして共有することで、在籍確認表にアクセスできます。</p>
+        <p class="qr-help">このQRコードをスマートフォンで読み取ると、拠点名が入力された状態でアクセスできます。</p>
       </div>
     </div>
   </div>
@@ -1280,13 +1320,15 @@
   <script src="js/constants/column-definitions.js" defer></script>
   <script src="js/globals.js?v=20260406" defer></script>
   <script src="js/utils.js?v=20260327" defer></script>
+  <script src="js/services/qr-generator.js" defer></script>
   <script src="js/services/csv.js" defer></script>
   <script src="js/layout.js" defer></script>
   <script src="js/filters.js" defer></script>
   <script src="js/board.js" defer></script>
   <script src="js/vacations.js" defer></script>
   <script src="js/offices.js" defer></script>
-  <script src="js/auth.js?v=20260406g" defer></script>
+  <script src="js/firebase-auth.js" type="module"></script>
+  <script src="js/auth.js?v=20260408" type="module"></script>
   <script src="js/sync.js?v=20260406g" defer></script>
   <script src="js/admin.js?v=20260406g" defer></script>
   <script src="js/tools.js" defer></script>

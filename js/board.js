@@ -251,9 +251,10 @@ function bindCandidatePanelGlobals() {
  */
 function getEnabledColumns() {
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.board)) {
-    return []; // デフォルトを廃止し、未設定なら空を返す
+    // [AFTER] 新規拠点などで設定が未完了の場合は、標準的なカラムセットを表示する
+    return ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
   }
-  return OFFICE_COLUMN_CONFIG.board; // 氏名の強制注入も廃止
+  return OFFICE_COLUMN_CONFIG.board;
 }
 
 /**
@@ -544,10 +545,19 @@ function render() {
 
   try {
     const frag = document.createDocumentFragment();
+    // 修正箇所: ボードの表示をここで確実にする（早期リターンの前に行う）
+    board.classList.remove('u-hidden');
+
     if (!GROUPS || GROUPS.length === 0) {
+      const isAdmin = (typeof CURRENT_ROLE !== 'undefined' && (CURRENT_ROLE === 'owner' || CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin'));
+      const msg = isAdmin 
+        ? '表示するメンバーがいません。右上の「管理」ボタン（または管理パネル）からメンバーを登録してください。'
+        : '表示するメンバーがいません。管理者にお問い合わせください。';
+      
       const emptyDiv = el('div', { 
-        class: 'u-text-center u-text-gray u-p-40', 
-        text: '表示するメンバーがいません。拠点を変更するか、管理者にお問い合わせください。' 
+        class: 'u-text-center u-text-gray', 
+        style: 'padding: 80px 20px; font-size: 16px;',
+        text: msg
       });
       board.appendChild(emptyDiv);
       return;
@@ -563,15 +573,12 @@ function render() {
   } catch (e) {
     console.error('[render] Critical failure in render loop:', e);
     const errDiv = el('div', { 
-      class: 'u-text-center u-text-red u-p-20', 
+      class: 'u-text-center u-text-red', 
+      style: 'padding: 20px;',
       text: '表示データの構築に失敗しました。ページを再読み込みしてください。' 
     });
     board.appendChild(errDiv);
   }
-
-  // 修正箇所: u-hidden クラスを削除し、確実に表示されるようにする
-  board.classList.remove('u-hidden');
-  // board.style.display = 'block'; // ★バグ修正: これがあると CSS Grid が無効化されるため削除
 
   // 自己修復
   board.querySelectorAll('tbody tr').forEach(ensureRowControls);
