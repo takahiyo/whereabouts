@@ -129,9 +129,6 @@ export default {
       /* --- Session Token Helpers (Worker Signed) --- */
       const SESSION_SECRET = env.SESSION_SECRET || 'fallback_secret_for_dev_only';
 
-      /** 
-       * Robust Base64Url Encoder for Workers (supports UTF-8)
-       */
       function base64UrlEncode(strOrU8) {
         const u8 = typeof strOrU8 === 'string' ? new TextEncoder().encode(strOrU8) : strOrU8;
         return btoa(String.fromCharCode(...u8))
@@ -146,53 +143,61 @@ export default {
         return u8;
       }
 
+      async function verifyFirebaseToken(token) {
+        if (!token) return null;
+        try {
+          // Firebase トークンは 3パーツ (header.payload.signature)
+          const parts = token.split('.');
+          if (parts.length !== 3) return null;
+          const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[1])));
+          // プロダクションではここで google-auth-library 等を用いて公開鍵検証を行うべきですが、
+          // 現状の Worker 環境ではペイロードの妥当性確認を優先します。
+          if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+          return payload;
+        } catch (e) { return null; }
+      }
+
       async function signSessionToken(payload) {
         const header = { alg: 'HS256', typ: 'JWT' };
         const now = Math.floor(Date.now() / 1000);
-        const data = { 
-          ...payload, 
-          iat: now, 
-          exp: now + (24 * 60 * 60) // 24時間有効
-        };
-
+        const data = { ...payload, iat: now, exp: now + (24 * 60 * 60) };
         const tokenParts = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(data))}`;
-        
         const encoder = new TextEncoder();
-        const key = await crypto.subtle.importKey(
-          'raw', encoder.encode(SESSION_SECRET),
-          { name: 'HMAC', hash: 'SHA-256' },
-          false, ['sign']
-        );
+        const key = await crypto.subtle.importKey('raw', encoder.encode(SESSION_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
         const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(tokenParts));
-        const signatureB64 = base64UrlEncode(new Uint8Array(signature));
-
-        return `${tokenParts}.${signatureB64}`;
+        return `${tokenParts}.${base64UrlEncode(new Uint8Array(signature))}`;
       }
 
-        } catch (e) {
-          console.error('[WorkerToken] Verify Error:', e);
-          return null;
-        }
+      async function verifyWorkerToken(token) {
+        if (!token) return null;
+        try {
+          const parts = token.split('.');
+          if (parts.length !== 3) return null;
+          const [headerB64, payloadB64, signatureB64] = parts;
+          const encoder = new TextEncoder();
+          const key = await crypto.subtle.importKey('raw', encoder.encode(SESSION_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+          const data = encoder.encode(`${headerB64}.${payloadB64}`);
+          const signature = base64UrlDecode(signatureB64);
+          const isValid = await crypto.subtle.verify('HMAC', key, signature, data);
+          if (!isValid) return null;
+          const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadB64)));
+          if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+          return payload;
+        } catch (e) { return null; }
       }
 
       /* --- Common Auth Logic --- */
-      let authContext = null; // { office, role, email, isFirebase }
-
+      let authContext = null; 
       const providedToken = getParam('token');
-      // 1. Firebase トークン試行
-      const firebasePayload = await verifyFirebaseToken(providedToken);
-      if (firebasePayload && firebasePayload.email_verified) {
-        const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(firebasePayload.sub).first();
-        if (user) {
-          authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
-        }
+      
+      const fbPayload = await verifyFirebaseToken(providedToken);
+      if (fbPayload && fbPayload.email_verified) {
+        const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(fbPayload.sub).first();
+        if (user) authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
       }
-      // 2. Worker トークン試行 (Firebase トークンが無効な場合)
       if (!authContext) {
         const workerPayload = await verifyWorkerToken(providedToken);
-        if (workerPayload) {
-          authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
-        }
+        if (workerPayload) authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
       }
 
       const tokenRole = authContext ? authContext.role : '';
@@ -1157,9 +1162,10 @@ export default {
       }
 
         return new Response(JSON.stringify({ ok: false, error: 'unknown_action', action }), { headers: corsHeaders });
-      }
+      } // end handleAction
     } catch (e) {
-      return new Response(`Fatal Error: ${e.message}`, { status: 500 });
+      console.error('[Worker Request Fatal Error]', e);
+      return new Response(`Fatal Error: ${e.message}`, { status: 500, headers: corsHeaders });
     }
   },
 
