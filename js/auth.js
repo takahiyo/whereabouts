@@ -15,6 +15,7 @@ import {
 import { firebaseConfig } from './firebase-config.js';
 
 // DOM Elements
+const loginEl = document.getElementById('login');
 const loginFormEl = document.getElementById('loginForm');
 const board = document.getElementById('board');
 const loginMsg = document.getElementById('loginMsg');
@@ -138,16 +139,17 @@ function switchAuthView(view) {
     }
   });
 
-  if (loginFormEl) {
+  if (loginEl && loginFormEl) {
     // すでにボードが表示されている場合は、ログイン表示を抑制する
     if (view === 'officeLogin' && SESSION_TOKEN && board && !board.classList.contains('u-hidden')) {
       console.log('【DEBUG】すでにログイン済みのボードが表示されているため、ログイン画面への遷移をキャンセルしました');
       return;
     }
+    loginEl.classList.remove('u-hidden');
     loginFormEl.classList.remove('u-hidden');
-    console.log('【DEBUG】#loginForm コンテナを表示しました');
+    console.log('【DEBUG】#login コンテナを表示しました');
   } else {
-    console.error('【DEBUG】エラー: #loginForm 要素が DOM に存在しません');
+    console.error('【DEBUG】エラー: #login または #loginForm 要素が DOM に存在しません');
   }
   if (board && view !== 'adminPortal') board.classList.add('u-hidden');
 
@@ -186,6 +188,9 @@ async function finalizeLogin(data) {
 
   console.log('【DEBUG】finalizeLogin 実行:', { office: data.office, role: data.role });
 
+  if (loginEl) {
+    loginEl.classList.add('u-hidden');
+  }
   if (loginFormEl) {
     loginFormEl.classList.add('u-hidden');
     console.log('【DEBUG】#loginForm を非表示にしました');
