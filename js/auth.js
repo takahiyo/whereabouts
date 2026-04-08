@@ -29,7 +29,7 @@ const qrModal = document.getElementById('qrModal');
 // Auth State Variables
 let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
-console.log('【DEBUG】js/auth.js Loaded (Version: 20260408_v3)');
+console.log('【DEBUG】js/auth.js Loaded (Version: 20260408_v4)');
 
 /**
  * 初期化: Auth 状態の監視開始
@@ -409,6 +409,7 @@ const logoutAction = async () => {
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(LOCAL_OFFICE_KEY);
   localStorage.removeItem(LOCAL_ROLE_KEY);
+  sessionStorage.removeItem(PERSISTENT_SESSION_KEY);
   await fbLogout();
   location.reload();
 };
