@@ -136,7 +136,8 @@ export default {
       }
 
       function base64UrlDecode(str) {
-        const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4 !== 0) b64 += '=';
         const bin = atob(b64);
         const u8 = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
