@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS members (
     ext TEXT,
     mobile TEXT,
     email TEXT,
+    custom_fields TEXT DEFAULT '{}',
     updated INTEGER, -- 同期用のタイムスタンプ (ms)
     PRIMARY KEY (office_id, id),
     FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
@@ -78,3 +79,22 @@ CREATE TABLE IF NOT EXISTS vacations (
 CREATE INDEX IF NOT EXISTS idx_members_updated ON members(office_id, updated);
 CREATE INDEX IF NOT EXISTS idx_notices_updated ON notices(office_id, updated);
 CREATE INDEX IF NOT EXISTS idx_vacations_start ON vacations(office_id, start_date);
+
+-- 拠点カラム設定テーブル (Phase 2 追加)
+-- 既存テーブルを一切変更せず、拠点毎のカラム構成情報を保持する。
+CREATE TABLE IF NOT EXISTS office_column_config (
+    office_id TEXT PRIMARY KEY,
+    -- 設定JSON: {"columns":[], "popup":[], "card":[], "columnWidths":{}, "columnOrder":[]}
+    config_json TEXT DEFAULT NULL,
+    updated_at INTEGER,
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+
+-- 行事カレンダー用日付カラー設定
+CREATE TABLE IF NOT EXISTS event_color_maps (
+    office_id TEXT PRIMARY KEY,
+    colors_json TEXT DEFAULT '{}',
+    updated INTEGER,
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+

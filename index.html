@@ -21,8 +21,9 @@
                object-src 'none';
                base-uri 'self';
                form-action 'self'">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260406">
   <link rel="stylesheet" href="print-list.css" media="print">
+  <link rel="icon" href="data:,">
 </head>
 
 <body>
@@ -58,19 +59,33 @@
         <!-- タブナビゲーション -->
         <div class="admin-tabs">
           <div class="tab-buttons">
-            <button class="tab-btn active" data-tab="basic">⚙️ 基本設定</button>
-            <button class="tab-btn" data-tab="members">👥 メンバー管理</button>
-            <button class="tab-btn" data-tab="notices">📢 お知らせ管理</button>
-            <button class="tab-btn" data-tab="events">📅 イベント管理</button>
-            <button class="tab-btn" data-tab="tools">🛠️ ツール / 出力</button>
+            <button class="tab-btn active" data-tab="basic">⚙️ 基本</button>
+            <button class="tab-btn" data-tab="groups">📁 グループ</button>
+            <button class="tab-btn" data-tab="members">👥 メンバー</button>
+            <button class="tab-btn" data-tab="columns">📊 カラム</button>
+            <button id="btnTabOffices" class="tab-btn u-hidden" data-tab="offices">🏢 拠点</button>
+            <button class="tab-btn" data-tab="notices">📢 お知らせ</button>
+            <button class="tab-btn" data-tab="events">📅 イベント</button>
+            <button class="tab-btn" data-tab="tools">🛠️ ツール</button>
           </div>
         </div>
       </div>
 
       <div class="admin-card-body">
+        <!-- 開発者用：拠点切り替え行 -->
+        <div id="adminOfficeRow" class="admin-office-row u-hidden">
+          <div class="admin-office-selector-inner">
+            <label for="adminOfficeSel">📍 管理対象拠点:</label>
+            <select id="adminOfficeSel"></select>
+            <span class="admin-office-hint">※拠点を切り替えると、設定内容もその拠点のものに切り替わります。</span>
+          </div>
+        </div>
 
         <!-- タブパネル1: 基本設定 -->
         <div id="tabBasic" class="tab-panel active" data-tab="basic">
+          <div class="admin-toolbar">
+            <h4>⚙️ 基本設定</h4>
+          </div>
           <div class="admin-grid">
             <div class="admin-box admin-box-stacked">
               <h4>📁 CSV管理</h4>
@@ -106,17 +121,50 @@
           </div>
         </div>
 
+        <!-- タブパネル: グループ管理 -->
+        <div id="tabGroups" class="tab-panel" data-tab="groups">
+          <div class="admin-toolbar">
+            <h4>📁 グループ操作</h4>
+          </div>
+
+          <div class="admin-box">
+            <div class="admin-box-header">
+              <strong>グループ追加</strong>
+            </div>
+            <div class="group-add-row u-mt-12">
+              <input type="text" id="groupAddInput" placeholder="新しいグループ名を入力" aria-label="新規グループ名" />
+              <button type="button" id="btnGroupAdd" class="btn-primary">➕ 追加</button>
+            </div>
+          </div>
+
+          <div class="admin-box u-mt-16">
+            <div class="admin-box-header">
+              <strong>並べ替え・名称変更・削除</strong>
+            </div>
+            <div class="admin-note">
+              ドラッグで並べ替え、名前をクリックして編集できます。
+            </div>
+            <div id="groupOrderList" class="group-order-list"></div>
+            <div id="groupOrderEmpty" class="admin-note u-mt-6">グループがありません。</div>
+          </div>
+        </div>
+
         <!-- タブパネル: メンバー管理 -->
         <div id="tabMembers" class="tab-panel" data-tab="members">
-          <div class="member-save-bar">
-            <button id="btnMemberSave" class="btn-primary">💾 保存</button>
+          <div class="admin-toolbar">
+            <h4>👥 メンバー管理</h4>
+            <div class="admin-toolbar-actions">
+              <button id="btnMemberSave" class="btn-primary btn-sm">💾 変更を保存</button>
+            </div>
           </div>
-          <div class="members-panel">
-            <div class="admin-box" id="memberEditTop">
+            <!-- モーダル形式に変更 -->
+            <div id="memberAddModal" class="admin-modal-overlay u-hidden">
+              <div class="admin-box member-add-popup" id="memberEditTop">
               <div class="admin-box-header">
-                <h4>👥 メンバー一覧・編集</h4>
+                <h4>👥 メンバー登録</h4>
+                <button type="button" class="btn-close-modal" id="btnCloseMemberAdd">✕</button>
               </div>
-              <div class="admin-note">ドラッグまたは↑↓ボタンで並び替え、編集ボタンで詳細を更新できます。</div>
+              <div class="admin-note">各項目をクリックして直接編集、ドラッグまたは↑↓ボタンで並び替えができます。</div>
               <form id="memberEditForm" class="member-edit-form member-inline-form">
                 <input type="hidden" id="memberEditId" />
                 <div class="member-edit-grid">
@@ -139,63 +187,112 @@
                 </div>
                 <div class="member-edit-actions">
                   <div class="member-edit-actions-left">
-                    <span id="memberEditModeLabel" class="member-edit-mode">新規追加／編集フォーム</span>
+                    <span id="memberEditModeLabel" class="member-edit-mode">新規メンバー登録フォーム</span>
                   </div>
                   <div class="member-edit-actions-right">
-                    <button type="button" id="memberEditReset" class="btn-secondary">フォームをクリア</button>
-                    <button type="submit" class="btn-primary">💾 追加／更新</button>
+                    <button type="button" id="memberEditReset" class="btn-secondary">入力クリア</button>
+                    <button type="submit" class="btn-primary">➕ メンバーを登録</button>
                   </div>
                 </div>
               </form>
-              <div class="admin-subsection">
-                <h5>📦 グループ並び替え</h5>
-                <div class="admin-note">↑↓ボタンでグループの並び順を変更できます。保存時はメンバー順を維持したままグループ順のみ反映されます。</div>
-                <div id="groupOrderList" class="group-order-list"></div>
-                <div id="groupOrderEmpty" class="admin-note u-mt-6">グループがありません。</div>
+            </div>
+          </div>
+          <div class="member-filter-row">
+            <label for="memberFilterInput" class="member-filter-label">氏名フィルター</label>
+            <div class="member-filter-controls">
+              <input id="memberFilterInput" type="search" placeholder="在席確認表の氏名で絞り込み" aria-label="氏名フィルター" />
+              <button id="btnMemberFilterClear" class="btn-secondary" type="button">クリア</button>
+              <button id="btnOpenAddMember" class="btn-group-add" style="margin-left: auto;">➕ 新規メンバー追加</button>
+            </div>
+          </div>
+          <div class="member-table-wrap">
+            <table class="member-table">
+              <thead>
+                <tr>
+                  <th>順番</th>
+                  <th>グループ</th>
+                  <th>氏名</th>
+                  <th>内線</th>
+                  <th>携帯</th>
+                  <th>Email</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="memberTableBody">
+                <tr>
+                  <td colspan="7" class="u-text-center u-text-gray">読み込み待ち</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <!-- タブパネル: カラム構成 (Phase 6) -->
+        <div id="tabColumns" class="tab-panel" data-tab="columns">
+          <div class="admin-toolbar">
+            <h4>🎛️ カラム構成</h4>
+            <div class="admin-toolbar-actions">
+              <button id="btnAddCustomColumn" class="btn-primary btn-sm">➕ 新規追加</button>
+              <button id="btnColumnSave" class="btn-primary btn-sm">💾 保存</button>
+            </div>
+          </div>
+          <div id="columnSettingContainer" class="column-setting-container">
+            <!-- JSでレスポンシブ設定やカラム一覧が動的に生成されます -->
+            <p class="u-text-center u-text-gray u-my-12">設定を読み込み中...</p>
+          </div>
+        </div>
+
+        <!-- タブパネル: 拠点管理 (Phase 7 - Super Admin Only) -->
+        <div id="tabOffices" class="tab-panel" data-tab="offices">
+          <div class="admin-box">
+            <div class="admin-box-header">
+              <h4>🏢 拠点一覧・追加</h4>
+            </div>
+            <div class="admin-note">
+              システム全体の拠点を管理します。拠点を追加・削除できます。<br>
+              ※拠点を削除すると、その拠点のメンバーや設定もすべて削除されます。
+            </div>
+            <div class="office-add-form u-mb-3">
+              <div class="u-grid u-grid-2-cols u-gap-1">
+                <input type="text" id="newOfficeId" placeholder="拠点ID (例: tokyo_honsya)" class="u-w-100">
+                <input type="text" id="newOfficeName" placeholder="拠点名 (例: 東京本社)" class="u-w-100">
+                <input type="password" id="newOfficePw" placeholder="ユーザー用PW" class="u-w-100">
+                <input type="password" id="newOfficeAdminPw" placeholder="管理者用PW" class="u-w-100">
               </div>
-              <div class="member-filter-row">
-                <label for="memberFilterInput" class="member-filter-label">氏名フィルター</label>
-                <div class="member-filter-controls">
-                  <input id="memberFilterInput" type="search" placeholder="在席確認表の氏名で絞り込み" aria-label="氏名フィルター" />
-                  <button id="btnMemberFilterClear" class="btn-secondary" type="button">クリア</button>
-                </div>
-              </div>
-              <div class="member-table-wrap">
-                <table class="member-table">
-                  <thead>
-                    <tr>
-                      <th>順番</th>
-                      <th>グループ</th>
-                      <th>氏名</th>
-                      <th>内線</th>
-                      <th>携帯</th>
-                      <th>Email</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody id="memberTableBody">
-                    <tr>
-                      <td colspan="7" class="u-text-center u-text-gray">読み込み待ち</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <button id="btnAddOffice" class="btn-primary u-w-100 u-mt-2">➕ 新しい拠点を追加</button>
+            </div>
+            <div class="admin-table-wrapper">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>拠点名</th>
+                    <th class="u-text-center">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="officeTableBody">
+                  <tr><td colspan="3" class="u-text-center u-text-gray">読み込み中...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
         <!-- タブパネル2: お知らせ管理 -->
         <div id="tabNotices" class="tab-panel" data-tab="notices">
+          <div class="admin-toolbar">
+            <h4>📢 お知らせ管理</h4>
+            <div class="admin-toolbar-actions">
+              <button id="btnLoadNotices" class="btn-secondary btn-sm">🔄 読み込み</button>
+              <button id="btnSaveNotices" class="btn-success btn-sm">💾 保存</button>
+            </div>
+          </div>
           <div class="notices-manager">
             <div class="notices-manager-toolbar">
               <div class="notices-manager-info">
-                <p>お知らせの順番はドラッグ&ドロップまたは↑↓ボタンで入れ替えられます。上にあるものから順に表示されます。</p>
-                <p>「表示する」チェックで公開/非公開を切り替えられます。削除ボタンを押すと確認ダイアログが表示されます。</p>
+                <p>上にあるものから順に表示されます。ドラッグして並び替え可能です。</p>
               </div>
               <div class="notices-manager-actions">
-                <button id="btnAddNotice" class="btn-primary">➕ お知らせを追加</button>
-                <button id="btnLoadNotices" class="btn-secondary">🔄 読み込み</button>
-                <button id="btnSaveNotices" class="btn-success">💾 保存</button>
+                <button id="btnAddNotice" class="btn-primary">➕ お知らせを新規追加</button>
               </div>
             </div>
 
@@ -207,11 +304,16 @@
 
         <!-- タブパネル3: イベント管理 -->
         <div id="tabEvents" class="tab-panel" data-tab="events">
+          <div class="admin-toolbar">
+            <h4>📅 イベント管理</h4>
+            <div class="admin-toolbar-actions">
+              <button id="btnExportEvent" class="btn-secondary btn-sm">📄 エクスポート</button>
+            </div>
+          </div>
           <div class="vacation-grid">
             <div class="admin-box">
               <div class="u-flex-between-center u-mb-8">
                 <h4 class="u-m-0">登録済みのイベント</h4>
-                <button id="btnExportEvent" class="btn-secondary u-font-13">📄 イベントをエクスポート</button>
               </div>
               <div class="vacation-table-wrap">
                 <table class="vacation-table">
@@ -315,7 +417,9 @@
 
         <!-- タブパネル4: ツール管理 -->
         <div id="tabTools" class="tab-panel" data-tab="tools">
-          <!-- 項目自動消去設定 -->
+          <div class="admin-toolbar">
+            <h4>🛠️ ツール・設定</h4>
+          </div>
           <div class="admin-box u-mb-16">
             <h4>🔄 項目自動消去設定</h4>
             <div class="admin-subsection">
@@ -1122,10 +1226,10 @@
   <div id="login" class="login u-hidden">
     <form id="loginForm" class="card">
       <h2>在席確認表</h2>
-      <p>拠点を選び、パスワードを入力してください</p>
+      <p>拠点IDとパスワードを入力してください</p>
       <input type="text" name="username" id="dummyUsername" tabindex="-1" aria-hidden="true" class="u-visually-hidden"
         autocomplete="username">
-      <select id="officeSel" aria-label="拠点"></select>
+      <input type="text" id="officeSel" placeholder="拠点ID (例: tokyo_honsya)" autocomplete="username" />
       <input type="password" id="pw" placeholder="Password" autocomplete="current-password" />
       <button id="btnLogin" type="button">ログイン</button>
       <div id="loginMsg" class="login-msg" aria-live="polite"></div>
@@ -1169,24 +1273,25 @@
 
   <script src="js/config.js" defer></script>
   <!-- 定数ファイル (SSOT) - config.jsの後、globals.jsの前に読み込む -->
-  <script src="js/constants/storage.js" defer></script>
+  <script src="js/constants/storage.js?v=20260406" defer></script>
   <script src="js/constants/timing.js" defer></script>
   <script src="js/constants/ui.js" defer></script>
   <script src="js/constants/defaults.js" defer></script>
-  <script src="js/globals.js" defer></script>
-  <script src="js/utils.js" defer></script>
+  <script src="js/constants/column-definitions.js" defer></script>
+  <script src="js/globals.js?v=20260406" defer></script>
+  <script src="js/utils.js?v=20260327" defer></script>
   <script src="js/services/csv.js" defer></script>
   <script src="js/layout.js" defer></script>
   <script src="js/filters.js" defer></script>
   <script src="js/board.js" defer></script>
   <script src="js/vacations.js" defer></script>
   <script src="js/offices.js" defer></script>
-  <script src="js/auth.js" defer></script>
-  <script src="js/sync.js" defer></script>
-  <script src="js/admin.js" defer></script>
+  <script src="js/auth.js?v=20260406g" defer></script>
+  <script src="js/sync.js?v=20260406g" defer></script>
+  <script src="js/admin.js?v=20260406g" defer></script>
   <script src="js/tools.js" defer></script>
   <script src="js/notices.js" defer></script>
-  <script src="main.js" defer></script>
+  <script src="main.js?v=20260406g" defer></script>
 
 </body>
 

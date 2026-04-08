@@ -83,7 +83,21 @@ const EVENT_SYNC_INTERVAL_MS = (typeof CONFIG !== 'undefined' && CONFIG.eventSyn
   : Math.max(eventSyncBase, 15000);
 
 /* 認証状態 */
-let SESSION_TOKEN = ""; let CURRENT_OFFICE_NAME = ""; let CURRENT_OFFICE_ID = ""; let CURRENT_ROLE = "user";
+/* --- 状態 --- */
+let CURRENT_OFFICE_ID = '';
+let CURRENT_OFFICE_NAME = '';
+let CURRENT_ROLE = 'user'; // 'user', 'officeAdmin', 'superAdmin'
+let SESSION_TOKEN = localStorage.getItem(SESSION_KEY) || '';
+/** 拠点カラム設定 (Phase 3) */
+let OFFICE_COLUMN_CONFIG = null;
+try {
+  // 自動ログイン等のため、拠点IDが判明している場合はそこから読み込む
+  const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
+  const savedConfig = localStorage.getItem(getColumnConfigKey(storedOffice));
+  if (savedConfig) OFFICE_COLUMN_CONFIG = JSON.parse(savedConfig);
+} catch (e) {
+  console.error("Failed to load column config from storage:", e);
+}
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {

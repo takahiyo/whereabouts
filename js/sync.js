@@ -684,14 +684,32 @@ async function fetchConfigOnce(nocache = false) {
 
     const shouldUpdate = (updated && updated !== CONFIG_UPDATED) || (!updated && CONFIG_UPDATED === 0);
     if (shouldUpdate) {
-      GROUPS = normalizeConfigClient({ groups });
-      CONFIG_UPDATED = updated || Date.now();
+      const normalizedGroups = normalizeConfigClient({ groups });
+      // 空のグループでも許容するが、データ構造が壊れている場合はスキップ
+      if (Array.isArray(normalizedGroups)) {
+        GROUPS = normalizedGroups;
+        CONFIG_UPDATED = updated || Date.now();
+      }
+      
+      // カラム設定の更新 (Phase 3)
+      const columnConfig = cfg.columnConfig || cfg.config?.columnConfig || null;
+      OFFICE_COLUMN_CONFIG = columnConfig;
+      const configKey = getColumnConfigKey(CURRENT_OFFICE_ID);
+      if (columnConfig) {
+        localStorage.setItem(configKey, JSON.stringify(columnConfig));
+      } else {
+        localStorage.removeItem(configKey);
+      }
+
       setupMenus(menus);
+      
       render();
 
       // ★追加: DOM描画直後に最新キャッシュを適用
-      if (Object.keys(STATE_CACHE).length > 0) {
-        applyState(STATE_CACHE);
+      if (typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
+        if (typeof applyState === 'function') {
+          applyState(STATE_CACHE);
+        }
       }
     }
   }
@@ -842,21 +860,34 @@ function applyState(data) {
     }
 
     const tr = document.getElementById(`row-${k}`);
-    const s = tr?.querySelector('select[name="status"]'), t = tr?.querySelector('select[name="time"]'), p = tr?.querySelector('select[name="tomorrowPlan"]'), w = tr?.querySelector('input[name="workHours"]'), n = tr?.querySelector('input[name="note"]');
-    if (!tr || !s || !t || !p || !w) { ensureRowControls(tr); }
-    const extTd = tr?.querySelector('td.ext');
-    if (extTd && v && v.ext !== undefined) {
-      const extVal = String(v.ext || '').replace(/[^0-9]/g, '');
-      extTd.textContent = extVal;
-    }
+    ensureRowControls(tr);
+
     if (tr) {
-      if (v && v.mobile !== undefined) { tr.dataset.mobile = String(v.mobile ?? '').trim(); }
-      if (v && v.email !== undefined) { tr.dataset.email = String(v.email ?? '').trim(); }
+      if (v.ext !== undefined) {
+        const extTd = tr.querySelector('td.ext');
+        if (extTd) extTd.textContent = String(v.ext || '').replace(/[^0-9]/g, '');
+      }
+      if (v.mobile !== undefined) { tr.dataset.mobile = String(v.mobile ?? '').trim(); }
+      if (v.email !== undefined) { tr.dataset.email = String(v.email ?? '').trim(); }
+
+      const enabledKeys = getEnabledColumns();
+      enabledKeys.forEach(colKey => {
+        if (['name', 'ext', 'mobile', 'email'].includes(colKey)) return;
+        if (v[colKey] !== undefined) {
+          const input = tr.querySelector(`input[name="${colKey}"], select[name="${colKey}"]`);
+          const val = (v[colKey] === null) ? '' : String(v[colKey]);
+          if (input && input.value !== val) {
+             input.value = val;
+          }
+        }
+      });
+
+      const s = tr.querySelector('[name="status"]');
+      const t = tr.querySelector('[name="time"]');
+      if (s && t && typeof toggleTimeEnable === 'function') {
+        toggleTimeEnable(s, t);
+      }
     }
-    if (v.status && STATUSES.some(x => x.value === v.status)) setIfNeeded(s, v.status);
-    setIfNeeded(w, (v && typeof v.workHours === 'string') ? v.workHours : (v && v.workHours == null ? '' : String(v?.workHours ?? '')));
-    setIfNeeded(t, v.time || ""); setIfNeeded(p, v.tomorrowPlan || ""); setIfNeeded(n, v.note || "");
-    if (s && t) toggleTimeEnable(s, t);
 
     const remoteRev = Number(v?.rev ?? v?.serverUpdated ?? 0);
     const localRev = Number(tr?.dataset.rev || STATE_CACHE[k]?.rev || 0);

@@ -20,26 +20,25 @@
 
 Worker に実装されているアクション：
 - ✅ `login` - ログイン認証
-- ✅ `getConfig` - 設定データ取得
-- ✅ `get` - メンバーステータス取得
-- ✅ `set` - メンバーステータス更新
+- ✅ `renew` - セッショントークン更新
+- ✅ `getConfig` - 設定データ取得（`getConfigFor` 互換含む）
+- ✅ `setConfigFor` - 設定更新（管理者用）
+- ✅ `get` - メンバーステータス取得（`getFor` 互換含む）
+- ✅ `set` - メンバーステータス更新（`setFor` 互換含む）
 - ✅ `publicListOffices` - 公開拠点リスト取得
 - ✅ `listOffices` - 全拠点リスト取得（管理者用）
+- ✅ `renameOffice` - 拠点名変更
+- ✅ `setOfficePassword` - 拠点パスワード変更
+- ✅ `getNotices` / `setNotices` - お知らせ管理
+- ✅ `getTools` / `setTools` - ツール管理
+- ✅ `getVacation` / `setVacation` / `deleteVacation` / `setVacationBits` - イベント/休暇管理
+- ✅ `getEventColorMap` / `setEventColorMap` - 行事カレンダー日付カラー管理
+- ✅ `getOfficeSettings` / `setOfficeSettings` - 拠点個別設定管理
 
-### ⚠️ 未実装アクション
+### ⚠️ 未実装／今後の課題
 
-今後実装が必要な可能性があるアクション：
-- ❌ `renew` - セッショントークン更新
-- ❌ `setConfigFor` - 設定更新（管理者用）
-- ❌ `getConfigFor` - 特定拠点の設定取得
-- ❌ `renameOffice` - 拠点名変更
-- ❌ `setOfficePassword` - 拠点パスワード変更
-- ❌ `getVacation` - イベント取得
-- ❌ `setVacation` - イベント作成/更新
-- ❌ `deleteVacation` - イベント削除
-- ❌ `setVacationBits` - イベントメンバー設定
-- ❌ `getEventColorMap` - イベントカラーマップ取得
-- ❌ `setEventColorMap` - イベントカラーマップ保存
+- 🔲 本番環境での徹底した動作検証
+- 🔲 エラーハンドリングのさらなる強化
 
 ## デプロイ手順
 

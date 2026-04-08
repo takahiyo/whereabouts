@@ -62,20 +62,24 @@ export default {
       if (parseFailure) {
         console.warn(`[Request Parse Failed] content-type: ${contentType || 'unknown'}, rawTextLength: ${rawText.length}`);
       }
+      
+      // JSON文字列表現の "[object Object]" などを防ぐための安全なパース
+      const safeJSONParse = (str, fallback = null) => {
+        if (!str || typeof str !== 'string') return fallback;
+        const trimmed = str.trim();
+        if (!trimmed || trimmed.startsWith('[object')) return fallback;
+        try {
+          return JSON.parse(trimmed);
+        } catch (e) {
+          console.warn('[JSON Parse Error]', e.message, 'Data:', trimmed.substring(0, 100));
+          return fallback;
+        }
+      };
 
       const parseJsonParam = (value, fallback = {}) => {
         if (value == null) return fallback;
         if (typeof value === 'object') return value;
-        if (typeof value === 'string') {
-          const trimmed = value.trim();
-          if (!trimmed) return fallback;
-          try {
-            return JSON.parse(trimmed);
-          } catch {
-            return fallback;
-          }
-        }
-        return fallback;
+        return safeJSONParse(value, fallback);
       };
       const resolveRequestData = (rawBody) => {
         if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) return {};
@@ -134,19 +138,60 @@ export default {
 
         console.log(`[Login Attempt] Office: ${officeId}, password provided: ${password ? 'Yes' : 'No'}`);
 
+        // 1. DEV_TOKEN (マスターキー) チェックを最優先
+        if (env.DEV_TOKEN) {
+          if (password === env.DEV_TOKEN) {
+            console.log(`[Login Success] Master Key Login. Office Context: ${officeId}, Role: superAdmin`);
+            
+            // 拠点がDBに存在するか試みる（名前などを引くため）
+            const existingOffice = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
+              .bind(officeId)
+              .first();
+
+            return new Response(
+              JSON.stringify({
+                ok: true,
+                role: 'superAdmin',
+                office: officeId,
+                officeName: (existingOffice && existingOffice.name) ? existingOffice.name : (officeId || 'システム管理'),
+                workerVersion: 'v2.1', // 確実に最新 Worker が動いているか確認用
+                columnConfig: null
+              }),
+              { headers: corsHeaders }
+            );
+          } else {
+            console.warn(`[Login Debug] DEV_TOKEN exists but password mismatch. Input: ${password ? 'Yes' : 'No'}`);
+          }
+        } else {
+          console.error('[Login Debug] env.DEV_TOKEN is UNDEFINED in this worker.');
+        }
+
+        // 2. 通常のログイン (拠点情報が必要)
         const office = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
           .bind(officeId)
           .first();
 
         if (!office) {
           console.warn(`[Login Failed] Office not found: ${officeId}`);
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', code: 'office_not_found' }), { headers: corsHeaders });
+          return new Response(JSON.stringify({ ok: false, error: 'not_found' }), { headers: corsHeaders });
+        }
+
+        let columnConfig = null;
+        try {
+          const configRow = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
+            .bind(officeId)
+            .first();
+          if (configRow) columnConfig = safeJSONParse(configRow.config_json);
+        } catch (e) {
+          console.warn('[Login] office_column_config error:', e);
         }
 
         let role = '';
-        if (password === office.admin_password) role = 'officeAdmin';
-        else if (password === office.password) role = 'user';
-        else {
+        if (password === office.admin_password) {
+          role = 'officeAdmin';
+        } else if (password === office.password) {
+          role = 'user';
+        } else {
           console.warn(`[Login Failed] Invalid password for office: ${officeId}`);
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized', code: 'invalid_password' }), { headers: corsHeaders });
         }
@@ -158,7 +203,8 @@ export default {
             ok: true,
             role,
             office: officeId,
-            officeName: office.name || officeId
+            officeName: office.name || officeId,
+            columnConfig: columnConfig || (office.column_config ? JSON.parse(office.column_config) : null)
           }),
           { headers: corsHeaders }
         );
@@ -179,6 +225,16 @@ export default {
           .bind(officeId)
           .all();
 
+        // 拠点カラム設定を取得 (Phase 2) - テーブル未作成時の500エラーを回避
+        let columnConfigRes = null;
+        try {
+          columnConfigRes = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
+            .bind(officeId)
+            .first();
+        } catch (e) {
+          console.warn('[getConfig] office_column_config table may not exist yet');
+        }
+
         const groupsMap = new Map();
         (members.results || []).forEach(m => {
           const groupName = m.group_name || '未設定';
@@ -198,7 +254,8 @@ export default {
             ext: m.ext,
             mobile: m.mobile,
             email: m.email,
-            updated: m.updated
+            updated: m.updated,
+            ...(m.custom_fields ? safeJSONParse(m.custom_fields, {}) : {})
           });
         });
 
@@ -215,7 +272,8 @@ export default {
           groups,
           updated: Date.now(),
           maxUpdated,
-          serverNow: Date.now()
+          serverNow: Date.now(),
+          columnConfig: columnConfigRes ? safeJSONParse(columnConfigRes.config_json) : null
         });
 
         if (statusCache) {
@@ -240,6 +298,22 @@ export default {
         }
         const offices = await env.DB.prepare('SELECT id, name FROM offices').all();
         return new Response(JSON.stringify({ ok: true, offices: offices.results }), { headers: corsHeaders });
+      }
+
+      /* --- RENEW TOKEN --- */
+      if (action === 'renew') {
+        const token = getParam('token');
+        if (!token || !tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        
+        // 拠点名を取得
+        const officeData = await env.DB.prepare('SELECT name FROM offices WHERE id = ?').bind(tokenOffice).first();
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          role: tokenRole, 
+          office: tokenOffice, 
+          officeName: officeData ? officeData.name : tokenOffice,
+          exp: 3600000 
+        }), { headers: corsHeaders });
       }
 
       /* --- GET / GET FOR (Differential Sync) --- */
@@ -284,7 +358,8 @@ export default {
             rev: m.updated,
             ext: m.ext,
             mobile: m.mobile,
-            email: m.email
+            email: m.email,
+            ...(m.custom_fields ? safeJSONParse(m.custom_fields, {}) : {})
           };
           if (m.updated > maxUpdated) maxUpdated = m.updated;
         });
@@ -337,6 +412,64 @@ export default {
 
         if (statusCache) ctx.waitUntil(statusCache.delete(`tools:${tokenOffice}`));
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- GET EVENT COLOR MAP --- */
+      if (action === 'getEventColorMap') {
+        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = getParam('office') || tokenOffice;
+        
+        try {
+          const row = await env.DB.prepare('SELECT colors_json, updated FROM event_color_maps WHERE office_id = ?')
+            .bind(officeId)
+            .first();
+            
+          const colors = row ? safeJSONParse(row.colors_json) : {};
+          return new Response(JSON.stringify({ 
+            ok: true, 
+            colors: colors, 
+            updated: row ? row.updated : 0 
+          }), { headers: corsHeaders });
+        } catch (e) {
+          console.error('[getEventColorMap Error]', e.message);
+          return new Response(JSON.stringify({ ok: true, colors: {}, updated: 0, warning: 'table_not_found' }), { headers: corsHeaders });
+        }
+      }
+
+      /* --- SET EVENT COLOR MAP --- */
+      if (action === 'setEventColorMap') {
+        if (!tokenOffice || tokenRole === 'user') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const officeId = getParam('office') || tokenOffice;
+        const dataRaw = getParam('data'); // JSON string from frontend
+        
+        // フロントエンドは JSON.stringify({ colors: payload }) を送ってくる
+        let incoming = safeJSONParse(dataRaw);
+        if (!incoming || typeof incoming.colors !== 'object') {
+          // data パラメータが単なるカラーマップの場合の互換性
+          if (incoming && typeof incoming === 'object' && !incoming.colors) {
+            incoming = { colors: incoming };
+          } else {
+            return new Response(JSON.stringify({ error: 'invalid_data' }), { headers: corsHeaders });
+          }
+        }
+
+        const colorsJson = JSON.stringify(incoming.colors);
+        const nowTs = Date.now();
+        
+        try {
+          await env.DB.prepare(`
+            INSERT INTO event_color_maps (office_id, colors_json, updated)
+            VALUES (?, ?, ?)
+            ON CONFLICT(office_id) DO UPDATE SET
+              colors_json = excluded.colors_json,
+              updated = excluded.updated
+          `).bind(officeId, colorsJson, nowTs).run();
+
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        } catch (e) {
+          console.error('[setEventColorMap Error]', e.message);
+          return new Response(JSON.stringify({ ok: false, error: 'server_error', detail: e.message }), { status: 500, headers: corsHeaders });
+        }
       }
 
       /* --- GET NOTICES --- */
@@ -427,7 +560,8 @@ export default {
       if (action === 'setVacation') {
         if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const dataStr = getParam('vacations') || getParam('data');
-        const list = Array.isArray(JSON.parse(dataStr)) ? JSON.parse(dataStr) : [JSON.parse(dataStr)];
+        const parsedData = safeJSONParse(dataStr);
+        const list = Array.isArray(parsedData) ? parsedData : (parsedData ? [parsedData] : []);
         const nowTs = Date.now();
 
         const statements = [];
@@ -470,7 +604,7 @@ export default {
 
       /* --- SET VACATION BITS --- */
       if (action === 'setVacationBits') {
-        const payload = JSON.parse(getParam('data') || '{}');
+        const payload = safeJSONParse(getParam('data'), {});
         if (!tokenOffice || !payload.id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
 
         await env.DB.prepare('UPDATE vacations SET members_bits = ?, updated = ? WHERE office_id = ? AND id = ?')
@@ -479,6 +613,66 @@ export default {
 
         if (statusCache) ctx.waitUntil(statusCache.delete(`vacation:${tokenOffice}`));
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- GET COLUMN CONFIG (Phase 2) --- */
+      if (action === 'getColumnConfig') {
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+
+        let row = null;
+        try {
+          row = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
+            .bind(officeId)
+            .first();
+        } catch (e) {
+          console.warn('[getColumnConfig] table not found');
+        }
+
+        return new Response(JSON.stringify({
+          ok: true,
+          columnConfig: row ? safeJSONParse(row.config_json) : null
+        }), { headers: corsHeaders });
+      }
+
+      /* --- SET COLUMN CONFIG (Phase 2) --- */
+      if (action === 'setColumnConfig') {
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
+        try {
+          // getParamRaw を使用して構造化データ（オブジェクト）も直接受け取れるようにする
+          const configRaw = getParamRaw('config');
+          let configJson = '';
+          
+          if (configRaw && typeof configRaw === 'object') {
+            configJson = JSON.stringify(configRaw);
+          } else if (typeof configRaw === 'string') {
+            configJson = configRaw;
+          }
+
+          // "[object Object]" などの不正な文字列は保存させない
+          if (!configJson || configJson.startsWith('[object')) {
+            return new Response(JSON.stringify({ ok: false, error: 'invalid_request_data' }), { headers: corsHeaders });
+          }
+
+          const nowTs = Date.now();
+          await env.DB.prepare(`
+            INSERT INTO office_column_config (office_id, config_json, updated_at) 
+            VALUES (?, ?, ?) 
+            ON CONFLICT(office_id) DO UPDATE SET config_json = ?, updated_at = ?
+          `)
+            .bind(officeId, configJson, nowTs, configJson, nowTs)
+            .run();
+
+          if (statusCache) ctx.waitUntil(statusCache.delete(`config_v2:${officeId}`));
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        } catch (e) {
+          console.error('[setColumnConfig Error]', e.message);
+          return new Response(JSON.stringify({ ok: false, error: 'server_error', detail: e.message }), { status: 500, headers: corsHeaders });
+        }
       }
 
       /* --- GET OFFICE SETTINGS --- */
@@ -490,7 +684,7 @@ export default {
         const office = await env.DB.prepare('SELECT auto_clear_config FROM offices WHERE id = ?')
           .bind(officeId)
           .first();
-        const settings = office && office.auto_clear_config ? JSON.parse(office.auto_clear_config) : { enabled: false, hour: 0, fields: [] };
+        const settings = office ? safeJSONParse(office.auto_clear_config, { enabled: false, hour: 0, fields: [] }) : { enabled: false, hour: 0, fields: [] };
         return new Response(JSON.stringify({ ok: true, settings }), { headers: corsHeaders });
       }
 
@@ -626,6 +820,19 @@ export default {
             if (m.mobile !== undefined) { query += 'mobile=?, '; params.push(m.mobile); }
             if (m.email !== undefined) { query += 'email=?, '; params.push(m.email); }
 
+            // Extract custom fields mapping
+            const standardKeys = new Set(['status', 'time', 'note', 'workHours', 'tomorrowPlan', 'ext', 'mobile', 'email', 'updated', 'serverUpdated', 'rev', 'id', 'name', 'group', 'order']);
+            const customUpdates = {};
+            for (const key of Object.keys(m)) {
+              if (!standardKeys.has(key)) {
+                customUpdates[key] = m[key];
+              }
+            }
+            if (Object.keys(customUpdates).length > 0) {
+              query += "custom_fields=json_patch(COALESCE(custom_fields, '{}'), ?), ";
+              params.push(JSON.stringify(customUpdates));
+            }
+
             // 末尾のカンマとスペースを削除
             if (query.endsWith(', ')) {
               query = query.slice(0, -2);
@@ -700,7 +907,7 @@ export default {
 
         // 全メンバーのステータスを保持しつつ名前・グループ・順序を更新
         // 手順: まず既存データを取得し、削除後に再挿入で更新
-        const existingRes = await env.DB.prepare('SELECT id, status, time, note, work_hours, ext, mobile, email FROM members WHERE office_id = ?')
+        const existingRes = await env.DB.prepare('SELECT id, status, time, note, work_hours, ext, mobile, email, custom_fields FROM members WHERE office_id = ?')
           .bind(officeId)
           .all();
 
@@ -714,7 +921,8 @@ export default {
             tomorrow_plan: m.tomorrow_plan || '',
             ext: m.ext || '',
             mobile: m.mobile || '',
-            email: m.email || ''
+            email: m.email || '',
+            custom_fields: m.custom_fields || '{}'
           });
         });
 
@@ -732,8 +940,8 @@ export default {
               // 既存データがあれば status, time, note, work_hours などを引き継ぐ
               const existing = existingMap.get(id) || {};
               statements.push(env.DB.prepare(`
-                INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, tomorrow_plan, work_hours, ext, mobile, email, updated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO members (id, office_id, name, group_name, display_order, status, time, note, tomorrow_plan, work_hours, ext, mobile, email, custom_fields, updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               `).bind(
                 id,
                 officeId,
@@ -748,6 +956,7 @@ export default {
                 m.ext || existing.ext || '',
                 m.mobile || existing.mobile || '',
                 m.email || existing.email || '',
+                existing.custom_fields || '{}',
                 nowTs
               ));
             }
@@ -764,6 +973,38 @@ export default {
           ]));
         }
 
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- ADD OFFICE (Super Admin用) --- */
+      if (action === 'addOffice') {
+        if (tokenRole !== 'superAdmin') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const id = getParam('officeId');
+        const name = getParam('name');
+        const pw = getParam('password');
+        const apw = getParam('adminPassword');
+        if (!id || !name || !pw || !apw) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+
+        const nowTs = Date.now();
+        await env.DB.prepare('INSERT INTO offices (id, name, password, admin_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+          .bind(id, name, pw, apw, nowTs, nowTs)
+          .run();
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      /* --- DELETE OFFICE (Super Admin用) --- */
+      if (action === 'deleteOffice') {
+        if (tokenRole !== 'superAdmin') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        const id = getParam('officeId');
+        if (!id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+
+        await env.DB.batch([
+          env.DB.prepare('DELETE FROM offices WHERE id = ?').bind(id),
+          env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(id),
+          env.DB.prepare('DELETE FROM notices WHERE office_id = ?').bind(id),
+          env.DB.prepare('DELETE FROM vacations WHERE office_id = ?').bind(id),
+          env.DB.prepare('DELETE FROM office_column_config WHERE office_id = ?').bind(id)
+        ]);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -811,8 +1052,8 @@ export default {
 
     for (const office of (offices.results || [])) {
       try {
-        const config = JSON.parse(office.auto_clear_config);
-        if (!config.enabled) continue;
+        const config = safeJSONParse(office.auto_clear_config);
+        if (!config || !config.enabled) continue;
 
         // 設定された時間と現在の時間が一致するか確認
         if (Number(config.hour) !== currentHour) continue;

@@ -28,6 +28,13 @@ async function checkLogin() {
       SESSION_TOKEN = 'worker_session';
       CURRENT_OFFICE_ID = storedOffice;
       CURRENT_ROLE = storedRole;
+      
+      // ★追加: 拠点ごとのカラム設定を復元
+      try {
+        const savedConfig = localStorage.getItem(getColumnConfigKey(CURRENT_OFFICE_ID));
+        if (savedConfig) OFFICE_COLUMN_CONFIG = JSON.parse(savedConfig);
+      } catch (e) { console.error(e); }
+
       updateAuthUI();
       if (typeof startRemoteSync === 'function') startRemoteSync(true);
       if (typeof startConfigWatch === 'function') startConfigWatch();
@@ -70,7 +77,7 @@ async function login(officeInput, passwordInput) {
     const result = await resp.json();
 
     if (!result.ok) {
-      throw new Error("認証に失敗しました。オフィスIDまたはパスワードを確認してください。");
+      throw new Error("認証に失敗しました。拠点IDまたはパスワードを確認してください。");
     }
 
     // ★重要：ログイン処理に入る「前」に、拠点情報を保存する
@@ -78,6 +85,14 @@ async function login(officeInput, passwordInput) {
     localStorage.setItem(LOCAL_OFFICE_KEY, result.office);
     localStorage.setItem(LOCAL_ROLE_KEY, result.role);
     localStorage.setItem(LOCAL_OFFICE_NAME_KEY, result.officeName || result.office);
+    
+    // ★修正: 拠点ごとのキーで保存
+    const configKey = getColumnConfigKey(result.office);
+    if (result.columnConfig) {
+      localStorage.setItem(configKey, JSON.stringify(result.columnConfig));
+    } else {
+      localStorage.removeItem(configKey);
+    }
 
     SESSION_TOKEN = 'worker_session';
 
@@ -85,7 +100,9 @@ async function login(officeInput, passwordInput) {
     CURRENT_OFFICE_ID = result.office;
     CURRENT_OFFICE_NAME = result.officeName || result.office;
     CURRENT_ROLE = result.role;
+    OFFICE_COLUMN_CONFIG = result.columnConfig || null;
 
+    console.log('[auth.js] Login success. Office:', result.office, 'Role:', result.role);
     toast(`ログインしました: ${result.officeName}`);
 
     // UIを即座に表示状態に切り替える
@@ -108,7 +125,7 @@ async function login(officeInput, passwordInput) {
     return true;
 
   } catch (error) {
-    console.error("Login process error:", error);
+    // 認証エラー時のコンソール出力等によるエラー・警告(赤字・黄字)発生を防ぐためログは出さない
     toast(error.message, false);
     return false;
   }
@@ -124,6 +141,8 @@ async function logout() {
     localStorage.removeItem(LOCAL_OFFICE_KEY);
     localStorage.removeItem(LOCAL_ROLE_KEY);
     localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
+    // 全ての拠点のキャッシュを消すのは過剰なので、現在の拠点のものだけ消す
+    localStorage.removeItem(getColumnConfigKey(CURRENT_OFFICE_ID));
     toast("ログオフしました");
     setTimeout(() => location.reload(), 500);
   } catch (e) {
@@ -133,12 +152,12 @@ async function logout() {
 
 function updateAuthUI() {
   if (SESSION_TOKEN) {
-    if (loginEl) loginEl.style.display = 'none';
-    if (board) board.style.display = 'block';
+    if (loginEl) loginEl.classList.add('u-hidden');
+    if (board) board.classList.remove('u-hidden');
     ensureAuthUI();
   } else {
-    if (loginEl) loginEl.style.display = 'flex';
-    if (board) board.style.display = 'none';
+    if (loginEl) loginEl.classList.remove('u-hidden');
+    if (board) board.classList.add('u-hidden');
     ensureAuthUI();
   }
 }
@@ -157,7 +176,27 @@ function ensureAuthUI() {
   nameFilter.style.display = loggedIn ? 'inline-block' : 'none';
   statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
 }
-function showAdminModal(yes) { adminModal.classList.toggle('show', !!yes); }
+function showAdminModal(yes) {
+  const isShow = !!yes;
+  adminModal.classList.toggle('show', isShow);
+  
+  // 背景ロックの徹底 (htmlとbodyの両方をロック)
+  document.body.classList.toggle('modal-open', isShow);
+  document.documentElement.classList.toggle('modal-open', isShow);
+  
+  if (isShow) {
+    // CSS Grid レイアウトに委ね、インラインスタイルの残留をクリア
+    const body = adminModal.querySelector('.admin-card-body');
+    if (body) {
+      body.style.removeProperty('height');
+      body.style.removeProperty('max-height');
+      body.style.removeProperty('overflow-y');
+      body.style.removeProperty('display');
+    }
+  } else {
+    // 閉じるときにログを消さない（記録のため）
+  }
+}
 function showQrModal(yes) { qrModal.classList.toggle('show', !!yes); }
 function showToolsModal(yes) { toolsModal.classList.toggle('show', !!yes); }
 function showEventModal(yes) {
@@ -178,6 +217,8 @@ async function applyRoleToAdminPanel() {
   if (!(adminOfficeRow && adminOfficeSel)) return;
   if (CURRENT_ROLE !== 'superAdmin') {
     adminOfficeRow.style.display = 'none';
+    const btnTabOffices = document.getElementById('btnTabOffices');
+    if (btnTabOffices) btnTabOffices.classList.add('u-hidden');
     adminOfficeSel.disabled = false;
     adminOfficeSel.textContent = '';
     adminSelectedOfficeId = '';
@@ -185,6 +226,8 @@ async function applyRoleToAdminPanel() {
   }
 
   adminOfficeRow.style.display = '';
+  const btnTabOffices = document.getElementById('btnTabOffices');
+  if (btnTabOffices) btnTabOffices.classList.remove('u-hidden');
   adminOfficeSel.disabled = true;
   adminOfficeSel.textContent = '';
   const loadingOpt = document.createElement('option');
@@ -351,8 +394,7 @@ if (btnLogin) {
   btnLogin.addEventListener('click', async () => {
     const pw = pwInput.value;
     const office = officeSel.value;
-    // officeは認証の入力としては使わないが、拠点選択として必須ならチェック
-    if (!office) { if (loginMsg) loginMsg.textContent = "拠点を選択してください"; return; }
+    if (!office) { if (loginMsg) loginMsg.textContent = "拠点IDを入力してください"; return; }
     if (!pw) { if (loginMsg) loginMsg.textContent = "パスワードを入力してください"; return; }
 
     if (loginMsg) loginMsg.textContent = "認証中…";
@@ -366,10 +408,10 @@ if (btnLogin) {
 
 // インラインイベントハンドラの代替
 if (officeSel) {
-  officeSel.addEventListener('change', () => {
+  officeSel.addEventListener('input', () => {
     const dummyUsername = document.getElementById('dummyUsername');
-    if (dummyUsername && officeSel.selectedIndex >= 0) {
-      dummyUsername.value = officeSel.options[officeSel.selectedIndex].text;
+    if (dummyUsername) {
+      dummyUsername.value = officeSel.value;
     }
   });
 }

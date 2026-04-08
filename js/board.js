@@ -41,7 +41,15 @@ function buildCandidateList(options) {
 
 function renderCandidatePanel(panel, type) {
   if (!panel) return;
-  const options = type === 'workHours' ? (MENUS?.businessHours || []) : (MENUS?.noteOptions || []);
+  let options = [];
+  const def = getColumnDefinition(type);
+  if (type === 'workHours') {
+    options = MENUS?.businessHours || [];
+  } else if (type === 'note') {
+    options = MENUS?.noteOptions || [];
+  } else if (def && Array.isArray(def.options)) {
+    options = def.options;
+  }
   panel.replaceChildren();
   panel.appendChild(buildCandidateList(options));
 }
@@ -57,6 +65,32 @@ function hideAllCandidatePanels() {
 let contactHoldTimer = null;
 let contactScrollBound = false;
 let currentContactOverlay = null;
+
+/**
+ * IDからメンバー情報を取得する (Phase 4)
+ * @param {string} id
+ * @returns {Object|null}
+ */
+function findMemberById(id) {
+  if (!id || !Array.isArray(GROUPS)) return null;
+  for (const g of GROUPS) {
+    if (!g.members) continue;
+    const m = g.members.find(x => x.id === id);
+    if (m) return m;
+  }
+  return null;
+}
+
+/**
+ * 現在の拠点設定に基づき、ポップアップ表示対象のカラムキー配列を返す。
+ * @returns {string[]}
+ */
+function getEnabledPopupColumns() {
+  if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.popup)) {
+    return []; // デフォルトを廃止し、空を返す
+  }
+  return OFFICE_COLUMN_CONFIG.popup;
+}
 
 function clearContactHoldTimer() {
   if (contactHoldTimer) {
@@ -84,6 +118,7 @@ function handleContactEsc(e) {
 }
 
 function showContactPopup(member) {
+  if (!member) return;
   closeContactPopup();
   const overlay = el('div', { class: 'contact-overlay' });
   const dialogLabel = `${sanitizeText(member.name || '')}の連絡先`;
@@ -91,31 +126,35 @@ function showContactPopup(member) {
   const closeBtn = el('button', { type: 'button', class: 'contact-close', 'aria-label': '閉じる' }, ['×']);
   const title = el('h4', { class: 'contact-title', text: dialogLabel });
 
-  const extension = member.extension ? String(member.extension) : '';
-  const extensionRow = el('div', { class: 'contact-row' }, [
-    el('span', { class: 'contact-label', text: '内線' }),
-    extension
-      ? el('a', { class: 'contact-link', href: `tel:${extension}`, text: extension })
-      : el('span', { class: 'contact-empty', text: '未登録' })
-  ]);
-
-  const mobile = member.mobile ? String(member.mobile) : '';
-  const mobileRow = el('div', { class: 'contact-row' }, [
-    el('span', { class: 'contact-label', text: '携帯' }),
-    mobile
-      ? el('a', { class: 'contact-link', href: `tel:${mobile}`, text: mobile })
-      : el('span', { class: 'contact-empty', text: '未登録' })
-  ]);
-
-  const email = member.email ? String(member.email) : '';
-  const emailRow = el('div', { class: 'contact-row' }, [
-    el('span', { class: 'contact-label', text: 'メール' }),
-    email
-      ? el('a', { class: 'contact-link', href: `mailto:${encodeURIComponent(email)}`, text: email })
-      : el('span', { class: 'contact-empty', text: '未登録' })
-  ]);
-
-  const body = el('div', { class: 'contact-body' }, [extensionRow, mobileRow, emailRow]);
+  const popupKeys = getEnabledPopupColumns();
+  const body = el('div', { class: 'contact-body' });
+  
+  popupKeys.forEach(k => {
+    const def = getColumnDefinition(k);
+    if (!def) return;
+    
+    const val = String(member[k] || '').trim();
+    const row = el('div', { class: 'contact-row' }, [
+      el('span', { class: 'contact-label', text: def.label })
+    ]);
+    
+    if (val) {
+      let href = '';
+      // 特徴的なプレフィックス設定
+      if (k === 'ext' || k === 'mobile') href = `tel:${val}`;
+      else if (k === 'email') href = `mailto:${encodeURIComponent(val)}`;
+      
+      if (href) {
+        row.appendChild(el('a', { class: 'contact-link', href: href, text: val }));
+      } else {
+        // リンクではない通常の表示
+        row.appendChild(el('span', { class: 'contact-link', style: 'text-decoration:none; cursor:default;', text: val }));
+      }
+    } else {
+      row.appendChild(el('span', { class: 'contact-empty', text: '未登録' }));
+    }
+    body.appendChild(row);
+  });
 
   closeBtn.addEventListener('click', closeContactPopup);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeContactPopup(); });
@@ -126,18 +165,6 @@ function showContactPopup(member) {
   document.body.appendChild(overlay);
   currentContactOverlay = overlay;
   closeBtn.focus({ preventScroll: true });
-}
-
-function resolveContactInfo(tr, fallback) {
-  const nameText = tr?.querySelector('td.name')?.textContent || fallback?.name || '';
-  const mobileVal = tr ? (tr.dataset.mobile ?? '') : '';
-  const emailVal = tr ? (tr.dataset.email ?? '') : '';
-  return {
-    name: nameText,
-    mobile: (mobileVal || fallback?.mobile || '').trim(),
-    extension: (tr ? (tr.dataset.extension ?? '') : '').trim(),
-    email: (emailVal || fallback?.email || '').trim()
-  };
 }
 
 
@@ -216,163 +243,345 @@ function bindCandidatePanelGlobals() {
   });
 }
 
+/* --- 動的カラムユーティリティ (Phase 3) --- */
+/**
+ * 現在の拠点設定に基づき、表示対象のカラムキー配列を返す。
+ * 設定がない場合はデフォルトの6カラムを返す。
+ * @returns {string[]}
+ */
+function getEnabledColumns() {
+  if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.board)) {
+    return []; // デフォルトを廃止し、未設定なら空を返す
+  }
+  return OFFICE_COLUMN_CONFIG.board; // 氏名の強制注入も廃止
+}
+
+/**
+ * 現在の拠点設定に基づき、カード表示（1列表示）時のカラム順序を返す。
+ * 設定がない場合はボード表示の順序(getEnabledColumns)をデフォルトとする。
+ * @returns {string[]}
+ */
+function getCardColumns() {
+  if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.card)) {
+    return getEnabledColumns();
+  }
+  return OFFICE_COLUMN_CONFIG.card; // 氏名の強制注入を停止
+}
+
 /* 行UI */
-function buildRow(member) {
-  const name = sanitizeText(member.name || "");
-  const ext = (member.ext && /^[0-9]{1,6}$/.test(String(member.ext))) ? String(member.ext) : "";
-  const key = member.id;
-  const rev = member.updated ? String(member.updated) : '0';
-  const tr = el('tr', { id: `row-${key}` });
-  tr.dataset.key = key;
-  tr.dataset.rev = rev;
-  tr.dataset.serverUpdated = rev;
-  tr.dataset.mobile = member.mobile ? String(member.mobile) : '';
-  tr.dataset.email = member.email ? String(member.email) : '';
-  tr.dataset.extension = ext;
+function buildRow(member, enabledKeys, cardKeys) {
+  const key = member.id || member.key || "";
+  const tr = el('tr', { id: `row-${key}`, 'data-key': key });
 
-  const tdName = el('td', { class: 'name', 'data-label': '氏名' }); tdName.textContent = name;
+  // enabledKeys と cardKeys が未定義の場合は再取得（フォールバック）
+  if (!enabledKeys) enabledKeys = getEnabledColumns();
+  if (!cardKeys) cardKeys = getCardColumns();
 
-  const tdExt = el('td', { class: 'ext', 'data-label': '内線' }, [ext]); /* 表示のみ */
+  // 拡張データ（モバイル/メール/内線）はデータ属性に保持（ポップアップ等で使用）
+  tr.dataset.extension = member.ext || '';
+  tr.dataset.mobile = member.mobile || '';
+  tr.dataset.email = member.email || '';
 
-  const workPlaceholder = '09:00-17:30';
-  const workInit = member.workHours == null ? '' : String(member.workHours);
-  const tdWork = el('td', { class: 'work', 'data-label': '業務時間' });
-  const workField = buildCandidateField({ id: `work-${key}`, name: 'workHours', placeholder: workPlaceholder, type: 'workHours', value: workInit });
-  tdWork.appendChild(el('label', { class: 'sr-only', for: `work-${key}`, text: '業務時間' }));
-  tdWork.appendChild(workField.wrapper);
+  enabledKeys.forEach(colKey => {
+    const def = getColumnDefinition(colKey);
+    if (!def) {
+      console.warn(`[buildRow] Column definition not found for key: ${colKey}`);
+      return;
+    }
 
-  const tdStatus = el('td', { class: 'status', 'data-label': 'ステータス' });
-  const selStatus = el('select', { id: `status-${key}`, name: 'status' });
-  tdStatus.appendChild(el('label', { class: 'sr-only', for: `status-${key}`, text: 'ステータス' }));
-  STATUSES.forEach(s => selStatus.appendChild(el('option', { value: s.value, text: s.value })));
-  selStatus.value = member.status || STATUSES[0]?.value || "";
-  tdStatus.appendChild(selStatus);
+    const td = el('td', { class: colKey });
+    // カード表示用に見出し(ラベル)を持たせる
+    td.setAttribute('data-label', def.label || '');
+    
+    // カード表示用の順序をインラインスタイルで設定
+    const cardIdx = cardKeys.indexOf(colKey);
+    if (cardIdx !== -1) {
+      td.style.order = String(cardIdx);
+    }
+    
+    // カスタマイズされているか判定
+    const baseSys = COLUMN_DEFINITIONS.find(c => c.key === colKey);
+    const isCustomized = !baseSys || def.type !== baseSys.type || (def.options && def.options.length > 0) || def.dependsOn;
 
-  const tdTime = el('td', { class: 'time', 'data-label': '戻り時間' });
-  const selTime = el('select', { id: `time-${key}`, name: 'time' });
-  tdTime.appendChild(el('label', { class: 'sr-only', for: `time-${key}`, text: '戻り時間' }));
-  selTime.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
-  selTime.value = member.time || "";
-  tdTime.appendChild(selTime);
+    // nameガラムは特別扱い
+    if (colKey === 'name') {
+      td.textContent = sanitizeText(member.name || "");
+      tr.appendChild(td);
+      return;
+    }
 
-  const tdPlan = el('td', { class: 'tomorrow-plan', 'data-label': '明日の予定' });
-  const selPlan = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
-  tdPlan.appendChild(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }));
-  const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
-  selPlan.appendChild(el('option', { value: '', text: '' }));
-  planOptions.forEach(v => selPlan.appendChild(el('option', { value: String(v), text: String(v) })));
-  selPlan.value = member.tomorrowPlan == null ? '' : String(member.tomorrowPlan);
-  tdPlan.appendChild(selPlan);
+    if (isCustomized) {
+      // 汎用ビルダー（カスタムカラムや設定変更されたシステムカラム）
+      if (def.type === 'textual' || def.type === 'text') {
+        const input = el('input', { type: 'text', name: colKey, class: 'candidate-input', style: 'width: 100%; border: 1px solid var(--border); border-radius: 4px; padding: 4px;' });
+        input.value = member[colKey] || '';
+        if (def.dependsOn && def.dependsOn.column) {
+          const pVal = member[def.dependsOn.column] || '';
+          if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
+             input.disabled = true;
+          }
+        }
+        td.appendChild(input);
+      } else if (def.type === 'select') {
+        const sel = el('select', { id: `${colKey}-${key}`, name: colKey, class: 'admin-input', style: 'width: 100%; padding: 4px;' });
+        td.appendChild(el('label', { class: 'sr-only', for: `${colKey}-${key}`, text: def.label }));
+        const opts = def.options || [];
+        sel.appendChild(el('option', { value: '', text: '' }));
+        opts.forEach(v => sel.appendChild(el('option', { value: String(v), text: String(v) })));
+        sel.value = member[colKey] || '';
+        if (def.dependsOn && def.dependsOn.column) {
+          const pVal = member[def.dependsOn.column] || '';
+          if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
+             sel.disabled = true;
+          }
+        }
+        td.appendChild(sel);
+      } else if (def.type === 'candidate') {
+        const field = buildCandidateField({ id: `${colKey}-${key}`, name: colKey, placeholder: def.label, type: colKey, value: member[colKey] || '' });
+        if (def.dependsOn && def.dependsOn.column) {
+          const pVal = member[def.dependsOn.column] || '';
+          if (!Array.isArray(def.dependsOn.values) || !def.dependsOn.values.includes(pVal)) {
+             field.input.disabled = true;
+          }
+        }
+        td.appendChild(field.wrapper);
+      } else {
+        td.textContent = member[def.dbField || colKey] || "";
+      }
+    } else {
+      // システム標準のビルダー
+      switch (colKey) {
+        case 'status': {
+          const sel = el('select', { id: `status-${key}`, name: 'status' });
+          td.appendChild(el('label', { class: 'sr-only', for: `status-${key}`, text: 'ステータス' }));
+          STATUSES.forEach(s => sel.appendChild(el('option', { value: s.value, text: s.value })));
+          sel.value = member.status || STATUSES[0]?.value || "";
+          td.appendChild(sel);
+          break;
+        }
+        case 'time': {
+          const sel = el('select', { id: `time-${key}`, name: 'time' });
+          td.appendChild(el('label', { class: 'sr-only', for: `time-${key}`, text: '戻り時間' }));
+          sel.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
+          sel.value = member.time || "";
+          td.appendChild(sel);
+          break;
+        }
+        case 'workHours': {
+          const val = member.workHours == null ? '' : String(member.workHours);
+          const field = buildCandidateField({ id: `work-${key}`, name: 'workHours', placeholder: '09:00-17:30', type: 'workHours', value: val });
+          td.appendChild(el('label', { class: 'sr-only', for: `work-${key}`, text: '業務時間' }));
+          td.appendChild(field.wrapper);
+          break;
+        }
+        case 'tomorrowPlan': {
+          const sel = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
+          td.appendChild(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }));
+          const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
+          sel.appendChild(el('option', { value: '', text: '' }));
+          planOptions.forEach(v => sel.appendChild(el('option', { value: String(v), text: String(v) })));
+          sel.value = member.tomorrowPlan == null ? '' : String(member.tomorrowPlan);
+          td.appendChild(sel);
+          break;
+        }
+        case 'note': {
+          const field = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: member.note || "" });
+          td.appendChild(field.wrapper);
+          break;
+        }
+        default:
+          td.textContent = member[def.dbField || colKey] || "";
+          break;
+      }
+    }
+    
+    tr.appendChild(td);
+  });
 
-  const tdNote = el('td', { class: 'note', 'data-label': '備考' });
-  const noteField = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: member.note || "" });
-  tdNote.appendChild(noteField.wrapper);
-
-  tr.append(tdName, tdExt, tdWork, tdStatus, tdTime, tdPlan, tdNote);
   return tr;
 }
 
-/* 既存行の自己修復 */
+/* 既存行の自己修復 (現在は動的レンダリングのため主にスキップ。最低限の構造のみ確認) */
 function ensureRowControls(tr) {
   if (!tr) return;
-  const key = tr.dataset.key;
-  let s = tr.querySelector('td.status select');
-  if (!s) {
-    const td = tr.querySelector('td.status');
-    s = el('select', { id: `status-${key}`, name: 'status' });
-    STATUSES.forEach(x => s.appendChild(el('option', { value: x.value, text: x.value })));
-    td && td.appendChild(s);
-    diagAdd('fix: status select injected');
-  }
-  let t = tr.querySelector('td.time select');
-  if (!t) {
-    const td = tr.querySelector('td.time');
-    t = el('select', { id: `time-${key}`, name: 'time' });
-    t.appendChild(buildTimeOptions(MENUS?.timeStepMinutes));
-    td && td.appendChild(t);
-    diagAdd('fix: time select injected');
-  }
-
-  let p = tr.querySelector('td.tomorrow-plan select');
-  if (!p) {
-    const td = tr.querySelector('td.tomorrow-plan');
-    p = el('select', { id: `tomorrow-plan-${key}`, name: 'tomorrowPlan' });
-    if (td && !td.querySelector('label.sr-only')) {
-      td.insertBefore(el('label', { class: 'sr-only', for: `tomorrow-plan-${key}`, text: '明日の予定' }), td.firstChild || null);
-    }
-    p.appendChild(el('option', { value: '', text: '' }));
-    const planOptions = Array.isArray(MENUS?.tomorrowPlanOptions) ? MENUS.tomorrowPlanOptions : [];
-    planOptions.forEach(v => p.appendChild(el('option', { value: String(v), text: String(v) })));
-    td && td.appendChild(p);
-    diagAdd('fix: tomorrow plan select injected');
-  }
-
-  let w = tr.querySelector('input[name="workHours"]');
-  if (!w || !w.closest('.candidate-input')) {
-    const td = tr.querySelector('td.work');
-    const placeholder = '09:00-17:30';
-    const field = buildCandidateField({ id: `work-${key}`, name: 'workHours', placeholder, type: 'workHours', value: w?.value });
-    if (td) {
-      if (!td.querySelector('label.sr-only')) {
-        td.insertBefore(el('label', { class: 'sr-only', for: `work-${key}`, text: '業務時間' }), td.firstChild || null);
-      }
-      td.querySelector('.candidate-input')?.remove();
-      td.appendChild(field.wrapper);
-      w = field.input;
-    }
-    diagAdd('fix: workHours candidate field injected');
-  }
-  const noteInp = tr.querySelector('input[name="note"]');
-  if (!noteInp || !noteInp.closest('.candidate-input')) {
-    const td = tr.querySelector('td.note');
-    const field = buildCandidateField({ id: `note-${key}`, name: 'note', placeholder: '備考', type: 'note', value: noteInp?.value });
-    if (td) {
-      td.querySelector('.candidate-input')?.remove();
-      td.appendChild(field.wrapper);
-    }
-    diagAdd('fix: note candidate field injected');
-  }
+  // 全て buildRow で適切に生成されます。
 }
 
 /* 描画 */
-function buildPanel(group, idx) {
+function buildPanel(g, idx, enabledKeys, cardKeys) {
   const gid = `grp-${idx}`; const sec = el('section', { class: 'panel', id: gid }); sec.dataset.groupIndex = String(idx);
-  const title = fallbackGroupTitle(group, idx); sec.appendChild(el('h3', { class: 'title', text: title }));
+  const title = fallbackGroupTitle(g, idx); sec.appendChild(el('h3', { class: 'title', text: title }));
   const table = el('table', { 'aria-label': `在席表（${title}）` });
-  table.appendChild(el('colgroup', {}, [
-    el('col', { class: 'col-name' }),
-    el('col', { class: 'col-work' }),
-    el('col', { class: 'col-status' }),
-    el('col', { class: 'col-time' }),
-    el('col', { class: 'col-tomorrow-plan' }),
-    el('col', { class: 'col-note' })
-  ]));
-  const thead = el('thead'); const thr = el('tr');
-  const headers = [
-    { label: '氏名', cls: 'name' },
-    { label: '業務時間', cls: 'work' },
-    { label: 'ステータス', cls: 'status' },
-    { label: '戻り時間', cls: 'time' },
-    { label: '明日の予定', cls: 'tomorrow-plan' },
-    { label: '備考', cls: 'note' }
-  ];
-  headers.forEach(h => thr.appendChild(el('th', { text: h.label, class: h.cls }))); thead.appendChild(thr); table.appendChild(thead);
-  const tbody = el('tbody'); group.members.forEach(m => { const r = buildRow(m); tbody.appendChild(r); }); table.appendChild(tbody);
-  sec.appendChild(table); return sec;
+  
+  if (!enabledKeys) enabledKeys = getEnabledColumns();
+  if (!cardKeys) cardKeys = getCardColumns();
+  
+  /**
+   * カラム幅の適用ヘルパー
+   * columnWidths 設定があればインラインスタイルで上書きし、
+   * CSS のデフォルト値よりも優先させる。
+   * SSOT: ベース幅は COLUMN_DEFINITIONS.defaultWidth を参照
+   * @param {HTMLElement} element - 幅を適用する要素
+   * @param {Object|undefined} w - { min, max } の幅設定
+   * @param {string} k - カラムキー
+   */
+
+  // どのカラムを「強欲なストレッチ列 (width: 100%)」にするか決定
+  // 幅設定がないカラムのうち、最も右にあるものを採用する
+  const colWidths = (OFFICE_COLUMN_CONFIG && OFFICE_COLUMN_CONFIG.columnWidths) || {};
+  let stretchKey = null;
+  enabledKeys.forEach(k => {
+    const config = colWidths[k];
+    const def = getColumnDefinition(k);
+    if (!def) return;
+
+    let maxVal = null;
+    if (config && config.max) {
+      maxVal = parseInt(config.max);
+      if (isNaN(maxVal)) maxVal = null;
+    } else if (!config) {
+      maxVal = def.defaultWidth;
+      // 既存の note 自動拡張ルールを維持
+      if (k === 'note') maxVal = null;
+    }
+    // 指定値がない（null）のカラムをストレッチ候補とする
+    if (maxVal == null) stretchKey = k;
+  });
+
+  const applyWidthStyle = (element, w, k, isStretch) => {
+    const def = getColumnDefinition(k);
+    if (!def) return;
+
+    let minVal = null;
+    let maxVal = null;
+
+    if (w) {
+      if (w.min != null && w.min !== '') {
+        const p = parseInt(w.min);
+        if (!isNaN(p)) minVal = p;
+      }
+      if (w.max != null && w.max !== '') {
+        const p = parseInt(w.max);
+        if (!isNaN(p)) maxVal = p;
+      }
+    } else {
+      minVal = def.defaultWidth;
+      maxVal = def.defaultWidth;
+      if (k === 'note') maxVal = null;
+    }
+
+    if (minVal != null) {
+      element.style.minWidth = `${minVal}px`;
+    }
+
+    if (maxVal != null) {
+      // 最大幅指定がある場合、それを基本幅および最大幅として適用
+      element.style.width = `${maxVal}px`;
+      element.style.maxWidth = `${maxVal}px`;
+    } else {
+      element.style.maxWidth = 'none';
+      if (isStretch) {
+        // 最大幅未指定のカラムのみが余計な余白を吸収するように auto に設定
+        element.style.width = 'auto';
+      } else {
+        // その他の不定幅
+        element.style.width = 'auto';
+      }
+    }
+  };
+
+  // colgroup の動的生成（幅制約を適用）
+  const colgroup = el('colgroup');
+  enabledKeys.forEach(k => {
+    const def = getColumnDefinition(k);
+    const tableClass = def ? def.tableClass : k;
+    const colEl = el('col', { class: `col-${tableClass}` });
+    applyWidthStyle(colEl, colWidths[k], k, k === stretchKey);
+    colgroup.appendChild(colEl);
+  });
+  table.appendChild(colgroup);
+
+  // thead の動的生成（th にも幅制約を適用して確実にレンダリングに反映）
+  const thead = el('thead');
+  const thr = el('tr');
+  enabledKeys.forEach(k => {
+    const def = getColumnDefinition(k);
+    if (def) {
+      const thAttributes = { text: def.label, class: def.tableClass };
+      if (def.description) {
+        thAttributes.title = def.description;
+      }
+      const th = el('th', thAttributes);
+      applyWidthStyle(th, colWidths[k], k);
+      thr.appendChild(th);
+    }
+  });
+  thead.appendChild(thr);
+  table.appendChild(thead);
+
+  const tbody = el('tbody');
+  if (Array.isArray(g.members)) {
+    g.members.forEach(m => {
+      try {
+        tbody.appendChild(buildRow(m, enabledKeys, cardKeys));
+      } catch (e) {
+        console.error(`[buildPanel] Failed to build row for member: ${m.name}`, e);
+      }
+    });
+  }
+  table.appendChild(tbody);
+  
+  sec.appendChild(table);
+  return sec;
 }
 function render() {
+  if (!board) return;
   board.replaceChildren();
-  const frag = document.createDocumentFragment();
-  GROUPS.forEach((g, i) => frag.appendChild(buildPanel(g, i)));
-  board.appendChild(frag);
+
+  // 表示設定を一度だけ取得（キャッシュ）
+  const enabledKeys = getEnabledColumns();
+  const cardKeys = getCardColumns();
+
+  try {
+    const frag = document.createDocumentFragment();
+    if (!GROUPS || GROUPS.length === 0) {
+      const emptyDiv = el('div', { 
+        class: 'u-text-center u-text-gray u-p-40', 
+        text: '表示するメンバーがいません。拠点を変更するか、管理者にお問い合わせください。' 
+      });
+      board.appendChild(emptyDiv);
+      return;
+    }
+    GROUPS.forEach((g, i) => {
+      try {
+        frag.appendChild(buildPanel(g, i, enabledKeys, cardKeys));
+      } catch (e) {
+        console.error(`[render] Failed to build panel for group indexed ${i}`, e);
+      }
+    });
+    board.appendChild(frag);
+  } catch (e) {
+    console.error('[render] Critical failure in render loop:', e);
+    const errDiv = el('div', { 
+      class: 'u-text-center u-text-red u-p-20', 
+      text: '表示データの構築に失敗しました。ページを再読み込みしてください。' 
+    });
+    board.appendChild(errDiv);
+  }
 
   // 修正箇所: u-hidden クラスを削除し、確実に表示されるようにする
   board.classList.remove('u-hidden');
-  board.style.display = '';
+  // board.style.display = 'block'; // ★バグ修正: これがあると CSS Grid が無効化されるため削除
 
   // 自己修復
   board.querySelectorAll('tbody tr').forEach(ensureRowControls);
   wireEvents(); recolor();
+  
+  // ★追加: 最新のステータス情報(STATE_CACHE)を即座に適用して初期化を防ぐ
+  if (typeof applyState === 'function' && typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
+    applyState(STATE_CACHE);
+  }
+
   try {
     startGridObserver();
   } catch (e) {
@@ -413,14 +622,26 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(
 function getRowStateByTr(tr) {
   if (!tr) return { ext: "", workHours: "", status: STATUSES[0]?.value || "在席", time: "", tomorrowPlan: "", note: "" };
   const workHoursInput = tr.querySelector('input[name="workHours"]');
-  return {
-    ext: tr.querySelector('td.ext')?.textContent.trim() || "",
-    workHours: workHoursInput ? workHoursInput.value : "",
-    status: tr.querySelector('select[name="status"]').value,
-    time: tr.querySelector('select[name="time"]').value,
-    tomorrowPlan: tr.querySelector('select[name="tomorrowPlan"]')?.value || "",
-    note: tr.querySelector('input[name="note"]').value
-  };
+  const state = {};
+
+  const enabledKeys = getEnabledColumns();
+  enabledKeys.forEach(colKey => {
+    // 編集・更新に関わらない純粋な表示用フィールドはスキップ
+    if (colKey === 'name' || colKey === 'ext' || colKey === 'mobile' || colKey === 'email') return;
+
+    const def = getColumnDefinition(colKey);
+    if (!def) return;
+
+    if (def.type === 'textual' || def.type === 'text' || def.type === 'candidate') {
+      const input = tr.querySelector(`input[name="${colKey}"]`);
+      if (input) state[colKey] = input.value;
+    } else if (def.type === 'select' || def.type === 'time-select') {
+      const select = tr.querySelector(`select[name="${colKey}"]`);
+      if (select) state[colKey] = select.value;
+    }
+  });
+
+  return state;
 }
 function getRowState(id) { return getRowStateByTr(document.getElementById(`row-${id}`)); }
 function getState() { const data = {}; board.querySelectorAll("tbody tr").forEach(tr => { data[tr.dataset.key] = getRowStateByTr(tr); }); return data; }
@@ -502,8 +723,8 @@ function wireEvents() {
       contactHoldTimer = null;
       if (!currentTargetTd) return;
       const tr = currentTargetTd.closest('tr');
-      const payload = resolveContactInfo(tr, null);
-      showContactPopup(payload);
+      const member = findMemberById(tr?.dataset.key);
+      if (member) showContactPopup(member);
       currentTargetTd = null;
     }, HOLD_DELAY_MS);
   };
@@ -611,6 +832,12 @@ function wireEvents() {
     const key = tr.dataset.key;
     if (t.name === 'note') { debounceRowPush(key); return; }
     if (t.name === 'workHours') { debounceRowPush(key); return; }
+    
+    // カスタムカラム(候補やテキスト)
+    const def = getColumnDefinition(t.name);
+    if (def && (def.type === 'textual' || def.type === 'candidate' || def.type === 'text')) {
+      debounceRowPush(key);
+    }
   });
 
   // 変更（ステータス/時間/明日の予定）
@@ -641,6 +868,20 @@ function wireEvents() {
       }
       const timeDisabledAfter = timeSel?.getAttribute('aria-disabled') === 'true';
 
+      // 汎用依存関係の適用
+      const enabledKeys = getEnabledColumns();
+      enabledKeys.forEach(colKey => {
+        const cDef = getColumnDefinition(colKey);
+        if (cDef && cDef.dependsOn && cDef.dependsOn.column === t.name) {
+          const isActive = Array.isArray(cDef.dependsOn.values) && cDef.dependsOn.values.includes(t.value);
+          const cInput = tr.querySelector(`input[name="${colKey}"], select[name="${colKey}"]`);
+          if (cInput) {
+            cInput.disabled = !isActive;
+            if (!isActive && cInput.value) { cInput.value = ''; }
+          }
+        }
+      });
+
 
       if (!isEditingTime && clearOnSet.has(t.value)) {
         if (timeSel) timeSel.value = '';
@@ -660,6 +901,14 @@ function wireEvents() {
 
       ensureTimePrompt(tr);
       if (t.dataset) t.dataset.lastCommittedValue = t.value;
+      debounceRowPush(key);
+      return;
+    }
+    
+    // カスタムカラムのselect等の変更
+    const def = getColumnDefinition(t.name);
+    if (def && def.type === 'select') {
+      t.dataset.editing = '1';
       debounceRowPush(key);
       return;
     }

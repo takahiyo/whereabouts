@@ -42,7 +42,27 @@ function sanitizeText(s) {
 }
 /* ID_RE は constants/ui.js で定義 */
 
-function el(tag, attrs = {}, children = []) { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs || {})) { if (v == null) continue; if (k === 'class') e.className = v; else if (k === 'text') e.textContent = String(v); else e.setAttribute(k, String(v)); } (children || []).forEach(c => e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c)); return e; }
+function el(tag, attrs = {}, children = []) {
+  const e = document.createElement(tag);
+  for (let [k, v] of Object.entries(attrs || {})) {
+    if (v == null) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'text') e.textContent = String(v);
+    else if (k.startsWith('on') && typeof v === 'function') {
+      e.addEventListener(k.slice(2).toLowerCase(), v);
+    }
+    else if (['disabled', 'checked', 'readonly', 'required'].includes(k)) {
+      if (v) e.setAttribute(k, k);
+      else e.removeAttribute(k);
+    }
+    else if (k === 'value' && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.tagName)) {
+      e.value = v;
+    }
+    else e.setAttribute(k, String(v));
+  }
+  (children || []).forEach(c => e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
+  return e;
+}
 function qsEncode(obj) { const p = new URLSearchParams(); Object.entries(obj || {}).forEach(([k, v]) => { if (v == null) return; p.append(k, String(v)); }); return p.toString(); }
 const API_POST_CONTENT_TYPE = 'application/json';
 const API_POST_LEGACY_CONTENT_TYPE = 'application/x-www-form-urlencoded';

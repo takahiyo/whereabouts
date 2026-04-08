@@ -10,6 +10,10 @@
 /* 管理UIイベント */
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
+const btnColumnSave = document.getElementById('btnColumnSave');
+// renderColumnConfig はファイル後半（2300行目付近）の実装を使用します。ここでの空の定義を削除。
+const btnAddOffice = document.getElementById('btnAddOffice');
+const officeTableBody = document.getElementById('officeTableBody');
 if (adminOfficeSel) {
   adminOfficeSel.addEventListener('change', () => {
     adminSelectedOfficeId = adminOfficeSel.value || '';
@@ -18,6 +22,15 @@ if (adminOfficeSel) {
     refreshVacationOfficeOptions();
     if (document.getElementById('tabMembers')?.classList.contains('active')) {
       loadAdminMembers(true);
+    }
+    if (document.getElementById('tabGroups')?.classList.contains('active')) {
+      loadAdminMembers(true);
+    }
+    if (document.getElementById('tabColumns')?.classList.contains('active')) {
+      loadColumnConfig();
+    }
+    if (document.getElementById('tabNotices')?.classList.contains('active')) {
+      autoLoadNoticesOnAdminOpen();
     }
     if (document.getElementById('tabEvents')?.classList.contains('active')) {
       loadVacationsList();
@@ -199,15 +212,21 @@ if (adminModal) {
       adminTabPanels.forEach(panel => panel.classList.remove('active'));
       const panelMap = {
         basic: adminModal.querySelector('#tabBasic'),
+        groups: adminModal.querySelector('#tabGroups'),
         members: adminModal.querySelector('#tabMembers'),
         notices: adminModal.querySelector('#tabNotices'),
         events: adminModal.querySelector('#tabEvents'),
-        tools: adminModal.querySelector('#tabTools')
+        tools: adminModal.querySelector('#tabTools'),
+        columns: adminModal.querySelector('#tabColumns'),
+        offices: adminModal.querySelector('#tabOffices')
       };
       const panel = panelMap[targetTab];
       if (panel) {
         panel.classList.add('active');
         resetPanelScroll(panel);
+
+        // ★デバッグログ: タブ切り替え直後
+        console.log(`[DEBUG] Tab Switch Initiated: ${targetTab}`);
       }
 
       if (targetTab === 'notices') {
@@ -216,8 +235,12 @@ if (adminModal) {
         }
       } else if (targetTab === 'basic') {
         // no-op for now
+      } else if (targetTab === 'groups') {
+        if (!adminMembersLoaded) { await loadAdminMembers(); }
+        else { renderGroupOrderList(); }
       } else if (targetTab === 'members') {
         if (!adminMembersLoaded) { await loadAdminMembers(); }
+        else { renderMemberTable(); }
       } else if (targetTab === 'events') {
         refreshVacationOfficeOptions();
         const officeId = (vacationOfficeSelect?.value) || adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
@@ -228,6 +251,19 @@ if (adminModal) {
         await loadVacationsList();
       } else if (targetTab === 'tools') {
         await loadAdminTools();
+      } else if (targetTab === 'columns') {
+        await loadColumnConfig();
+      } else if (targetTab === 'offices') {
+        await loadOffices();
+      }
+
+      // CSS Grid レイアウトに委ね、前回のインラインスタイル残留をクリア
+      const body = document.querySelector('.admin-card-body');
+      if (body) {
+        body.style.removeProperty('height');
+        body.style.removeProperty('max-height');
+        body.style.removeProperty('overflow-y');
+        body.style.removeProperty('display');
       }
     });
   });
@@ -236,20 +272,70 @@ if (adminModal) {
 /* メンバー管理 */
 let adminMemberList = [], adminMemberData = {}, adminGroupOrder = [], adminMembersLoaded = false;
 let adminToolsLoaded = false, adminToolsOfficeId = '';
+/* カラム構成の編集状態保持用 */
+let adminColumnAllKeys = [], adminColumnUiState = {}, adminCustomColumnsState = [], adminColumnLcPrefix = 'adminColumnLc_';
 
 if (btnMemberSave) { btnMemberSave.addEventListener('click', () => handleMemberSave()); }
-if (memberEditForm) {
-  memberEditForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    submitMemberEdit();
-  });
-}
+if (btnColumnSave) { btnColumnSave.addEventListener('click', () => saveColumnConfig()); }
+if (btnAddOffice) { btnAddOffice.addEventListener('click', () => addOffice()); }
+  if (memberEditForm) {
+    memberEditForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitMemberEdit();
+    });
+  }
+
+  const btnOpenAddMember = document.getElementById('btnOpenAddMember');
+  if (btnOpenAddMember) {
+    btnOpenAddMember.addEventListener('click', () => {
+      openAddMemberModal();
+    });
+  }
+
+  const btnCloseMemberAdd = document.getElementById('btnCloseMemberAdd');
+  if (btnCloseMemberAdd) {
+    btnCloseMemberAdd.addEventListener('click', () => {
+      closeAddMemberModal();
+    });
+  }
+
+  const memberAddModal = document.getElementById('memberAddModal');
+  if (memberAddModal) {
+    memberAddModal.addEventListener('click', (e) => {
+      if (e.target === memberAddModal) {
+        closeAddMemberModal();
+      }
+    });
+  }
 if (memberEditReset) { memberEditReset.addEventListener('click', () => openMemberEditor(null)); }
 if (memberFilterInput) { memberFilterInput.addEventListener('input', renderMemberTable); }
 if (btnMemberFilterClear) {
   btnMemberFilterClear.addEventListener('click', () => {
     memberFilterInput.value = '';
     renderMemberTable();
+  });
+}
+
+// グループ追加
+const btnGroupAdd = document.getElementById('btnGroupAdd');
+const groupAddInput = document.getElementById('groupAddInput');
+if (btnGroupAdd && groupAddInput) {
+  btnGroupAdd.addEventListener('click', () => {
+    const name = groupAddInput.value.trim();
+    if (!name) { toast('グループ名を入力してください', false); return; }
+    if (adminGroupOrder.includes(name)) { toast('既に存在するグループ名です', false); return; }
+    adminGroupOrder.push(name);
+    groupAddInput.value = '';
+    normalizeMemberOrdering();
+    renderGroupOrderList();
+    refreshMemberGroupOptions();
+    toast(`グループ「${name}」を追加しました`);
+  });
+  groupAddInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      btnGroupAdd.click();
+    }
   });
 }
 
@@ -344,35 +430,133 @@ function normalizeMemberOrdering(options = {}) {
 function renderGroupOrderList() {
   if (!groupOrderList) return;
   groupOrderList.textContent = '';
+  // 空文字を除外したユニークなリスト
   const order = [...new Set(adminGroupOrder.filter(g => (g || '').trim() !== ''))];
   if (groupOrderEmpty) {
     groupOrderEmpty.style.display = order.length ? 'none' : 'block';
   }
+
   order.forEach((groupName, idx) => {
     const item = document.createElement('div');
     item.className = 'group-order-item';
     item.dataset.groupName = groupName;
+
+    // 名称表示用ラベル
     const label = document.createElement('span');
     label.className = 'group-order-label';
     label.textContent = groupName;
+    label.title = 'クリックして名称変更';
+    label.addEventListener('click', () => {
+      // インライン編集に切り替え
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'group-edit-input';
+      input.value = groupName;
+      
+      const finishEdit = () => {
+        const newName = input.value.trim();
+        if (newName && newName !== groupName) {
+          renameGroup(groupName, newName);
+        } else {
+          // 変更なし、または空なら元に戻す
+          item.replaceChild(label, input);
+        }
+      };
+
+      input.addEventListener('blur', finishEdit);
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') input.blur();
+      });
+
+      item.replaceChild(input, label);
+      input.focus();
+    });
+
     const actions = document.createElement('div');
     actions.className = 'group-order-actions';
+
     const upBtn = document.createElement('button');
     upBtn.className = 'btn-move-up';
     upBtn.textContent = '▲';
     upBtn.title = '上に移動';
     upBtn.disabled = idx === 0;
-    upBtn.addEventListener('click', () => moveGroupOrder(groupName, -1));
+    upBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moveGroupOrder(groupName, -1);
+    });
+
     const downBtn = document.createElement('button');
     downBtn.className = 'btn-move-down';
     downBtn.textContent = '▼';
     downBtn.title = '下に移動';
     downBtn.disabled = idx === order.length - 1;
-    downBtn.addEventListener('click', () => moveGroupOrder(groupName, 1));
-    actions.append(upBtn, downBtn);
-    item.append(actions, label);
+    downBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moveGroupOrder(groupName, 1);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-danger btn-sm';
+    delBtn.innerHTML = '🗑️';
+    delBtn.title = 'グループを削除';
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteGroup(groupName);
+    });
+
+    actions.append(upBtn, downBtn, delBtn);
+    item.append(label, actions);
     groupOrderList.appendChild(item);
   });
+}
+
+function renameGroup(oldName, newName) {
+  if (!newName || oldName === newName) return;
+  if (adminGroupOrder.includes(newName)) {
+    toast(`「${newName}」は既に使用されています`, false);
+    renderGroupOrderList();
+    return;
+  }
+
+  // グループ順序の更新
+  const idx = adminGroupOrder.indexOf(oldName);
+  if (idx >= 0) {
+    adminGroupOrder[idx] = newName;
+  }
+
+  // メンバー情報の更新
+  adminMemberList.forEach(m => {
+    if (m.group === oldName) {
+      m.group = newName;
+    }
+  });
+
+  normalizeMemberOrdering();
+  renderGroupOrderList();
+  renderMemberTable();
+  refreshMemberGroupOptions();
+  toast(`グループ名を「${newName}」に変更しました`);
+}
+
+function deleteGroup(groupName) {
+  const membersCount = adminMemberList.filter(m => m.group === groupName).length;
+  let msg = `グループ「${groupName}」を削除しますか？`;
+  if (membersCount > 0) {
+    msg += `\n注意：このグループに所属する ${membersCount} 名のメンバーも同時に削除されます。`;
+  }
+
+  if (!confirm(msg)) return;
+
+  // グループ順序から削除
+  adminGroupOrder = adminGroupOrder.filter(g => g !== groupName);
+  // メンバーリストから削除
+  adminMemberList = adminMemberList.filter(m => m.group !== groupName);
+
+  normalizeMemberOrdering();
+  renderGroupOrderList();
+  renderMemberTable();
+  refreshMemberGroupOptions();
+  toast(`グループ「${groupName}」を削除しました`);
 }
 
 function moveGroupOrder(groupName, dir) {
@@ -401,7 +585,9 @@ function filteredMemberList() {
   });
 }
 
-function renderMemberTable() {
+  function renderMemberTable() {
+    console.log('[DEBUG] Calling renderMemberTable');
+    const container = document.getElementById('memberTableBody');
   if (!memberTableBody) { return; }
   memberTableBody.textContent = '';
   if (!adminMemberList.length) {
@@ -479,21 +665,108 @@ function renderMemberTable() {
     orderTd.appendChild(orderWrapper);
     // ------------------------------------------
 
-    const groupTd = document.createElement('td'); groupTd.textContent = m.group || '';
-    const nameTd = document.createElement('td'); nameTd.textContent = m.name || '';
-    const extTd = document.createElement('td'); extTd.className = 'numeric-cell'; extTd.textContent = m.ext || '';
-    const mobileTd = document.createElement('td'); mobileTd.className = 'numeric-cell'; mobileTd.textContent = m.mobile || '';
+    // --- [修正] 属性列: インライン編集を可能にする ---
+    const makeCellEditable = (td, memberId, fieldKey, options = {}) => {
+      const { validation, numeric = false, list = null } = options;
+      td.classList.add('editable-cell');
+      td.title = 'クリックして編集';
+      
+      const originalValue = td.textContent;
+      
+      td.addEventListener('click', function onClick() {
+        if (td.querySelector('input')) return;
+        
+        const input = document.createElement('input');
+        input.type = numeric ? 'tel' : 'text';
+        input.className = 'member-inline-input';
+        if (list) input.setAttribute('list', list);
+        input.value = td.textContent || '';
+        
+        const finishEdit = () => {
+          const newValue = input.value.trim();
+          if (newValue === td.textContent) {
+            td.textContent = newValue;
+            return;
+          }
+          
+          // バリデーション
+          if (validation) {
+            const error = validation(newValue);
+            if (error) {
+              toast(error, false);
+              td.textContent = originalValue;
+              return;
+            }
+          }
+          
+          // データ更新
+          const mIdx = adminMemberList.findIndex(m => m.id === memberId);
+          if (mIdx >= 0) {
+            adminMemberList[mIdx][fieldKey] = newValue;
+            // 名簿の並び替え・再描画
+            normalizeMemberOrdering();
+            renderMemberTable();
+            if (fieldKey === 'group') {
+              renderGroupOrderList(); // グループ名が変わった可能性
+              refreshMemberGroupOptions();
+            }
+          }
+        };
+        
+        input.addEventListener('blur', finishEdit);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') input.blur();
+          if (e.key === 'Escape') {
+            input.value = originalValue;
+            input.blur();
+          }
+        });
+        
+        td.textContent = '';
+        td.appendChild(input);
+        input.focus();
+      });
+    };
+
+    const groupTd = document.createElement('td');
+    groupTd.textContent = m.group || '';
+    makeCellEditable(groupTd, m.id, 'group', {
+      list: 'memberGroupOptions',
+      validation: (v) => !v ? '所属グループは必須です' : null
+    });
+
+    const nameTd = document.createElement('td');
+    nameTd.textContent = m.name || '';
+    makeCellEditable(nameTd, m.id, 'name', {
+      validation: (v) => !v ? '氏名は必須です' : null
+    });
+
+    const extTd = document.createElement('td');
+    extTd.className = 'numeric-cell';
+    extTd.textContent = m.ext || '';
+    makeCellEditable(extTd, m.id, 'ext', {
+      numeric: true,
+      validation: (v) => (v && !/^\d{1,6}$/.test(v.replace(/[^0-9]/g, ''))) ? '内線は数字のみで入力してください（最大6桁）' : null
+    });
+
+    const mobileTd = document.createElement('td');
+    mobileTd.className = 'numeric-cell';
+    mobileTd.textContent = m.mobile || '';
+    makeCellEditable(mobileTd, m.id, 'mobile', {
+      numeric: true,
+      validation: (v) => {
+        const d = (v || '').replace(/[^0-9]/g, '');
+        if (v && (d.length < 10 || d.length > 11)) return '携帯番号は10〜11桁の数字で入力してください';
+        return null;
+      }
+    });
 
     const emailTd = document.createElement('td');
-    if (m.email) {
-      const [localPart, domainPart] = m.email.split('@');
-      const emailWrap = document.createElement('div'); emailWrap.className = 'member-email';
-      const localSpan = document.createElement('span'); localSpan.textContent = localPart || m.email; emailWrap.appendChild(localSpan);
-      if (domainPart !== undefined) {
-        const domainSpan = document.createElement('span'); domainSpan.className = 'email-domain'; domainSpan.textContent = '@' + domainPart; emailWrap.appendChild(domainSpan);
-      }
-      emailTd.appendChild(emailWrap);
-    }
+    emailTd.className = 'member-email-cell';
+    emailTd.textContent = m.email || '';
+    makeCellEditable(emailTd, m.id, 'email', {
+      validation: (v) => (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) ? 'Emailの形式が不正です' : null
+    });
 
     // --- [修正] 右端: 操作列 (横並びコンテナ) ---
     const actionTd = document.createElement('td');
@@ -501,17 +774,13 @@ function renderMemberTable() {
     const actionRow = document.createElement('div');
     actionRow.className = 'member-row-actions'; // 横並び用クラス
 
-    const editBtn = document.createElement('button');
-    editBtn.textContent = '編集';
-    editBtn.className = 'btn-secondary';
-    editBtn.addEventListener('click', () => openMemberEditor(m));
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = '削除';
+    deleteBtn.className = 'btn-danger btn-sm';
+    deleteBtn.title = 'メンバーを削除';
+    deleteBtn.addEventListener('click', () => deleteMember(m.id));
 
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '削除';
-    delBtn.className = 'btn-danger';
-    delBtn.addEventListener('click', () => deleteMember(m.id));
-
-    actionRow.append(editBtn, delBtn);
+    actionRow.appendChild(deleteBtn);
     actionTd.appendChild(actionRow);
     // ------------------------------------------
 
@@ -525,22 +794,18 @@ function renderMemberTable() {
 
 
 function openMemberEditor(member) {
-  if (memberEditId) memberEditId.value = member?.id || '';
-  if (memberEditName) memberEditName.value = member?.name || '';
-  if (memberEditExt) memberEditExt.value = member?.ext || '';
-  if (memberEditMobile) memberEditMobile.value = member?.mobile || '';
-  if (memberEditEmail) memberEditEmail.value = member?.email || '';
-  if (memberEditGroup) memberEditGroup.value = member?.group || '';
+  // member 引数が渡された場合は無視し、常に新規追加（空の状態）にする
+  if (memberEditId) memberEditId.value = '';
+  if (memberEditName) memberEditName.value = '';
+  if (memberEditExt) memberEditExt.value = '';
+  if (memberEditMobile) memberEditMobile.value = '';
+  if (memberEditEmail) memberEditEmail.value = '';
+  if (memberEditGroup) memberEditGroup.value = '';
+  
   if (memberEditModeLabel) {
-    memberEditModeLabel.textContent = member ? `編集中：${member.name || ''}` : '新規追加／編集フォーム';
+    memberEditModeLabel.textContent = '新規メンバー登録フォーム';
   }
   refreshMemberGroupOptions();
-  if (memberEditTop && adminModal?.contains(memberEditTop)) {
-    memberEditTop.scrollIntoView({ block: 'start' });
-  }
-  if (memberEditName) {
-    memberEditName.focus({ preventScroll: true });
-  }
 }
 
 function refreshMemberGroupOptions() {
@@ -576,7 +841,24 @@ function submitMemberEdit() {
   normalizeMemberOrdering();
   renderGroupOrderList();
   renderMemberTable();
-  openMemberEditor(null);
+  closeAddMemberModal();
+}
+
+function openAddMemberModal() {
+  const modal = document.getElementById('memberAddModal');
+  if (modal) {
+    openMemberEditor(null);
+    modal.classList.remove('u-hidden');
+    document.body.style.overflow = 'hidden'; // 背景スクロール防止
+  }
+}
+
+function closeAddMemberModal() {
+  const modal = document.getElementById('memberAddModal');
+  if (modal) {
+    modal.classList.add('u-hidden');
+    document.body.style.overflow = '';
+  }
 }
 
 function generateMemberId() { return `member_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`; }
@@ -639,9 +921,30 @@ function buildMemberSavePayload() {
     const mems = grouped.get(gName) || [];
     // if (!mems.length) return; // 空グループも保持する
     mems.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    // ★修正: render()で正しく表示されるよう、現在のステータス情報(STATE_CACHE優先)を含める
+    const groupsMembers = mems.map((m, idx) => {
+      const live = (typeof STATE_CACHE !== 'undefined' ? STATE_CACHE[m.id] : {}) || {};
+      const existing = adminMemberData[m.id] || {};
+      const merged = { ...existing, ...live };
+      return {
+        id: m.id,
+        name: m.name,
+        ext: m.ext,
+        mobile: m.mobile,
+        email: m.email,
+        workHours: merged.workHours == null ? '' : String(merged.workHours || m.workHours || ''),
+        status: merged.status || '',
+        time: merged.time || '',
+        note: merged.note || '',
+        tomorrowPlan: merged.tomorrowPlan || '',
+        _order: idx
+      };
+    });
+
     groups.push({
       title: gName,
-      members: mems.map((m, idx) => ({ id: m.id, name: m.name, ext: m.ext, mobile: m.mobile, email: m.email, workHours: m.workHours || '', _order: idx }))
+      members: groupsMembers
     });
   });
 
@@ -701,7 +1004,8 @@ async function handleMemberSave() {
       CONFIG_UPDATED = cfgToSet.updated;
       if (typeof render === 'function') {
         render();
-        // ★修正: 最新の保存データ(dataObj)をUIに即座に反映
+        // ★修正: render()内部でもSTATE_CACHEは適用されるが、
+        // 今回保存した最新の連絡先情報(dataObj)を確実に反映させる
         if (typeof applyState === 'function') {
           applyState(dataObj);
         }
@@ -2054,3 +2358,649 @@ function createPrintRowDiv(m) {
   row.append(name, work, status, ret, next, note);
   return row;
 }
+
+/* カラム構成管理 (Phase 6) */
+async function loadColumnConfig() {
+  const office = selectedOfficeId(); if (!office) return;
+  try {
+    if (columnSettingContainer) {
+      columnSettingContainer.innerHTML = '<p class="u-text-center u-text-gray">設定を読み込み中...</p>';
+    }
+    const res = await apiPost({ action: 'getColumnConfig', token: SESSION_TOKEN, office });
+    console.log('[loadColumnConfig] res:', res);
+    // サーバーに設定がない場合は null のまま渡す（新拠点＝未設定状態）
+    const config = (res && res.columnConfig) || null;
+    console.log('[loadColumnConfig] Using config:', config);
+    renderColumnConfig(config);
+  } catch (e) {
+    console.error('loadColumnConfig error', e);
+    if (columnSettingContainer) {
+      columnSettingContainer.innerHTML = '<p class="u-text-red">設定の同期に失敗しました</p>';
+    }
+  }
+}
+
+let adminColumnsSetup = []; // 統合されたカラム設定の配列
+
+function renderColumnConfig(config) {
+  if (!columnSettingContainer) return;
+  columnSettingContainer.innerHTML = '';
+
+  // config が null の場合は「未設定状態」: 全カラムを board=false, popup=false で表示
+  const isUnconfigured = !config;
+  const safeConfig = config || { board: [], popup: [], card: [] };
+
+  const widths = (safeConfig.columnWidths && typeof safeConfig.columnWidths === 'object') ? safeConfig.columnWidths : {};
+  const customCols = Array.isArray(safeConfig.customColumns) ? safeConfig.customColumns : [];
+
+  const allKeys = [];
+  const setupPropsMap = {}; // key -> properties
+
+  // ヘルパー: stateを構築
+  const addKeyToSetup = (k, sourceDef) => {
+    if (allKeys.includes(k)) return;
+    allKeys.push(k);
+    
+    // widths や ui state (board/popup)
+    const w = widths[k] || {};
+    const isBoard = (safeConfig.board || []).includes(k);
+    const isPopup = (safeConfig.popup || []).includes(k);
+    
+    // Is it a built-in system key?
+    const sysDef = COLUMN_DEFINITIONS.find(c => c.key === k);
+    const isSystem = !!sysDef;
+
+    // Use custom column data if available (override)
+    let custDef = customCols.find(c => c.key === k);
+    let finalDef = custDef || sysDef || sourceDef || { key: k, label: k, type: 'textual' };
+
+    setupPropsMap[k] = {
+      key: k,
+      label: finalDef.label || k,
+      type: finalDef.type || 'textual',
+      options: finalDef.options ? [...finalDef.options] : [],
+      dependsOn: finalDef.dependsOn ? JSON.parse(JSON.stringify(finalDef.dependsOn)) : null,
+      board: isBoard,
+      popup: isPopup,
+      card: (safeConfig.card || []).includes(k),
+      min: w.min != null ? w.min : '',
+      max: w.max != null ? w.max : '',
+      isSystem: isSystem,
+      popupEligible: finalDef.popupEligible === undefined ? true : finalDef.popupEligible
+    };
+  };
+
+  (safeConfig.board || []).forEach(k => addKeyToSetup(k));
+  (safeConfig.popup || []).forEach(k => addKeyToSetup(k));
+  (safeConfig.card || []).forEach(k => addKeyToSetup(k));
+  customCols.forEach(def => addKeyToSetup(def.key, def));
+
+  // Build the array
+  adminColumnsSetup = allKeys.map(k => setupPropsMap[k]);
+
+  // モジュールレベル変数に同期（互換性担保用）
+  adminColumnAllKeys = allKeys;
+  adminColumnUiState = {};
+  adminColumnsSetup.forEach(col => {
+    adminColumnUiState[col.key] = { board: col.board, popup: col.popup, min: col.min, max: col.max };
+  });
+
+  // レイアウト設定 (Phase 8: レスポンシブしきい値)
+  const layoutConfig = safeConfig.layoutConfig || {};
+  const responsiveSection = el('div', { class: 'admin-subsection layout-config-section' });
+  responsiveSection.appendChild(el('h5', { text: '📱 レスポンシブ設定' }));
+
+  const layoutGrid = el('div', { class: 'layout-config-grid', style: 'display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;' });
+
+  const cardBpDiv = el('div', { class: 'config-item' }, [
+    el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'カード切替幅 (px)' })
+  ]);
+  const cardBpInput = el('input', { id: adminColumnLcPrefix + 'cardBreakpoint', type: 'number', class: 'admin-input', placeholder: String(CARD_BREAKPOINT_PX), value: layoutConfig.cardBreakpoint || '' });
+  cardBpInput.style.width = '120px';
+  cardBpDiv.appendChild(cardBpInput);
+
+  const panelMinDiv = el('div', { class: 'config-item' }, [
+    el('label', { class: 'config-label', style: 'display: block; font-weight: 700; margin-bottom: 4px;', text: 'ボード最小幅 (px)' })
+  ]);
+  const panelMinInput = el('input', { id: adminColumnLcPrefix + 'panelMinWidth', type: 'number', class: 'admin-input', placeholder: String(PANEL_MIN_PX), value: layoutConfig.panelMinWidth || '' });
+  panelMinInput.style.width = '120px';
+  panelMinDiv.appendChild(panelMinInput);
+
+  layoutGrid.append(cardBpDiv, panelMinDiv);
+  responsiveSection.appendChild(layoutGrid);
+  columnSettingContainer.appendChild(responsiveSection);
+
+  const orderSection = el('div', { class: 'admin-subsection column-order-section' });
+  orderSection.appendChild(el('h5', { text: '📐 カラム設定' }));
+
+  // 未設定状態: システムカラム追加用UIを表示
+  if (isUnconfigured || adminColumnsSetup.length === 0) {
+    const emptyMsg = el('p', { class: 'u-text-center u-text-gray', style: 'margin: 16px 0;', text: 'この拠点にはカラム設定がありません。下のボタンからカラムを追加してください。' });
+    orderSection.appendChild(emptyMsg);
+  }
+
+  // システムカラム追加ボタン群
+  const sysAddSection = el('div', { style: 'margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;' });
+  sysAddSection.appendChild(el('span', { text: 'システムカラム: ', style: 'font-weight: 700; font-size: 0.85em;' }));
+  const existingKeys = new Set(adminColumnsSetup.map(c => c.key));
+  COLUMN_DEFINITIONS.forEach(def => {
+    if (existingKeys.has(def.key)) return;
+    const addBtn = el('button', { class: 'btn-secondary btn-sm', text: `+ ${def.label}`, title: `「${def.label}」を追加` });
+    addBtn.addEventListener('click', () => {
+      adminColumnsSetup.push({
+        key: def.key,
+        label: def.label,
+        type: def.type || 'textual',
+        options: [],
+        dependsOn: null,
+        board: def.key === 'name' || def.key === 'status',
+        popup: !!def.popupEligible,
+        card: false,
+        min: '',
+        max: '',
+        isSystem: true,
+        popupEligible: def.popupEligible === undefined ? true : def.popupEligible
+      });
+      const rebuilt = extractConfigFromSetup();
+      renderColumnConfig(rebuilt);
+    });
+    sysAddSection.appendChild(addBtn);
+  });
+  // 全候補が追加済みなら非表示
+  if (sysAddSection.querySelectorAll('button').length === 0) {
+    sysAddSection.style.display = 'none';
+  }
+  orderSection.appendChild(sysAddSection);
+
+  const orderList = el('div', { id: 'columnOrderList', class: 'column-order-list' });
+
+  function renderColumnListItems() {
+    orderList.innerHTML = '';
+    adminColumnsSetup.forEach((col, idx) => {
+      const boardDisabled = false; // 全ての制限を解除
+      const popupDisabled = !col.popupEligible;
+
+      const item = el('div', { class: 'column-order-item unified-column-item', style: 'flex-direction: column; align-items: stretch; border: 1px solid var(--border); margin-bottom: 8px; padding: 12px; border-radius: 4px; background: var(--bg-secondary);' });
+
+      // 上部バー: 並び替え, トグル, 削除, 展開
+      const topBar = el('div', { style: 'display: flex; align-items: center; gap: 12px;' });
+      
+      const moveActions = el('div', { class: 'column-order-actions', style: 'flex-shrink: 0;' });
+      const upBtn = el('button', { class: 'btn-move-up', text: '▲', title: '上に移動' });
+      upBtn.disabled = (idx === 0);
+      upBtn.addEventListener('click', () => {
+        if (idx <= 0) return;
+        const tmp = adminColumnsSetup[idx - 1];
+        adminColumnsSetup[idx - 1] = adminColumnsSetup[idx];
+        adminColumnsSetup[idx] = tmp;
+        renderColumnListItems();
+      });
+      const downBtn = el('button', { class: 'btn-move-down', text: '▼', title: '下に移動' });
+      downBtn.disabled = (idx === adminColumnsSetup.length - 1);
+      downBtn.addEventListener('click', () => {
+        if (idx >= adminColumnsSetup.length - 1) return;
+        const tmp = adminColumnsSetup[idx + 1];
+        adminColumnsSetup[idx + 1] = adminColumnsSetup[idx];
+        adminColumnsSetup[idx] = tmp;
+        renderColumnListItems();
+      });
+      moveActions.append(upBtn, downBtn);
+      
+      const titleSpan = el('strong', { text: col.label, style: 'min-width: 120px;' });
+      if (!col.isSystem) titleSpan.appendChild(el('span', { class: 'column-order-badge', text: '独自', style: 'margin-left: 8px; background: var(--accent); color: white;' }));
+
+      const toggleGrp = el('div', { class: 'column-toggle-grp', style: 'flex: 1;' });
+      const boardCb = el('input', { type: 'checkbox', disabled: !!boardDisabled });
+      boardCb.checked = col.board;
+      boardCb.addEventListener('change', e => col.board = e.target.checked);
+      const boardLabel = el('label', { class: 'column-toggle-label' });
+      boardLabel.append(boardCb, document.createTextNode(' ボード表示'));
+
+      const popupCb = el('input', { type: 'checkbox', disabled: !!popupDisabled });
+      popupCb.checked = col.popup;
+      popupCb.addEventListener('change', e => col.popup = e.target.checked);
+      const popupLabel = el('label', { class: 'column-toggle-label' });
+      popupLabel.append(popupCb, document.createTextNode(' ポップアップ表示'));
+
+      const cardCb = el('input', { type: 'checkbox' });
+      cardCb.checked = col.card;
+      cardCb.addEventListener('change', e => {
+        col.card = e.target.checked;
+        renderCardOrderListItems();
+      });
+      const cardLabel = el('label', { class: 'column-toggle-label' });
+      cardLabel.append(cardCb, document.createTextNode(' カード表示'));
+
+      toggleGrp.append(boardLabel, popupLabel, cardLabel);
+
+      const actionGrp = el('div', { style: 'display: flex; gap: 8px;' });
+      
+      const expandBtn = el('button', { class: 'btn-primary btn-sm', text: '⚙ 詳細' });
+      let expanded = false;
+
+      const dupBtn = el('button', { class: 'btn-secondary btn-sm', text: '複製' });
+      dupBtn.onclick = () => {
+        const newKey = 'custom_' + Date.now().toString(36);
+        const dupSetup = JSON.parse(JSON.stringify(col));
+        dupSetup.key = newKey;
+        dupSetup.label = dupSetup.label + '（コピー）';
+        dupSetup.isSystem = false;
+        adminColumnsSetup.splice(idx + 1, 0, dupSetup);
+        renderColumnListItems();
+      };
+      
+      const delBtn = el('button', { class: 'btn-danger btn-sm', text: '削除' });
+      // 制限を全廃。管理者が完全にコントロールできるようにする。
+      delBtn.onclick = () => {
+        const isThisName = (col.key === 'name');
+        const confirmMsg = isThisName 
+          ? '「氏名」カラムを削除すると、ボードに名前が表示されなくなります。よろしいですか？'
+          : `「${col.label}」を削除しますか？`;
+        
+        if (confirm(confirmMsg)) {
+          adminColumnsSetup.splice(idx, 1);
+          renderColumnListItems();
+          renderCardOrderListItems(); // 削除時にカード順序も連動させる
+        }
+      };
+      
+      actionGrp.append(dupBtn, delBtn, expandBtn);
+      topBar.append(moveActions, titleSpan, toggleGrp, actionGrp);
+      item.appendChild(topBar);
+
+      // 詳細設定パネル (アコーディオン)
+      const detailPanel = el('div', { style: 'display: none; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); grid-template-columns: 1fr 1fr; gap: 12px;' });
+      
+      expandBtn.onclick = () => {
+        expanded = !expanded;
+        expandBtn.textContent = expanded ? '⚙ 閉じる' : '⚙ 詳細';
+        detailPanel.style.display = expanded ? 'grid' : 'none';
+      };
+
+      // 表示名
+      const labelGroup = el('div');
+      labelGroup.appendChild(el('label', { text: '表示名', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      const labelInput = el('input', { type: 'text', class: 'admin-input', value: col.label });
+      labelInput.oninput = e => { col.label = e.target.value; titleSpan.firstChild.textContent = col.label; };
+      labelGroup.appendChild(labelInput);
+      detailPanel.appendChild(labelGroup);
+
+      // 種類
+      const typeGroup = el('div');
+      typeGroup.appendChild(el('label', { text: '種類', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      const typeSel = el('select', { class: 'admin-input' });
+      typeSel.innerHTML = `
+        <option value="textual">テキスト（自由入力）</option>
+        <option value="select">リスト（選択のみ・ステータス型）</option>
+        <option value="candidate">候補リスト（選択＋自由入力・備考型）</option>
+      `;
+      typeSel.value = col.type || 'textual';
+      
+      const optGroup = el('div', { style: 'margin-top: 12px;' });
+      optGroup.style.display = (col.type === 'select' || col.type === 'candidate') ? 'block' : 'none';
+      optGroup.appendChild(el('label', { text: '選択肢（カンマ区切り）', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      const optInput = el('input', { type: 'text', class: 'admin-input', value: (col.options || []).join(',') });
+      optInput.oninput = e => { col.options = e.target.value.split(',').map(s => s.trim()).filter(s => s); };
+      optGroup.appendChild(optInput);
+
+      typeSel.onchange = e => {
+        col.type = e.target.value;
+        optGroup.style.display = (col.type === 'select' || col.type === 'candidate') ? 'block' : 'none';
+      };
+      typeGroup.append(typeSel, optGroup);
+      detailPanel.appendChild(typeGroup);
+
+      // 幅グループ
+      const widthGroup = el('div', { class: 'column-width-group', style: 'flex-direction: column; align-items: flex-start; justify-content: flex-start;' });
+      widthGroup.appendChild(el('label', { text: 'ボード上での列幅 (px)', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      const wFlex = el('div', { style: 'display:flex; align-items:center; gap:4px;' });
+      const minInput = el('input', { type: 'number', class: 'column-width-input', placeholder: '100', min: '10', max: '1000' });
+      minInput.value = col.min;
+      minInput.addEventListener('input', e => col.min = e.target.value);
+      const maxInput = el('input', { type: 'number', class: 'column-width-input', placeholder: '自動', min: '10', max: '1000' });
+      maxInput.value = col.max;
+      maxInput.addEventListener('input', e => col.max = e.target.value);
+      wFlex.append(el('span', { text:'最小', style:'font-size:12px;' }), minInput, el('span', { text:'〜' }), el('span', { text:'最大', style:'font-size:12px;' }), maxInput);
+      widthGroup.appendChild(wFlex);
+      detailPanel.appendChild(widthGroup);
+
+      // 依存関係
+      const depGroup = el('div');
+      depGroup.appendChild(el('label', { text: '条件付き編集（特定の条件を満たす場合のみ入力可能にする）', style: 'display:block; font-size: 12px; font-weight: bold; margin-bottom: 4px;' }));
+      
+      const depFlex = el('div', { style: 'display: flex; gap: 8px; align-items: center; margin-top: 8px;' });
+      const useDepCb = el('input', { type: 'checkbox' });
+      useDepCb.checked = !!col.dependsOn;
+      
+      const depColSel = el('select', { class: 'admin-input', style: 'width: 120px;' });
+      depColSel.innerHTML = '<option value="">(親カラム)</option>';
+      adminColumnsSetup.forEach(c => {
+         if (c.key !== col.key) {
+           depColSel.appendChild(el('option', { value: c.key, text: c.label }));
+         }
+      });
+      
+      const depValInput = el('input', { type: 'text', class: 'admin-input', placeholder: '親の値(例: 外出)', style: 'flex: 1;' });
+      
+      if (col.dependsOn) {
+        depColSel.value = col.dependsOn.column || '';
+        depValInput.value = (col.dependsOn.values || []).join(',');
+      }
+
+      const updateDep = () => {
+        if (useDepCb.checked) {
+          col.dependsOn = {
+            column: depColSel.value,
+            values: depValInput.value.split(',').map(s => s.trim()).filter(s => s)
+          };
+        } else {
+          col.dependsOn = null;
+        }
+      };
+
+      useDepCb.onchange = () => {
+        depColSel.disabled = !useDepCb.checked;
+        depValInput.disabled = !useDepCb.checked;
+        updateDep();
+      };
+      depColSel.onchange = updateDep;
+      depValInput.oninput = updateDep;
+      
+      depColSel.disabled = !useDepCb.checked;
+      depValInput.disabled = !useDepCb.checked;
+
+      depFlex.append(useDepCb, depColSel, el('span', { text: 'が次の値の時:', style: 'font-size: 12px;' }), depValInput);
+      depGroup.appendChild(depFlex);
+      detailPanel.appendChild(depGroup);
+
+      item.appendChild(detailPanel);
+      orderList.appendChild(item);
+    });
+  }
+
+  renderColumnListItems();
+  orderSection.appendChild(orderList);
+  columnSettingContainer.appendChild(orderSection);
+
+  // カード表示順序設定セクション
+  const cardOrderSection = el('div', { class: 'admin-subsection card-order-section', style: 'margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;' });
+  cardOrderSection.appendChild(el('h5', { text: '📱 カード表示の順序' }));
+  
+  const cardOrderList = el('div', { id: 'cardOrderList', class: 'column-order-list' });
+
+  // カード表示順序の管理用（safeConfig.cardがあればそれを初期順序とし、なければboard順）
+  let cardOrderKeys = (safeConfig.card && Array.isArray(safeConfig.card)) ? safeConfig.card.slice() : adminColumnsSetup.filter(c => c.card).map(c => c.key);
+
+  function renderCardOrderListItems() {
+    cardOrderList.innerHTML = '';
+    // 有効なキーのみフィルタリング
+    const activeKeys = cardOrderKeys.filter(k => adminColumnsSetup.find(c => c.key === k && c.card));
+    // adminColumnsSetupにあってcardOrderKeysにない「新規追加されたcard有効項目」を追加
+    adminColumnsSetup.forEach(c => {
+      if (c.card && !activeKeys.includes(c.key)) activeKeys.push(c.key);
+    });
+    cardOrderKeys = activeKeys;
+
+    cardOrderKeys.forEach((k, idx) => {
+      const col = adminColumnsSetup.find(c => c.key === k);
+      if (!col) return;
+
+      const item = el('div', { class: 'column-order-item card-order-item', style: 'display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); margin-bottom: 4px; padding: 8px 12px; border-radius: 4px; background: var(--bg-white);' });
+      
+      const moveActions = el('div', { class: 'column-order-actions', style: 'flex-shrink: 0;' });
+      const upBtn = el('button', { class: 'btn-move-up', text: '▲', title: '上に移動' });
+      upBtn.disabled = (idx === 0);
+      upBtn.addEventListener('click', () => {
+        if (idx <= 0) return;
+        const tmp = cardOrderKeys[idx - 1];
+        cardOrderKeys[idx - 1] = cardOrderKeys[idx];
+        cardOrderKeys[idx] = tmp;
+        renderCardOrderListItems();
+      });
+      const downBtn = el('button', { class: 'btn-move-down', text: '▼', title: '下に移動' });
+      downBtn.disabled = (idx === cardOrderKeys.length - 1);
+      downBtn.addEventListener('click', () => {
+        if (idx >= cardOrderKeys.length - 1) return;
+        const tmp = cardOrderKeys[idx + 1];
+        cardOrderKeys[idx + 1] = cardOrderKeys[idx];
+        cardOrderKeys[idx] = tmp;
+        renderCardOrderListItems();
+      });
+      moveActions.append(upBtn, downBtn);
+      
+      const label = el('span', { text: col.label, style: 'font-weight: 600;' });
+      item.append(moveActions, label);
+      cardOrderList.appendChild(item);
+    });
+    
+    // クロージャ経由で外部からアクセス可能にする
+    cardOrderSection.dataset.cardKeys = JSON.stringify(cardOrderKeys);
+  }
+
+  // extractConfigFromSetup で参照できるように関数を公開
+  window._getCardOrderKeys = () => cardOrderKeys;
+
+  renderCardOrderListItems();
+  cardOrderSection.appendChild(cardOrderList);
+  columnSettingContainer.appendChild(cardOrderSection);
+}
+
+document.getElementById('btnAddCustomColumn')?.addEventListener('click', () => {
+  const keyName = 'custom_' + Date.now().toString(36);
+  adminColumnsSetup.push({
+    key: keyName,
+    label: '新しい項目',
+    type: 'textual',
+    options: [],
+    dependsOn: null,
+    board: true,
+    popup: false,
+    min: '',
+    max: '',
+    isSystem: false,
+    popupEligible: true,
+    card: true
+  });
+  // 画面再描画
+  const fakeConfig = extractConfigFromSetup();
+  renderColumnConfig(fakeConfig);
+});
+
+// UI全体のadminColumnsSetupから保存用の構成オブジェクトを作成する
+function extractConfigFromSetup() {
+  const boardKeys = [];
+  const popupKeys = [];
+  const columnWidths = {};
+  const customColumns = [];
+
+  adminColumnsSetup.forEach(col => {
+    if (col.board) boardKeys.push(col.key);
+    if (col.popup) popupKeys.push(col.key);
+
+    const minRaw = col.min;
+    const maxRaw = col.max;
+    let minW, maxW;
+    if (minRaw !== '') { minW = parseInt(minRaw, 10); if (!isNaN(minW)) { minW = Math.max(10, Math.min(minW, 1000)); } else { minW = null; } }
+    if (maxRaw !== '') { maxW = parseInt(maxRaw, 10); if (!isNaN(maxW)) { maxW = Math.max(10, Math.min(maxW, 1000)); } else { maxW = null; } }
+    
+    if (minW != null || maxW != null) {
+      columnWidths[col.key] = {};
+      if (minW != null) columnWidths[col.key].min = minW;
+      if (maxW != null) columnWidths[col.key].max = maxW;
+    }
+
+    // 抽出条件: システム定義ではない、もしくはシステム定義だがプロパティが変更されている場合
+    const baseSys = COLUMN_DEFINITIONS.find(c => c.key === col.key);
+    const overrides = {
+      key: col.key,
+      label: col.label,
+      type: col.type,
+      options: col.options,
+      dependsOn: col.dependsOn,
+      popupEligible: col.popupEligible,
+      tableClass: col.key,
+      dataLabel: col.label
+    };
+
+    if (!baseSys) {
+      customColumns.push(overrides);
+    } else {
+      // システムカラムから何等かの変更があるかチェック
+      const isLabelChanged = (baseSys.label !== col.label);
+      const isTypeChanged = (baseSys.type !== col.type) && !(!baseSys.type && col.type === 'textual');
+      const isOptsChanged = (JSON.stringify(baseSys.options || []) !== JSON.stringify(col.options || []));
+      const isDepChanged = (JSON.stringify(baseSys.dependsOn || null) !== JSON.stringify(col.dependsOn || null));
+      
+      if (isLabelChanged || isTypeChanged || isOptsChanged || isDepChanged) {
+        customColumns.push(overrides);
+      }
+    }
+  });
+
+  // セーフティガード廃止（管理者が明示的に選ばない限り追加しない）
+
+  const cardBpEl = document.getElementById(adminColumnLcPrefix + 'cardBreakpoint');
+  const panelMinEl = document.getElementById(adminColumnLcPrefix + 'panelMinWidth');
+  const layoutConfig = {
+    cardBreakpoint: cardBpEl?.value ? parseInt(cardBpEl.value, 10) : null,
+    panelMinWidth: panelMinEl?.value ? parseInt(panelMinEl.value, 10) : null
+  };
+
+  const rawCardKeys = (typeof window._getCardOrderKeys === 'function') ? window._getCardOrderKeys() : boardKeys;
+  // 有効なキーのみにフィルタリング (adminColumnsSetupに存在し、cardがtrueのもの)
+  const cardKeys = Array.isArray(rawCardKeys) 
+    ? rawCardKeys.filter(k => adminColumnsSetup.some(c => c.key === k && c.card))
+    : boardKeys;
+
+  // name強制注入を停止
+
+  return { board: boardKeys, popup: popupKeys, card: cardKeys, columnWidths, layoutConfig, customColumns };
+}
+
+async function saveColumnConfig() {
+  const office = selectedOfficeId(); if (!office) return;
+  const configPayload = extractConfigFromSetup();
+
+  try {
+    const res = await apiPost({
+      action: 'setColumnConfig',
+      token: SESSION_TOKEN,
+      office,
+      config: JSON.stringify(configPayload)
+    });
+    if (res && res.ok) {
+      toast('カラム構成を保存しました');
+      if (office === CURRENT_OFFICE_ID) {
+        OFFICE_COLUMN_CONFIG = configPayload;
+        localStorage.setItem(getColumnConfigKey(office), JSON.stringify(OFFICE_COLUMN_CONFIG));
+        if (typeof render === 'function') {
+          render();
+          // ★追加: カラム構成変更後も最新ステータスを維持する
+          if (typeof applyState === 'function' && typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
+            applyState(STATE_CACHE);
+          }
+        }
+      }
+    } else {
+      toast('保存に失敗しました: ' + (res.error || '不明なエラー'), false);
+    }
+  } catch (e) {
+    console.error('saveColumnConfig error', e);
+    toast('通信エラーが発生しました', false);
+  }
+}
+
+/* 辞書設定 (Gaiji/Furigana) */
+/* 拠点管理 (Phase 7 - Super Admin用) */
+async function loadOffices() {
+  if (!officeTableBody) return;
+  try {
+    officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-gray">読み込み中...</td></tr>';
+    const res = await apiPost({ action: 'listOffices', token: SESSION_TOKEN });
+    if (res && res.ok && Array.isArray(res.offices)) {
+      renderOfficeTable(res.offices);
+    } else {
+      officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-red">取得に失敗しました</td></tr>';
+    }
+  } catch (e) {
+    console.error('loadOffices error', e);
+    officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-red">通信エラーが発生しました</td></tr>';
+  }
+}
+
+function renderOfficeTable(offices) {
+  if (!officeTableBody) return;
+  officeTableBody.innerHTML = '';
+  
+  if (offices.length === 0) {
+    officeTableBody.innerHTML = '<tr><td colspan="3" class="u-text-center u-text-gray">登録された拠点はありません</td></tr>';
+    return;
+  }
+  
+  offices.forEach(o => {
+    const tr = el('tr', {}, [
+      el('td', { text: o.id }),
+      el('td', { text: o.name || o.id }),
+      el('td', { class: 'u-text-center' }, [
+        el('button', { 
+          class: 'btn-danger btn-sm', 
+          text: '削除',
+          onclick: () => deleteOfficeSingle(o.id, o.name)
+        })
+      ])
+    ]);
+    officeTableBody.appendChild(tr);
+  });
+}
+
+async function addOffice() {
+  const officeId = document.getElementById('newOfficeId')?.value.trim();
+  const name = document.getElementById('newOfficeName')?.value.trim();
+  const password = document.getElementById('newOfficePw')?.value.trim();
+  const adminPassword = document.getElementById('newOfficeAdminPw')?.value.trim();
+  
+  if (!officeId || !name || !password || !adminPassword) {
+    toast('すべての項目を入力してください', false);
+    return;
+  }
+  
+  try {
+    const res = await apiPost({ 
+      action: 'addOffice', 
+      token: SESSION_TOKEN,
+      officeId, name, password, adminPassword
+    });
+    
+    if (res && res.ok) {
+      toast('拠点を追加しました');
+      ['newOfficeId', 'newOfficeName', 'newOfficePw', 'newOfficeAdminPw'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      await loadOffices();
+    } else {
+      toast('追加に失敗しました: ' + (res.error || '不明なエラー'), false);
+    }
+  } catch (e) {
+    console.error('addOffice error', e);
+    toast('通信エラーが発生しました', false);
+  }
+}
+
+async function deleteOfficeSingle(id, name) {
+  if (!confirm(`拠点「${name || id}」を削除しますか？\nこの操作は取り消せません。`)) return;
+  
+  try {
+    const res = await apiPost({ action: 'deleteOffice', token: SESSION_TOKEN, officeId: id });
+    if (res && res.ok) {
+      toast('拠点を削除しました');
+      await loadOffices();
+    } else {
+      toast('削除に失敗しました: ' + (res.error || '不明なエラー'), false);
+    }
+  } catch (e) {
+    console.error('deleteOffice error', e);
+    toast('通信エラーが発生しました', false);
+  }
+}
+
