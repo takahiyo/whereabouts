@@ -267,16 +267,26 @@ document.getElementById('btnAuthSignup')?.addEventListener('click', async () => 
 
 // 新規拠点作成
 document.getElementById('btnCreateOffice')?.addEventListener('click', async () => {
-  // [AFTER] 常に小文字として扱うことで大文字混在によるバリデーションエラーを防ぐ
-  const officeId = document.getElementById('newOfficeId').value.trim().toLowerCase();
+  // [AFTER] 全角英数字を半角に変換するヘルパー
+  const toHalfWidth = (str) => str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+  
+  const rawId = document.getElementById('newOfficeId').value.trim();
+  const officeId = toHalfWidth(rawId).toLowerCase(); // 常に小文字・半角
   const name = document.getElementById('newOfficeName').value.trim();
   const password = document.getElementById('newOfficePw').value;
   const adminPassword = document.getElementById('newOfficeAdminPw').value;
 
-  if (!officeId.match(/^[a-z0-9_]+$/)) return showError('オフィスIDは半角英数字と(_)のみ使用可能です。');
+  console.log('【DEBUG】拠点作成試行:', { rawId, officeId, nameLength: name.length });
+
+  if (!officeId) return showError('オフィスIDを入力してください。');
+  if (!officeId.match(/^[a-z0-9_]+$/)) {
+    console.warn('【DEBUG】バリデーション失敗(ID形式):', officeId);
+    return showError('オフィスIDは半角英数字と(_)のみ使用可能です。');
+  }
   if (!name || !password || !adminPassword) return showError('全ての項目を入力してください。');
 
   const fbToken = await getFbToken();
+  console.log('【DEBUG】Workerへ送信 (action: createOffice)');
   const res = await fetchFromWorker('createOffice', { 
     token: fbToken, officeId, name, password, adminPassword 
   });
