@@ -76,6 +76,11 @@ export async function checkLogin() {
       if (user) {
         console.log('【DEBUG】Firebase ユーザー検知:', user.email, 'Verified:', user.emailVerified);
         if (!user.emailVerified) {
+          // [AFTER] すでに拠点セッション（共有PW）でログイン済みの場合は、Firebaseの未認証状態によってUIを遮断しない
+          if (SESSION_TOKEN) {
+            console.log('【DEBUG】Firebaseユーザーはメール未認証ですが、拠点セッションが有効なため無視します');
+            return;
+          }
           console.log('【DEBUG】メール未認証です');
           switchAuthView('verify');
           resolve(false);
@@ -141,8 +146,9 @@ function switchAuthView(view) {
 
   if (loginEl && loginFormEl) {
     // すでにボードが表示されている場合は、ログイン表示を抑制する
-    if (view === 'officeLogin' && SESSION_TOKEN && board && !board.classList.contains('u-hidden')) {
-      console.log('【DEBUG】すでにログイン済みのボードが表示されているため、ログイン画面への遷移をキャンセルしました');
+    // [AFTER] すでにボードが表示されている場合は、ログイン画面や認証待ち画面への強制遷移を抑制する
+    if ((view === 'officeLogin' || view === 'verify' || view === 'createOffice') && SESSION_TOKEN && board && !board.classList.contains('u-hidden')) {
+      console.log(`【DEBUG】すでにログイン済みのボードが表示されているため、${view} への遷移をキャンセルしました`);
       return;
     }
     loginEl.classList.remove('u-hidden');
