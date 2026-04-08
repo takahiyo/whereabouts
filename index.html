@@ -1259,7 +1259,7 @@
         <p class="u-font-08em">メール内のリンクをクリックして認証を完了させた後、この画面に戻ってログインしてください。</p>
         <button id="btnVerifyDone" type="button" class="u-mt-16">完了してログイン画面へ</button>
         <p class="u-mt-16 u-font-08em">
-          <a href="#" class="u-link-blue" onclick="event.preventDefault(); window.checkLogin(); location.reload();">拠点ログイン画面に戻る</a>
+          <a href="#" class="u-link-blue" onclick="event.preventDefault(); if(typeof window.logout === 'function') window.logout(); else location.reload();">拠点ログイン画面に戻る</a>
         </p>
       </div>
 

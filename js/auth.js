@@ -413,12 +413,15 @@ document.getElementById('btnVerifyDone')?.addEventListener('click', () => locati
 
 // ログアウト
 const logoutAction = async () => {
+  console.log('【DEBUG】logoutAction 実行');
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(LOCAL_OFFICE_KEY);
   localStorage.removeItem(LOCAL_ROLE_KEY);
   sessionStorage.removeItem(PERSISTENT_SESSION_KEY);
+  
+  // [FIX] fbLogout (firebase-auth.js) 内で reload されるため、
+  // ここでの reload は fbLogout の完了を待つ形にする
   await fbLogout();
-  location.reload();
 };
 document.getElementById('logoutBtn')?.addEventListener('click', logoutAction);
 window.logout = logoutAction;
