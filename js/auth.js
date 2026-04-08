@@ -89,6 +89,11 @@ export async function checkLogin() {
             switchAuthView('createOffice');
             resolve(false);
           }
+        } else {
+          // [AFTER] 500 エラー等の詳細を画面に表示して原因究明を助ける
+          if (resp.message) {
+            showError(`システムエラー: ${resp.message}`);
+          }
         }
       } else {
         // ログイン情報なし
@@ -229,7 +234,8 @@ document.getElementById('btnAuthSignup')?.addEventListener('click', async () => 
 
 // 新規拠点作成
 document.getElementById('btnCreateOffice')?.addEventListener('click', async () => {
-  const officeId = document.getElementById('newOfficeId').value.trim();
+  // [AFTER] 常に小文字として扱うことで大文字混在によるバリデーションエラーを防ぐ
+  const officeId = document.getElementById('newOfficeId').value.trim().toLowerCase();
   const name = document.getElementById('newOfficeName').value.trim();
   const password = document.getElementById('newOfficePw').value;
   const adminPassword = document.getElementById('newOfficeAdminPw').value;

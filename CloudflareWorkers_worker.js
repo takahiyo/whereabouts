@@ -1165,7 +1165,13 @@ export default {
       } // end handleAction
     } catch (e) {
       console.error('[Worker Request Fatal Error]', e);
-      return new Response(`Fatal Error: ${e.message}`, { status: 500, headers: corsHeaders });
+      // [AFTER] 常に JSON を返し、フロントエンドでの SyntaxError (JSON.parse 失敗) を防ぐ
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        error: 'fatal_worker_error',
+        message: e.message,
+        debug: { action: requestContext.action, office: requestContext.officeId }
+      }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
   },
 

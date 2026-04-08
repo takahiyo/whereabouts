@@ -143,4 +143,4 @@
 - `js/auth.js` の登録処理（`btnAuthSignup` のクリックイベント）の冒頭に、`firebaseConfig.apiKey` の値をチェックするバリデーションを追加。
 - プレンスホルダを検知した場合は処理を中断し、設定ファイルの編集を促すメッセージを表示するように改善。
 - ユーザーより提供された本番用 Firebase 設定情報を `js/firebase-config.js` に反映。
-- **追記(2026-04-08)**: `js/firebase-auth.js` の `login` 関数を修正。未認証ユーザーがログインを試みた際に `sendEmailVerification` を実行するようにし、確認メールの再送に対応。
+- **追記(2026-04-08 2)**: `CloudflareWorkers_worker.js` のエラーハンドリングを強化。最上位の catch ブロックでテキストではなく JSON を返すように変更し、フロントエンドでのパースエラーを防止。また、`js/auth.js` でオフィスIDを自動小文字化し、大文字混入によるバリデーションエラーを回避する UX 改善を実施。
