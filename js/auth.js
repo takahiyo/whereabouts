@@ -64,6 +64,7 @@ export async function checkLogin() {
       try {
         // 既存のセッションをサーバーで検証
         const res = await fetchFromWorker('renew', { token: storedToken });
+        console.log('【DEBUG】renew 応答:', res);
         if (res.ok && res.office === storedOffice) {
           console.log('【DEBUG】セッションの検証に成功しました');
           await finalizeLogin({
@@ -216,6 +217,15 @@ function switchAuthView(view) {
  * ログイン完了処理
  */
 async function finalizeLogin(data) {
+  console.log('【DEBUG】finalizeLogin 実行 (スタックトレース):');
+  console.trace();
+  console.log('【DEBUG】finalizeLogin データ:', JSON.stringify(data, null, 2));
+
+  if (!data || !data.office) {
+    console.error('【DEBUG】不正なログインデータです。処理を中断します。', data);
+    return;
+  }
+
   CURRENT_OFFICE_ID = data.office;
   CURRENT_ROLE = data.role || 'user';
   SESSION_TOKEN = data.token;
@@ -228,8 +238,6 @@ async function finalizeLogin(data) {
   localStorage.setItem(LOCAL_OFFICE_NAME_KEY, officeName);
   
   if (typeof updateTitleBtn === 'function') updateTitleBtn(officeName);
-
-  console.log('【DEBUG】finalizeLogin 実行:', { office: data.office, role: data.role });
 
   if (loginEl) {
     loginEl.classList.add('u-hidden');
@@ -308,7 +316,10 @@ document.getElementById('btnSimpleLogin')?.addEventListener('click', async () =>
     }
   } else {
     // 2. それ以外なら通常の拠点パスワード認証を試行
+    console.log('【DEBUG】拠点ログイン試行:', { office: loginId, pass: password ? '***' : '(empty)' });
     const res = await fetchFromWorker('login', { office: loginId, password });
+    console.log('【DEBUG】Worker ログイン応答:', res);
+
     if (res.ok) {
       await finalizeLogin(res);
     } else {
