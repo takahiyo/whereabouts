@@ -233,7 +233,20 @@ btnRenameOffice.addEventListener('click', async () => {
   const name = (renameOfficeName.value || '').trim();
   if (!name) { toast('新しい拠点名を入力', false); return; }
   const r = await adminRenameOffice(office, name);
-  if (r && r.ok) { toast('拠点名を変更しました'); }
+  if (r && r.ok) {
+    toast('拠点名を変更しました');
+    // グローバル状態とストレージを更新
+    if (typeof CURRENT_OFFICE_NAME !== 'undefined') {
+      CURRENT_OFFICE_NAME = name;
+    }
+    if (typeof LOCAL_OFFICE_NAME_KEY !== 'undefined') {
+      localStorage.setItem(LOCAL_OFFICE_NAME_KEY, name);
+    }
+    // UIを即時反映
+    if (typeof updateTitleBtn === 'function') {
+      updateTitleBtn(name);
+    }
+  }
   else toast('変更に失敗', false);
 });
 
