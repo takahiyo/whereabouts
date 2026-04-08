@@ -77,9 +77,7 @@ async function login(officeInput, passwordInput) {
     const result = await resp.json();
 
     if (!result.ok) {
-      // デバッグ用に Worker からのレスポンスを詳細表示
-      console.warn("[Login Debug] Auth Failure Payload:", result);
-      throw new Error("認証に失敗しました。オフィスIDまたはパスワードを確認してください。");
+      throw new Error("認証に失敗しました。拠点IDまたはパスワードを確認してください。");
     }
 
     // ★重要：ログイン処理に入る「前」に、拠点情報を保存する
@@ -127,7 +125,7 @@ async function login(officeInput, passwordInput) {
     return true;
 
   } catch (error) {
-    console.error("Login process error:", error);
+    // 認証エラー時のコンソール出力等によるエラー・警告(赤字・黄字)発生を防ぐためログは出さない
     toast(error.message, false);
     return false;
   }
@@ -396,8 +394,7 @@ if (btnLogin) {
   btnLogin.addEventListener('click', async () => {
     const pw = pwInput.value;
     const office = officeSel.value;
-    // officeは認証の入力としては使わないが、拠点選択として必須ならチェック
-    if (!office) { if (loginMsg) loginMsg.textContent = "拠点を選択してください"; return; }
+    if (!office) { if (loginMsg) loginMsg.textContent = "拠点IDを入力してください"; return; }
     if (!pw) { if (loginMsg) loginMsg.textContent = "パスワードを入力してください"; return; }
 
     if (loginMsg) loginMsg.textContent = "認証中…";
@@ -411,10 +408,10 @@ if (btnLogin) {
 
 // インラインイベントハンドラの代替
 if (officeSel) {
-  officeSel.addEventListener('change', () => {
+  officeSel.addEventListener('input', () => {
     const dummyUsername = document.getElementById('dummyUsername');
-    if (dummyUsername && officeSel.selectedIndex >= 0) {
-      dummyUsername.value = officeSel.options[officeSel.selectedIndex].text;
+    if (dummyUsername) {
+      dummyUsername.value = officeSel.value;
     }
   });
 }
