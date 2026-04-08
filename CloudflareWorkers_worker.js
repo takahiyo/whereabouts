@@ -242,6 +242,10 @@ export default {
         const officeId = getParam('office');
         const password = getParam('password');
 
+        if (!officeId || !password) {
+          return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
+        }
+
         console.log(`[Login Attempt] Office: ${officeId}`);
 
         // 1. DEV_TOKEN (マスターキー) チェック
@@ -475,6 +479,12 @@ export default {
       if (action === 'get' || action === 'getFor') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
+
+        // Data Isolation Check: リクエストされた拠点とトークンの拠点が一致するか、またはスーパー管理者か
+        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
+          console.warn(`[get] Unauthorized access attempt: requestOffice=${officeId}, tokenOffice=${tokenOffice}`);
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'office_mismatch' }), { headers: corsHeaders });
+        }
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
 

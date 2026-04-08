@@ -60,16 +60,35 @@ export async function checkLogin() {
     const storedRole = localStorage.getItem(LOCAL_ROLE_KEY);
 
     if (storedToken && storedOffice) {
-      finalizeLogin({
-        token: storedToken,
-        office: storedOffice,
-        role: storedRole || 'user',
-        officeName: localStorage.getItem(LOCAL_OFFICE_NAME_KEY) || storedOffice
-      });
-      if (typeof updateTitleBtn === 'function') updateTitleBtn();
-      resolve(true);
-      isBooting = false;
-      return;
+      console.log('【DEBUG】既存のセッション情報を検知:', storedOffice);
+      try {
+        // 既存のセッションをサーバーで検証
+        const res = await fetchFromWorker('renew', { token: storedToken });
+        if (res.ok && res.office === storedOffice) {
+          console.log('【DEBUG】セッションの検証に成功しました');
+          await finalizeLogin({
+            token: storedToken,
+            office: storedOffice,
+            role: res.role || storedRole || 'user',
+            officeName: localStorage.getItem(LOCAL_OFFICE_NAME_KEY) || storedOffice
+          });
+          if (typeof updateTitleBtn === 'function') updateTitleBtn();
+          resolve(true);
+          isBooting = false;
+          return;
+        } else {
+          console.warn('【DEBUG】セッションが無効、または拠点不一致のためクリアします');
+          await logout();
+          resolve(false);
+          return;
+        }
+      } catch (e) {
+        console.error('【DEBUG】起動時のセッション検証に失敗しました:', e);
+        // 通信エラーなどの場合は一旦保留にするか、あるいは安全のためログアウト
+        await logout();
+        resolve(false);
+        return;
+      }
     }
 
     // 2. Firebase の状態を確認 (オーナー用)
