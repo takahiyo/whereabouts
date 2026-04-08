@@ -29,7 +29,7 @@ const qrModal = document.getElementById('qrModal');
 // Auth State Variables
 let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
-console.log('【DEBUG】js/auth.js Loaded (Version: 20260408_v4)');
+console.log('【DEBUG】js/auth.js Loaded (Version: 20260408_v5)');
 
 /**
  * 初期化: Auth 状態の監視開始
@@ -79,9 +79,12 @@ export async function checkLogin() {
         console.log('【DEBUG】Firebase ユーザー検知:', user.email, 'Verified:', user.emailVerified);
         if (!user.emailVerified) {
           // [AFTER] すでに拠点セッション（共有PW）でログイン済みの場合は、Firebaseの未認証状態によってUIを遮断しない
-          // [V3] sessionStorage のフラグも併用して確実にロックする
-          if (SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY)) {
-            console.log('【DEBUG】[ガード/Firebase] すでに有効なセッションがあるため、メール未認証チェックをスキップします');
+          // [V5] また、URLに office パラメータがある（QRスキャン時など）場合は拠点ログインを優先するため、リダイレクトをスキップする
+          const urlParams = new URLSearchParams(window.location.search);
+          const hasOfficeParam = !!urlParams.get('office');
+          
+          if (SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY) || hasOfficeParam) {
+            console.log('【DEBUG】[ガード/Firebase] 拠点セッションまたはofficeパラメータを検知したため、メール未認証チェックをスキップします');
             return;
           }
           console.log('【DEBUG】メール未認証です');
