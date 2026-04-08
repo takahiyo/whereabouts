@@ -28,6 +28,8 @@ const qrModal = document.getElementById('qrModal');
 
 // Auth State Variables
 let isBooting = true;
+const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
+console.log('【DEBUG】js/auth.js Loaded (Version: 20260408_v4)');
 
 /**
  * 初期化: Auth 状態の監視開始
@@ -76,6 +78,12 @@ export async function checkLogin() {
       if (user) {
         console.log('【DEBUG】Firebase ユーザー検知:', user.email, 'Verified:', user.emailVerified);
         if (!user.emailVerified) {
+          // [AFTER] すでに拠点セッション（共有PW）でログイン済みの場合は、Firebaseの未認証状態によってUIを遮断しない
+          // [V3] sessionStorage のフラグも併用して確実にロックする
+          if (SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY)) {
+            console.log('【DEBUG】[ガード/Firebase] すでに有効なセッションがあるため、メール未認証チェックをスキップします');
+            return;
+          }
           console.log('【DEBUG】メール未認証です');
           switchAuthView('verify');
           resolve(false);
@@ -140,11 +148,15 @@ function switchAuthView(view) {
   });
 
   if (loginEl && loginFormEl) {
-    // すでにボードが表示されている場合は、ログイン表示を抑制する
-    if (view === 'officeLogin' && SESSION_TOKEN && board && !board.classList.contains('u-hidden')) {
-      console.log('【DEBUG】すでにログイン済みのボードが表示されているため、ログイン画面への遷移をキャンセルしました');
+    // [AFTER] すでにボードが表示されている場合は、ログイン画面や認証待ち画面への強制遷移を抑制する
+    const isVerifiedView = (view === 'officeLogin' || view === 'verify' || view === 'createOffice');
+    const isBoardVisible = (board && !board.classList.contains('u-hidden')) || sessionStorage.getItem(PERSISTENT_SESSION_KEY);
+    
+    if (isVerifiedView && (SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY)) && isBoardVisible) {
+      console.log(`【DEBUG】[ガード/SwitchView] すでにログイン済みのボードが有効なため、${view} への遷移を拒否しました`);
       return;
     }
+    
     loginEl.classList.remove('u-hidden');
     loginFormEl.classList.remove('u-hidden');
     console.log('【DEBUG】#login コンテナを表示しました');
@@ -199,6 +211,10 @@ async function finalizeLogin(data) {
     board.classList.remove('u-hidden');
     console.log('【DEBUG】#board を表示しました');
   }
+  
+  // [V3] セッション中に Firebase 状態変化で飛ばされないようフラグを立てる
+  sessionStorage.setItem(PERSISTENT_SESSION_KEY, 'true');
+  
   ensureAuthUI();
 
   // 同期サイクル
@@ -393,6 +409,7 @@ const logoutAction = async () => {
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(LOCAL_OFFICE_KEY);
   localStorage.removeItem(LOCAL_ROLE_KEY);
+  sessionStorage.removeItem(PERSISTENT_SESSION_KEY);
   await fbLogout();
   location.reload();
 };

@@ -173,18 +173,30 @@ export default {
         if (!token) return null;
         try {
           const parts = token.split('.');
-          if (parts.length !== 3) return null;
+          if (parts.length !== 3) {
+            console.warn('[verifyWorkerToken] Invalid token format (parts !== 3)');
+            return null;
+          }
           const [headerB64, payloadB64, signatureB64] = parts;
           const encoder = new TextEncoder();
           const key = await crypto.subtle.importKey('raw', encoder.encode(SESSION_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
           const data = encoder.encode(`${headerB64}.${payloadB64}`);
           const signature = base64UrlDecode(signatureB64);
           const isValid = await crypto.subtle.verify('HMAC', key, signature, data);
-          if (!isValid) return null;
+          if (!isValid) {
+            console.warn('[verifyWorkerToken] Invalid signature');
+            return null;
+          }
           const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadB64)));
-          if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+          if (payload.exp < Math.floor(Date.now() / 1000)) {
+            console.warn('[verifyWorkerToken] Token expired');
+            return null;
+          }
           return payload;
-        } catch (e) { return null; }
+        } catch (e) { 
+          console.error('[verifyWorkerToken] Error:', e.message);
+          return null; 
+        }
       }
 
       /* --- Common Auth Logic --- */
@@ -442,7 +454,10 @@ export default {
       /* --- RENEW TOKEN --- */
       if (action === 'renew') {
         const token = getParam('token');
-        if (!token || !tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (!token || !tokenOffice) {
+          console.warn('[renew] Unauthorized:', { hasToken: !!token, hasOffice: !!tokenOffice });
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'invalid_session' }), { headers: corsHeaders });
+        }
         
         // 拠点名を取得
         const officeData = await env.DB.prepare('SELECT name FROM offices WHERE id = ?').bind(tokenOffice).first();
