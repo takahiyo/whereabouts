@@ -129,6 +129,23 @@ export default {
       /* --- Session Token Helpers (Worker Signed) --- */
       const SESSION_SECRET = env.SESSION_SECRET || 'fallback_secret_for_dev_only';
 
+      /** 
+       * Robust Base64Url Encoder for Workers (supports UTF-8)
+       */
+      function base64UrlEncode(strOrU8) {
+        const u8 = typeof strOrU8 === 'string' ? new TextEncoder().encode(strOrU8) : strOrU8;
+        return btoa(String.fromCharCode(...u8))
+          .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+      }
+
+      function base64UrlDecode(str) {
+        const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        const bin = atob(b64);
+        const u8 = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        return u8;
+      }
+
       async function signSessionToken(payload) {
         const header = { alg: 'HS256', typ: 'JWT' };
         const now = Math.floor(Date.now() / 1000);
@@ -138,8 +155,7 @@ export default {
           exp: now + (24 * 60 * 60) // 24時間有効
         };
 
-        const encode = (obj) => btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-        const tokenParts = `${encode(header)}.${encode(data)}`;
+        const tokenParts = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(data))}`;
         
         const encoder = new TextEncoder();
         const key = await crypto.subtle.importKey(
@@ -148,37 +164,13 @@ export default {
           false, ['sign']
         );
         const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(tokenParts));
-        const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-          .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        const signatureB64 = base64UrlEncode(new Uint8Array(signature));
 
         return `${tokenParts}.${signatureB64}`;
       }
 
-      async function verifyWorkerToken(token) {
-        if (!token) return null;
-        try {
-          const [headerB64, payloadB64, signatureB64] = token.split('.');
-          if (!headerB64 || !payloadB64 || !signatureB64) return null;
-
-          const encoder = new TextEncoder();
-          const key = await crypto.subtle.importKey(
-            'raw', encoder.encode(SESSION_SECRET),
-            { name: 'HMAC', hash: 'SHA-256' },
-            false, ['verify']
-          );
-
-          const data = encoder.encode(`${headerB64}.${payloadB64}`);
-          const signature = Uint8Array.from(atob(signatureB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-
-          const isValid = await crypto.subtle.verify('HMAC', key, signature, data);
-          if (!isValid) return null;
-
-          const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-          if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-          
-          return payload;
         } catch (e) {
-          console.error('Worker Token Verification Error:', e.message);
+          console.error('[WorkerToken] Verify Error:', e);
           return null;
         }
       }
@@ -208,8 +200,25 @@ export default {
       requestContext.officeId = getParam('office') || tokenOffice || null;
 
       /* --- Actions --- */
+      try {
+        const response = await handleAction();
+        return response;
+      } catch (e) {
+        console.error(`[Worker Fatal Error] action=${action}:`, e);
+        return new Response(JSON.stringify({ 
+          ok: false, 
+          error: 'internal_server_error', 
+          message: e.message,
+          stack: e.stack,
+          debug: { action, officeId: requestContext.officeId }
+        }), { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
 
-      /* --- LOGIN (Hyperhybrid: Support both Shared PW and legacy flow) --- */
+      async function handleAction() {
+        /* --- LOGIN (Hyperhybrid: Support both Shared PW and legacy flow) --- */
       if (action === 'login') {
         const officeId = getParam('office');
         const password = getParam('password');
@@ -1147,102 +1156,46 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      return new Response(JSON.stringify({ error: 'unknown_action', action }), { headers: corsHeaders });
-
+        return new Response(JSON.stringify({ ok: false, error: 'unknown_action', action }), { headers: corsHeaders });
+      }
     } catch (e) {
-      const errorCode = e?.name === 'SyntaxError'
-        ? 'parse_error'
-        : (e?.message ? 'unexpected_error' : 'unknown_error');
-      const diagnostics = {
-        action: requestContext.action,
-        officeId: requestContext.officeId,
-        contentType: requestContext.contentType || 'unknown',
-        rawTextLength: requestContext.rawTextLength
-      };
-      console.error('[Worker Error]', e.message);
-      return new Response(
-        JSON.stringify({
-          ok: false,
-          error: e.message,
-          stack: e.stack,
-          timestamp: Date.now(),
-          errorCode,
-          diagnostics
-        }),
-        { status: 500, headers: corsHeaders }
-      );
+      return new Response(`Fatal Error: ${e.message}`, { status: 500 });
     }
   },
 
   /**
    * 定期実行 (Cron Trigger)
-   * 毎日指定された時間に特定の項目を自動消去する
    */
   async scheduled(event, env, ctx) {
     const now = new Date();
-    // 日本標準時 (JST = UTC+9) に調整
     const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
     const currentHour = jstNow.getUTCHours();
-
-    console.log(`[Scheduled] ${jstNow.toISOString()} (JST Hour: ${currentHour})`);
-
-    // 自動消去設定が有効な拠点を取得
     const offices = await env.DB.prepare('SELECT id, auto_clear_config FROM offices WHERE auto_clear_config IS NOT NULL').all();
 
     for (const office of (offices.results || [])) {
       try {
-        const config = safeJSONParse(office.auto_clear_config);
-        if (!config || !config.enabled) continue;
-
-        // 設定された時間と現在の時間が一致するか確認
-        if (Number(config.hour) !== currentHour) continue;
-
+        const config = JSON.parse(office.auto_clear_config);
+        if (!config || !config.enabled || Number(config.hour) !== currentHour) continue;
         const fieldsToClear = config.fields || [];
         if (fieldsToClear.length === 0) continue;
 
-        console.log(`[Scheduled] Clearing fields [${fieldsToClear.join(', ')}] for office: ${office.id}`);
-
         let query = 'UPDATE members SET ';
         const params = [];
-        const fieldMap = {
-          'workHours': 'work_hours',
-          'status': 'status',
-          'time': 'time',
-          'tomorrowPlan': 'tomorrow_plan',
-          'note': 'note'
-        };
-
+        const fieldMap = { 'workHours': 'work_hours', 'status': 'status', 'time': 'time', 'tomorrowPlan': 'tomorrow_plan', 'note': 'note' };
         const updates = [];
         for (const f of fieldsToClear) {
           const col = fieldMap[f];
-          if (col) {
-            updates.push(`${col} = ?`);
-            // ステータスは「在席」に戻し、それ以外は空文字にする
-            params.push(f === 'status' ? '在席' : '');
-          }
+          if (col) { updates.push(`${col} = ?`); params.push(f === 'status' ? '在席' : ''); }
         }
-
         if (updates.length > 0) {
-          updates.push('updated = ?');
-          params.push(Date.now());
-
-          query += updates.join(', ') + ' WHERE office_id = ?';
-          params.push(office.id);
-
+          updates.push('updated = ?'); params.push(Date.now());
+          query += updates.join(', ') + ' WHERE office_id = ?'; params.push(office.id);
           await env.DB.prepare(query).bind(...params).run();
-
-          // キャッシュを削除して最新状態が反映されるようにする
           if (env.STATUS_CACHE) {
-            ctx.waitUntil(Promise.all([
-              env.STATUS_CACHE.delete(`status:${office.id}`),
-              env.STATUS_CACHE.delete(`config_v2:${office.id}`)
-            ]));
+            ctx.waitUntil(Promise.all([env.STATUS_CACHE.delete(`status:${office.id}`), env.STATUS_CACHE.delete(`config_v2:${office.id}`)]));
           }
-          console.log(`[Scheduled] Successfully cleared fields for office: ${office.id}`);
         }
-      } catch (err) {
-        console.error(`[Scheduled] Error processing office ${office.id}:`, err);
-      }
+      } catch (err) { console.error(`[Scheduled] Error office ${office.id}:`, err); }
     }
   }
 };
