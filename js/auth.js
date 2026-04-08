@@ -109,8 +109,11 @@ export async function checkLogin() {
         }
       } else {
         console.log('【DEBUG】ログイン情報なし');
-        if (isBooting) {
+        // SESSION_TOKEN がすでに存在する場合（手入力ログイン中）は、Firebaseがnullでもログイン画面へ戻さない
+        if (isBooting && !SESSION_TOKEN) {
             switchAuthView('officeLogin');
+        } else {
+            console.log('【DEBUG】有効な拠点セッションが維持されているため遷移をスキップします');
         }
         resolve(false);
       }
@@ -136,12 +139,17 @@ function switchAuthView(view) {
   });
 
   if (loginFormEl) {
+    // すでにボードが表示されている場合は、ログイン表示を抑制する
+    if (view === 'officeLogin' && SESSION_TOKEN && board && !board.classList.contains('u-hidden')) {
+      console.log('【DEBUG】すでにログイン済みのボードが表示されているため、ログイン画面への遷移をキャンセルしました');
+      return;
+    }
     loginFormEl.classList.remove('u-hidden');
     console.log('【DEBUG】#loginForm コンテナを表示しました');
   } else {
     console.error('【DEBUG】エラー: #loginForm 要素が DOM に存在しません');
   }
-  if (board) board.classList.add('u-hidden');
+  if (board && view !== 'adminPortal') board.classList.add('u-hidden');
 
   const targetId = {
     'officeLogin': 'loginFormArea',
@@ -169,6 +177,7 @@ async function finalizeLogin(data) {
   CURRENT_OFFICE_ID = data.office;
   CURRENT_ROLE = data.role || 'user';
   SESSION_TOKEN = data.token;
+  isBooting = false; // ログイン完了時点で初期化フェーズ終了
 
   localStorage.setItem(SESSION_KEY, SESSION_TOKEN);
   localStorage.setItem(LOCAL_OFFICE_KEY, CURRENT_OFFICE_ID);
