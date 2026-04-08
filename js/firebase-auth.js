@@ -91,7 +91,7 @@ export async function getValidToken() {
  */
 export async function logout() {
   await signOut(auth);
-  localStorage.clear();
+  // localStorage.clear(); // [FIX] 他拠点の保存データまで消してしまうため、Firebaseのサインアウトのみに留める
   location.reload();
 }
 
