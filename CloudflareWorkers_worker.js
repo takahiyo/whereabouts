@@ -242,20 +242,32 @@ export default {
         const officeId = getParam('office');
         const password = getParam('password');
 
+        if (!officeId || !password) {
+          return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
+        }
+
         console.log(`[Login Attempt] Office: ${officeId}`);
 
         // 1. DEV_TOKEN (マスターキー) チェック
         if (env.DEV_TOKEN && password === env.DEV_TOKEN) {
           const existingOffice = await env.DB.prepare('SELECT * FROM offices WHERE id = ?').bind(officeId).first();
+          
+          if (!existingOffice) {
+            console.warn(`[Login] DEV_TOKEN used for non-existent office: ${officeId}`);
+            return new Response(JSON.stringify({ ok: false, error: 'not_found', reason: 'dev_token_restricted' }), { headers: corsHeaders });
+          }
+
+          console.log(`[Login] Authorized via DEV_TOKEN for office: ${officeId}`);
           const role = 'superAdmin';
           const token = await signSessionToken({ office: officeId, role });
           return new Response(JSON.stringify({
             ok: true,
             role,
             office: officeId,
-            officeName: (existingOffice && existingOffice.name) ? existingOffice.name : (officeId || 'システム管理'),
+            officeName: existingOffice.name || officeId,
             token,
-            columnConfig: null
+            columnConfig: null,
+            authMethod: 'dev_token'
           }), { headers: corsHeaders });
         }
 
@@ -274,8 +286,8 @@ export default {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized', code: 'invalid_password' }), { headers: corsHeaders });
         }
 
-        // 署名付き配布用トークンの作成
         const token = await signSessionToken({ office: office.id, role });
+        console.log(`[Login] Authorized via Shared PW for office: ${office.id}, role: ${role}`);
 
         // カラム設定の取得
         let columnConfig = null;
@@ -288,7 +300,8 @@ export default {
           office: office.id,
           officeName: office.name || office.id,
           token,
-          columnConfig: columnConfig
+          columnConfig: columnConfig,
+          authMethod: 'shared_pw'
         }), { headers: corsHeaders });
       }
 
@@ -475,6 +488,12 @@ export default {
       if (action === 'get' || action === 'getFor') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
+
+        // Data Isolation Check: リクエストされた拠点とトークンの拠点が一致するか、またはスーパー管理者か
+        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
+          console.warn(`[get] Unauthorized access attempt: requestOffice=${officeId}, tokenOffice=${tokenOffice}`);
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'office_mismatch' }), { headers: corsHeaders });
+        }
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
 
