@@ -419,8 +419,8 @@ input[type="search"] {
   border-radius: 4px;
   background: #fff;
   font-size: 14px;
+  -webkit-appearance: auto;
   appearance: auto;
-  -webkit-appearance: auto
 }
 
 td.status select {
@@ -738,7 +738,58 @@ td.time.need-time select:focus~.time-hint {
   font-size: 12px;
   color: #b91c1c;
   pointer-events: none;
+  -webkit-user-select: none;
   user-select: none;
+}
+
+ /* --- Authentication UI (Unified) --- */
+.u-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.u-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+#login input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Auth Area Visibility */
+.u-hidden {
+  display: none !important;
+}
+
+.login-msg {
+  margin-top: 12px;
+  font-size: 0.85em;
+  min-height: 1.2em;
+}
+
+/* Safari User Select Fixes */
+[style*="user-select: none"] {
+  -webkit-user-select: none;
+}
+
+.card-header, .btn, .tab-btn {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.qr-image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
 }
 
 @keyframes pulseRing {
@@ -4848,8 +4899,8 @@ td.time.need-time select:focus~.time-hint {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   white-space: nowrap;
 }
@@ -4930,4 +4981,67 @@ td.time.need-time select:focus~.time-hint {
     padding: 12px 16px;
   }
 }
+
+/* ============================================================ */
+/* Phase 2: Firebase Authentication & SaaS UI */
+/* ============================================================ */
+
+.login {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+#authContainer {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-white);
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+#authContainer h2 {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 24px;
+  color: var(--color-gray-900);
+}
+
+#authContainer p {
+  text-align: center;
+  color: var(--color-text-muted);
+  margin-bottom: 20px;
+}
+
+#authContainer input {
+  margin-bottom: 12px;
+}
+
+#authContainer button {
+  width: 100%;
+  padding: 12px;
+  background: var(--color-blue-600);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#authContainer button:hover {
+  background: var(--color-blue-700);
+}
+
+.u-mt-16 { margin-top: 16px !important; }
+.u-font-09em { font-size: 0.9em !important; }
+.u-link-blue { color: var(--color-blue-600); text-decoration: underline; cursor: pointer; }
 

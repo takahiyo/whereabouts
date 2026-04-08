@@ -16,6 +16,11 @@ const btnAddOffice = document.getElementById('btnAddOffice');
 const officeTableBody = document.getElementById('officeTableBody');
 if (adminOfficeSel) {
   adminOfficeSel.addEventListener('change', () => {
+    // データ隔離: 管理者は自分の拠点のみ。SuperAdminのみ切り替えを許可（将来用）
+    if (CURRENT_ROLE !== 'superAdmin') {
+      adminOfficeSel.value = CURRENT_OFFICE_ID;
+      return;
+    }
     adminSelectedOfficeId = adminOfficeSel.value || '';
     adminMembersLoaded = false; adminMemberList = []; setMemberTableMessage('読み込み待ち');
     adminToolsLoaded = false; adminToolsOfficeId = '';
@@ -1465,7 +1470,10 @@ function refreshVacationOfficeOptions() {
 }
 
 function getVacationTargetOffice() {
-  const office = (vacationOfficeSelect && vacationOfficeSelect.value) || selectedOfficeId();
+  // データ隔離: 常にログイン中の拠点を優先
+  const office = (CURRENT_ROLE === 'superAdmin' && vacationOfficeSelect) 
+    ? (vacationOfficeSelect.value || CURRENT_OFFICE_ID)
+    : CURRENT_OFFICE_ID;
   if (!office) { toast('対象拠点を選択してください', false); }
   return office;
 }
@@ -2003,7 +2011,10 @@ async function handleVacationDelete() {
 
 /* Admin API */
 function selectedOfficeId() {
-  const office = adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
+  // データ隔離: 常にログイン中の拠点を優先
+  const office = (CURRENT_ROLE === 'superAdmin')
+    ? (adminSelectedOfficeId || CURRENT_OFFICE_ID)
+    : CURRENT_OFFICE_ID;
   if (!office) { toast('操作対象拠点を選択してください', false); }
   return office;
 }

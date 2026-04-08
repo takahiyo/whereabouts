@@ -121,98 +121,221 @@ export default {
       };
 
       const action = getParam('action');
-      const tokenOffice = getParam('tokenOffice') || '';
-      const tokenRole = getParam('tokenRole') || '';
       requestContext.action = action;
-      requestContext.officeId = getParam('office') || tokenOffice || null;
 
       const statusCache = env.STATUS_CACHE;
       const statusCacheTtlSec = Number(env.STATUS_CACHE_TTL_SEC || 60);
 
+      /* --- Session Token Helpers (Worker Signed) --- */
+      const SESSION_SECRET = env.SESSION_SECRET || 'fallback_secret_for_dev_only';
+
+      async function signSessionToken(payload) {
+        const header = { alg: 'HS256', typ: 'JWT' };
+        const now = Math.floor(Date.now() / 1000);
+        const data = { 
+          ...payload, 
+          iat: now, 
+          exp: now + (24 * 60 * 60) // 24時間有効
+        };
+
+        const encode = (obj) => btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        const tokenParts = `${encode(header)}.${encode(data)}`;
+        
+        const encoder = new TextEncoder();
+        const key = await crypto.subtle.importKey(
+          'raw', encoder.encode(SESSION_SECRET),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false, ['sign']
+        );
+        const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(tokenParts));
+        const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+          .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+
+        return `${tokenParts}.${signatureB64}`;
+      }
+
+      async function verifyWorkerToken(token) {
+        if (!token) return null;
+        try {
+          const [headerB64, payloadB64, signatureB64] = token.split('.');
+          if (!headerB64 || !payloadB64 || !signatureB64) return null;
+
+          const encoder = new TextEncoder();
+          const key = await crypto.subtle.importKey(
+            'raw', encoder.encode(SESSION_SECRET),
+            { name: 'HMAC', hash: 'SHA-256' },
+            false, ['verify']
+          );
+
+          const data = encoder.encode(`${headerB64}.${payloadB64}`);
+          const signature = Uint8Array.from(atob(signatureB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+
+          const isValid = await crypto.subtle.verify('HMAC', key, signature, data);
+          if (!isValid) return null;
+
+          const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+          if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+          
+          return payload;
+        } catch (e) {
+          console.error('Worker Token Verification Error:', e.message);
+          return null;
+        }
+      }
+
+      /* --- Common Auth Logic --- */
+      let authContext = null; // { office, role, email, isFirebase }
+
+      const providedToken = getParam('token');
+      // 1. Firebase トークン試行
+      const firebasePayload = await verifyFirebaseToken(providedToken);
+      if (firebasePayload && firebasePayload.email_verified) {
+        const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(firebasePayload.sub).first();
+        if (user) {
+          authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
+        }
+      }
+      // 2. Worker トークン試行 (Firebase トークンが無効な場合)
+      if (!authContext) {
+        const workerPayload = await verifyWorkerToken(providedToken);
+        if (workerPayload) {
+          authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
+        }
+      }
+
+      const tokenRole = authContext ? authContext.role : '';
+      const tokenOffice = authContext ? authContext.office : '';
+      requestContext.officeId = getParam('office') || tokenOffice || null;
+
       /* --- Actions --- */
 
-      /* --- LOGIN --- */
+      /* --- LOGIN (Hyperhybrid: Support both Shared PW and legacy flow) --- */
       if (action === 'login') {
         const officeId = getParam('office');
         const password = getParam('password');
 
-        console.log(`[Login Attempt] Office: ${officeId}, password provided: ${password ? 'Yes' : 'No'}`);
+        console.log(`[Login Attempt] Office: ${officeId}`);
 
-        // 1. DEV_TOKEN (マスターキー) チェックを最優先
-        if (env.DEV_TOKEN) {
-          if (password === env.DEV_TOKEN) {
-            console.log(`[Login Success] Master Key Login. Office Context: ${officeId}, Role: superAdmin`);
-            
-            // 拠点がDBに存在するか試みる（名前などを引くため）
-            const existingOffice = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
-              .bind(officeId)
-              .first();
-
-            return new Response(
-              JSON.stringify({
-                ok: true,
-                role: 'superAdmin',
-                office: officeId,
-                officeName: (existingOffice && existingOffice.name) ? existingOffice.name : (officeId || 'システム管理'),
-                workerVersion: 'v2.1', // 確実に最新 Worker が動いているか確認用
-                columnConfig: null
-              }),
-              { headers: corsHeaders }
-            );
-          } else {
-            console.warn(`[Login Debug] DEV_TOKEN exists but password mismatch. Input: ${password ? 'Yes' : 'No'}`);
-          }
-        } else {
-          console.error('[Login Debug] env.DEV_TOKEN is UNDEFINED in this worker.');
-        }
-
-        // 2. 通常のログイン (拠点情報が必要)
-        const office = await env.DB.prepare('SELECT * FROM offices WHERE id = ?')
-          .bind(officeId)
-          .first();
-
-        if (!office) {
-          console.warn(`[Login Failed] Office not found: ${officeId}`);
-          return new Response(JSON.stringify({ ok: false, error: 'not_found' }), { headers: corsHeaders });
-        }
-
-        let columnConfig = null;
-        try {
-          const configRow = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?')
-            .bind(officeId)
-            .first();
-          if (configRow) columnConfig = safeJSONParse(configRow.config_json);
-        } catch (e) {
-          console.warn('[Login] office_column_config error:', e);
-        }
-
-        let role = '';
-        if (password === office.admin_password) {
-          role = 'officeAdmin';
-        } else if (password === office.password) {
-          role = 'user';
-        } else {
-          console.warn(`[Login Failed] Invalid password for office: ${officeId}`);
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', code: 'invalid_password' }), { headers: corsHeaders });
-        }
-
-        console.log(`[Login Success] Office: ${officeId}, Role: ${role}`);
-
-        return new Response(
-          JSON.stringify({
+        // 1. DEV_TOKEN (マスターキー) チェック
+        if (env.DEV_TOKEN && password === env.DEV_TOKEN) {
+          const existingOffice = await env.DB.prepare('SELECT * FROM offices WHERE id = ?').bind(officeId).first();
+          const role = 'superAdmin';
+          const token = await signSessionToken({ office: officeId, role });
+          return new Response(JSON.stringify({
             ok: true,
             role,
             office: officeId,
-            officeName: office.name || officeId,
-            columnConfig: columnConfig || (office.column_config ? JSON.parse(office.column_config) : null)
-          }),
-          { headers: corsHeaders }
-        );
+            officeName: (existingOffice && existingOffice.name) ? existingOffice.name : (officeId || 'システム管理'),
+            token,
+            columnConfig: null
+          }), { headers: corsHeaders });
+        }
+
+        // 2. 通常のログイン (拠点DB参照)
+        const office = await env.DB.prepare('SELECT * FROM offices WHERE id = ? OR name = ?').bind(officeId, officeId).first();
+        if (!office) {
+          return new Response(JSON.stringify({ ok: false, error: 'not_found' }), { headers: corsHeaders });
+        }
+
+        let role = '';
+        if (password && password === office.admin_password) {
+          role = 'officeAdmin';
+        } else if (password && password === office.password) {
+          role = 'user';
+        } else {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', code: 'invalid_password' }), { headers: corsHeaders });
+        }
+
+        // 署名付き配布用トークンの作成
+        const token = await signSessionToken({ office: office.id, role });
+
+        // カラム設定の取得
+        let columnConfig = null;
+        const configRow = await env.DB.prepare('SELECT config_json FROM office_column_config WHERE office_id = ?').bind(office.id).first();
+        if (configRow) columnConfig = safeJSONParse(configRow.config_json);
+
+        return new Response(JSON.stringify({
+          ok: true,
+          role,
+          office: office.id,
+          officeName: office.name || office.id,
+          token,
+          columnConfig: columnConfig
+        }), { headers: corsHeaders });
+      }
+
+      /* --- SIGNUP (Admin Email Registration) --- */
+      if (action === 'signup') {
+        const token = getParam('token');
+        const payload = await verifyFirebaseToken(token);
+        if (!payload || !payload.email_verified) {
+          return new Response(JSON.stringify({ ok: false, error: 'email_not_verified' }), { headers: corsHeaders });
+        }
+
+        const uid = payload.sub;
+        const email = payload.email;
+        const nowTs = Date.now();
+
+        const existing = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(uid).first();
+        if (existing) {
+          return new Response(JSON.stringify({ ok: true, message: 'already_registered', user: existing }), { headers: corsHeaders });
+        }
+
+        await env.DB.prepare('INSERT INTO users (firebase_uid, email, created_at, updated_at) VALUES (?, ?, ?, ?)')
+          .bind(uid, email, nowTs, nowTs).run();
+
+        return new Response(JSON.stringify({ ok: true, message: 'signup_success' }), { headers: corsHeaders });
+      }
+
+      /* --- Auth Role Helper --- */
+      async function getAuthUser(token) {
+        if (!token) return null;
+        const payload = await verifyFirebaseToken(token);
+        if (!payload || !payload.email_verified) return null;
+        return await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(payload.sub).first();
+      }
+
+      /* --- CREATE OFFICE (By Admin) --- */
+      if (action === 'createOffice') {
+        const token = getParam('token');
+        const user = await getAuthUser(token);
+        if (!user) return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
+
+        const newOfficeId = getParam('officeId');
+        const officeName = getParam('name');
+        const password = getParam('password');
+        const adminPassword = getParam('adminPassword');
+
+        if (!newOfficeId || !officeName || !password || !adminPassword) {
+          return new Response(JSON.stringify({ ok: false, error: 'invalid_params' }), { headers: corsHeaders });
+        }
+
+        const nowTs = Date.now();
+        try {
+          // 拠点作成
+          await env.DB.prepare('INSERT INTO offices (id, name, password, admin_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+            .bind(newOfficeId, officeName, password, adminPassword, nowTs, nowTs).run();
+          
+          // 管理者紐付け
+          await env.DB.prepare('UPDATE users SET office_id = ?, role = ?, updated_at = ? WHERE firebase_uid = ?')
+            .bind(newOfficeId, 'owner', nowTs, user.firebase_uid).run();
+
+          return new Response(JSON.stringify({ ok: true, officeId: newOfficeId }), { headers: corsHeaders });
+        } catch (e) {
+          return new Response(JSON.stringify({ ok: false, error: 'office_already_exists' }), { headers: corsHeaders });
+        }
       }
 
       /* --- GET CONFIG / GET CONFIG FOR --- */
       if (action === 'getConfig' || action === 'getConfigFor') {
-        const officeId = getParam('office') || tokenOffice || 'nagoya_chuo';
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
+        
+        // Data Isolation Check
+        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
         const nocache = getParam('nocache') === '1';
         const cacheKey = `config_v2:${officeId}`;
 
@@ -319,7 +442,8 @@ export default {
       /* --- GET / GET FOR (Differential Sync) --- */
       // Action: get / getFor - Get current member status for an office
       if (action === 'get' || action === 'getFor') {
-        const officeId = getParam('office') || tokenOffice || 'nagoya_chuo';
+        const officeId = getParam('office') || tokenOffice;
+        if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
 
@@ -438,8 +562,16 @@ export default {
 
       /* --- SET EVENT COLOR MAP --- */
       if (action === 'setEventColorMap') {
-        if (!tokenOffice || tokenRole === 'user') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const officeId = getParam('office') || tokenOffice;
+        if (!officeId || !tokenRole || (tokenRole === 'user' && officeId === tokenOffice)) {
+           if (tokenRole === 'user') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+        
+        // Data Isolation Check & Permission Check
+        if (tokenRole !== 'superAdmin' && (tokenRole !== 'officeAdmin' || officeId !== tokenOffice)) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
         const dataRaw = getParam('data'); // JSON string from frontend
         
         // フロントエンドは JSON.stringify({ colors: payload }) を送ってくる
@@ -475,6 +607,13 @@ export default {
       /* --- GET NOTICES --- */
       if (action === 'getNotices') {
         const officeId = getParam('office') || tokenOffice;
+        if (!officeId) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+
+        // Data Isolation Check
+        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
         const cacheKey = `notices:${officeId}`;
         if (statusCache) {
           const cached = await statusCache.get(cacheKey);

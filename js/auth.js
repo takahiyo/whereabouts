@@ -1,421 +1,330 @@
 /**
- * js/auth.js - 認証・UI管理
- *
- * Worker認証とログイン/ログアウト、管理モーダル、マニュアルモーダルを管理する。
- *
- * 依存: js/constants/*.js, js/globals.js, js/utils.js, js/sync.js
- * 参照元: main.js
- *
- * @see MODULE_GUIDE.md
+ * js/auth.js - 認証 UI & ハイブリッド連携 (Shared PW + Firebase)
+ * 
+ * 1. 拠点ログイン (共有パスワード): 現場社員・管理スタッフ用
+ * 2. 管理者ポータル (Firebase): オーナー用 (拠点開設・管理者登録)
  */
 
-/* 認証UI + 管理UI + マニュアルUI - Worker Auth Version */
+import { 
+  signup as fbSignup, 
+  login as fbLogin, 
+  logout as fbLogout, 
+  watchAuthState,
+  getValidToken as getFbToken
+} from './firebase-auth.js';
 
-function logoutButtonsCleanup() {
-  closeMenu(); showAdminModal(false); showManualModal(false); showEventModal(false); showToolsModal(false);
-  board.style.display = 'none'; board.replaceChildren(); menuList.replaceChildren();
-  try { if (typeof stopToolsPolling === 'function') { stopToolsPolling(); } } catch { }
-  if (typeof renderVacationRadioMessage === 'function') { renderVacationRadioMessage('読み込み待ち'); }
-  if (typeof updateEventDetail === 'function') { updateEventDetail(null); }
-  window.scrollTo(0, 0);
-}
+// DOM Elements
+const officeLoginArea = document.getElementById('officeLoginArea');
+const adminPortalArea = document.getElementById('adminPortalArea');
+const loginMsg = document.getElementById('loginMsg');
 
-async function checkLogin() {
+// Auth State Variables
+let isBooting = true;
+
+/**
+ * 初期化: Auth 状態の監視開始
+ */
+export async function checkLogin() {
   return new Promise((resolve) => {
+    // 0. URLパラメータによる自動入力 (?office=拠点ID)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const officeParam = urlParams.get('office');
+      if (officeParam) {
+        const idInput = document.getElementById('loginOfficeId');
+        if (idInput) {
+          idInput.value = officeParam;
+          // 自動入力された場合は視覚的に強調
+          idInput.style.backgroundColor = '#f0f9ff'; 
+          setTimeout(() => { idInput.style.backgroundColor = ''; }, 2000);
+        }
+      }
+    } catch (e) {
+      console.warn('URL parameter auto-fill failed:', e);
+    }
+
+    // 1. ローカルに保存されたセッション（拠点ログイン）があるか確認
+    const storedToken = localStorage.getItem(SESSION_KEY);
     const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
     const storedRole = localStorage.getItem(LOCAL_ROLE_KEY);
-    if (storedOffice && storedRole) {
-      SESSION_TOKEN = 'worker_session';
-      CURRENT_OFFICE_ID = storedOffice;
-      CURRENT_ROLE = storedRole;
-      
-      // ★追加: 拠点ごとのカラム設定を復元
-      try {
-        const savedConfig = localStorage.getItem(getColumnConfigKey(CURRENT_OFFICE_ID));
-        if (savedConfig) OFFICE_COLUMN_CONFIG = JSON.parse(savedConfig);
-      } catch (e) { console.error(e); }
 
-      updateAuthUI();
-      if (typeof startRemoteSync === 'function') startRemoteSync(true);
-      if (typeof startConfigWatch === 'function') startConfigWatch();
-      if (typeof startNoticesPolling === 'function') startNoticesPolling();
-      if (typeof startEventSync === 'function') startEventSync(true);
-      if (typeof loadEvents === 'function') loadEvents(CURRENT_OFFICE_ID);
+    if (storedToken && storedOffice) {
+      finalizeLogin({
+        token: storedToken,
+        office: storedOffice,
+        role: storedRole || 'user',
+        officeName: localStorage.getItem(LOCAL_OFFICE_NAME_KEY) || storedOffice
+      });
       resolve(true);
+      isBooting = false;
       return;
     }
-    SESSION_TOKEN = '';
-    CURRENT_OFFICE_ID = '';
-    CURRENT_ROLE = '';
-    updateAuthUI();
-    resolve(false);
-    return;
+
+    // 2. Firebase の状態を確認 (オーナー用)
+    watchAuthState(async (user) => {
+      if (user && user.emailVerified) {
+        // Firebase ログイン中なら Worker と同期
+        const fbToken = await getFbToken();
+        const resp = await fetchFromWorker('signup', { token: fbToken });
+
+        if (resp.ok) {
+          const workerUser = resp.user || {};
+          if (workerUser.office_id) {
+            // 拠点所属済み管理者の場合も、Worker発行のセッションに変換する
+            const loginResp = await fetchFromWorker('renew', { token: fbToken });
+            if (loginResp.ok) {
+                await finalizeLogin(loginResp);
+                resolve(true);
+                return;
+            }
+          } else {
+            // 拠点未作成 -> 作成画面へ
+            switchAuthView('createOffice');
+            resolve(false);
+          }
+        }
+      } else {
+        // ログイン情報なし
+        if (isBooting) {
+            switchAuthView('officeLogin');
+        }
+        resolve(false);
+      }
+      isBooting = false;
+    });
   });
 }
 
-async function login(officeInput, passwordInput) {
-  try {
-    // 1. Workerへパスワード確認リクエスト
-    const formData = new URLSearchParams();
-    formData.append('action', 'login');
-    formData.append('office', officeInput);
-    formData.append('password', passwordInput);
+/**
+ * UI の切り替え
+ */
+function switchAuthView(view) {
+  // 全て隠す
+  const areas = ['loginFormArea', 'signupFormArea', 'verifyEmailArea', 'createOfficeArea'];
+  areas.forEach(id => document.getElementById(id)?.classList.add('u-hidden'));
 
-    const endpoint = (typeof CONFIG !== 'undefined' && CONFIG.remoteEndpoint)
-      ? CONFIG.remoteEndpoint
-      : '';
-    if (!endpoint) {
-      throw new Error("Workerのエンドポイント設定が見つかりません。設定を確認してください。");
-    }
+  const loginEl = document.getElementById('login');
+  const board = document.getElementById('board');
+  if (loginEl) loginEl.classList.remove('u-hidden');
+  if (board) board.classList.add('u-hidden');
 
-    const resp = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData
-    });
+  if (view === 'officeLogin' || view === 'adminPortal') {
+    document.getElementById('loginFormArea')?.classList.remove('u-hidden');
+  } else if (view === 'signup') {
+    document.getElementById('signupFormArea')?.classList.remove('u-hidden');
+  } else if (view === 'verify') {
+    document.getElementById('verifyEmailArea')?.classList.remove('u-hidden');
+  } else if (view === 'createOffice') {
+    document.getElementById('createOfficeArea')?.classList.remove('u-hidden');
+  }
+}
 
-    const result = await resp.json();
+/**
+ * ログイン完了処理
+ */
+async function finalizeLogin(data) {
+  CURRENT_OFFICE_ID = data.office;
+  CURRENT_ROLE = data.role || 'user';
+  SESSION_TOKEN = data.token;
 
-    if (!result.ok) {
-      throw new Error("認証に失敗しました。拠点IDまたはパスワードを確認してください。");
-    }
+  localStorage.setItem(SESSION_KEY, SESSION_TOKEN);
+  localStorage.setItem(LOCAL_OFFICE_KEY, CURRENT_OFFICE_ID);
+  localStorage.setItem(LOCAL_ROLE_KEY, CURRENT_ROLE);
+  localStorage.setItem(LOCAL_OFFICE_NAME_KEY, data.officeName || CURRENT_OFFICE_ID);
 
-    // ★重要：ログイン処理に入る「前」に、拠点情報を保存する
-    // これにより、ログイン直後に走る監視役が正しく情報を読み取れます
-    localStorage.setItem(LOCAL_OFFICE_KEY, result.office);
-    localStorage.setItem(LOCAL_ROLE_KEY, result.role);
-    localStorage.setItem(LOCAL_OFFICE_NAME_KEY, result.officeName || result.office);
-    
-    // ★修正: 拠点ごとのキーで保存
-    const configKey = getColumnConfigKey(result.office);
-    if (result.columnConfig) {
-      localStorage.setItem(configKey, JSON.stringify(result.columnConfig));
+  if (loginEl) loginEl.classList.add('u-hidden');
+  if (board) board.classList.remove('u-hidden');
+  ensureAuthUI();
+
+  // 同期サイクル
+  if (typeof startRemoteSync === 'function') startRemoteSync(true);
+  if (typeof startConfigWatch === 'function') startConfigWatch();
+  if (typeof startNoticesPolling === 'function') startNoticesPolling();
+  if (typeof startEventSync === 'function') startEventSync(true);
+  if (typeof loadEvents === 'function') loadEvents(CURRENT_OFFICE_ID);
+}
+
+/**
+ * Worker 通信用ヘルパー
+ */
+async function fetchFromWorker(action, bodyParams) {
+  const params = new URLSearchParams();
+  params.append('action', action);
+  for (const key in bodyParams) {
+    if (bodyParams[key] != null) params.append(key, bodyParams[key]);
+  }
+
+  const endpoint = CONFIG.remoteEndpoint;
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params
+  });
+  return await resp.json();
+}
+
+/**
+ * エラー表示
+ */
+function showError(msg) {
+  if (loginMsg) {
+    loginMsg.textContent = msg;
+    loginMsg.style.color = 'var(--color-red-600)';
+  }
+}
+
+// ---------------------------------------------------------
+// Event Listeners
+// ---------------------------------------------------------
+
+// ユニファイド・ログイン (拠点ID または メールアドレス)
+document.getElementById('btnSimpleLogin')?.addEventListener('click', async () => {
+  const loginId = document.getElementById('loginOfficeId').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!loginId || !password) return showError('拠点名またはメールアドレスとパスワードを入力してください。');
+
+  if (loginMsg) loginMsg.textContent = '認証中...';
+
+  if (loginId.includes('@')) {
+    // 1. メールアドレス形式なら Firebase オーナー認証を試行
+    const res = await fbLogin(loginId, password);
+    if (res.ok) {
+      location.reload();
     } else {
-      localStorage.removeItem(configKey);
+      if (res.error === 'email_not_verified') switchAuthView('verify');
+      else showError('管理者認証に失敗しました。パスワードを確認してください。');
     }
-
-    SESSION_TOKEN = 'worker_session';
-
-    // 3. グローバル変数を更新
-    CURRENT_OFFICE_ID = result.office;
-    CURRENT_OFFICE_NAME = result.officeName || result.office;
-    CURRENT_ROLE = result.role;
-    OFFICE_COLUMN_CONFIG = result.columnConfig || null;
-
-    console.log('[auth.js] Login success. Office:', result.office, 'Role:', result.role);
-    toast(`ログインしました: ${result.officeName}`);
-
-    // UIを即座に表示状態に切り替える
-    updateAuthUI();
-
-    // ★追加: ログイン成功後、データ取得と同期を開始
-    if (typeof startRemoteSync === 'function') startRemoteSync(true);
-    if (typeof startConfigWatch === 'function') startConfigWatch();
-    if (typeof startNoticesPolling === 'function') startNoticesPolling();
-    if (typeof startEventSync === 'function') startEventSync(true);
-    if (typeof loadEvents === 'function') loadEvents(CURRENT_OFFICE_ID);
-
-    if (typeof nameFilter !== 'undefined') {
-      nameFilter.value = '';
-      if (typeof applyFilters === 'function') {
-        applyFilters();
-      }
-    }
-
-    return true;
-
-  } catch (error) {
-    // 認証エラー時のコンソール出力等によるエラー・警告(赤字・黄字)発生を防ぐためログは出さない
-    toast(error.message, false);
-    return false;
-  }
-}
-
-async function logout() {
-  try {
-    // ★追加: キャッシュと同期時刻をクリア
-    if (typeof clearLocalCache === 'function') {
-      clearLocalCache();
-    }
-
-    localStorage.removeItem(LOCAL_OFFICE_KEY);
-    localStorage.removeItem(LOCAL_ROLE_KEY);
-    localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
-    // 全ての拠点のキャッシュを消すのは過剰なので、現在の拠点のものだけ消す
-    localStorage.removeItem(getColumnConfigKey(CURRENT_OFFICE_ID));
-    toast("ログオフしました");
-    setTimeout(() => location.reload(), 500);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function updateAuthUI() {
-  if (SESSION_TOKEN) {
-    if (loginEl) loginEl.classList.add('u-hidden');
-    if (board) board.classList.remove('u-hidden');
-    ensureAuthUI();
   } else {
-    if (loginEl) loginEl.classList.remove('u-hidden');
-    if (board) board.classList.add('u-hidden');
-    ensureAuthUI();
+    // 2. それ以外なら通常の拠点パスワード認証を試行
+    const res = await fetchFromWorker('login', { office: loginId, password });
+    if (res.ok) {
+      await finalizeLogin(res);
+    } else {
+      showError('ログインに失敗しました。拠点名またはパスワードが正しくありません。');
+    }
+  }
+});
+
+// 管理者登録
+document.getElementById('btnAuthSignup')?.addEventListener('click', async () => {
+  const email = document.getElementById('signupEmail').value;
+  const pw = document.getElementById('signupPw').value;
+  if (!email || pw.length < 6) return showError('正しいメールアドレスと6文字以上のパスワードを入力してください。');
+
+  const res = await fbSignup(email, pw);
+  if (res.ok) switchAuthView('verify');
+  else showError('登録失敗: ' + (res.error || ''));
+});
+
+// 新規拠点作成
+document.getElementById('btnCreateOffice')?.addEventListener('click', async () => {
+  const officeId = document.getElementById('newOfficeId').value.trim();
+  const name = document.getElementById('newOfficeName').value.trim();
+  const password = document.getElementById('newOfficePw').value;
+  const adminPassword = document.getElementById('newOfficeAdminPw').value;
+
+  if (!officeId.match(/^[a-z0-9_]+$/)) return showError('オフィスIDは半角英数字と(_)のみ使用可能です。');
+  if (!name || !password || !adminPassword) return showError('全ての項目を入力してください。');
+
+  const fbToken = await getFbToken();
+  const res = await fetchFromWorker('createOffice', { 
+    token: fbToken, officeId, name, password, adminPassword 
+  });
+  
+  if (res.ok) {
+    toast('オフィスを作成しました！');
+    location.reload();
+  } else {
+    showError('作成失敗: ' + (res.error || '既にIDが使われています'));
+  }
+});
+
+// リンク等
+/**
+ * QRコードモーダルの表示と動的生成
+ */
+export function showQrModal(show) {
+  if (!qrModal) return;
+  if (show) {
+    // 現在の拠点セットに基づいたURLを生成
+    // ログインしていない場合はベースURLのみ
+    let targetUrl = window.location.origin + window.location.pathname;
+    if (CURRENT_OFFICE_ID) {
+      targetUrl += (targetUrl.includes('?') ? '&' : '?') + 'office=' + encodeURIComponent(CURRENT_OFFICE_ID);
+    }
+
+    // QRコード生成
+    try {
+      const qrElement = document.getElementById('qrOutput');
+      if (qrElement && typeof qrcode === 'function') {
+        const qr = qrcode();
+        qr.setTypeNumber(0); // Auto detect
+        qr.setErrorCorrectionLevel('M');
+        qr.addData(targetUrl);
+        qr.make();
+        
+        // SVGとして描画 (Rich Aesthetics)
+        qrElement.innerHTML = qr.createSvgTag(6, 8);
+        const svg = qrElement.querySelector('svg');
+        if (svg) {
+          svg.style.width = '100%';
+          svg.style.height = 'auto';
+          svg.style.maxWidth = '200px';
+          svg.style.margin = '0 auto';
+          svg.style.display = 'block';
+        }
+      }
+    } catch (e) {
+      console.error('QR Generation failed:', e);
+    }
+
+    qrModal.classList.add('show');
+    qrModal.style.display = 'flex';
+  } else {
+    qrModal.classList.remove('show');
+    qrModal.style.display = 'none';
   }
 }
 
+// リンク等
+document.getElementById('linkGotoSignup')?.addEventListener('click', (e) => { e.preventDefault(); switchAuthView('signup'); });
+document.getElementById('linkGotoLogin')?.addEventListener('click', (e) => { e.preventDefault(); switchAuthView('officeLogin'); });
+document.getElementById('qrModalClose')?.addEventListener('click', () => showQrModal(false));
+document.getElementById('btnVerifyDone')?.addEventListener('click', () => location.reload());
+
+// ログアウト
+const logoutAction = async () => {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(LOCAL_OFFICE_KEY);
+  localStorage.removeItem(LOCAL_ROLE_KEY);
+  await fbLogout();
+  location.reload();
+};
+document.getElementById('logoutBtn')?.addEventListener('click', logoutAction);
+window.logout = logoutAction;
+window.showQrModal = showQrModal;
+
+/**
+ * legacy UI helpers
+ */
 function ensureAuthUI() {
   const loggedIn = !!SESSION_TOKEN;
-  const showAdmin = loggedIn && isOfficeAdmin();
-  noticesBtn.style.display = 'none'; // デフォルトは非表示、お知らせがある場合にnotices.jsで表示
-  adminBtn.style.display = showAdmin ? 'inline-block' : 'none';
-  logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
-  toolsBtn.style.display = loggedIn ? 'inline-block' : 'none';
-  manualBtn.style.display = loggedIn ? 'inline-block' : 'none';
-  qrBtn.style.display = loggedIn ? 'inline-block' : 'none';
-  eventBtn.style.display = 'none';
-  updateEventButtonVisibility();
-  nameFilter.style.display = loggedIn ? 'inline-block' : 'none';
-  statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
-}
-function showAdminModal(yes) {
-  const isShow = !!yes;
-  adminModal.classList.toggle('show', isShow);
+  const isAdmin = loggedIn && (CURRENT_ROLE === 'owner' || CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin');
   
-  // 背景ロックの徹底 (htmlとbodyの両方をロック)
-  document.body.classList.toggle('modal-open', isShow);
-  document.documentElement.classList.toggle('modal-open', isShow);
+  if (adminBtn) adminBtn.style.display = isAdmin ? 'inline-block' : 'none';
+  if (logoutBtn) logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
+  if (toolsBtn) toolsBtn.style.display = loggedIn ? 'inline-block' : 'none';
+  if (manualBtn) manualBtn.style.display = loggedIn ? 'inline-block' : 'none';
+  if (qrBtn) qrBtn.style.display = loggedIn ? 'inline-block' : 'none';
   
-  if (isShow) {
-    // CSS Grid レイアウトに委ね、インラインスタイルの残留をクリア
-    const body = adminModal.querySelector('.admin-card-body');
-    if (body) {
-      body.style.removeProperty('height');
-      body.style.removeProperty('max-height');
-      body.style.removeProperty('overflow-y');
-      body.style.removeProperty('display');
-    }
-  } else {
-    // 閉じるときにログを消さない（記録のため）
-  }
+  const nameFilter = document.getElementById('nameFilter');
+  const statusFilter = document.getElementById('statusFilter');
+  if (nameFilter) nameFilter.style.display = loggedIn ? 'inline-block' : 'none';
+  if (statusFilter) statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
+  
+  // 管理パネルの拠点選択を無効化
+  const adminOfficeRow = document.getElementById('adminOfficeRow');
+  if (adminOfficeRow) adminOfficeRow.style.display = 'none';
 }
-function showQrModal(yes) { qrModal.classList.toggle('show', !!yes); }
-function showToolsModal(yes) { toolsModal.classList.toggle('show', !!yes); }
-function showEventModal(yes) {
-  const shouldShow = !!yes;
-  eventModal.classList.toggle('show', shouldShow);
-  if (shouldShow) {
-    eventModal.removeAttribute('aria-hidden');
-    eventModal.style.removeProperty('display');
-    eventModal.style.removeProperty('visibility');
-  } else {
-    eventModal.setAttribute('aria-hidden', 'true');
-    eventModal.classList.remove('print-mode');
-    eventModal.style.display = 'none';
-    eventModal.style.visibility = 'hidden';
-  }
-}
-async function applyRoleToAdminPanel() {
-  if (!(adminOfficeRow && adminOfficeSel)) return;
-  if (CURRENT_ROLE !== 'superAdmin') {
-    adminOfficeRow.style.display = 'none';
-    const btnTabOffices = document.getElementById('btnTabOffices');
-    if (btnTabOffices) btnTabOffices.classList.add('u-hidden');
-    adminOfficeSel.disabled = false;
-    adminOfficeSel.textContent = '';
-    adminSelectedOfficeId = '';
-    return;
-  }
-
-  adminOfficeRow.style.display = '';
-  const btnTabOffices = document.getElementById('btnTabOffices');
-  if (btnTabOffices) btnTabOffices.classList.remove('u-hidden');
-  adminOfficeSel.disabled = true;
-  adminOfficeSel.textContent = '';
-  const loadingOpt = document.createElement('option');
-  loadingOpt.value = ''; loadingOpt.disabled = true; loadingOpt.selected = true; loadingOpt.textContent = '読込中…';
-  adminOfficeSel.appendChild(loadingOpt);
-
-  let offices = [];
-  try {
-    const res = await apiPost({ action: 'listOffices', token: SESSION_TOKEN });
-    if (res && res.ok !== false && Array.isArray(res.offices)) {
-      offices = res.offices;
-    } else {
-      throw new Error(res && res.error ? String(res.error) : 'unexpected_response');
-    }
-  } catch (err) {
-    console.error('listOffices failed', err);
-    adminOfficeSel.textContent = '';
-    const opt = document.createElement('option');
-    opt.value = ''; opt.disabled = true; opt.selected = true; opt.textContent = '取得に失敗しました';
-    adminOfficeSel.appendChild(opt);
-    adminSelectedOfficeId = '';
-    adminOfficeSel.disabled = false;
-    toast('拠点一覧の取得に失敗しました', false);
-    return;
-  }
-
-  adminOfficeSel.textContent = '';
-  const seen = new Set();
-  let desiredId = adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
-  let hasDesired = false;
-
-  offices.forEach(o => {
-    if (!o) return;
-    const id = String(o.id || '').trim();
-    if (!id || seen.has(id)) return;
-    seen.add(id);
-    const opt = document.createElement('option');
-    opt.value = id;
-    opt.textContent = stripCtl(o.name == null ? id : String(o.name)) || id;
-    adminOfficeSel.appendChild(opt);
-    if (id === desiredId) hasDesired = true;
-  });
-
-  if (adminOfficeSel.options.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = ''; opt.disabled = true; opt.selected = true; opt.textContent = '拠点がありません';
-    adminOfficeSel.appendChild(opt);
-    adminSelectedOfficeId = '';
-    adminOfficeSel.disabled = false;
-    return;
-  }
-
-  if (!hasDesired) {
-    if (CURRENT_OFFICE_ID && seen.has(CURRENT_OFFICE_ID)) desiredId = CURRENT_OFFICE_ID;
-    else desiredId = adminOfficeSel.options[0].value || '';
-  }
-
-  if (desiredId) { adminOfficeSel.value = desiredId; }
-  if (adminOfficeSel.selectedIndex < 0) { adminOfficeSel.selectedIndex = 0; desiredId = adminOfficeSel.value || ''; }
-  adminSelectedOfficeId = desiredId || '';
-  adminOfficeSel.disabled = false;
-}
-function showManualModal(yes) { manualModal.classList.toggle('show', !!yes); }
-function applyRoleToManual() {
-  const isAdmin = isOfficeAdmin();
-  // 管理者タブボタンの表示/非表示
-  const adminTabBtn = document.querySelector('.manual-tab-btn[data-tab="admin"]');
-  if (adminTabBtn) {
-    adminTabBtn.style.display = isAdmin ? 'inline-block' : 'none';
-  }
-  // デフォルトタブの設定（管理者なら管理者タブ、それ以外はユーザータブ）
-  const userTabBtn = document.querySelector('.manual-tab-btn[data-tab="user"]');
-  if (isAdmin && adminTabBtn) {
-    // 管理者の場合は管理者タブを表示
-    document.querySelectorAll('.manual-tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.manual-tab-content').forEach(c => c.classList.remove('active'));
-    adminTabBtn.classList.add('active');
-    manualAdmin.classList.add('active');
-  } else {
-    // 一般ユーザーの場合はユーザータブを表示
-    document.querySelectorAll('.manual-tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.manual-tab-content').forEach(c => c.classList.remove('active'));
-    if (userTabBtn) userTabBtn.classList.add('active');
-    manualUser.classList.add('active');
-  }
-}
-
-/* 管理/マニュアルUIイベント */
-adminBtn.addEventListener('click', async () => {
-  applyRoleToAdminPanel();
-  showAdminModal(true);
-  if (typeof loadAdminMembers === 'function') { try { await loadAdminMembers(); } catch { } }
-});
-adminClose.addEventListener('click', () => showAdminModal(false));
-logoutBtn.addEventListener('click', logout);
-
-eventBtn.addEventListener('click', async () => {
-  const targetOfficeId = (vacationOfficeSelect?.value) || adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
-  const list = await loadEvents(targetOfficeId, true, { visibleOnly: true, onSelect: handleEventSelection });
-  if (!Array.isArray(list) || list.length === 0) { toast('表示対象なし'); return; }
-  const ctrl = getEventGanttController();
-  if (ctrl?.setSaveMode) {
-    ctrl.setSaveMode('event-auto');
-  }
-  showEventModal(true);
-});
-eventClose.addEventListener('click', () => showEventModal(false));
-
-manualBtn.addEventListener('click', () => { applyRoleToManual(); showManualModal(true); });
-manualClose.addEventListener('click', () => showManualModal(false));
-toolsBtn.addEventListener('click', () => showToolsModal(true));
-toolsModalClose.addEventListener('click', () => showToolsModal(false));
-qrModalClose.addEventListener('click', () => showQrModal(false));
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    showAdminModal(false);
-    showManualModal(false);
-    showToolsModal(false);
-    showEventModal(false);
-    showQrModal(false);
-    closeMenu();
-  }
-});
-
-function setupModalOverlayClose(modalEl, closeFn) {
-  if (!modalEl) return;
-  modalEl.addEventListener('click', (e) => {
-    if (e.target === modalEl) { closeFn(); }
-  });
-}
-
-setupModalOverlayClose(adminModal, () => showAdminModal(false));
-setupModalOverlayClose(manualModal, () => showManualModal(false));
-setupModalOverlayClose(toolsModal, () => showToolsModal(false));
-setupModalOverlayClose(eventModal, () => showEventModal(false));
-setupModalOverlayClose(qrModal, () => showQrModal(false));
-
-/* マニュアルタブ切り替え */
-document.querySelectorAll('.manual-tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const targetTab = btn.dataset.tab;
-    // すべてのタブボタンとコンテンツのactiveクラスを削除
-    document.querySelectorAll('.manual-tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.manual-tab-content').forEach(c => c.classList.remove('active'));
-    // クリックされたタブボタンとそのコンテンツにactiveクラスを追加
-    btn.classList.add('active');
-    let targetContent = null;
-    if (targetTab === 'user') {
-      targetContent = document.getElementById('manualUser');
-    } else if (targetTab === 'admin') {
-      targetContent = document.getElementById('manualAdmin');
-    }
-    if (targetContent) {
-      targetContent.classList.add('active');
-      if (targetContent.scrollHeight > targetContent.clientHeight) {
-        targetContent.scrollTop = 0;
-      }
-    }
-  });
-});
-
-/* ログインボタン（Worker Auth） */
-if (btnLogin) {
-  btnLogin.addEventListener('click', async () => {
-    const pw = pwInput.value;
-    const office = officeSel.value;
-    if (!office) { if (loginMsg) loginMsg.textContent = "拠点IDを入力してください"; return; }
-    if (!pw) { if (loginMsg) loginMsg.textContent = "パスワードを入力してください"; return; }
-
-    if (loginMsg) loginMsg.textContent = "認証中…";
-    const success = await login(office, pw);
-    if (loginMsg) {
-      if (success) loginMsg.textContent = "";
-      else loginMsg.textContent = "認証に失敗しました";
-    }
-  });
-}
-
-// インラインイベントハンドラの代替
-if (officeSel) {
-  officeSel.addEventListener('input', () => {
-    const dummyUsername = document.getElementById('dummyUsername');
-    if (dummyUsername) {
-      dummyUsername.value = officeSel.value;
-    }
-  });
-}
-const loginForm = document.getElementById('loginForm');
-if (loginForm) {
-  loginForm.addEventListener('submit', (e) => e.preventDefault());
-}
+window.ensureAuthUI = ensureAuthUI;
+window.checkLogin = checkLogin;
