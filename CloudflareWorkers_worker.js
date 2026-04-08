@@ -223,6 +223,7 @@ export default {
       }
 
       async function handleAction() {
+        console.log(`[Worker Action] ${action} (Office: ${requestContext.officeId})`);
         /* --- LOGIN (Hyperhybrid: Support both Shared PW and legacy flow) --- */
       if (action === 'login') {
         const officeId = getParam('office');

@@ -32,7 +32,8 @@ let isBooting = true;
  * 初期化: Auth 状態の監視開始
  */
 export async function checkLogin() {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
+    console.log('【DEBUG】checkLogin 開始');
     // 0. URLパラメータによる自動入力 (?office=拠点ID)
     try {
       const urlParams = new URLSearchParams(window.location.search);
@@ -69,15 +70,27 @@ export async function checkLogin() {
 
     // 2. Firebase の状態を確認 (オーナー用)
     watchAuthState(async (user) => {
-      if (user && user.emailVerified) {
+      console.log('【DEBUG】watchAuthState 通知受理. User:', user ? user.email : 'null');
+      
+      if (user) {
+        console.log('【DEBUG】Firebase ユーザー検知:', user.email, 'Verified:', user.emailVerified);
+        if (!user.emailVerified) {
+          console.log('【DEBUG】メール未認証です');
+          switchAuthView('verify');
+          resolve(false);
+          return;
+        }
+        
         // Firebase ログイン中なら Worker と同期
+        console.log('【DEBUG】Worker 同期開始 (action: signup)');
         const fbToken = await getFbToken();
         const resp = await fetchFromWorker('signup', { token: fbToken });
+        console.log('【DEBUG】Worker 同期応答:', resp);
 
         if (resp.ok) {
           const workerUser = resp.user || {};
           if (workerUser.office_id) {
-            // 拠点所属済み管理者の場合も、Worker発行のセッションに変換する
+            console.log('【DEBUG】拠点所属済み:', workerUser.office_id);
             const loginResp = await fetchFromWorker('renew', { token: fbToken });
             if (loginResp.ok) {
                 await finalizeLogin(loginResp);
@@ -85,18 +98,17 @@ export async function checkLogin() {
                 return;
             }
           } else {
-            // 拠点未作成 -> 作成画面へ
+            console.log('【DEBUG】拠点未作成状態です');
             switchAuthView('createOffice');
             resolve(false);
           }
         } else {
-          // [AFTER] 500 エラー等の詳細を画面に表示して原因究明を助ける
-          if (resp.message) {
-            showError(`システムエラー: ${resp.message}`);
-          }
+          console.error('【DEBUG】Worker 同期失敗:', resp);
+          showError(`システムエラー: ${resp.message || resp.error || '不明なエラー'}`);
+          resolve(false);
         }
       } else {
-        // ログイン情報なし
+        console.log('【DEBUG】ログイン情報なし');
         if (isBooting) {
             switchAuthView('officeLogin');
         }
