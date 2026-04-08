@@ -2965,10 +2965,10 @@ function renderOfficeTable(offices) {
 }
 
 async function addOffice() {
-  const officeId = document.getElementById('newOfficeId')?.value.trim();
-  const name = document.getElementById('newOfficeName')?.value.trim();
-  const password = document.getElementById('newOfficePw')?.value.trim();
-  const adminPassword = document.getElementById('newOfficeAdminPw')?.value.trim();
+  const officeId = document.getElementById('adminNewOfficeId')?.value.trim();
+  const name = document.getElementById('adminNewOfficeName')?.value.trim();
+  const password = document.getElementById('adminNewOfficePw')?.value.trim();
+  const adminPassword = document.getElementById('adminNewOfficeAdminPw')?.value.trim();
   
   if (!officeId || !name || !password || !adminPassword) {
     toast('すべての項目を入力してください', false);
@@ -2984,7 +2984,7 @@ async function addOffice() {
     
     if (res && res.ok) {
       toast('拠点を追加しました');
-      ['newOfficeId', 'newOfficeName', 'newOfficePw', 'newOfficeAdminPw'].forEach(id => {
+      ['adminNewOfficeId', 'adminNewOfficeName', 'adminNewOfficePw', 'adminNewOfficeAdminPw'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
       });
