@@ -10,8 +10,8 @@
  * @see SSOT_GUIDE.md
  */
 
-// ドメインが 'dev' を含むか、localhost の場合は開発環境とみなす
-const isDev = window.location.hostname.includes('dev') || window.location.hostname.includes('localhost');
+// ドメインが 'dev' を含むか、localhost / 127.0.0.1 の場合は開発環境とみなす
+const isDev = window.location.hostname.includes('dev') || window.location.hostname.includes('localhost') || window.location.hostname === '127.0.0.1';
 
 const CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
