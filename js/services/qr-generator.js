@@ -27,7 +27,8 @@ const qrcode = function() {
     _qr.make = function() {
         if (_typeNumber < 1) {
             var typeNumber = 1;
-            for (typeNumber = 1; typeNumber < 40; typeNumber++) {
+            var maxTypeNumber = Math.floor(qrRSBlock.RS_BLOCK_TABLE.length / 4);
+            for (typeNumber = 1; typeNumber <= maxTypeNumber; typeNumber++) {
                 var rsBlocks = qrRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
                 var buffer = qrBitBuffer();
                 var totalDataCount = 0;
@@ -39,6 +40,9 @@ const qrcode = function() {
                     data.write(buffer);
                 }
                 if (buffer.getLengthInBits() <= totalDataCount * 8) break;
+            }
+            if (typeNumber > maxTypeNumber) {
+                throw new Error("data too large for available QR versions (max " + maxTypeNumber + ")");
             }
             _typeNumber = typeNumber;
         }
@@ -465,7 +469,16 @@ qrRSBlock.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
     return list;
 };
 qrRSBlock.getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
-    switch (errorCorrectionLevel) {
+    var ecl = errorCorrectionLevel;
+    if (typeof ecl === 'string') {
+        switch (ecl.toUpperCase()) {
+            case 'L': ecl = qrErrorCorrectionLevel.L; break;
+            case 'M': ecl = qrErrorCorrectionLevel.M; break;
+            case 'Q': ecl = qrErrorCorrectionLevel.Q; break;
+            case 'H': ecl = qrErrorCorrectionLevel.H; break;
+        }
+    }
+    switch (ecl) {
         case qrErrorCorrectionLevel.L : return qrRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
         case qrErrorCorrectionLevel.M : return qrRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
         case qrErrorCorrectionLevel.Q : return qrRSBlock.RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
