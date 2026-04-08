@@ -78,7 +78,7 @@ export async function checkLogin() {
       
       if (user) {
         console.log('【DEBUG】Firebase ユーザー検知:', user.email, 'Verified:', user.emailVerified);
-        if (!user.emailVerified) {
+        if (user.email && !user.emailVerified) {
           // [AFTER] すでに拠点セッション（共有PW）でログイン済みの場合は、Firebaseの未認証状態によってUIを遮断しない
           // [V5] また、URLに office パラメータがある（QRスキャン時など）場合は拠点ログインを優先するため、リダイレクトをスキップする
           const urlParams = new URLSearchParams(window.location.search);
@@ -408,6 +408,7 @@ export function showQrModal(show) {
 // リンク等
 document.getElementById('linkGotoSignup')?.addEventListener('click', (e) => { e.preventDefault(); switchAuthView('signup'); });
 document.getElementById('linkGotoLogin')?.addEventListener('click', (e) => { e.preventDefault(); switchAuthView('officeLogin'); });
+document.getElementById('linkBackToLoginFromVerify')?.addEventListener('click', (e) => { e.preventDefault(); logoutAction(); });
 document.getElementById('qrModalClose')?.addEventListener('click', () => showQrModal(false));
 document.getElementById('btnVerifyDone')?.addEventListener('click', () => location.reload());
 
