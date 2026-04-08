@@ -11,6 +11,59 @@
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
+
+/**
+ * 管理モーダルを開く
+ */
+function openAdminModal() {
+  if (!adminModal) return;
+  adminModal.classList.add('show');
+  adminModal.style.display = 'flex';
+  
+  // 初期データの読み込み
+  if (!adminMembersLoaded) {
+    loadAdminMembers(true);
+  }
+  
+  // 必要に応じてお知らせなどの自動読み込み
+  if (typeof autoLoadNoticesOnAdminOpen === 'function') {
+    autoLoadNoticesOnAdminOpen();
+  }
+  
+  // 管理者には拠点選択を表示するように戻す（将来的なマルチ拠点対応を見越して）
+  // ただし現在のSSOT原則に基づき、CURRENT_OFFICE_IDを初期値とする
+  if (adminOfficeSel && CURRENT_OFFICE_ID) {
+    adminOfficeSel.value = CURRENT_OFFICE_ID;
+  }
+}
+
+/**
+ * 管理モーダルを閉じる
+ */
+function closeAdminModal() {
+  if (!adminModal) return;
+  adminModal.classList.remove('show');
+  adminModal.style.display = 'none';
+}
+
+// ボタンにリスナーを登録
+if (adminBtn) {
+  adminBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    openAdminModal();
+  });
+}
+if (adminClose) {
+  adminClose.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeAdminModal();
+  });
+}
+
+// グローバルに公開（auth.jsなどからの呼び出し用）
+window.openAdminModal = openAdminModal;
+window.closeAdminModal = closeAdminModal;
+
 // renderColumnConfig はファイル後半（2300行目付近）の実装を使用します。ここでの空の定義を削除。
 const btnAddOffice = document.getElementById('btnAddOffice');
 const officeTableBody = document.getElementById('officeTableBody');

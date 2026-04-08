@@ -15,7 +15,7 @@ import {
 import { firebaseConfig } from './firebase-config.js';
 
 // DOM Elements
-const loginEl = document.getElementById('login');
+const loginFormEl = document.getElementById('loginForm');
 const board = document.getElementById('board');
 const loginMsg = document.getElementById('loginMsg');
 const adminBtn = document.getElementById('adminBtn');
@@ -135,11 +135,11 @@ function switchAuthView(view) {
     }
   });
 
-  if (loginEl) {
-    loginEl.classList.remove('u-hidden');
-    console.log('【DEBUG】#login コンテナを表示しました');
+  if (loginFormEl) {
+    loginFormEl.classList.remove('u-hidden');
+    console.log('【DEBUG】#loginForm コンテナを表示しました');
   } else {
-    console.error('【DEBUG】エラー: #login 要素が DOM に存在しません');
+    console.error('【DEBUG】エラー: #loginForm 要素が DOM に存在しません');
   }
   if (board) board.classList.add('u-hidden');
 
@@ -175,8 +175,16 @@ async function finalizeLogin(data) {
   localStorage.setItem(LOCAL_ROLE_KEY, CURRENT_ROLE);
   localStorage.setItem(LOCAL_OFFICE_NAME_KEY, data.officeName || CURRENT_OFFICE_ID);
 
-  if (loginEl) loginEl.classList.add('u-hidden');
-  if (board) board.classList.remove('u-hidden');
+  console.log('【DEBUG】finalizeLogin 実行:', { office: data.office, role: data.role });
+
+  if (loginFormEl) {
+    loginFormEl.classList.add('u-hidden');
+    console.log('【DEBUG】#loginForm を非表示にしました');
+  }
+  if (board) {
+    board.classList.remove('u-hidden');
+    console.log('【DEBUG】#board を表示しました');
+  }
   ensureAuthUI();
 
   // 同期サイクル
@@ -292,8 +300,22 @@ document.getElementById('btnCreateOffice')?.addEventListener('click', async () =
   });
   
   if (res.ok) {
-    toast('オフィスを作成しました！');
-    location.reload();
+    toast('オフィスを作成しました！管理パネルで初期設定を行ってください。');
+    
+    // [AFTER] 拠点作成後はリロードせずにそのまま管理者としてログイン完了させる
+    // これにより、ユーザーが即座にメンバー登録などの作業を開始できる
+    const loginResp = await fetchFromWorker('renew', { token: fbToken });
+    if (loginResp.ok) {
+      await finalizeLogin(loginResp);
+      
+      // 管理パネルを自動で開く
+      if (typeof window.openAdminModal === 'function') {
+        window.openAdminModal();
+      }
+    } else {
+      // 失敗した場合はリロードして通常通りログインを促す
+      location.reload();
+    }
   } else {
     showError('作成失敗: ' + (res.error || '既にIDが使われています'));
   }
@@ -369,10 +391,18 @@ window.showQrModal = showQrModal;
  */
 function ensureAuthUI() {
   const loggedIn = !!SESSION_TOKEN;
+  // 管理者権限の判定 (SSOT: CURRENT_ROLE を基準にする)
   const isAdmin = loggedIn && (CURRENT_ROLE === 'owner' || CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin');
   
-  if (adminBtn) adminBtn.style.display = isAdmin ? 'inline-block' : 'none';
-  if (logoutBtn) logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
+  // デバッグ用（不安定な場合は残すが、本番では静かにする）
+  // console.log('【DEBUG】ensureAuthUI:', { loggedIn, isAdmin, role: CURRENT_ROLE });
+
+  if (adminBtn) {
+    adminBtn.style.display = isAdmin ? 'inline-block' : 'none';
+  }
+  if (logoutBtn) {
+    logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
+  }
   if (toolsBtn) toolsBtn.style.display = loggedIn ? 'inline-block' : 'none';
   if (manualBtn) manualBtn.style.display = loggedIn ? 'inline-block' : 'none';
   if (qrBtn) qrBtn.style.display = loggedIn ? 'inline-block' : 'none';
@@ -382,9 +412,12 @@ function ensureAuthUI() {
   if (nameFilter) nameFilter.style.display = loggedIn ? 'inline-block' : 'none';
   if (statusFilter) statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
   
-  // 管理パネルの拠点選択を無効化
+  // 管理パネル内での拠点選択（管理者用）
   const adminOfficeRow = document.getElementById('adminOfficeRow');
-  if (adminOfficeRow) adminOfficeRow.style.display = 'none';
+  if (adminOfficeRow) {
+    // SuperAdmin以外は自分の拠点のみなので非表示にする（SSOT原則）
+    adminOfficeRow.style.display = (CURRENT_ROLE === 'superAdmin') ? 'flex' : 'none';
+  }
 }
 window.ensureAuthUI = ensureAuthUI;
 window.checkLogin = checkLogin;
