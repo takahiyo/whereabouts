@@ -79,5 +79,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
+  /* === ▼ 追加箇所: ツールボタンの処理 ▼ === */
+  const toolsBtnEl = document.getElementById('toolsBtn');
+  const toolsModalEl = document.getElementById('toolsModal');
+  const toolsModalCloseEl = document.getElementById('toolsModalClose');
+
+  if (toolsBtnEl && toolsModalEl) {
+    toolsBtnEl.addEventListener('click', (e) => {
+      e.preventDefault();
+      toolsModalEl.classList.add('show');
+      toolsModalEl.style.display = 'flex';
+      // ツール一覧を最新化
+      if (typeof fetchTools === 'function') {
+        fetchTools().catch(err => console.error('fetchTools error:', err));
+      }
+    });
+  }
+
+  if (toolsModalCloseEl && toolsModalEl) {
+    toolsModalCloseEl.addEventListener('click', () => {
+      toolsModalEl.classList.remove('show');
+      toolsModalEl.style.display = 'none';
+    });
+  }
   /* === ▲ 追加箇所ここまで ▲ === */
 });
+
