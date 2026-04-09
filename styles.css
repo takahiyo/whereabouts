@@ -86,7 +86,7 @@
   --color-btn-manual-border: var(--color-indigo-200);
 
   /* === Pill/Round Buttons === */
-  --btn-pill-radius: 999px;
+  --btn-pill-radius: 8px; /* Corrected to rounded rectangle style as requested */
   --btn-pill-padding: 0.5rem 1.25rem;
 }
 
@@ -1041,7 +1041,7 @@ td.time.need-time select:focus~.time-hint {
   color: #fff;
   background: var(--color-blue-600);
   border: none;
-  border-radius: 999px; /* Pill shape */
+  border-radius: 8px; /* Corrected to rounded rectangle style as requested */
   cursor: pointer;
   transition: all 0.2s;
   display: block;
