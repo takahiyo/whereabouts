@@ -445,6 +445,9 @@ document.getElementById('linkGotoSignup')?.addEventListener('click', (e) => { e.
 document.getElementById('linkGotoLogin')?.addEventListener('click', (e) => { e.preventDefault(); switchAuthView('officeLogin'); });
 document.getElementById('linkBackToLoginFromVerify')?.addEventListener('click', (e) => { e.preventDefault(); logoutAction(); });
 document.getElementById('qrModalClose')?.addEventListener('click', () => showQrModal(false));
+qrModal?.addEventListener('click', (e) => {
+  if (e.target === qrModal) showQrModal(false);
+});
 document.getElementById('btnVerifyDone')?.addEventListener('click', () => location.reload());
 
 // ログアウト

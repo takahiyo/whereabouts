@@ -31,11 +31,14 @@ function applyFilters(){
       const showByName = !q || nameText.includes(q);
       const showByStatus = !st || rowSt === st;
       const show = showByName && showByStatus;
-      tr.style.display = show ? '' : 'none';
+      
+      // u-hidden クラスを使用して非表示を制御する（!importantによる上書きを防ぐため）
+      tr.classList.toggle('u-hidden', !show);
+      
       if(show) anyRow=true;
     });
-    // F6相当：該当行が無いパネルは隠す
-    sec.style.display = anyRow ? '' : 'none';
+    // 該当行が無いパネルは隠す
+    sec.classList.toggle('u-hidden', !anyRow);
   });
 }
 nameFilter.addEventListener('input', applyFilters);

@@ -54,7 +54,7 @@
     <div class="admin-card">
       <div class="admin-card-header">
         <div class="admin-modal-header-row">
-          <h3>管理パネル</h3><button id="adminClose">閉じる</button>
+          <h3>管理パネル</h3><button id="adminClose" class="btn-pill">閉じる</button>
         </div>
 
         <!-- タブナビゲーション -->
@@ -92,14 +92,17 @@
               <h4>📁 CSV管理</h4>
               <div class="admin-subsection">
                 <h5>📥 在席確認表リスト エクスポート</h5>
-                <div class="admin-row"><button id="btnExport">ダウンロード</button></div>
+                <div class="admin-row"><button id="btnExport" class="btn-pill">📥 ダウンロード</button></div>
                 <div class="admin-note">形式：グループ番号,グループ名,表示順,id,氏名,内線,携帯番号,Email,業務時間,ステータス,戻り時間,明日の予定,備考</div>
                 <div class="admin-note u-font-sm u-text-gray">※従来フォーマット（携帯番号・Email列なし）も引き続き対応</div>
               </div>
               <div class="admin-subsection">
                 <h5>📤 在席確認表リスト インポート</h5>
-                <div class="admin-row"><input type="file" id="csvFile" accept=".csv,text/csv" /><button
-                    id="btnImport">取り込み</button></div>
+                <div class="admin-row">
+                  <label for="csvFile" class="btn-pill btn-file-label">📁 ファイルを選択</label>
+                  <input type="file" id="csvFile" class="u-hidden-input" accept=".csv,text/csv" />
+                  <button id="btnImport" class="btn-pill">📤 取り込み</button>
+                </div>
               </div>
             </div>
 
@@ -119,6 +122,85 @@
                 </div>
               </div>
             </div>
+
+                      <div class="admin-box admin-box-stacked">
+                        <h4>🔄 項目自動消去設定</h4>
+                        <div class="admin-subsection">
+                          <div class="admin-row u-mb-12 auto-clear-setting-row">
+                            <label class="auto-clear-checkbox-label">
+                              <input type="checkbox" id="autoClearEnabled" class="u-m-0" style="width: 20px; height: 20px;">
+                              <span>自動消去を有効にする</span>
+                            </label>
+            
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                              <label for="autoClearHour" style="font-weight: 600;">実行時間:</label>
+                              <select id="autoClearHour" class="auto-clear-hour-select">
+                                <option value="0">0:00 (深夜)</option>
+                                <option value="1">1:00</option>
+                                <option value="2">2:00</option>
+                                <option value="3">3:00</option>
+                                <option value="4">4:00</option>
+                                <option value="5">5:00</option>
+                                <option value="6">6:00</option>
+                                <option value="7">7:00</option>
+                                <option value="8">8:00</option>
+                                <option value="9">9:00</option>
+                                <option value="10">10:00</option>
+                                <option value="11">11:00</option>
+                                <option value="12">12:00 (正午)</option>
+                                <option value="13">13:00</option>
+                                <option value="14">14:00</option>
+                                <option value="15">15:00</option>
+                                <option value="16">16:00</option>
+                                <option value="17">17:00</option>
+                                <option value="18">18:00</option>
+                                <option value="19">19:00</option>
+                                <option value="20">20:00</option>
+                                <option value="21">21:00</option>
+                                <option value="22">22:00</option>
+                                <option value="23">23:00</option>
+                              </select>
+                            </div>
+            
+                            <button id="btnSaveAutoClear" class="btn-success" style="margin-left: auto;">💾 設定を保存</button>
+                          </div>
+            
+                          <div class="admin-note u-mb-8" style="font-weight: 600; color: #4b5563;">消去する項目を選択してください：</div>
+                          <div id="autoClearFields" class="auto-clear-fields-container">
+                            <label class="auto-clear-field-item"><input type="checkbox" value="workHours"> 業務時間</label>
+                            <label class="auto-clear-field-item"><input type="checkbox" value="status"> ステータス</label>
+                            <label class="auto-clear-field-item"><input type="checkbox" value="time"> 戻り時間</label>
+                            <label class="auto-clear-field-item"><input type="checkbox" value="tomorrowPlan"> 明日の予定</label>
+                            <label class="auto-clear-field-item"><input type="checkbox" value="note"> 備考</label>
+                          </div>
+                          <div class="admin-note u-mt-8">※指定した時間（毎日）に、拠点の全メンバーのチェックした項目が自動的に消去されます。ステータスは「在席」に戻ります。</div>
+                        </div>
+                      </div>
+
+                      <div class="admin-box admin-box-stacked">
+                        <h4>🖨️ 一覧出力（PDF出力）</h4>
+                        <div class="admin-subsection">
+                          <div class="admin-row u-flex-end-gap" style="align-items: center; flex-wrap: wrap;">
+                            <label for="adminExportSort" style="font-weight: 600;">ソート順:</label>
+                            <select id="adminExportSort" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                              <option value="default">表示順設定（デフォルト）</option>
+                              <option value="name">氏名順</option>
+                              <option value="time">業務時間順</option>
+                              <option value="status">ステータス順</option>
+                            </select>
+            
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600;">
+                              <input type="checkbox" id="adminExportOneTable" style="width: 18px; height: 18px;">
+                              全てのメンバーを1つの表にまとめる
+                            </label>
+            
+                            <button id="btnPrintList" class="btn-pill">🖨️ 一覧出力（印刷）</button>
+                          </div>
+                          <div class="admin-note u-mt-8">※ブラウザの印刷機能を使用してPDFとして保存できます。「全てのメンバーを1つの表にまとめる」をチェックするとグループ分けを無視して出力します。
+                          </div>
+                        </div>
+                      </div>
+
           </div>
         </div>
 
@@ -155,7 +237,7 @@
           <div class="admin-toolbar">
             <h4>👥 メンバー管理</h4>
             <div class="admin-toolbar-actions">
-              <button id="btnMemberSave" class="btn-primary btn-sm">💾 変更を保存</button>
+              <button id="btnMemberSave" class="btn-pill">💾 変更を保存</button>
             </div>
           </div>
             <!-- モーダル形式に変更 -->
@@ -202,8 +284,8 @@
             <label for="memberFilterInput" class="member-filter-label">氏名フィルター</label>
             <div class="member-filter-controls">
               <input id="memberFilterInput" type="search" placeholder="在席確認表の氏名で絞り込み" aria-label="氏名フィルター" />
-              <button id="btnMemberFilterClear" class="btn-secondary" type="button">クリア</button>
-              <button id="btnOpenAddMember" class="btn-group-add" style="margin-left: auto;">➕ 新規メンバー追加</button>
+              <button id="btnMemberFilterClear" class="btn-pill" type="button">クリア</button>
+              <button id="btnOpenAddMember" class="btn-pill" style="margin-left: auto;">➕ 新規メンバー追加</button>
             </div>
           </div>
           <div class="member-table-wrap">
@@ -232,8 +314,8 @@
           <div class="admin-toolbar">
             <h4>🎛️ カラム構成</h4>
             <div class="admin-toolbar-actions">
-              <button id="btnAddCustomColumn" class="btn-primary btn-sm">➕ 新規追加</button>
-              <button id="btnColumnSave" class="btn-primary btn-sm">💾 保存</button>
+              <button id="btnAddCustomColumn" class="btn-pill">➕ 新規追加</button>
+              <button id="btnColumnSave" class="btn-pill">💾 保存</button>
             </div>
           </div>
           <div id="columnSettingContainer" class="column-setting-container">
@@ -394,10 +476,10 @@
                   </label>
                 </div>
                 <div class="vacation-actions">
-                  <button id="btnVacationSave" class="btn-primary">💾 作成/更新</button>
-                  <button id="btnVacationDelete" class="btn-danger">🗑️ 削除</button>
-                  <button id="btnVacationClear" class="btn-secondary">🧹 入力クリア</button>
-                  <button id="btnVacationReload" class="btn-secondary">🔄 一覧更新</button>
+                  <button id="btnVacationSave" class="btn-pill">💾 作成/更新</button>
+                  <button id="btnVacationDelete" class="btn-pill btn-danger">🗑️ 削除</button>
+                  <button id="btnVacationClear" class="btn-pill">🧹 入力クリア</button>
+                  <button id="btnVacationReload" class="btn-pill">🔄 一覧更新</button>
                 </div>
                 <div class="vacation-row u-hidden">
                   <div class="vacation-gantt-head">
@@ -419,90 +501,13 @@
         <!-- タブパネル4: ツール管理 -->
         <div id="tabTools" class="tab-panel" data-tab="tools">
           <div class="admin-toolbar">
-            <h4>🛠️ ツール・設定</h4>
-          </div>
-          <div class="admin-box u-mb-16">
-            <h4>🔄 項目自動消去設定</h4>
-            <div class="admin-subsection">
-              <div class="admin-row u-mb-12 auto-clear-setting-row">
-                <label class="auto-clear-checkbox-label">
-                  <input type="checkbox" id="autoClearEnabled" class="u-m-0" style="width: 20px; height: 20px;">
-                  <span>自動消去を有効にする</span>
-                </label>
-
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <label for="autoClearHour" style="font-weight: 600;">実行時間:</label>
-                  <select id="autoClearHour" class="auto-clear-hour-select">
-                    <option value="0">0:00 (深夜)</option>
-                    <option value="1">1:00</option>
-                    <option value="2">2:00</option>
-                    <option value="3">3:00</option>
-                    <option value="4">4:00</option>
-                    <option value="5">5:00</option>
-                    <option value="6">6:00</option>
-                    <option value="7">7:00</option>
-                    <option value="8">8:00</option>
-                    <option value="9">9:00</option>
-                    <option value="10">10:00</option>
-                    <option value="11">11:00</option>
-                    <option value="12">12:00 (正午)</option>
-                    <option value="13">13:00</option>
-                    <option value="14">14:00</option>
-                    <option value="15">15:00</option>
-                    <option value="16">16:00</option>
-                    <option value="17">17:00</option>
-                    <option value="18">18:00</option>
-                    <option value="19">19:00</option>
-                    <option value="20">20:00</option>
-                    <option value="21">21:00</option>
-                    <option value="22">22:00</option>
-                    <option value="23">23:00</option>
-                  </select>
-                </div>
-
-                <button id="btnSaveAutoClear" class="btn-success" style="margin-left: auto;">💾 設定を保存</button>
-              </div>
-
-              <div class="admin-note u-mb-8" style="font-weight: 600; color: #4b5563;">消去する項目を選択してください：</div>
-              <div id="autoClearFields" class="auto-clear-fields-container">
-                <label class="auto-clear-field-item"><input type="checkbox" value="workHours"> 業務時間</label>
-                <label class="auto-clear-field-item"><input type="checkbox" value="status"> ステータス</label>
-                <label class="auto-clear-field-item"><input type="checkbox" value="time"> 戻り時間</label>
-                <label class="auto-clear-field-item"><input type="checkbox" value="tomorrowPlan"> 明日の予定</label>
-                <label class="auto-clear-field-item"><input type="checkbox" value="note"> 備考</label>
-              </div>
-              <div class="admin-note u-mt-8">※指定した時間（毎日）に、拠点の全メンバーのチェックした項目が自動的に消去されます。ステータスは「在席」に戻ります。</div>
-            </div>
-          </div>
-
-          <div class="admin-box u-mb-16">
-            <h4>🖨️ 一覧出力（PDF出力）</h4>
-            <div class="admin-subsection">
-              <div class="admin-row u-flex-end-gap" style="align-items: center; flex-wrap: wrap;">
-                <label for="adminExportSort" style="font-weight: 600;">ソート順:</label>
-                <select id="adminExportSort" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
-                  <option value="default">表示順設定（デフォルト）</option>
-                  <option value="name">氏名順</option>
-                  <option value="time">業務時間順</option>
-                  <option value="status">ステータス順</option>
-                </select>
-
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600;">
-                  <input type="checkbox" id="adminExportOneTable" style="width: 18px; height: 18px;">
-                  全てのメンバーを1つの表にまとめる
-                </label>
-
-                <button id="btnPrintList" class="btn-primary">🖨️ 一覧出力（印刷）</button>
-              </div>
-              <div class="admin-note u-mt-8">※ブラウザの印刷機能を使用してPDFとして保存できます。「全てのメンバーを1つの表にまとめる」をチェックするとグループ分けを無視して出力します。
-              </div>
-            </div>
+            <h4>🛠️ ツール情報の管理</h4>
           </div>
 
           <div class="tools-manager">
             <div class="tools-manager-toolbar">
               <div class="tools-manager-info">
-                <p>ツールの順番はドラッグ&ドロップまたは↑↓ボタンで入れ替えられます。上にあるものから順に表示されます。</p>
+                <p>ツールの順序はドラッグ&ドロップまたは▲▼ボタンで入れ替えられます。上にあるものから順に表示されます。</p>
                 <p>タイトルとURL、備考を入力できます。表示をOFFにしたツールは利用者画面に表示されません。</p>
               </div>
               <div class="tools-manager-actions">
@@ -1233,7 +1238,7 @@
         <p class="u-font-09em u-mb-8">拠点名 または メールアドレスでログイン</p>
         <input type="text" id="loginOfficeId" placeholder="オフィス名 (例: 株式会社ABC 本社) または Email" autocomplete="username" />
         <input type="password" id="loginPassword" placeholder="パスワード" autocomplete="current-password" />
-        <button id="btnSimpleLogin" type="button" class="u-mt-16">ログイン</button>
+        <button id="btnSimpleLogin" type="button" class="u-mt-16 btn-pill">ログイン</button>
         
         <p class="u-mt-24 u-font-08em u-text-center">
           新規開設（管理者登録）をご希望ですか？ 
@@ -1303,7 +1308,7 @@
     <div class="admin-card qr-modal-card">
       <div class="qr-modal-header">
         <h3 id="qrModalTitle">📱 共有用QRコード</h3>
-        <button id="qrModalClose" aria-label="閉じる">閉じる</button>
+        <button id="qrModalClose" class="btn-pill" aria-label="閉じる">閉じる</button>
       </div>
       <div class="qr-modal-body">
         <div class="qr-container">

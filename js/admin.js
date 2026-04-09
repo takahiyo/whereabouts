@@ -35,6 +35,14 @@ function openAdminModal() {
   if (adminOfficeSel && CURRENT_OFFICE_ID) {
     adminOfficeSel.value = CURRENT_OFFICE_ID;
   }
+
+  // アクティブなタブに応じた初期データのロード
+  const office = selectedOfficeId();
+  if (office) {
+    if (document.getElementById('tabBasic')?.classList.contains('active')) {
+      loadAutoClearSettings(office);
+    }
+  }
 }
 
 /**
@@ -95,6 +103,9 @@ if (adminOfficeSel) {
     }
     if (document.getElementById('tabTools')?.classList.contains('active')) {
       loadAdminTools(true);
+    }
+    if (document.getElementById('tabBasic')?.classList.contains('active')) {
+      loadAutoClearSettings(adminSelectedOfficeId || CURRENT_OFFICE_ID);
     }
   });
 }
@@ -305,7 +316,10 @@ if (adminModal) {
           await autoLoadNoticesOnAdminOpen();
         }
       } else if (targetTab === 'basic') {
-        // no-op for now
+        const office = selectedOfficeId();
+        if (office) {
+          await loadAutoClearSettings(office);
+        }
       } else if (targetTab === 'groups') {
         if (!adminMembersLoaded) { await loadAdminMembers(); }
         else { renderGroupOrderList(); }
@@ -1303,8 +1317,6 @@ async function loadAdminTools(force = false) {
     if (!normalized.length) {
       addToolEditorItem();
     }
-    // 自動消去設定の読み込み
-    await loadAutoClearSettings(office);
     adminToolsLoaded = true; adminToolsOfficeId = office;
     if (force) { toast('ツールを読み込みました'); }
   } catch (err) {
