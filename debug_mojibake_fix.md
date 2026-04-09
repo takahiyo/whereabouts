@@ -12,10 +12,14 @@ The text inside the blue box in the "Tools" tab of the admin panel is garbled (m
 1. [x] Identify correct text for lines 507-508.
 2. [x] Apply fix to `index.html`.
 3. [x] Verify other sections for similar issues (Fixed top part of `styles.css` as well).
+4. [x] Fix regression in button labels (lines 511-513).
 
 ## Results
-- Successfully restored lines 501, 507, and 508 in `index.html`.
+- Successfully restored lines 501, 507, 508, 511, 512, and 513 in `index.html`.
 - Successfully restored lines 2, 3, and 4 in `styles.css`.
-- Used a PowerShell script with explicit UTF-8 encoding to ensure reliable character restoration across terminal environments.
+- Resolved the regression where button labels became garbled during a previous script execution.
+- All requested Mojibake issues in the admin panel Tools tab have been resolved.
+
+
 
 
