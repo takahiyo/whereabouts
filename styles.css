@@ -1,7 +1,7 @@
 :root {
   /* === パネル表示（多段）用幅定義 (SSOT) === */
-  /* 繧ｫ繝ｩ繝蟷・・ js/constants/column-definitions.js 繧偵・繧ｹ繧ｿ繝ｼ縺ｨ縺励゛S縺九ｉ蜍慕噪縺ｫ --table-min-width 遲峨ｒ險ｭ螳壹☆繧・*/
-  /* 繝ｦ繝ｼ繧ｶ繝ｼ縺後檎ｮ｡逅・判髱｢ > 諡轤ｹ險ｭ螳壹阪〒險ｭ螳壹＠縺滓怙蟆上・譛螟ｧ蛟､縺ｫ繧医ｊ荳頑嶌縺阪＆繧後ｋ */
+  /* カラム幅は js/constants/column-definitions.js をマスターとし、JSから動的に --table-min-width 等を設定する */
+  /* ユーザーが「管理画面 > 拠点設定」で設定した最小・最大値により上書きされる */
 
   /* ステータス幅: --status-fixed が拠点設定にある場合はそれを優先 */
   --status-effective: var(--status-fixed, 134px);
