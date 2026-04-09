@@ -5011,6 +5011,11 @@ td.time.need-time select:focus~.time-hint {
 /* ============================================================ */
 
 .u-hidden { display: none !important; }
+/* 1列表示（カード形式）時のフィルタリング不具合修正用：!important同士の競合を specificity で解決 */
+#board tbody tr.u-hidden,
+#board section.u-hidden {
+  display: none !important;
+}
 .u-mb-3 { margin-bottom: 1.5rem !important; }
 .u-mt-2 { margin-top: 1rem !important; }
 .u-w-100 { width: 100% !important; }
