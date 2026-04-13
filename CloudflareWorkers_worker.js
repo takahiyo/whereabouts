@@ -359,6 +359,22 @@ export default {
             return new Response(JSON.stringify({ ok: true, message: 'already_registered', user: existing }), { headers: corsHeaders });
           }
 
+          // [FIX] UID が一致しなくても Email が一致する場合、Firebase 認証済みであれば UID を更新して再紐付けする
+          const existingEmail = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+          if (existingEmail) {
+            console.info('[Signup] Email match found (Re-binding):', email);
+            await env.DB.prepare('UPDATE users SET firebase_uid = ?, updated_at = ? WHERE email = ?')
+              .bind(uid, nowTs, email)
+              .run();
+            // 更新後のユーザー情報を返す（office_id などが含まれる）
+            const updatedUser = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(uid).first();
+            return new Response(JSON.stringify({ 
+              ok: true, 
+              message: 'rebound_success', 
+              user: updatedUser
+            }), { headers: corsHeaders });
+          }
+
           await env.DB.prepare('INSERT INTO users (firebase_uid, email, created_at, updated_at) VALUES (?, ?, ?, ?)')
             .bind(uid, email, nowTs, nowTs).run();
 
