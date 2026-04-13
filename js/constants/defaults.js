@@ -78,4 +78,4 @@ const DEFAULT_TOMORROW_PLAN_OPTIONS = Object.freeze([
  * デフォルトのWorkerエンドポイント（フォールバック用）
  * @type {string}
  */
-const DEFAULT_WORKER_ENDPOINT = "https://presence-proxy-prod.taka-hiyo.workers.dev";
+const DEFAULT_WORKER_ENDPOINT = "https://whereabouts.taka-hiyo.workers.dev";

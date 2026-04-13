@@ -10,13 +10,15 @@
  * @see SSOT_GUIDE.md
  */
 
-// ドメインが 'dev' を含むか、localhost / 127.0.0.1 の場合は開発環境とみなす
-const isDev = window.location.hostname.includes('dev') || window.location.hostname.includes('localhost') || window.location.hostname === '127.0.0.1';
+// 環境判定: 'dev' を含むホスト名、localhost、または IP 指定の場合は開発環境 (dev worker) を使用
+const hostname = window.location.hostname;
+const isDev = hostname.includes('dev') || hostname.includes('localhost') || hostname === '127.0.0.1';
 
 const CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
     authMode: 'worker',
-    // 環境に応じてエンドポイントを自動切り替え
+    // 環境に応じてエンドポイントを切り替え
+    // ※ 独自ドメインの Worker を使用する場合は、ここをそのドメインに書き換えてください。
     remoteEndpoint: isDev
         ? "https://whereabouts-dev.taka-hiyo.workers.dev"
         : "https://whereabouts.taka-hiyo.workers.dev",

@@ -13,8 +13,8 @@
 
   <!-- CSP：Firebase と Worker への通信を許可 -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self';
-               script-src 'self' 'unsafe-eval' https://www.gstatic.com https://*.firebaseapp.com;
-               connect-src 'self' https://whereabouts.taka-hiyo.workers.dev https://whereabouts-dev.taka-hiyo.workers.dev https://*.googleapis.com https://*.firebaseio.com;
+               script-src 'self' 'unsafe-eval' https://www.gstatic.com https://*.firebaseapp.com https://static.cloudflareinsights.com;
+               connect-src 'self' https://whereabouts.taka-hiyo.workers.dev https://whereabouts-dev.taka-hiyo.workers.dev https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.gstatic.com;
                style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
                img-src 'self' data: https://www.gstatic.com;
                font-src 'self' https://fonts.gstatic.com;
