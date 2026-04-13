@@ -10,9 +10,9 @@
  * @see SSOT_GUIDE.md
  */
 
-// 環境判定: 'dev' を含むホスト名、localhost、または IP 指定の場合は開発環境 (dev worker) を使用
+// 環境判定: 'dev.' で始まるサブドメイン、localhost、または IP 指定の場合は開発環境 (dev worker) を使用
 const hostname = window.location.hostname;
-const isDev = hostname.includes('dev') || hostname.includes('localhost') || hostname === '127.0.0.1';
+const isDev = hostname.startsWith('dev.') || hostname.includes('localhost') || hostname === '127.0.0.1';
 
 const CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
