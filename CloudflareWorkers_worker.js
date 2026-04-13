@@ -203,14 +203,31 @@ export default {
       let authContext = null; 
       const providedToken = getParam('token');
       
-      const fbPayload = await verifyFirebaseToken(providedToken);
-      if (fbPayload && fbPayload.email_verified) {
-        const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(fbPayload.sub).first();
-        if (user) authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
-      }
-      if (!authContext) {
-        const workerPayload = await verifyWorkerToken(providedToken);
-        if (workerPayload) authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
+      try {
+        const fbPayload = await verifyFirebaseToken(providedToken);
+        if (fbPayload && fbPayload.email_verified) {
+          // Firebase 認証済みの場合は DB からユーザー情報を取得
+          try {
+            const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(fbPayload.sub).first();
+            if (user) authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
+          } catch (dbErr) {
+            console.error('[Common Auth] D1 User Lookup Error:', dbErr.message);
+            // signupアクション自体の場合はここではエラーを投げず、アクション側で詳細に処理させる
+            if (action !== 'signup') {
+                throw new Error(`Database error during auth: ${dbErr.message}`);
+            }
+          }
+        }
+        if (!authContext) {
+          const workerPayload = await verifyWorkerToken(providedToken);
+          if (workerPayload) authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
+        }
+      } catch (authErr) {
+        console.error('[Common Auth Critical Error]', authErr);
+        // 重大な認証エラー（パース失敗ではなくDB接続不可など）が発生した場合は 500 へ飛ばす
+        if (authErr.message.includes('Database')) {
+            throw authErr;
+        }
       }
 
       const tokenRole = authContext ? authContext.role : '';
@@ -317,15 +334,36 @@ export default {
         const email = payload.email;
         const nowTs = Date.now();
 
-        const existing = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(uid).first();
-        if (existing) {
-          return new Response(JSON.stringify({ ok: true, message: 'already_registered', user: existing }), { headers: corsHeaders });
+        try {
+          // [AUTO-INIT] データベースが未初期化（テーブル不在）の場合は自動セットアップ
+          try {
+            await env.DB.prepare('SELECT 1 FROM users LIMIT 1').first();
+          } catch (initErr) {
+            if (initErr.message.includes('no such table')) {
+              console.info('[Signup] Database not initialized. Running auto-migration...');
+              await ensureDatabaseSchema(env);
+            }
+          }
+
+          const existing = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(uid).first();
+          if (existing) {
+            return new Response(JSON.stringify({ ok: true, message: 'already_registered', user: existing }), { headers: corsHeaders });
+          }
+
+          await env.DB.prepare('INSERT INTO users (firebase_uid, email, created_at, updated_at) VALUES (?, ?, ?, ?)')
+            .bind(uid, email, nowTs, nowTs).run();
+
+          return new Response(JSON.stringify({ ok: true, message: 'signup_success' }), { headers: corsHeaders });
+        } catch (dbErr) {
+          console.error('[Signup DB Error]', dbErr.message);
+          return new Response(JSON.stringify({ 
+            ok: false, 
+            error: 'signup_database_error', 
+            message: dbErr.message,
+            hint: dbErr.message.includes('no such table') ? 'D1 データベースに users テーブルが存在しません。schema.sql を適用してください。' : 
+                  (dbErr.message.includes('UNIQUE') ? 'このメールアドレスは既に登録されています。' : null)
+          }), { status: 500, headers: corsHeaders });
         }
-
-        await env.DB.prepare('INSERT INTO users (firebase_uid, email, created_at, updated_at) VALUES (?, ?, ?, ?)')
-          .bind(uid, email, nowTs, nowTs).run();
-
-        return new Response(JSON.stringify({ ok: true, message: 'signup_success' }), { headers: corsHeaders });
       }
 
       /* --- Auth Role Helper --- */
@@ -1247,3 +1285,131 @@ export default {
     }
   }
 };
+
+/**
+ * D1 Database Schema (Auto-Migration)
+ */
+const INITIAL_SCHEMA = `
+CREATE TABLE IF NOT EXISTS offices (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    password TEXT,
+    admin_password TEXT,
+    is_public BOOLEAN DEFAULT 1,
+    auto_clear_config TEXT DEFAULT NULL,
+    created_at INTEGER,
+    updated_at INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS members (
+    id TEXT NOT NULL,
+    office_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    group_name TEXT,
+    display_order INTEGER DEFAULT 0,
+    status TEXT,
+    time TEXT,
+    note TEXT,
+    work_hours TEXT,
+    tomorrow_plan TEXT,
+    ext TEXT,
+    mobile TEXT,
+    email TEXT,
+    custom_fields TEXT DEFAULT '{}',
+    updated INTEGER,
+    PRIMARY KEY (office_id, id),
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS tools_config (
+    office_id TEXT PRIMARY KEY,
+    tools_json TEXT DEFAULT '[]',
+    updated_at INTEGER,
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS notices (
+    id TEXT NOT NULL,
+    office_id TEXT NOT NULL,
+    title TEXT,
+    content TEXT,
+    visible INTEGER DEFAULT 1,
+    updated INTEGER,
+    PRIMARY KEY (office_id, id),
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS vacations (
+    id TEXT NOT NULL,
+    office_id TEXT NOT NULL,
+    title TEXT,
+    start_date TEXT,
+    end_date TEXT,
+    color TEXT,
+    visible INTEGER DEFAULT 1,
+    members_bits TEXT,
+    is_vacation INTEGER DEFAULT 1,
+    note TEXT,
+    notice_id TEXT,
+    notice_title TEXT,
+    display_order INTEGER DEFAULT 0,
+    vacancy_office TEXT,
+    updated INTEGER,
+    PRIMARY KEY (office_id, id),
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_members_updated ON members(office_id, updated);
+CREATE INDEX IF NOT EXISTS idx_notices_updated ON notices(office_id, updated);
+CREATE INDEX IF NOT EXISTS idx_vacations_start ON vacations(office_id, start_date);
+
+CREATE TABLE IF NOT EXISTS office_column_config (
+    office_id TEXT PRIMARY KEY,
+    config_json TEXT DEFAULT NULL,
+    updated_at INTEGER,
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS event_color_maps (
+    office_id TEXT PRIMARY KEY,
+    colors_json TEXT DEFAULT '{}',
+    updated INTEGER,
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    firebase_uid TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    office_id TEXT,
+    role TEXT DEFAULT 'staff',
+    created_at INTEGER,
+    updated_at INTEGER,
+    FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_office ON users(office_id);
+`;
+
+/**
+ * データベースが未初期化の場合にテーブル群を作成する
+ */
+async function ensureDatabaseSchema(env) {
+  if (!env.DB) {
+    console.error('[Schema Init] env.DB is not defined.');
+    return;
+  }
+  const statements = INITIAL_SCHEMA.split(';')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  for (const sql of statements) {
+    try {
+      await env.DB.prepare(sql).run();
+    } catch (e) {
+      // 初期化済みの場合は無視
+      if (!e.message.includes('already exists')) {
+        console.warn(`[Schema Init Statment Failed] ${sql.substring(0, 50)}... : ${e.message}`);
+      }
+    }
+  }
+}

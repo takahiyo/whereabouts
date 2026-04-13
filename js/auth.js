@@ -116,33 +116,51 @@ export async function checkLogin() {
         
         // Firebase ログイン中なら Worker と同期
         console.log('【DEBUG】Worker 同期開始 (action: signup)');
-        const fbToken = await getFbToken();
-        const resp = await fetchFromWorker('signup', { token: fbToken });
-        console.log('【DEBUG】Worker 同期応答:', resp);
+        try {
+          const fbToken = await getFbToken();
+          const resp = await fetchFromWorker('signup', { token: fbToken });
+          console.log('【DEBUG】Worker 同期応答:', resp);
 
-        if (resp.ok) {
-          const workerUser = resp.user || {};
-          if (workerUser.office_id) {
-            console.log('【DEBUG】拠点所属済み:', workerUser.office_id);
-            const loginResp = await fetchFromWorker('renew', { token: fbToken });
-            if (loginResp.ok) {
-                await finalizeLogin(loginResp);
-                resolve(true);
-                return;
+          if (resp.ok) {
+            console.log('【DEBUG】Worker 同期成功:', resp);
+            const wasBooting = isBooting;
+            isBooting = false; // 同期成功で起動完了
+
+            if (resp.user && resp.user.office_id) {
+              // すでに拠点に紐付いている場合
+              const loginResp = await fetchFromWorker('renew', { token: fbToken });
+              if (loginResp.ok) {
+                  await finalizeLogin(loginResp);
+                  resolve(true);
+                  return;
+              }
+            } else if (wasBooting) {
+              // [FIX] 新規登録直後は isBooting が true のはずなので、拠点作成画面へ遷移させる
+              switchAuthView('createOffice');
+              resolve(false);
             }
           } else {
-            console.log('【DEBUG】拠点未作成状態です');
-            switchAuthView('createOffice');
+            console.error('【DEBUG】Worker 同期失敗:', resp);
+            // [FIX] サーバー側でメール未認証判定された場合は、クライアントの状態に関わらず強制遷移させる
+            if (resp.error === 'email_not_verified') {
+              switchAuthView('verify');
+            } else {
+              // [FIX] ホワイトアウト防止：ログイン画面を強制表示し、エラーを可視化する
+              if (loginEl) loginEl.classList.remove('u-hidden');
+              switchAuthView('officeLogin');
+              
+              const errMsg = resp.hint 
+                ? `${resp.message} (${resp.hint})` 
+                : (resp.message || resp.error || '不明なエラー');
+              showError(`システムエラー: ${errMsg}`);
+            }
             resolve(false);
           }
-        } else {
-          console.error('【DEBUG】Worker 同期失敗:', resp);
-          // [FIX] サーバー側でメール未認証判定された場合は、クライアントの状態に関わらず強制遷移させる
-          if (resp.error === 'email_not_verified') {
-            switchAuthView('verify');
-          } else {
-            showError(`システムエラー: ${resp.message || resp.error || '不明なエラー'}`);
-          }
+        } catch (syncErr) {
+          console.error('【DEBUG】Worker 同期中に例外発生:', syncErr);
+          if (loginEl) loginEl.classList.remove('u-hidden');
+          switchAuthView('officeLogin');
+          showError(`通信エラーが発生しました: ${syncErr.message}`);
           resolve(false);
         }
       } else {
