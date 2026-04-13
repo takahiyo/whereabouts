@@ -203,6 +203,15 @@ export default {
       let authContext = null; 
       const providedToken = getParam('token');
       
+      // D1 Binding Check
+      if (!env.DB) {
+        return new Response(JSON.stringify({ 
+          ok: false, 
+          error: 'DB_BINDING_MISSING', 
+          message: 'D1 データベースが Worker にバインドされていません。ダッシュボードの設定を確認してください。' 
+        }), { status: 500, headers: corsHeaders });
+      }
+
       try {
         const fbPayload = await verifyFirebaseToken(providedToken);
         if (fbPayload && fbPayload.email_verified) {
