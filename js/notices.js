@@ -164,7 +164,9 @@ function renderNotices(notices) {
 
   if (!list || list.length === 0) {
     noticesList.innerHTML = '';
-    noticesArea.style.display = 'none';
+    // [BEFORE] noticesArea.style.display = 'none';
+    noticesArea.classList.add('u-hidden');
+
     if (noticesBtn) noticesBtn.style.display = 'none';
     window.CURRENT_NOTICES = []; // グローバルにも空配列を反映
     return;
@@ -218,10 +220,14 @@ function renderNotices(notices) {
     }
   }
 
-  noticesArea.style.display = 'block';
+  // [BEFORE] noticesArea.style.display = 'block';
+  noticesArea.classList.remove('u-hidden');
+  noticesArea.style.display = ''; // インラインスタイルをクリアしてCSS定義を優先させる
+
   if (noticesBtn) noticesBtn.style.display = 'inline-block';
 
   applyNoticeCollapsedState(noticesArea);
+
 
   // お知らせヘッダーをクリックで開閉できるようにする
   const noticesHeader = noticesArea.querySelector('.notices-header');
