@@ -34,12 +34,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const noticesBtn = document.getElementById('noticesBtn');
   if (noticesBtn) {
     noticesBtn.addEventListener('click', () => {
-      const noticesArea = document.getElementById('noticesArea');
+      // [BEFORE] noticesArea.style.display = noticesArea.style.display === 'none' ? 'block' : 'none';
+      // [AFTER] notices.js の toggleNoticesArea を呼び出す（collapsed クラスのトグル）
       if (typeof toggleNoticesArea === 'function') {
         toggleNoticesArea();
-      } else if (noticesArea) {
-        // フォールバック
-        noticesArea.style.display = noticesArea.style.display === 'none' ? 'block' : 'none';
       }
       // スクロール
       setTimeout(() => {
@@ -47,6 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }, 100);
     });
   }
+
 
   /* === ▼ 追加箇所: イベントボタンの処理 ▼ === */
   const eventBtn = document.querySelector('header .event-btn');

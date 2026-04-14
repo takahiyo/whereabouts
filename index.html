@@ -1248,24 +1248,22 @@
       </div>
 
       <!-- 2. サインアップ（管理者登録） -->
-      <div id="signupFormArea" class="u-hidden">
+      <div id="signupFormArea" class="u-hidden u-text-center">
         <p class="u-font-09em u-mb-8">管理者（オーナー）新規登録</p>
-        <input type="email" id="signupEmail" placeholder="メールアドレス" />
-        <input type="password" id="signupPw" placeholder="パスワード (6文字以上)" />
-        <button id="btnAuthSignup" type="button" class="u-mt-16">登録して実在確認へ</button>
+        <input type="email" id="signupEmail" placeholder="メールアドレス" class="u-mb-8" />
+        <input type="password" id="signupPw" placeholder="パスワード" class="u-mb-4" />
+        <p id="signupPwHint" class="u-font-07em u-text-gray u-mb-16">大小英字、数字、記号の内2種類以上を含む12文字以上</p>
+        <button id="btnAuthSignup" type="button" class="btn-pill">登録</button>
         <p class="u-mt-16 u-font-08em">
           <a href="#" id="linkGotoLogin" class="u-link-blue">ログインに戻る</a>
         </p>
       </div>
 
       <!-- 3. メール認証待ち -->
-      <div id="verifyEmailArea" class="u-hidden">
+      <div id="verifyEmailArea" class="u-hidden u-text-center">
         <p class="u-mb-8">📩 確認メールを送信しました</p>
-        <p class="u-font-08em">メール内のリンクをクリックして認証を完了させた後、この画面に戻ってログインしてください。</p>
-        <button id="btnVerifyDone" type="button" class="u-mt-16">完了してログイン画面へ</button>
-        <p class="u-mt-16 u-font-08em">
-          <a href="#" id="linkBackToLoginFromVerify" class="u-link-blue">拠点ログイン画面に戻る</a>
-        </p>
+        <p class="u-font-08em u-mb-16">メール内のリンクをクリックして認証を完了させた後、この画面に戻ってログインしてください。</p>
+        <button id="btnVerifyDone" type="button" class="btn-pill">完了してログイン画面へ</button>
       </div>
 
       <!-- 4. 拠点作成 -->
@@ -1326,6 +1324,7 @@
   <script src="js/constants/ui.js" defer></script>
   <script src="js/constants/defaults.js" defer></script>
   <script src="js/constants/column-definitions.js" defer></script>
+  <script src="js/constants/messages.js" defer></script>
   <script src="js/globals.js?v=20260408" defer></script>
   <script src="js/utils.js?v=20260408" defer></script>
   <script src="js/services/qr-generator.js" defer></script>

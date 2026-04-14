@@ -116,33 +116,51 @@ export async function checkLogin() {
         
         // Firebase ログイン中なら Worker と同期
         console.log('【DEBUG】Worker 同期開始 (action: signup)');
-        const fbToken = await getFbToken();
-        const resp = await fetchFromWorker('signup', { token: fbToken });
-        console.log('【DEBUG】Worker 同期応答:', resp);
+        try {
+          const fbToken = await getFbToken();
+          const resp = await fetchFromWorker('signup', { token: fbToken });
+          console.log('【DEBUG】Worker 同期応答:', resp);
 
-        if (resp.ok) {
-          const workerUser = resp.user || {};
-          if (workerUser.office_id) {
-            console.log('【DEBUG】拠点所属済み:', workerUser.office_id);
-            const loginResp = await fetchFromWorker('renew', { token: fbToken });
-            if (loginResp.ok) {
-                await finalizeLogin(loginResp);
-                resolve(true);
-                return;
+          if (resp.ok) {
+            console.log('【DEBUG】Worker 同期成功:', resp);
+            const wasBooting = isBooting;
+            isBooting = false; // 同期成功で起動完了
+
+            if (resp.user && resp.user.office_id) {
+              // すでに拠点に紐付いている場合
+              const loginResp = await fetchFromWorker('renew', { token: fbToken });
+              if (loginResp.ok) {
+                  await finalizeLogin(loginResp);
+                  resolve(true);
+                  return;
+              }
+            } else if (wasBooting) {
+              // [FIX] 新規登録直後は isBooting が true のはずなので、拠点作成画面へ遷移させる
+              switchAuthView('createOffice');
+              resolve(false);
             }
           } else {
-            console.log('【DEBUG】拠点未作成状態です');
-            switchAuthView('createOffice');
+            console.error('【DEBUG】Worker 同期失敗:', resp);
+            // [FIX] サーバー側でメール未認証判定された場合は、クライアントの状態に関わらず強制遷移させる
+            if (resp.error === 'email_not_verified') {
+              switchAuthView('verify');
+            } else {
+              // [FIX] ホワイトアウト防止：ログイン画面を強制表示し、エラーを可視化する
+              if (loginEl) loginEl.classList.remove('u-hidden');
+              switchAuthView('officeLogin');
+              
+              const errMsg = resp.hint 
+                ? `${resp.message} (${resp.hint})` 
+                : (resp.message || resp.error || '不明なエラー');
+              showError(`システムエラー: ${errMsg}`);
+            }
             resolve(false);
           }
-        } else {
-          console.error('【DEBUG】Worker 同期失敗:', resp);
-          // [FIX] サーバー側でメール未認証判定された場合は、クライアントの状態に関わらず強制遷移させる
-          if (resp.error === 'email_not_verified') {
-            switchAuthView('verify');
-          } else {
-            showError(`システムエラー: ${resp.message || resp.error || '不明なエラー'}`);
-          }
+        } catch (syncErr) {
+          console.error('【DEBUG】Worker 同期中に例外発生:', syncErr);
+          if (loginEl) loginEl.classList.remove('u-hidden');
+          switchAuthView('officeLogin');
+          showError(`通信エラーが発生しました: ${syncErr.message}`);
           resolve(false);
         }
       } else {
@@ -207,6 +225,8 @@ function switchAuthView(view) {
     if (targetEl) {
       targetEl.classList.remove('u-hidden');
       console.log(`【DEBUG】エリアを表示しました: ${targetId}`);
+      // ビュー切り替え時にメッセージをクリア
+      if (loginMsg) loginMsg.textContent = '';
     } else {
       console.error(`【DEBUG】エラー: 表示対象の要素が見つかりません: ${targetId}`);
     }
@@ -288,9 +308,32 @@ async function fetchFromWorker(action, bodyParams) {
  */
 function showError(msg) {
   if (loginMsg) {
-    loginMsg.textContent = msg;
+    // Firebaseの特定エラーコードを日本語に変換 (SSOT: messages.js)
+    let displayMsg = msg;
+    if (typeof AUTH_MESSAGES !== 'undefined') {
+      if (msg.includes('auth/email-already-in-use')) displayMsg = AUTH_MESSAGES.ERROR.EMAIL_ALREADY_IN_USE;
+      else if (msg.includes('auth/weak-password')) displayMsg = AUTH_MESSAGES.ERROR.WEAK_PASSWORD;
+      else if (msg.includes('auth/invalid-email')) displayMsg = AUTH_MESSAGES.ERROR.INVALID_EMAIL;
+      else if (msg.includes('auth/user-not-found') || msg.includes('auth/wrong-password')) displayMsg = AUTH_MESSAGES.ERROR.NOT_FOUND;
+    }
+    
+    loginMsg.textContent = displayMsg;
     loginMsg.style.color = 'var(--color-red-600)';
   }
+}
+
+/**
+ * パスワードバリデーション
+ * 大小英字、数字、記号の内2種類以上を含む12文字以上
+ */
+function validatePassword(pw) {
+  if (pw.length < 12) return false;
+  let types = 0;
+  if (/[a-z]/.test(pw)) types++;
+  if (/[A-Z]/.test(pw)) types++;
+  if (/[0-9]/.test(pw)) types++;
+  if (/[^a-zA-Z0-9]/.test(pw)) types++;
+  return types >= 2;
 }
 
 // ---------------------------------------------------------
@@ -323,7 +366,7 @@ document.getElementById('btnSimpleLogin')?.addEventListener('click', async () =>
     if (res.ok) {
       await finalizeLogin(res);
     } else {
-      showError('ログインに失敗しました。拠点名またはパスワードが正しくありません。');
+      showError(typeof AUTH_MESSAGES !== 'undefined' ? AUTH_MESSAGES.ERROR.NOT_FOUND : 'ログインに失敗しました。拠点名またはパスワードが正しくありません。');
     }
   }
 });
@@ -338,11 +381,19 @@ document.getElementById('btnAuthSignup')?.addEventListener('click', async () => 
     return showError('【設定不備】Firebaseの設定が完了していません。js/firebase-config.js を編集してください。');
   }
 
-  if (!email || pw.length < 6) return showError('正しいメールアドレスと6文字以上のパスワードを入力してください。');
+  if (!email) return showError(typeof AUTH_MESSAGES !== 'undefined' ? AUTH_MESSAGES.ERROR.INVALID_EMAIL : '正しいメールアドレスを入力してください。');
+  
+  if (!validatePassword(pw)) {
+    return showError(typeof AUTH_MESSAGES !== 'undefined' ? AUTH_MESSAGES.ERROR.INVALID_PASSWORD_FORMAT : 'パスワードは2種類以上の文字種を含む12文字以上で入力してください。');
+  }
 
   const res = await fbSignup(email, pw);
-  if (res.ok) switchAuthView('verify');
-  else showError('登録失敗: ' + (res.error || ''));
+  if (res.ok) {
+    if (loginMsg) loginMsg.textContent = ''; // 成功時はエラーを消す
+    switchAuthView('verify');
+  } else {
+    showError(res.error || '登録失敗');
+  }
 });
 
 // 新規拠点作成
