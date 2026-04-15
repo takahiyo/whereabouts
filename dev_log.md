@@ -1,5 +1,36 @@
 # 開発ログ (dev_log.md)
 
+## 2026-04-15: LLM向け入口ドキュメント（LLM_CONTEXT.md）の新規作成
+
+### 成功の境界線
+- プロジェクト直下に `LLM_CONTEXT.md` を追加し、エージェント向けの**入口・実ディレクトリマップ・必読ドキュメントへのリンク・EXPORT_FOR_LLM.md の役割区分**を1か所に整理した。
+- 既存の `INDEX.md` / `CORE_PRINCIPLES.md` / `docs/SYSTEM_ARCHITECTURE.md` 等を正とし、重複する詳細ルールは本ファイルではリンクに留めた。
+
+### 失敗の事象
+- なし（ドキュメント追加のみ）。
+
+### 失敗の根本原因
+- 該当なし。
+
+### 次のアプローチ
+- 認証方式やデプロイ手順の事実が変わったら、`LLM_CONTEXT.md` の「技術スタック」「ディレクトリマップ」を追随更新する。
+
+## 2026-04-15: NotebookLM向けに LLM_CONTEXT.md へ全ソース全文を埋め込み
+
+### 成功の境界線
+- `LLM_CONTEXT.md` の後半に、`index.html` / `styles.css` / `print-list.css` / `schema.sql` / `CloudflareWorkers_worker.js` / `sw.js` / `js/**` 主要スクリプト / `main.js` / `package.json` / `wrangler.toml` の**全文**を、見出し＋フェンス付きコードブロックで連結した（`archive/` は除外）。
+- 文字化け回避のため、日本語ヘッダーは `scripts/LLM_CONTEXT_header.md`（UTF-8）をテンプレートとして読み込み、`{{FILE_LIST}}` を差し替える方式にした。
+- 同じ結合ルールを `scripts/build_llm_context.ps1` と `scripts/build_llm_context.mjs` の両方で再現可能にした。
+
+### 失敗の事象
+- 初回、PowerShell の here-string 内の日本語が実行環境の解釈で壊れた。続けて `ReadAllBytes`＋`Resolve-Path` 組み合わせでパス例外・null が発生した。
+
+### 失敗の根本原因
+- スクリプト本体の文字コードと PowerShell 5.1 の既定解釈の不一致（here-string）。`Resolve-Path` が特定環境で「不正なパス文字」例外を返した。
+
+### 次のアプローチ
+- ヘッダーは**外部UTF-8テンプレート**＋`ReadAllText(..., UTF8Encoding(false))` に統一。再生成は `scripts/build_llm_context.ps1` を正とする。
+
 ## 2026-03-31: 拡張カラム（伸びる列）による他カラム圧縮問題の修正
 
 ### 成功の境界線
