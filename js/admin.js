@@ -264,11 +264,31 @@ btnRenameOffice.addEventListener('click', async () => {
 btnSetPw.addEventListener('click', async () => {
   const office = selectedOfficeId(); if (!office) return;
   const pw = (setPw.value || '').trim();
-  const apw = (setAdminPw.value || '').trim();
-  if (!pw && !apw) { toast('更新する項目を入力', false); return; }
-  const r = await adminSetOfficePassword(office, pw, apw);
-  if (r && r.ok) { toast('パスワードを更新しました'); setPw.value = ''; setAdminPw.value = ''; }
-  else toast('更新に失敗', false);
+
+  // [VALIDATION] 12文字以上、2種類以上の文字種
+  if (!pw) {
+    toast('パスワードを入力してください', false);
+    return;
+  }
+
+  const hasUpper = /[A-Z]/.test(pw);
+  const hasLower = /[a-z]/.test(pw);
+  const hasNum = /[0-9]/.test(pw);
+  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw);
+  const typeCount = [hasUpper, hasLower, hasNum, hasSymbol].filter(Boolean).length;
+
+  if (pw.length < 12 || typeCount < 2) {
+    toast(AUTH_MESSAGES.ERROR.INVALID_PASSWORD_FORMAT, false);
+    return;
+  }
+
+  const r = await adminSetUserPassword(office, pw);
+  if (r && r.ok) {
+    toast('一般利用者パスワードを更新しました');
+    setPw.value = '';
+  } else {
+    toast('更新に失敗: ' + (r.message || r.error || '不明なエラー'), false);
+  }
 });
 
 /* 管理モーダルのタブ切り替え */
@@ -2117,6 +2137,7 @@ async function adminSetForChunked(office, dataObjFull) {
 }
 async function adminRenameOffice(office, name) { return await apiPost({ action: 'renameOffice', office, name, token: SESSION_TOKEN }); }
 async function adminSetOfficePassword(office, pw, apw) { const q = { action: 'setOfficePassword', id: office, token: SESSION_TOKEN }; if (pw) q.password = pw; if (apw) q.adminPassword = apw; return await apiPost(q); }
+async function adminSetUserPassword(office, pw) { return await apiPost({ action: 'setUserPassword', office, password: pw, token: SESSION_TOKEN }); }
 async function adminGetVacation(office) { return await apiPost({ action: 'getVacation', token: SESSION_TOKEN, office, nocache: '1' }); }
 async function adminSetVacation(office, payload) { const q = { action: 'setVacation', token: SESSION_TOKEN, office, data: JSON.stringify(payload) }; return await apiPost(q); }
 async function saveVacationBits(office, payload) { const q = { action: 'setVacationBits', token: SESSION_TOKEN, office, data: JSON.stringify(payload) }; return await apiPost(q); }

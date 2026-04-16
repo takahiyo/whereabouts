@@ -405,7 +405,6 @@ document.getElementById('btnCreateOffice')?.addEventListener('click', async () =
   const officeId = toHalfWidth(rawId).toLowerCase(); // 常に小文字・半角
   const name = document.getElementById('newOfficeName').value.trim();
   const password = document.getElementById('newOfficePw').value;
-  const adminPassword = document.getElementById('newOfficeAdminPw').value;
 
   console.log('【DEBUG】拠点作成試行:', { rawId, officeId, nameLength: name.length });
 
@@ -414,12 +413,18 @@ document.getElementById('btnCreateOffice')?.addEventListener('click', async () =
     console.warn('【DEBUG】バリデーション失敗(ID形式):', officeId);
     return showError('オフィスIDは半角英数字と(_)のみ使用可能です。');
   }
-  if (!name || !password || !adminPassword) return showError('全ての項目を入力してください。');
+  if (!name || !password) return showError('全ての項目を入力してください。');
+
+  // [VALIDATION] パスワード強度チェック
+  if (!validatePassword(password)) {
+    return showError(typeof AUTH_MESSAGES !== 'undefined' ? AUTH_MESSAGES.ERROR.INVALID_PASSWORD_FORMAT : 'パスワードは12文字以上、かつ2種類以上の文字種を含めてください。');
+  }
 
   const fbToken = await getFbToken();
   console.log('【DEBUG】Workerへ送信 (action: createOffice)');
   const res = await fetchFromWorker('createOffice', { 
-    token: fbToken, officeId, name, password, adminPassword 
+    token: fbToken, officeId, name, password 
+    // adminPassword は Worker 側で password と同じものが自動セットされる
   });
   
   if (res.ok) {

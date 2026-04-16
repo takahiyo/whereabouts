@@ -114,12 +114,13 @@
                     id="btnRenameOffice">変更</button></div>
               </div>
               <div class="admin-subsection">
-                <h5>拠点パスワードの変更</h5>
+                <h5>一般利用者パスワードの変更</h5>
                 <div class="admin-row">
-                  <input id="setPw" placeholder="新パスワード（任意）" />
-                  <input id="setAdminPw" placeholder="新管理者PW（任意）" />
+                  <input id="setPw" placeholder="新パスワード (12文字以上, 2種類混在)" aria-label="一般利用者パスワード" autocomplete="new-password" />
                   <button id="btnSetPw">更新</button>
                 </div>
+                <div class="admin-note">※一般利用者が拠点IDでログインする際の共有パスワードです（管理者・Ownerは個別のFirebase認証を利用してください）。</div>
+                <div class="admin-note u-text-red u-font-sm">※12文字以上、かつ英数字・記号など2種類以上の入力が必要です。</div>
               </div>
             </div>
 
@@ -1269,13 +1270,11 @@
       <!-- 4. 拠点作成 -->
       <div id="createOfficeArea" class="u-hidden">
         <p class="u-mb-8">🏢 新しい拠点を立ち上げる</p>
-        <input type="text" id="newOfficeId" placeholder="オフィスID (半角英数字、例: abc_honsya)" />
-        <input type="text" id="newOfficeName" placeholder="オフィス名 (例: 株式会社ABC 本社)" />
-        <div class="u-grid-2 u-mt-8">
-          <input type="password" id="newOfficePw" placeholder="一般用パスワード" />
-          <input type="password" id="newOfficeAdminPw" placeholder="管理者用パスワード" />
-        </div>
-        <button id="btnCreateOffice" type="button" class="u-mt-16">拠点を登録して開始</button>
+        <input type="text" id="newOfficeId" placeholder="オフィスID (半角英数字、例: abc_honsya)" class="u-mb-8" />
+        <input type="text" id="newOfficeName" placeholder="オフィス名 (例: 株式会社ABC 本社)" class="u-mb-8" />
+        <input type="password" id="newOfficePw" placeholder="一般利用者用パスワード (12文字以上)" class="u-mb-4" />
+        <p class="u-font-07em u-text-gray u-mb-16">※12文字以上、かつ2種類以上の文字種を含めてください</p>
+        <button id="btnCreateOffice" type="button" class="btn-pill u-w-full">拠点を登録して開始</button>
       </div>
 
       <div id="loginMsg" class="login-msg" aria-live="polite"></div>

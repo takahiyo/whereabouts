@@ -408,11 +408,13 @@ export default {
         const newOfficeId = getParam('officeId');
         const officeName = getParam('name');
         const password = getParam('password');
-        const adminPassword = getParam('adminPassword');
+        let adminPassword = getParam('adminPassword');
 
-        if (!newOfficeId || !officeName || !password || !adminPassword) {
+        if (!newOfficeId || !officeName || !password) {
           return new Response(JSON.stringify({ ok: false, error: 'invalid_params' }), { headers: corsHeaders });
         }
+        // Admin PW が未指定なら PW と同じにする (Deprecated への対応)
+        if (!adminPassword) adminPassword = password;
 
         const nowTs = Date.now();
         try {
@@ -969,12 +971,12 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- SET OFFICE PASSWORD --- */
+      /* --- SET OFFICE PASSWORD (Legacy/Combined) --- */
       if (action === 'setOfficePassword') {
         const officeId = getParam('id') || getParam('office') || tokenOffice;
         const pw = getParam('password');
         const apw = getParam('adminPassword');
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin' && tokenRole !== 'owner')) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
         let query = 'UPDATE offices SET ';
@@ -988,6 +990,45 @@ export default {
         }
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
+
+      /* --- SET USER PASSWORD (Staff Password - New Policy) --- */
+      if (action === 'setUserPassword') {
+        const officeId = getParam('office') || tokenOffice;
+        const newPw = getParam('password');
+
+        // [AUTH] 権限チェック (Admin role required)
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin' && tokenRole !== 'owner')) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
+        if (!newPw) {
+          return new Response(JSON.stringify({ ok: false, error: 'invalid_request', message: 'パスワードが指定されていません' }), { headers: corsHeaders });
+        }
+
+        // [VALIDATION] 強度要件: 12文字以上、かつ(英大, 英小, 数, 記)から2種類以上
+        const hasUpper = /[A-Z]/.test(newPw);
+        const hasLower = /[a-z]/.test(newPw);
+        const hasNum = /[0-9]/.test(newPw);
+        const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPw);
+        const typeCount = [hasUpper, hasLower, hasNum, hasSymbol].filter(Boolean).length;
+
+        if (newPw.length < 12 || typeCount < 2) {
+          return new Response(JSON.stringify({ 
+            ok: false, 
+            error: 'weak_password', 
+            message: 'パスワードは12文字以上、かつ2種類以上の文字種を含めてください' 
+          }), { headers: corsHeaders });
+        }
+
+        // 実行
+        await env.DB.prepare('UPDATE offices SET password = ?, updated_at = ? WHERE id = ?')
+          .bind(newPw, Date.now(), officeId)
+          .run();
+
+        console.log(`[setUserPassword] Success for office: ${officeId}`);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
 
       /* --- SET / SET FOR (Status Sync & Batch Update) --- */
       if (action === 'set' || action === 'setFor') {
