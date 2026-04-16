@@ -187,12 +187,13 @@
                     id="btnRenameOffice">変更</button></div>
               </div>
               <div class="admin-subsection">
-                <h5>拠点パスワードの変更</h5>
+                <h5>一般利用者パスワードの変更</h5>
                 <div class="admin-row">
-                  <input id="setPw" placeholder="新パスワード（任意）" />
-                  <input id="setAdminPw" placeholder="新管理者PW（任意）" />
+                  <input id="setPw" placeholder="新パスワード (12文字以上, 2種類混在)" aria-label="一般利用者パスワード" autocomplete="new-password" />
                   <button id="btnSetPw">更新</button>
                 </div>
+                <div class="admin-note">※一般利用者が拠点IDでログインする際の共有パスワードです（管理者・Ownerは個別のFirebase認証を利用してください）。</div>
+                <div class="admin-note u-text-red u-font-sm">※12文字以上、かつ英数字・記号など2種類以上の入力が必要です。</div>
               </div>
             </div>
 
@@ -1342,13 +1343,11 @@
       <!-- 4. 拠点作成 -->
       <div id="createOfficeArea" class="u-hidden">
         <p class="u-mb-8">🏢 新しい拠点を立ち上げる</p>
-        <input type="text" id="newOfficeId" placeholder="オフィスID (半角英数字、例: abc_honsya)" />
-        <input type="text" id="newOfficeName" placeholder="オフィス名 (例: 株式会社ABC 本社)" />
-        <div class="u-grid-2 u-mt-8">
-          <input type="password" id="newOfficePw" placeholder="一般用パスワード" />
-          <input type="password" id="newOfficeAdminPw" placeholder="管理者用パスワード" />
-        </div>
-        <button id="btnCreateOffice" type="button" class="u-mt-16">拠点を登録して開始</button>
+        <input type="text" id="newOfficeId" placeholder="オフィスID (半角英数字、例: abc_honsya)" class="u-mb-8" />
+        <input type="text" id="newOfficeName" placeholder="オフィス名 (例: 株式会社ABC 本社)" class="u-mb-8" />
+        <input type="password" id="newOfficePw" placeholder="一般利用者用パスワード (12文字以上)" class="u-mb-4" />
+        <p class="u-font-07em u-text-gray u-mb-16">※12文字以上、かつ2種類以上の文字種を含めてください</p>
+        <button id="btnCreateOffice" type="button" class="btn-pill u-w-full">拠点を登録して開始</button>
       </div>
 
       <div id="loginMsg" class="login-msg" aria-live="polite"></div>
@@ -7412,11 +7411,13 @@ export default {
         const newOfficeId = getParam('officeId');
         const officeName = getParam('name');
         const password = getParam('password');
-        const adminPassword = getParam('adminPassword');
+        let adminPassword = getParam('adminPassword');
 
-        if (!newOfficeId || !officeName || !password || !adminPassword) {
+        if (!newOfficeId || !officeName || !password) {
           return new Response(JSON.stringify({ ok: false, error: 'invalid_params' }), { headers: corsHeaders });
         }
+        // Admin PW が未指定なら PW と同じにする (Deprecated への対応)
+        if (!adminPassword) adminPassword = password;
 
         const nowTs = Date.now();
         try {
@@ -7973,12 +7974,12 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- SET OFFICE PASSWORD --- */
+      /* --- SET OFFICE PASSWORD (Legacy/Combined) --- */
       if (action === 'setOfficePassword') {
         const officeId = getParam('id') || getParam('office') || tokenOffice;
         const pw = getParam('password');
         const apw = getParam('adminPassword');
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin' && tokenRole !== 'owner')) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
         let query = 'UPDATE offices SET ';
@@ -7992,6 +7993,45 @@ export default {
         }
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
+
+      /* --- SET USER PASSWORD (Staff Password - New Policy) --- */
+      if (action === 'setUserPassword') {
+        const officeId = getParam('office') || tokenOffice;
+        const newPw = getParam('password');
+
+        // [AUTH] 権限チェック (Admin role required)
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin' && tokenRole !== 'owner')) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
+        if (!newPw) {
+          return new Response(JSON.stringify({ ok: false, error: 'invalid_request', message: 'パスワードが指定されていません' }), { headers: corsHeaders });
+        }
+
+        // [VALIDATION] 強度要件: 12文字以上、かつ(英大, 英小, 数, 記)から2種類以上
+        const hasUpper = /[A-Z]/.test(newPw);
+        const hasLower = /[a-z]/.test(newPw);
+        const hasNum = /[0-9]/.test(newPw);
+        const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPw);
+        const typeCount = [hasUpper, hasLower, hasNum, hasSymbol].filter(Boolean).length;
+
+        if (newPw.length < 12 || typeCount < 2) {
+          return new Response(JSON.stringify({ 
+            ok: false, 
+            error: 'weak_password', 
+            message: 'パスワードは12文字以上、かつ2種類以上の文字種を含めてください' 
+          }), { headers: corsHeaders });
+        }
+
+        // 実行
+        await env.DB.prepare('UPDATE offices SET password = ?, updated_at = ? WHERE id = ?')
+          .bind(newPw, Date.now(), officeId)
+          .run();
+
+        console.log(`[setUserPassword] Success for office: ${officeId}`);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
 
       /* --- SET / SET FOR (Status Sync & Batch Update) --- */
       if (action === 'set' || action === 'setFor') {
@@ -14671,7 +14711,6 @@ document.getElementById('btnCreateOffice')?.addEventListener('click', async () =
   const officeId = toHalfWidth(rawId).toLowerCase(); // 常に小文字・半角
   const name = document.getElementById('newOfficeName').value.trim();
   const password = document.getElementById('newOfficePw').value;
-  const adminPassword = document.getElementById('newOfficeAdminPw').value;
 
   console.log('【DEBUG】拠点作成試行:', { rawId, officeId, nameLength: name.length });
 
@@ -14680,12 +14719,18 @@ document.getElementById('btnCreateOffice')?.addEventListener('click', async () =
     console.warn('【DEBUG】バリデーション失敗(ID形式):', officeId);
     return showError('オフィスIDは半角英数字と(_)のみ使用可能です。');
   }
-  if (!name || !password || !adminPassword) return showError('全ての項目を入力してください。');
+  if (!name || !password) return showError('全ての項目を入力してください。');
+
+  // [VALIDATION] パスワード強度チェック
+  if (!validatePassword(password)) {
+    return showError(typeof AUTH_MESSAGES !== 'undefined' ? AUTH_MESSAGES.ERROR.INVALID_PASSWORD_FORMAT : 'パスワードは12文字以上、かつ2種類以上の文字種を含めてください。');
+  }
 
   const fbToken = await getFbToken();
   console.log('【DEBUG】Workerへ送信 (action: createOffice)');
   const res = await fetchFromWorker('createOffice', { 
-    token: fbToken, officeId, name, password, adminPassword 
+    token: fbToken, officeId, name, password 
+    // adminPassword は Worker 側で password と同じものが自動セットされる
   });
   
   if (res.ok) {
@@ -16046,11 +16091,31 @@ btnRenameOffice.addEventListener('click', async () => {
 btnSetPw.addEventListener('click', async () => {
   const office = selectedOfficeId(); if (!office) return;
   const pw = (setPw.value || '').trim();
-  const apw = (setAdminPw.value || '').trim();
-  if (!pw && !apw) { toast('更新する項目を入力', false); return; }
-  const r = await adminSetOfficePassword(office, pw, apw);
-  if (r && r.ok) { toast('パスワードを更新しました'); setPw.value = ''; setAdminPw.value = ''; }
-  else toast('更新に失敗', false);
+
+  // [VALIDATION] 12文字以上、2種類以上の文字種
+  if (!pw) {
+    toast('パスワードを入力してください', false);
+    return;
+  }
+
+  const hasUpper = /[A-Z]/.test(pw);
+  const hasLower = /[a-z]/.test(pw);
+  const hasNum = /[0-9]/.test(pw);
+  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw);
+  const typeCount = [hasUpper, hasLower, hasNum, hasSymbol].filter(Boolean).length;
+
+  if (pw.length < 12 || typeCount < 2) {
+    toast(AUTH_MESSAGES.ERROR.INVALID_PASSWORD_FORMAT, false);
+    return;
+  }
+
+  const r = await adminSetUserPassword(office, pw);
+  if (r && r.ok) {
+    toast('一般利用者パスワードを更新しました');
+    setPw.value = '';
+  } else {
+    toast('更新に失敗: ' + (r.message || r.error || '不明なエラー'), false);
+  }
 });
 
 /* 管理モーダルのタブ切り替え */
@@ -17899,6 +17964,7 @@ async function adminSetForChunked(office, dataObjFull) {
 }
 async function adminRenameOffice(office, name) { return await apiPost({ action: 'renameOffice', office, name, token: SESSION_TOKEN }); }
 async function adminSetOfficePassword(office, pw, apw) { const q = { action: 'setOfficePassword', id: office, token: SESSION_TOKEN }; if (pw) q.password = pw; if (apw) q.adminPassword = apw; return await apiPost(q); }
+async function adminSetUserPassword(office, pw) { return await apiPost({ action: 'setUserPassword', office, password: pw, token: SESSION_TOKEN }); }
 async function adminGetVacation(office) { return await apiPost({ action: 'getVacation', token: SESSION_TOKEN, office, nocache: '1' }); }
 async function adminSetVacation(office, payload) { const q = { action: 'setVacation', token: SESSION_TOKEN, office, data: JSON.stringify(payload) }; return await apiPost(q); }
 async function saveVacationBits(office, payload) { const q = { action: 'setVacationBits', token: SESSION_TOKEN, office, data: JSON.stringify(payload) }; return await apiPost(q); }
