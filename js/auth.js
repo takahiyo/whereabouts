@@ -22,17 +22,8 @@ const fbLogout = () => window.fbLogout ? window.fbLogout() : Promise.resolve();
  * @property {string} token - Firebase idToken または D1 セッションID
  */
 
-// DOM Elements
-const loginEl = document.getElementById('login');
+// DOM Elements (Shared elements are defined in globals.js)
 const loginFormEl = document.getElementById('loginForm');
-const board = document.getElementById('board');
-const loginMsg = document.getElementById('loginMsg');
-const adminBtn = document.getElementById('adminBtn');
-const logoutBtn = document.getElementById('logoutBtn');
-const toolsBtn = document.getElementById('toolsBtn');
-const manualBtn = document.getElementById('manualBtn');
-const qrBtn = document.getElementById('qrBtn');
-const qrModal = document.getElementById('qrModal');
 const btnSimpleLogin = document.getElementById('btnSimpleLogin');
 
 // Auth State Variables
