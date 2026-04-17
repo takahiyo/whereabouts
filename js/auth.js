@@ -42,7 +42,7 @@ let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
 const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260414_v2)');
+console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v1)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
@@ -86,7 +86,16 @@ export const AuthManager = {
                     const result = await this.handleFirebaseUser(user);
                     resolve(result);
                 } else {
-                    if (isBooting && !window.SESSION_TOKEN) {
+                    // D1 セッションは init 冒頭で確認済みのため、ここでは無条件でログイン画面を表示する
+                    // ※ window.SESSION_TOKEN が残っていても Firebase user=null ならリセット扱い
+                    console.log(`【DEBUG】Firebase user=null. isBooting=${isBooting}, SESSION_TOKEN=${!!window.SESSION_TOKEN}, => show officeLogin`);
+                    if (isBooting) {
+                        // 古いトークンをクリア（staleトークンによる白画面防止）
+                        if (window.SESSION_TOKEN && !sessionStorage.getItem(D1_SESSION_LOCK_KEY)) {
+                            localStorage.removeItem(SESSION_KEY);
+                            window.SESSION_TOKEN = '';
+                            console.log('【DEBUG】古いセッショントークンをクリアしました');
+                        }
                         switchAuthView('officeLogin');
                     }
                     resolve(false);
