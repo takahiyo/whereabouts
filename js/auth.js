@@ -42,7 +42,7 @@ let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
 const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v2)');
+console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v3)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス

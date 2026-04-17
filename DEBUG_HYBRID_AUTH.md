@@ -33,6 +33,17 @@
     1. Firebase `user=null` 時、無効な状態とみなし `localStorage` の `SESSION_KEY` だけでなく、`sessionStorage` の `PERSISTENT_SESSION_KEY` も完全クリアするようにした。
     2. `switchAuthView` の `isBoardVisible` の判定から `sessionStorage` の依存を外し、純粋に DOM (`!board.classList.contains('u-hidden')`) の状態のみで判定するように修正した。
 
+### 問題3: ログイン後の表部分（ボード）が白画面
+- **現象**: 手入力ログイン時、ログイン機能自体は成功しトークンも返却されるが、画面に何も表示されない。
+- **エラーログ**: `sync.js` にて `Office ID not found. Cannot start sync.` が発生していた。
+- **原因解明**:
+    - `globals.js` で `CURRENT_OFFICE_ID` などの主要な状態変数が `let` で宣言されていたため。
+    - ES Modules (`auth.js`) の内部から `window.CURRENT_OFFICE_ID = data.office` のように更新しても、`let` で宣言された変数（レキシカルスコープ）には値が反映されず、`window` オブジェクトのプロパティが別に作られるだけの状態になっていた。
+    - 結果として、従来スクリプト（`sync.js`）は空文字のままの `let CURRENT_OFFICE_ID` を読みに行き、同期が中止されていた。
+- **解決策**:
+    - `globals.js` 内の `CURRENT_OFFICE_ID`, `CURRENT_OFFICE_NAME`, `CURRENT_ROLE`, `SESSION_TOKEN`, `OFFICE_COLUMN_CONFIG` の宣言を `let` から `var` に変更した。
+    - `var` により変数が `window` オブジェクトのプロパティとして完全に同一視されるようになり、ESモジュール側から `window.` 経由で行った更新が従来スクリプトへ正しく伝搬するようになった。
+
 ## テスト結果記録
 
 | 日時 | テスト内容 | 結果 | 備考 |

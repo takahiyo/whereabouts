@@ -84,12 +84,12 @@ const EVENT_SYNC_INTERVAL_MS = (typeof CONFIG !== 'undefined' && CONFIG.eventSyn
 
 /* 認証状態 */
 /* --- 状態 --- */
-let CURRENT_OFFICE_ID = '';
-let CURRENT_OFFICE_NAME = '';
-let CURRENT_ROLE = 'user'; // 'user', 'officeAdmin', 'superAdmin'
-let SESSION_TOKEN = localStorage.getItem(SESSION_KEY) || '';
+var CURRENT_OFFICE_ID = '';
+var CURRENT_OFFICE_NAME = '';
+var CURRENT_ROLE = 'user'; // 'user', 'officeAdmin', 'superAdmin'
+var SESSION_TOKEN = localStorage.getItem(SESSION_KEY) || '';
 /** 拠点カラム設定 (Phase 3) */
-let OFFICE_COLUMN_CONFIG = null;
+var OFFICE_COLUMN_CONFIG = null;
 try {
   // 自動ログイン等のため、拠点IDが判明している場合はそこから読み込む
   const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
