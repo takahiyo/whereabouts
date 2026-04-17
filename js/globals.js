@@ -1616,3 +1616,14 @@ if (btnEventPrint) {
 
 /* レイアウト定数は constants/ui.js で定義 */
 /* PANEL_MIN_PX, GAP_PX, MAX_COLS, CARD_BREAKPOINT_PX */
+// --- Module Compatibility Window Exports ---
+// ES Modules (like auth.js) cannot access top-level let/const from plain scripts.
+window.SESSION_TOKEN = SESSION_TOKEN;
+window.CURRENT_ROLE = CURRENT_ROLE;
+window.CURRENT_OFFICE_ID = CURRENT_OFFICE_ID;
+window.CURRENT_OFFICE_NAME = CURRENT_OFFICE_NAME;
+window.OFFICE_COLUMN_CONFIG = OFFICE_COLUMN_CONFIG;
+
+// また、値が更新された際にも window 側が同期されるように、代入時に注意が必要だが、
+// 現状のコードベースではこれらへの再代入は auth.js 等で行われるため、
+// auth.js 側で window.SESSION_TOKEN = ... のように扱うのが確実。

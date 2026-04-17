@@ -86,7 +86,7 @@ export const AuthManager = {
                     const result = await this.handleFirebaseUser(user);
                     resolve(result);
                 } else {
-                    if (isBooting && !SESSION_TOKEN) {
+                    if (isBooting && !window.SESSION_TOKEN) {
                         switchAuthView('officeLogin');
                     }
                     resolve(false);
@@ -167,7 +167,7 @@ export const AuthManager = {
             const urlParams = new URLSearchParams(window.location.search);
             const hasOfficeParam = !!urlParams.get('office');
             
-            if (SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY) || hasOfficeParam) {
+            if (window.SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY) || hasOfficeParam) {
                 return;
             }
             switchAuthView('verify');
@@ -268,7 +268,7 @@ export const AuthManager = {
           if (bodyParams[key] != null) params.append(key, bodyParams[key]);
         }
 
-        const endpoint = CONFIG.remoteEndpoint;
+        const endpoint = window.CONFIG ? window.CONFIG.remoteEndpoint : (typeof CONFIG !== 'undefined' ? CONFIG.remoteEndpoint : '');
         const resp = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -340,13 +340,13 @@ async function finalizeLogin(data) {
     return;
   }
 
-  CURRENT_OFFICE_ID = data.office;
-  CURRENT_ROLE = data.role || 'user';
-  SESSION_TOKEN = data.token;
+  window.CURRENT_OFFICE_ID = data.office;
+  window.CURRENT_ROLE = data.role || 'user';
+  window.SESSION_TOKEN = data.token;
   isBooting = false;
 
-  localStorage.setItem(SESSION_KEY, SESSION_TOKEN);
-  localStorage.setItem(LOCAL_OFFICE_KEY, CURRENT_OFFICE_ID);
+  localStorage.setItem(SESSION_KEY, window.SESSION_TOKEN);
+  localStorage.setItem(LOCAL_OFFICE_KEY, window.CURRENT_OFFICE_ID);
   localStorage.setItem(LOCAL_ROLE_KEY, CURRENT_ROLE);
   const officeName = data.officeName || CURRENT_OFFICE_ID;
   localStorage.setItem(LOCAL_OFFICE_NAME_KEY, officeName);
@@ -365,7 +365,7 @@ async function finalizeLogin(data) {
   if (typeof startConfigWatch === 'function') startConfigWatch();
   if (typeof startNoticesPolling === 'function') startNoticesPolling();
   if (typeof startEventSync === 'function') startEventSync(true);
-  if (typeof loadEvents === 'function') loadEvents(CURRENT_OFFICE_ID);
+  if (typeof loadEvents === 'function') loadEvents(window.CURRENT_OFFICE_ID);
 }
 
 /**
@@ -535,8 +535,8 @@ window.logout = logoutAction;
 window.showQrModal = showQrModal;
 
 function ensureAuthUI() {
-  const loggedIn = !!SESSION_TOKEN;
-  const isAdmin = loggedIn && (CURRENT_ROLE === 'owner' || CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin');
+  const loggedIn = !!window.SESSION_TOKEN;
+  const isAdmin = loggedIn && (window.CURRENT_ROLE === 'owner' || window.CURRENT_ROLE === 'officeAdmin' || window.CURRENT_ROLE === 'superAdmin');
   
   if (adminBtn) adminBtn.style.display = isAdmin ? 'inline-block' : 'none';
   if (logoutBtn) logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
@@ -550,8 +550,8 @@ function ensureAuthUI() {
   if (statusFilter) statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
   
   const adminOfficeRow = document.getElementById('adminOfficeRow');
-  if (adminOfficeRow) adminOfficeRow.style.display = (CURRENT_ROLE === 'superAdmin') ? 'flex' : 'none';
+  if (adminOfficeRow) adminOfficeRow.style.display = (window.CURRENT_ROLE === 'superAdmin') ? 'flex' : 'none';
 }
 window.ensureAuthUI = ensureAuthUI;
-export const checkLogin = () => AuthManager.init({ remoteEndpoint: CONFIG.remoteEndpoint });
+export const checkLogin = () => AuthManager.init({ remoteEndpoint: window.CONFIG ? window.CONFIG.remoteEndpoint : (typeof CONFIG !== 'undefined' ? CONFIG.remoteEndpoint : '') });
 window.checkLogin = checkLogin;

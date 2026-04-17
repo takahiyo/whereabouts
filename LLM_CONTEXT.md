@@ -99,21 +99,7 @@
   <link rel="stylesheet" href="print-list.css" media="print">
   <link rel="icon" href="data:,">
   
-  <!-- Flicker Prevention Guard (Rich Aesthetics) -->
-  <script>
-    (function() {
-      // 起動直後に D1 セッションロックを確認し、チラつき（Flicker）を防止する
-      // Firebase の非同期通知より先に UI の初期状態を決定する
-      const authType = sessionStorage.getItem('whereabouts_auth_type');
-      if (authType === 'd1' && localStorage.getItem('whereabouts_session_token')) {
-        document.documentElement.classList.add('is-d1-authed');
-        // CSSで #login を非表示にするスタイルを即注入
-        const style = document.createElement('style');
-        style.textContent = '.is-d1-authed #login { display: none !important; }';
-        document.head.appendChild(style);
-      }
-    })();
-  </script>
+  <script src="js/auth-guard.js"></script>
 </head>
 
 <body>
@@ -8622,7 +8608,7 @@ const hostname = window.location.hostname;
 const isDev = hostname.startsWith('dev.') || hostname.includes('localhost') || hostname === '127.0.0.1';
 console.log('【DEBUG】hostname:', hostname, 'isDev:', isDev);
 
-const CONFIG = {
+var CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
     authMode: 'worker',
     // 環境に応じてエンドポイントを切り替え
@@ -11020,6 +11006,17 @@ if (btnEventPrint) {
 
 /* レイアウト定数は constants/ui.js で定義 */
 /* PANEL_MIN_PX, GAP_PX, MAX_COLS, CARD_BREAKPOINT_PX */
+// --- Module Compatibility Window Exports ---
+// ES Modules (like auth.js) cannot access top-level let/const from plain scripts.
+window.SESSION_TOKEN = SESSION_TOKEN;
+window.CURRENT_ROLE = CURRENT_ROLE;
+window.CURRENT_OFFICE_ID = CURRENT_OFFICE_ID;
+window.CURRENT_OFFICE_NAME = CURRENT_OFFICE_NAME;
+window.OFFICE_COLUMN_CONFIG = OFFICE_COLUMN_CONFIG;
+
+// また、値が更新された際にも window 側が同期されるように、代入時に注意が必要だが、
+// 現状のコードベースではこれらへの再代入は auth.js 等で行われるため、
+// auth.js 側で window.SESSION_TOKEN = ... のように扱うのが確実。
 
 `
 
@@ -14417,7 +14414,7 @@ export const AuthManager = {
                     const result = await this.handleFirebaseUser(user);
                     resolve(result);
                 } else {
-                    if (isBooting && !SESSION_TOKEN) {
+                    if (isBooting && !window.SESSION_TOKEN) {
                         switchAuthView('officeLogin');
                     }
                     resolve(false);
@@ -14498,7 +14495,7 @@ export const AuthManager = {
             const urlParams = new URLSearchParams(window.location.search);
             const hasOfficeParam = !!urlParams.get('office');
             
-            if (SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY) || hasOfficeParam) {
+            if (window.SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY) || hasOfficeParam) {
                 return;
             }
             switchAuthView('verify');
@@ -14599,7 +14596,7 @@ export const AuthManager = {
           if (bodyParams[key] != null) params.append(key, bodyParams[key]);
         }
 
-        const endpoint = CONFIG.remoteEndpoint;
+        const endpoint = window.CONFIG ? window.CONFIG.remoteEndpoint : (typeof CONFIG !== 'undefined' ? CONFIG.remoteEndpoint : '');
         const resp = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -14671,13 +14668,13 @@ async function finalizeLogin(data) {
     return;
   }
 
-  CURRENT_OFFICE_ID = data.office;
-  CURRENT_ROLE = data.role || 'user';
-  SESSION_TOKEN = data.token;
+  window.CURRENT_OFFICE_ID = data.office;
+  window.CURRENT_ROLE = data.role || 'user';
+  window.SESSION_TOKEN = data.token;
   isBooting = false;
 
-  localStorage.setItem(SESSION_KEY, SESSION_TOKEN);
-  localStorage.setItem(LOCAL_OFFICE_KEY, CURRENT_OFFICE_ID);
+  localStorage.setItem(SESSION_KEY, window.SESSION_TOKEN);
+  localStorage.setItem(LOCAL_OFFICE_KEY, window.CURRENT_OFFICE_ID);
   localStorage.setItem(LOCAL_ROLE_KEY, CURRENT_ROLE);
   const officeName = data.officeName || CURRENT_OFFICE_ID;
   localStorage.setItem(LOCAL_OFFICE_NAME_KEY, officeName);
@@ -14696,7 +14693,7 @@ async function finalizeLogin(data) {
   if (typeof startConfigWatch === 'function') startConfigWatch();
   if (typeof startNoticesPolling === 'function') startNoticesPolling();
   if (typeof startEventSync === 'function') startEventSync(true);
-  if (typeof loadEvents === 'function') loadEvents(CURRENT_OFFICE_ID);
+  if (typeof loadEvents === 'function') loadEvents(window.CURRENT_OFFICE_ID);
 }
 
 /**
@@ -14866,8 +14863,8 @@ window.logout = logoutAction;
 window.showQrModal = showQrModal;
 
 function ensureAuthUI() {
-  const loggedIn = !!SESSION_TOKEN;
-  const isAdmin = loggedIn && (CURRENT_ROLE === 'owner' || CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin');
+  const loggedIn = !!window.SESSION_TOKEN;
+  const isAdmin = loggedIn && (window.CURRENT_ROLE === 'owner' || window.CURRENT_ROLE === 'officeAdmin' || window.CURRENT_ROLE === 'superAdmin');
   
   if (adminBtn) adminBtn.style.display = isAdmin ? 'inline-block' : 'none';
   if (logoutBtn) logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
@@ -14881,10 +14878,10 @@ function ensureAuthUI() {
   if (statusFilter) statusFilter.style.display = loggedIn ? 'inline-block' : 'none';
   
   const adminOfficeRow = document.getElementById('adminOfficeRow');
-  if (adminOfficeRow) adminOfficeRow.style.display = (CURRENT_ROLE === 'superAdmin') ? 'flex' : 'none';
+  if (adminOfficeRow) adminOfficeRow.style.display = (window.CURRENT_ROLE === 'superAdmin') ? 'flex' : 'none';
 }
 window.ensureAuthUI = ensureAuthUI;
-export const checkLogin = () => AuthManager.init({ remoteEndpoint: CONFIG.remoteEndpoint });
+export const checkLogin = () => AuthManager.init({ remoteEndpoint: window.CONFIG ? window.CONFIG.remoteEndpoint : (typeof CONFIG !== 'undefined' ? CONFIG.remoteEndpoint : '') });
 window.checkLogin = checkLogin;
 
 `

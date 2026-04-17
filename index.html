@@ -26,21 +26,7 @@
   <link rel="stylesheet" href="print-list.css" media="print">
   <link rel="icon" href="data:,">
   
-  <!-- Flicker Prevention Guard (Rich Aesthetics) -->
-  <script>
-    (function() {
-      // 起動直後に D1 セッションロックを確認し、チラつき（Flicker）を防止する
-      // Firebase の非同期通知より先に UI の初期状態を決定する
-      const authType = sessionStorage.getItem('whereabouts_auth_type');
-      if (authType === 'd1' && localStorage.getItem('whereabouts_session_token')) {
-        document.documentElement.classList.add('is-d1-authed');
-        // CSSで #login を非表示にするスタイルを即注入
-        const style = document.createElement('style');
-        style.textContent = '.is-d1-authed #login { display: none !important; }';
-        document.head.appendChild(style);
-      }
-    })();
-  </script>
+  <script src="js/auth-guard.js"></script>
 </head>
 
 <body>
