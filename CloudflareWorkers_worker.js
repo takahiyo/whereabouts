@@ -245,19 +245,34 @@ export default {
       const requestedOfficeId = getParam('office') || tokenOffice || null;
       requestContext.officeId = requestedOfficeId;
 
-      const bypassActions = ['login', 'signup', 'publicListOffices', 'createOffice', 'listOffices', 'addOffice', 'deleteOffice'];
-      if (!bypassActions.includes(action)) {
-          if (tokenRole !== 'superAdmin') {
-              if (authContext && authContext.isFirebase && !tokenOffice) {
-                  console.warn(`[Auth Guard] Firebase user with no office attempted access: action=${action}, email=${authContext.email}`);
-                  return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'no_office_assigned' }), { status: 403, headers: corsHeaders });
-              }
+      /**
+       * [V7] Authorization Guard
+       * Verify if the user has permission to access the requested office.
+       */
+      function validateOfficeAccess(context, reqOfficeId, currentAction) {
+        const bypassActions = ['login', 'signup', 'publicListOffices', 'createOffice', 'listOffices', 'addOffice', 'deleteOffice', 'renew'];
+        if (bypassActions.includes(currentAction)) return { ok: true };
+        
+        if (!context) return { ok: false, error: 'unauthorized', reason: 'no_auth_context' };
+        if (context.role === 'superAdmin') return { ok: true };
 
-              if (requestedOfficeId && requestedOfficeId !== tokenOffice) {
-                  console.warn(`[Auth Guard] Blocked unauthorized access: action=${action}, request=${requestedOfficeId}, authorized=${tokenOffice}`);
-                  return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'office_access_denied' }), { status: 403, headers: corsHeaders });
-              }
-          }
+        // Firebase User check
+        if (context.isFirebase && !context.office) {
+           return { ok: false, error: 'unauthorized', reason: 'no_office_assigned' };
+        }
+
+        // Office ID Mismatch check
+        if (reqOfficeId && reqOfficeId !== context.office) {
+          console.warn(`[Auth Guard] Blocked unauthorized access: action=${currentAction}, request=${reqOfficeId}, authorized=${context.office}`);
+          return { ok: false, error: 'unauthorized', reason: 'office_access_denied' };
+        }
+
+        return { ok: true };
+      }
+
+      const authGuardResult = validateOfficeAccess(authContext, requestedOfficeId, action);
+      if (!authGuardResult.ok) {
+        return new Response(JSON.stringify(authGuardResult), { status: 403, headers: corsHeaders });
       }
 
       async function safeDbQuery(queryFn, errorLabel = 'database_error') {
@@ -466,10 +481,7 @@ export default {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
         
-        // Data Isolation Check
-        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
-        }
+        // Isolation handled by V7 Auth Guard
 
         const nocache = getParam('nocache') === '1';
         const cacheKey = `config_v2:${officeId}`;
@@ -560,7 +572,7 @@ export default {
 
       /* --- RENEW TOKEN --- */
       if (action === 'renew') {
-        const token = getParam('token');
+        const token = providedToken;
         if (!token) {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'token_missing' }), { headers: corsHeaders });
         }
@@ -599,11 +611,6 @@ export default {
       if (action === 'get' || action === 'getFor') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
-
-        // Data Isolation Check: リクエストされた拠点とトークンの拠点が一致するか、またはスーパー管理者か
-        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
-          console.warn(`[get] Unauthorized access attempt: requestOffice=${officeId}, tokenOffice=${tokenOffice}`);
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'office_mismatch' }), { headers: corsHeaders });
         }
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
@@ -761,10 +768,7 @@ export default {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
 
-        // Data Isolation Check
-        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
-        }
+        // Isolation handled by V7 Auth Guard
 
         const cacheKey = `notices:${officeId}`;
         if (statusCache) {

@@ -11,7 +11,7 @@
    * ※モジュール外のため直接定数は参照できないのでハードコードが必要だが、
    *   SSOTを維持するためコメントで紐付けを行う。
    */
-  const SESSION_KEY = "presence-session-token";
+  const SESSION_KEY = "SESSION_TOKEN";
   const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
   const authType = sessionStorage.getItem(D1_SESSION_LOCK_KEY);

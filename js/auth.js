@@ -15,6 +15,7 @@ import {
   getValidToken as getFbToken
 } from './firebase-auth.js';
 import { firebaseConfig } from './firebase-config.js';
+import * as STORAGE from './constants/storage.js';
 
 /**
  * @typedef {Object} SessionContext
@@ -39,11 +40,12 @@ const btnSimpleLogin = document.getElementById('btnSimpleLogin');
 
 // Auth State Variables
 let isBooting = true;
-const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
-const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
+// Constants for session local cache (using keys from storage.js)
+const PERSISTENT_SESSION_KEY = STORAGE.PERSISTENT_SESSION_KEY;
+const D1_SESSION_LOCK_KEY = STORAGE.D1_SESSION_LOCK_KEY;
 
-// Updated: 2026-04-17T13:41:00Z
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v7)');
+// Updated: 2026-04-17 (V7 Production Remediated)
+console.log('【DEBUG】js/auth.js Loaded (Version: v7)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
@@ -263,7 +265,7 @@ export const AuthManager = {
     createSessionContext(type, data) {
         const session = {
             authType: type,
-            officeId: data.officeId.toLowerCase(),
+            officeId: (data.officeId || '').toLowerCase(),
             role: data.role || 'staff',
             token: data.token
         };
@@ -296,8 +298,7 @@ export const AuthManager = {
         } else if (resp.error === 'unauthorized') {
             if (resp.reason === 'office_access_denied') {
                 alert('この拠点へのアクセス権限がありません。自分が開設した拠点を使用してください。');
-                localStorage.removeItem(LOCAL_OFFICE_KEY);
-                localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
+                this.clearSession();
                 location.reload();
                 return;
             }
@@ -320,19 +321,13 @@ export const AuthManager = {
     clearSession() {
         console.log('【DEBUG】AuthManager.clearSession: キャッシュ情報をクリアします');
         
-        // 1. 定義済みのキーをすべて削除
-        if (typeof CLEAR_ON_LOGOUT_KEYS !== 'undefined') {
-            CLEAR_ON_LOGOUT_KEYS.forEach(key => {
-                localStorage.removeItem(key);
-                sessionStorage.removeItem(key);
-            });
-        } else {
-            // フォールバック (万が一定数が読み込めていない場合)
-            ['presence-session-token', 'presence_office', 'presence_role', 'whereabouts_persistent_session', 'whereabouts_auth_type'].forEach(k => {
-                localStorage.removeItem(k);
-                sessionStorage.removeItem(k);
-            });
-        }
+        // [V7] CLEAR_ON_LOGOUT_KEYS を使用して完全に破棄
+        const keys = STORAGE.CLEAR_ON_LOGOUT_KEYS || [];
+        keys.forEach(key => {
+            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
+        });
+
 
         // 2. メモリ上の変数をリセット
         window.SESSION_TOKEN = '';
@@ -405,11 +400,11 @@ async function finalizeLogin(data) {
   isBooting = false;
   console.log(`【DEBUG】finalizeLogin: office=${window.CURRENT_OFFICE_ID}, token=${!!window.SESSION_TOKEN}, role=${window.CURRENT_ROLE}`);
 
-  localStorage.setItem(SESSION_KEY, window.SESSION_TOKEN);
-  localStorage.setItem(LOCAL_OFFICE_KEY, window.CURRENT_OFFICE_ID);
-  localStorage.setItem(LOCAL_ROLE_KEY, CURRENT_ROLE);
-  const officeName = data.officeName || CURRENT_OFFICE_ID;
-  localStorage.setItem(LOCAL_OFFICE_NAME_KEY, officeName);
+  localStorage.setItem(STORAGE.SESSION_KEY, window.SESSION_TOKEN);
+  localStorage.setItem(STORAGE.SESSION_OFFICE_KEY, window.CURRENT_OFFICE_ID);
+  localStorage.setItem(STORAGE.SESSION_ROLE_KEY, window.CURRENT_ROLE);
+  const officeName = data.officeName || window.CURRENT_OFFICE_ID;
+  localStorage.setItem(STORAGE.SESSION_OFFICE_NAME_KEY, officeName);
   
   if (typeof updateTitleBtn === 'function') updateTitleBtn(officeName);
 
@@ -420,7 +415,7 @@ async function finalizeLogin(data) {
       console.log('【DEBUG】board.classList from finalizeLogin:', board.className);
   }
   
-  sessionStorage.setItem(PERSISTENT_SESSION_KEY, 'true');
+  sessionStorage.setItem(STORAGE.PERSISTENT_SESSION_KEY, 'true');
   ensureAuthUI();
 
   // 同期サイクル
