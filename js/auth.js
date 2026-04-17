@@ -29,8 +29,7 @@ const btnSimpleLogin = document.getElementById('btnSimpleLogin');
 // Auth State Variables
 let isBooting = true;
 // Constants for session local cache (using global keys from storage.js)
-const PERSISTENT_SESSION_KEY = window.PERSISTENT_SESSION_KEY;
-const D1_SESSION_LOCK_KEY = window.D1_SESSION_LOCK_KEY;
+// window.PERSISTENT_SESSION_KEY and window.D1_SESSION_LOCK_KEY are available globally.
 
 // Updated: 2026-04-17 (V7.1 Global Consistency Fix)
 console.log('【DEBUG】js/auth.js Loaded (Version: v7.1)');
@@ -55,7 +54,7 @@ window.AuthManager = {
         this.handleUrlParams();
 
         // 1. D1セッションロックの確認（Flicker防止）
-        const authType = sessionStorage.getItem(D1_SESSION_LOCK_KEY);
+        const authType = sessionStorage.getItem(window.D1_SESSION_LOCK_KEY);
         if (authType === 'd1') {
             console.log("[Auth] D1 Session Lock Active.");
             const restored = await this.restoreD1Session();
@@ -69,7 +68,7 @@ window.AuthManager = {
                     console.log('【DEBUG】watchAuthState 通知受理. User:', user ? user.email : 'null');
                     
                     // D1セッションがアクティブな場合は Firebase の状態変化を完全に遮断
-                    if (sessionStorage.getItem(D1_SESSION_LOCK_KEY) === 'd1') {
+                    if (sessionStorage.getItem(window.D1_SESSION_LOCK_KEY) === 'd1') {
                         console.log('【DEBUG】[ガード] D1セッション中につき Firebase 状態変化を無視します');
                         return;
                     }
@@ -152,7 +151,7 @@ window.AuthManager = {
                 console.error('【DEBUG】D1セッション復元中に例外発生:', e);
             }
         }
-        sessionStorage.removeItem(D1_SESSION_LOCK_KEY);
+        sessionStorage.removeItem(window.D1_SESSION_LOCK_KEY);
         return false;
     },
 
@@ -164,7 +163,7 @@ window.AuthManager = {
             const urlParams = new URLSearchParams(window.location.search);
             const hasOfficeParam = !!urlParams.get('office');
             
-            if (window.SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY) || hasOfficeParam) {
+            if (window.SESSION_TOKEN || sessionStorage.getItem(window.PERSISTENT_SESSION_KEY) || hasOfficeParam) {
                 return;
             }
             switchAuthView('verify');
@@ -221,7 +220,7 @@ window.AuthManager = {
             if (res.ok) {
                 // キャッシュをクリアしてからリロードすることで、ログイン後の「拠点跨ぎ」を防止
                 this.clearSession();
-                sessionStorage.setItem(D1_SESSION_LOCK_KEY, 'firebase');
+                sessionStorage.setItem(window.D1_SESSION_LOCK_KEY, 'firebase');
                 location.reload();
             } else {
                 if (res.error === 'email_not_verified') switchAuthView('verify');
@@ -258,7 +257,7 @@ window.AuthManager = {
             role: data.role || 'staff',
             token: data.token
         };
-        sessionStorage.setItem(D1_SESSION_LOCK_KEY, type);
+        sessionStorage.setItem(window.D1_SESSION_LOCK_KEY, type);
         return session;
     },
 
