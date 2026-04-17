@@ -22,9 +22,25 @@
                object-src 'none';
                base-uri 'self';
                form-action 'self'">
-  <link rel="stylesheet" href="styles.css?v=20260406">
+  <link rel="stylesheet" href="styles.css?v=20260414_v2">
   <link rel="stylesheet" href="print-list.css" media="print">
   <link rel="icon" href="data:,">
+  
+  <!-- Flicker Prevention Guard (Rich Aesthetics) -->
+  <script>
+    (function() {
+      // 起動直後に D1 セッションロックを確認し、チラつき（Flicker）を防止する
+      // Firebase の非同期通知より先に UI の初期状態を決定する
+      const authType = sessionStorage.getItem('whereabouts_auth_type');
+      if (authType === 'd1' && localStorage.getItem('whereabouts_session_token')) {
+        document.documentElement.classList.add('is-d1-authed');
+        // CSSで #login を非表示にするスタイルを即注入
+        const style = document.createElement('style');
+        style.textContent = '.is-d1-authed #login { display: none !important; }';
+        document.head.appendChild(style);
+      }
+    })();
+  </script>
 </head>
 
 <body>
@@ -1318,28 +1334,28 @@
 
   <script src="js/config.js" defer></script>
   <!-- 定数ファイル (SSOT) - config.jsの後、globals.jsの前に読み込む -->
-  <script src="js/constants/storage.js?v=20260408" defer></script>
+  <script src="js/constants/storage.js?v=20260414_v2" defer></script>
   <script src="js/constants/timing.js" defer></script>
   <script src="js/constants/ui.js" defer></script>
   <script src="js/constants/defaults.js" defer></script>
   <script src="js/constants/column-definitions.js" defer></script>
-  <script src="js/constants/messages.js" defer></script>
-  <script src="js/globals.js?v=20260408" defer></script>
-  <script src="js/utils.js?v=20260408" defer></script>
+  <script src="js/constants/messages.js?v=20260414_v2" defer></script>
+  <script src="js/globals.js?v=20260414_v2" defer></script>
+  <script src="js/utils.js?v=20260414_v2" defer></script>
   <script src="js/services/qr-generator.js" defer></script>
   <script src="js/services/csv.js" defer></script>
-  <script src="js/layout.js" defer></script>
+  <script src="js/layout.js?v=20260414_v2" defer></script>
   <script src="js/filters.js" defer></script>
-  <script src="js/board.js" defer></script>
+  <script src="js/board.js?v=20260414_v2" defer></script>
   <script src="js/vacations.js" defer></script>
   <script src="js/offices.js" defer></script>
   <script src="js/firebase-auth.js" type="module"></script>
-  <script src="js/auth.js?v=20260408_v5" type="module"></script>
-  <script src="js/sync.js?v=20260408" defer></script>
-  <script src="js/admin.js?v=20260408" defer></script>
+  <script src="js/auth.js?v=20260414_v2" type="module"></script>
+  <script src="js/sync.js?v=20260414_v2" defer></script>
+  <script src="js/admin.js?v=20260414_v2" defer></script>
   <script src="js/tools.js" defer></script>
   <script src="js/notices.js" defer></script>
-  <script src="main.js?v=20260408" defer></script>
+  <script src="main.js?v=20260414_v2" defer></script>
 
 </body>
 

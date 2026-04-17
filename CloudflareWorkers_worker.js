@@ -243,18 +243,33 @@ export default {
       const tokenOffice = authContext ? authContext.office : '';
       requestContext.officeId = getParam('office') || tokenOffice || null;
 
+      /**
+       * データベースクエリ実行用安全ラッパー (SSOT/Robustness)
+       * @param {Function} queryFn 
+       * @param {string} errorLabel 
+       */
+      async function safeDbQuery(queryFn, errorLabel = 'database_error') {
+        try {
+          return await queryFn();
+        } catch (e) {
+          console.error(`[DB Error ${errorLabel}]`, e.message);
+          throw e; // 上位の handleAction 側で JSON 応答として処理
+        }
+      }
+
       /* --- Actions --- */
       try {
         const response = await handleAction();
         return response;
       } catch (e) {
         console.error(`[Worker Fatal Error] action=${action}:`, e);
+        // すべてのエラーレスポンスを JSON 形式に統一
         return new Response(JSON.stringify({ 
           ok: false, 
           error: 'internal_server_error', 
           message: e.message,
-          stack: e.stack,
-          debug: { action, officeId: requestContext.officeId }
+          reason: 'Worker execution failed',
+          action: action
         }), { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -655,55 +670,49 @@ export default {
 
       /* --- GET EVENT COLOR MAP --- */
       if (action === 'getEventColorMap') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (!tokenOffice) return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         const officeId = getParam('office') || tokenOffice;
         
-        try {
+        const result = await safeDbQuery(async () => {
           const row = await env.DB.prepare('SELECT colors_json, updated FROM event_color_maps WHERE office_id = ?')
             .bind(officeId)
             .first();
-            
-          const colors = row ? safeJSONParse(row.colors_json) : {};
-          return new Response(JSON.stringify({ 
-            ok: true, 
-            colors: colors, 
-            updated: row ? row.updated : 0 
-          }), { headers: corsHeaders });
-        } catch (e) {
-          console.error('[getEventColorMap Error]', e.message);
-          return new Response(JSON.stringify({ ok: true, colors: {}, updated: 0, warning: 'table_not_found' }), { headers: corsHeaders });
-        }
+          return row;
+        }, 'getEventColorMap');
+
+        const colors = result ? safeJSONParse(result.colors_json) : {};
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          colors: colors, 
+          updated: result ? result.updated : 0 
+        }), { headers: corsHeaders });
       }
 
       /* --- SET EVENT COLOR MAP --- */
       if (action === 'setEventColorMap') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId || !tokenRole || (tokenRole === 'user' && officeId === tokenOffice)) {
-           if (tokenRole === 'user') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+           if (tokenRole === 'user') return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
         
-        // Data Isolation Check & Permission Check
         if (tokenRole !== 'superAdmin' && (tokenRole !== 'officeAdmin' || officeId !== tokenOffice)) {
-          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
 
-        const dataRaw = getParam('data'); // JSON string from frontend
-        
-        // フロントエンドは JSON.stringify({ colors: payload }) を送ってくる
+        const dataRaw = getParam('data');
         let incoming = safeJSONParse(dataRaw);
         if (!incoming || typeof incoming.colors !== 'object') {
-          // data パラメータが単なるカラーマップの場合の互換性
           if (incoming && typeof incoming === 'object' && !incoming.colors) {
             incoming = { colors: incoming };
           } else {
-            return new Response(JSON.stringify({ error: 'invalid_data' }), { headers: corsHeaders });
+            return new Response(JSON.stringify({ ok: false, error: 'invalid_data' }), { headers: corsHeaders });
           }
         }
 
         const colorsJson = JSON.stringify(incoming.colors);
         const nowTs = Date.now();
         
-        try {
+        await safeDbQuery(async () => {
           await env.DB.prepare(`
             INSERT INTO event_color_maps (office_id, colors_json, updated)
             VALUES (?, ?, ?)
@@ -711,12 +720,9 @@ export default {
               colors_json = excluded.colors_json,
               updated = excluded.updated
           `).bind(officeId, colorsJson, nowTs).run();
+        }, 'setEventColorMap');
 
-          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
-        } catch (e) {
-          console.error('[setEventColorMap Error]', e.message);
-          return new Response(JSON.stringify({ ok: false, error: 'server_error', detail: e.message }), { status: 500, headers: corsHeaders });
-        }
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
       /* --- GET NOTICES --- */

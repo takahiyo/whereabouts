@@ -11,6 +11,9 @@ const AUTH_MESSAGES = Object.freeze({
     SYSTEM_ERROR: "システムエラーが発生しました",
     NOT_FOUND: "拠点名またはパスワードが正しくありません",
     UNAUTHORIZED: "ログインに失敗しました。認証情報を確認してください",
+    CONFIG_INCOMPLETE: "Firebaseの設定（API Key）が未完了です。js/firebase-config.js を確認してください。",
+    AUTH_FAILED: "ログインに失敗しました。IDまたはパスワードが正しくありません。",
+    SESSION_LOCKED: "別のセッションがアクティブです。再ログインするには一度ログアウトしてください。",
   },
   INFO: {
     VERIFY_EMAIL_SENT: "確認メールを送信しました",
