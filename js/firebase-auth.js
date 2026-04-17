@@ -103,3 +103,12 @@ export function watchAuthState(callback) {
     callback(user);
   });
 }
+
+// Attach to window for non-module script compatibility
+if (typeof window !== 'undefined') {
+  window.fbSignup = signup;
+  window.fbLogin = login;
+  window.fbLogout = logout;
+  window.watchAuthState = watchAuthState;
+  window.getValidToken = getValidToken;
+}

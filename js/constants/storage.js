@@ -12,31 +12,31 @@
 // セッション関連キー (SSOT 指定キー)
 // ============================================
 /** セッショントークン保存キー */
-export const SESSION_KEY = "SESSION_TOKEN";
+const SESSION_KEY = "SESSION_TOKEN";
 
 /** 拠点ID保存キー */
-export const SESSION_OFFICE_KEY = "presence-office-id";
+const SESSION_OFFICE_KEY = "presence-office-id";
 
 /** 拠点名保存キー */
-export const SESSION_OFFICE_NAME_KEY = "officeName";
+const SESSION_OFFICE_NAME_KEY = "officeName";
 
 /** ユーザー権限保存キー */
-export const SESSION_ROLE_KEY = "presence-role";
+const SESSION_ROLE_KEY = "presence-role";
 
 // ============================================
 // ローカルストレージ互換・拡張キー
 // ============================================
 /** 自動ログイン用拠点ID保存キー (SESSION_OFFICE_KEYに統合予定だが互換維持) */
-export const LOCAL_OFFICE_KEY = SESSION_OFFICE_KEY;
+const LOCAL_OFFICE_KEY = SESSION_OFFICE_KEY;
 
 /** 自動ログイン用ユーザー権限保存キー */
-export const LOCAL_ROLE_KEY = SESSION_ROLE_KEY;
+const LOCAL_ROLE_KEY = SESSION_ROLE_KEY;
 
 /** 自動ログイン用拠点名保存キー */
-export const LOCAL_OFFICE_NAME_KEY = SESSION_OFFICE_NAME_KEY;
+const LOCAL_OFFICE_NAME_KEY = SESSION_OFFICE_NAME_KEY;
 
 /** 拠点カラム設定保存キー (Phase 2) */
-export function getColumnConfigKey(officeId) {
+function getColumnConfigKey(officeId) {
   return `presence-column-config:${officeId || 'default'}`;
 }
 
@@ -44,40 +44,40 @@ export function getColumnConfigKey(officeId) {
 // アプリケーション内部状態用キー
 // ============================================
 /** ボードデータ保存用キーベース */
-export const STORE_KEY_BASE = "presence-board-v4";
+const STORE_KEY_BASE = "presence-board-v4";
 
 /** お知らせ折りたたみ状態キー */
-export const NOTICE_COLLAPSE_STORAGE_KEY = 'noticeAreaCollapsed';
+const NOTICE_COLLAPSE_STORAGE_KEY = 'noticeAreaCollapsed';
 
 /**
  * 状態キャッシュキー
  */
-export const STORAGE_KEY_CACHE_FALLBACK = 'whereabouts_state_cache';
+const STORAGE_KEY_CACHE_FALLBACK = 'whereabouts_state_cache';
 
 /**
  * 最終同期時刻キー
  */
-export const STORAGE_KEY_SYNC_FALLBACK = 'whereabouts_last_sync';
+const STORAGE_KEY_SYNC_FALLBACK = 'whereabouts_last_sync';
 
 /**
  * 行単位競合回復状態キー
  */
-export const STORAGE_KEY_CONFLICT_RECOVERY_FALLBACK = 'whereabouts_conflict_recovery';
+const STORAGE_KEY_CONFLICT_RECOVERY_FALLBACK = 'whereabouts_conflict_recovery';
 
 // ============================================
 // ハイブリッド認証・内部状態用キー
 // ============================================
 /** セッション維持用フラグ (sessionStorage) */
-export const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
+const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
 
 /** 認証タイプ固定キー (sessionStorage: 'firebase'|'d1') */
-export const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
+const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
 /**
  * ログアウト時にクリアすべきキーのリスト
  * ユーザー情報の残存による誤ログイン（拠点跨ぎ）を防止するために使用する。
  */
-export const CLEAR_ON_LOGOUT_KEYS = [
+const CLEAR_ON_LOGOUT_KEYS = [
     SESSION_KEY,
     SESSION_ROLE_KEY,
     SESSION_OFFICE_KEY,
@@ -94,7 +94,7 @@ export const CLEAR_ON_LOGOUT_KEYS = [
  * @param {string} officeId - 拠点ID
  * @returns {string} ストレージキー
  */
-export function eventSelectionKey(officeId) {
+function eventSelectionKey(officeId) {
   return `${STORE_KEY_BASE}:event:${officeId || '__none__'}`;
 }
 
