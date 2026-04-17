@@ -69,6 +69,32 @@ const STORAGE_KEY_SYNC_FALLBACK = 'whereabouts_last_sync';
 const STORAGE_KEY_CONFLICT_RECOVERY_FALLBACK = 'whereabouts_conflict_recovery';
 
 // ============================================
+// ハイブリッド認証・内部状態用キー
+// ============================================
+/** セッション維持用フラグ (sessionStorage) */
+const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
+
+/** 認証タイプ固定キー (sessionStorage: 'firebase'|'d1') */
+const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
+
+/**
+ * ログアウト時にクリアすべきキーのリスト
+ * ユーザー情報の残存による誤ログイン（拠点跨ぎ）を防止するために使用する。
+ */
+const CLEAR_ON_LOGOUT_KEYS = [
+    SESSION_KEY,
+    SESSION_ROLE_KEY,
+    SESSION_OFFICE_KEY,
+    SESSION_OFFICE_NAME_KEY,
+    LOCAL_OFFICE_KEY,
+    LOCAL_ROLE_KEY,
+    LOCAL_OFFICE_NAME_KEY,
+    PERSISTENT_SESSION_KEY,
+    D1_SESSION_LOCK_KEY
+];
+
+
+// ============================================
 // イベント選択状態キー生成
 // ============================================
 /**

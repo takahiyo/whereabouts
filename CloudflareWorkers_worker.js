@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cloudflare Worker for Whereabouts Board (D1 Backend)
  * 従来の Firestore 版から D1 (SQL) に移行した完全版
  */
@@ -200,6 +200,7 @@ export default {
       }
 
       /* --- Common Auth Logic --- */
+      /* --- Common Auth Logic --- */
       let authContext = null; 
       const providedToken = getParam('token');
       
@@ -216,44 +217,54 @@ export default {
         const fbPayload = await verifyFirebaseToken(providedToken);
         if (fbPayload && fbPayload.email_verified) {
           // Firebase 認証済みの場合は DB からユーザー情報を取得
-          try {
-            const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(fbPayload.sub).first();
-            if (user) authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
-          } catch (dbErr) {
-            console.error('[Common Auth] D1 User Lookup Error:', dbErr.message);
-            // signupアクション自体の場合はここではエラーを投げず、アクション側で詳細に処理させる
-            if (action !== 'signup') {
-                throw new Error(`Database error during auth: ${dbErr.message}`);
-            }
+          const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(fbPayload.sub).first();
+          if (user) {
+            authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
+          } else {
+            // Firebase 認証は成功したが、D1 にユーザーが登録されていない（新規ユーザー）
+            authContext = { office: null, role: 'user', email: fbPayload.email, isFirebase: true };
           }
         }
+
         if (!authContext) {
           const workerPayload = await verifyWorkerToken(providedToken);
-          if (workerPayload) authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
+          if (workerPayload) {
+            authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
+          }
         }
       } catch (authErr) {
         console.error('[Common Auth Critical Error]', authErr);
-        // 重大な認証エラー（パース失敗ではなくDB接続不可など）が発生した場合は 500 へ飛ばす
-        if (authErr.message.includes('Database')) {
+        if (authErr && authErr.message && authErr.message.includes('Database')) {
             throw authErr;
         }
       }
 
       const tokenRole = authContext ? authContext.role : '';
       const tokenOffice = authContext ? authContext.office : '';
-      requestContext.officeId = getParam('office') || tokenOffice || null;
+      
+      const requestedOfficeId = getParam('office') || tokenOffice || null;
+      requestContext.officeId = requestedOfficeId;
 
-      /**
-       * データベースクエリ実行用安全ラッパー (SSOT/Robustness)
-       * @param {Function} queryFn 
-       * @param {string} errorLabel 
-       */
+      const bypassActions = ['login', 'signup', 'publicListOffices', 'createOffice', 'listOffices', 'addOffice', 'deleteOffice'];
+      if (!bypassActions.includes(action)) {
+          if (tokenRole !== 'superAdmin') {
+              if (authContext && authContext.isFirebase && !tokenOffice) {
+                  console.warn(`[Auth Guard] Firebase user with no office attempted access: action=${action}, email=${authContext.email}`);
+                  return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'no_office_assigned' }), { status: 403, headers: corsHeaders });
+              }
+
+              if (requestedOfficeId && requestedOfficeId !== tokenOffice) {
+                  console.warn(`[Auth Guard] Blocked unauthorized access: action=${action}, request=${requestedOfficeId}, authorized=${tokenOffice}`);
+                  return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'office_access_denied' }), { status: 403, headers: corsHeaders });
+              }
+          }
+      }
+
       async function safeDbQuery(queryFn, errorLabel = 'database_error') {
-        try {
-          return await queryFn();
-        } catch (e) {
+        try { return await queryFn(); }
+        catch (e) { 
           console.error(`[DB Error ${errorLabel}]`, e.message);
-          throw e; // 上位の handleAction 側で JSON 応答として処理
+          throw e;
         }
       }
 
@@ -263,7 +274,6 @@ export default {
         return response;
       } catch (e) {
         console.error(`[Worker Fatal Error] action=${action}:`, e);
-        // すべてのエラーレスポンスを JSON 形式に統一
         return new Response(JSON.stringify({ 
           ok: false, 
           error: 'internal_server_error', 
@@ -275,7 +285,6 @@ export default {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         });
       }
-
       async function handleAction() {
         console.log(`[Worker Action] ${action} (Office: ${requestContext.officeId})`);
         /* --- LOGIN (Hyperhybrid: Support both Shared PW and legacy flow) --- */
@@ -552,8 +561,24 @@ export default {
       /* --- RENEW TOKEN --- */
       if (action === 'renew') {
         const token = getParam('token');
-        if (!token || !tokenOffice) {
-          console.warn('[renew] Unauthorized:', { hasToken: !!token, hasOffice: !!tokenOffice });
+        if (!token) {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'token_missing' }), { headers: corsHeaders });
+        }
+
+        // Firebase ユーザーだが拠点が未紐付けの場合、成功（ok: true）を返すが office は null とする
+        // これによりフロントエンド側で「ログイン状態だが拠点未指定」と判別できる
+        if (authContext && authContext.isFirebase && !tokenOffice) {
+          return new Response(JSON.stringify({ 
+            ok: true, 
+            token: token,
+            role: tokenRole, 
+            office: null, 
+            officeName: null,
+            email: authContext.email 
+          }), { headers: corsHeaders });
+        }
+
+        if (!tokenOffice) {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'invalid_session' }), { headers: corsHeaders });
         }
         

@@ -1399,7 +1399,7 @@
   <script src="js/constants/defaults.js" defer></script>
   <script src="js/constants/column-definitions.js" defer></script>
   <script src="js/constants/messages.js?v=20260417_v5" defer></script>
-  <script src="js/globals.js?v=20260417_v6" defer></script>
+  <script src="js/globals.js?v=20260417_v7" defer></script>
   <script src="js/utils.js?v=20260417_v5" defer></script>
   <script src="js/services/qr-generator.js" defer></script>
   <script src="js/services/csv.js" defer></script>
@@ -1409,12 +1409,12 @@
   <script src="js/vacations.js" defer></script>
   <script src="js/offices.js" defer></script>
   <script src="js/firebase-auth.js?v=20260417_v6" type="module"></script>
-  <script src="js/auth.js?v=20260417_v6" type="module"></script>
-  <script src="js/sync.js?v=20260417_v6" defer></script>
+  <script src="js/auth.js?v=20260417_v7" type="module"></script>
+  <script src="js/sync.js?v=20260417_v7" defer></script>
   <script src="js/admin.js?v=20260414_v2" defer></script>
   <script src="js/tools.js" defer></script>
   <script src="js/notices.js" defer></script>
-  <script src="main.js?v=20260417_v6" defer></script>
+  <script src="main.js?v=20260417_v7" defer></script>
 
 </body>
 
@@ -7246,7 +7246,31 @@ export default {
 
       const tokenRole = authContext ? authContext.role : '';
       const tokenOffice = authContext ? authContext.office : '';
-      requestContext.officeId = getParam('office') || tokenOffice || null;
+      
+      const requestedOfficeId = getParam('office') || tokenOffice || null;
+      requestContext.officeId = requestedOfficeId;
+
+      /**
+       * 認可ガード (Security Reinforcement)
+       * スーパー管理者でない限り、リクエストされた拠点がトークンに紐付けられた拠点と一致することを強制する。
+       */
+      const bypassActions = ['login', 'signup', 'publicListOffices', 'createOffice', 'listOffices', 'addOffice', 'deleteOffice'];
+      if (!bypassActions.includes(action)) {
+          if (tokenRole !== 'superAdmin') {
+              // 1. 公開拠点への読み取り (get) は許可する（オプション）
+              let isPublicAction = false;
+              if (action === 'get' || action === 'getConfig' || action === 'getTools' || action === 'getNotices' || action === 'getEventColorMap') {
+                  // ここで D1 から is_public を確認するコストをかけるか、
+                  // あるいは単純に officeId === tokenOffice を厳格に守るか。
+                  // セキュリティを優先し、一旦「自分の拠点以外は一切不可」とする。
+              }
+
+              if (requestedOfficeId && requestedOfficeId !== tokenOffice) {
+                  console.warn(`[Auth Guard] Blocked unauthorized access: action=${action}, request=${requestedOfficeId}, authorized=${tokenOffice}`);
+                  return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'office_access_denied' }), { status: 403, headers: corsHeaders });
+              }
+          }
+      }
 
       /**
        * データベースクエリ実行用安全ラッパー (SSOT/Robustness)
@@ -8796,6 +8820,32 @@ const STORAGE_KEY_SYNC_FALLBACK = 'whereabouts_last_sync';
  * @deprecated CONFIG.storageKeys.conflictRecovery を使用すること
  */
 const STORAGE_KEY_CONFLICT_RECOVERY_FALLBACK = 'whereabouts_conflict_recovery';
+
+// ============================================
+// ハイブリッド認証・内部状態用キー
+// ============================================
+/** セッション維持用フラグ (sessionStorage) */
+const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
+
+/** 認証タイプ固定キー (sessionStorage: 'firebase'|'d1') */
+const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
+
+/**
+ * ログアウト時にクリアすべきキーのリスト
+ * ユーザー情報の残存による誤ログイン（拠点跨ぎ）を防止するために使用する。
+ */
+const CLEAR_ON_LOGOUT_KEYS = [
+    SESSION_KEY,
+    SESSION_ROLE_KEY,
+    SESSION_OFFICE_KEY,
+    SESSION_OFFICE_NAME_KEY,
+    LOCAL_OFFICE_KEY,
+    LOCAL_ROLE_KEY,
+    LOCAL_OFFICE_NAME_KEY,
+    PERSISTENT_SESSION_KEY,
+    D1_SESSION_LOCK_KEY
+];
+
 
 // ============================================
 // イベント選択状態キー生成
@@ -14377,8 +14427,8 @@ let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
 const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
-// Updated: 2026-04-17T13:18:00Z
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v6)');
+// Updated: 2026-04-17T13:41:00Z
+console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v7)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
@@ -14426,13 +14476,8 @@ export const AuthManager = {
                     // ※ window.SESSION_TOKEN が残っていても Firebase user=null ならリセット扱い
                     console.log(`【DEBUG】Firebase user=null. isBooting=${isBooting}, SESSION_TOKEN=${!!window.SESSION_TOKEN}, => show officeLogin`);
                     if (isBooting) {
-                        // 古いトークンおよび残存セッションロックを完全クリア（staleトークン・セッションによる白画面防止）
-                        if (!sessionStorage.getItem(D1_SESSION_LOCK_KEY)) {
-                            localStorage.removeItem('presence-session-token'); // SESSION_KEY
-                            sessionStorage.removeItem(PERSISTENT_SESSION_KEY);
-                            window.SESSION_TOKEN = '';
-                            console.log('【DEBUG】古いセッション情報を完全クリアしました');
-                        }
+                        // 古いトークンおよび残存セッション情報を完全クリア
+                        this.clearSession();
                         switchAuthView('officeLogin');
                     }
                     resolve(false);
@@ -14538,7 +14583,13 @@ export const AuthManager = {
                         return true;
                     }
                 } else {
-                    console.log('【DEBUG】User has no office_id. Redirecting to createOffice.');
+                    console.log('【DEBUG】User has no office_id. Clearing stale office cache and redirecting to createOffice.');
+                    // 拠点が紐付いていない場合はキャッシュを確実に消去
+                    localStorage.removeItem(LOCAL_OFFICE_KEY);
+                    localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
+                    window.CURRENT_OFFICE_ID = '';
+                    if (typeof updateTitleBtn === 'function') updateTitleBtn('拠点が未開設です');
+                    
                     switchAuthView('createOffice');
                     return true;
                 }
@@ -14565,6 +14616,8 @@ export const AuthManager = {
             }
             const res = await fbLogin(id, password);
             if (res.ok) {
+                // キャッシュをクリアしてからリロードすることで、ログイン後の「拠点跨ぎ」を防止
+                this.clearSession();
                 sessionStorage.setItem(D1_SESSION_LOCK_KEY, 'firebase');
                 location.reload();
             } else {
@@ -14628,12 +14681,52 @@ export const AuthManager = {
     handleWorkerError(resp) {
         if (resp.error === 'email_not_verified') {
             switchAuthView('verify');
+        } else if (resp.error === 'unauthorized') {
+            if (resp.reason === 'office_access_denied') {
+                alert('この拠点へのアクセス権限がありません。自分が開設した拠点を使用してください。');
+                localStorage.removeItem(LOCAL_OFFICE_KEY);
+                localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
+                location.reload();
+                return;
+            }
+            if (loginEl) loginEl.classList.remove('u-hidden');
+            switchAuthView('officeLogin');
+            const errMsg = resp.message || resp.error || '認証エラー';
+            showError(`システムエラー: ${errMsg}`);
         } else {
             if (loginEl) loginEl.classList.remove('u-hidden');
             switchAuthView('officeLogin');
             const errMsg = resp.hint ? `${resp.message} (${resp.hint})` : (resp.message || resp.error || '不明なエラー');
             showError(`システムエラー: ${errMsg}`);
         }
+    },
+
+    /**
+     * セッション・キャッシュ情報の完全クリア
+     * ログアウト時やユーザー切り替え時の拠点情報残存を防ぐ。
+     */
+    clearSession() {
+        console.log('【DEBUG】AuthManager.clearSession: キャッシュ情報をクリアします');
+        
+        // 1. 定義済みのキーをすべて削除
+        if (typeof CLEAR_ON_LOGOUT_KEYS !== 'undefined') {
+            CLEAR_ON_LOGOUT_KEYS.forEach(key => {
+                localStorage.removeItem(key);
+                sessionStorage.removeItem(key);
+            });
+        } else {
+            // フォールバック (万が一定数が読み込めていない場合)
+            ['presence-session-token', 'presence_office', 'presence_role', 'whereabouts_persistent_session', 'whereabouts_auth_type'].forEach(k => {
+                localStorage.removeItem(k);
+                sessionStorage.removeItem(k);
+            });
+        }
+
+        // 2. メモリ上の変数をリセット
+        window.SESSION_TOKEN = '';
+        window.CURRENT_OFFICE_ID = '';
+        window.CURRENT_ROLE = 'user';
+        this.session = null;
     }
 };
 
@@ -14884,10 +14977,12 @@ document.getElementById('btnVerifyDone')?.addEventListener('click', () => locati
 const logoutAction = async () => {
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(LOCAL_OFFICE_KEY);
+  localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
   localStorage.removeItem(LOCAL_ROLE_KEY);
   sessionStorage.removeItem(PERSISTENT_SESSION_KEY);
   sessionStorage.removeItem(D1_SESSION_LOCK_KEY);
-  await fbLogout();
+  if (typeof fbLogout === 'function') await fbLogout();
+  location.reload();
 };
 document.getElementById('logoutBtn')?.addEventListener('click', logoutAction);
 window.logout = logoutAction;
@@ -14922,9 +15017,9 @@ window.checkLogin = checkLogin;
 ```javascript
 /**
  * js/sync.js - データ同期・通信ロジック
- * Updated: 2026-04-17T13:18:00Z
+ * Updated: 2026-04-17T13:41:00Z
  */
-console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v6)');
+console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v7)');
 
 /* ===== メニュー・正規化・通信・同期 ===== */
 /* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */

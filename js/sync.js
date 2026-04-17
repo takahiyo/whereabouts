@@ -1,8 +1,8 @@
 /**
  * js/sync.js - データ同期・通信ロジック
- * Updated: 2026-04-17T13:18:00Z
+ * Updated: 2026-04-17T13:41:00Z
  */
-console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v6)');
+console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v7)');
 
 /* ===== メニュー・正規化・通信・同期 ===== */
 /* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */
