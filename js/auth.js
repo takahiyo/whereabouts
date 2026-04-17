@@ -42,7 +42,7 @@ let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
 const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v1)');
+console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v2)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
@@ -90,11 +90,12 @@ export const AuthManager = {
                     // ※ window.SESSION_TOKEN が残っていても Firebase user=null ならリセット扱い
                     console.log(`【DEBUG】Firebase user=null. isBooting=${isBooting}, SESSION_TOKEN=${!!window.SESSION_TOKEN}, => show officeLogin`);
                     if (isBooting) {
-                        // 古いトークンをクリア（staleトークンによる白画面防止）
-                        if (window.SESSION_TOKEN && !sessionStorage.getItem(D1_SESSION_LOCK_KEY)) {
-                            localStorage.removeItem(SESSION_KEY);
+                        // 古いトークンおよび残存セッションロックを完全クリア（staleトークン・セッションによる白画面防止）
+                        if (!sessionStorage.getItem(D1_SESSION_LOCK_KEY)) {
+                            localStorage.removeItem('presence-session-token'); // SESSION_KEY
+                            sessionStorage.removeItem(PERSISTENT_SESSION_KEY);
                             window.SESSION_TOKEN = '';
-                            console.log('【DEBUG】古いセッショントークンをクリアしました');
+                            console.log('【DEBUG】古いセッション情報を完全クリアしました');
                         }
                         switchAuthView('officeLogin');
                     }
@@ -311,9 +312,12 @@ function switchAuthView(view) {
 
   if (loginEl && loginFormEl) {
     const isVerifiedView = (view === 'officeLogin' || view === 'verify' || view === 'createOffice');
-    const isBoardVisible = (board && !board.classList.contains('u-hidden')) || sessionStorage.getItem(PERSISTENT_SESSION_KEY);
+    // sessionStorage.getItem(PERSISTENT_SESSION_KEY) を単独で OR にすると board が非表示でも true になり、
+    // login 画面も表示されずに白画面になる原因となるため削除。実際の DOM の状態で判定する。
+    const isBoardVisible = (board && !board.classList.contains('u-hidden'));
     
-    if (isVerifiedView && (SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY)) && isBoardVisible) {
+    if (isVerifiedView && window.SESSION_TOKEN && isBoardVisible) {
+      console.log('【DEBUG】switchAuthView: Board is already visible and SESSION_TOKEN exists. Returning early.');
       return;
     }
     
