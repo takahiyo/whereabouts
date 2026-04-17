@@ -1,13 +1,8 @@
 /**
  * js/sync.js - データ同期・通信ロジック
- *
- * Cloudflare Workers経由のポーリングと設定監視を管理する。
- *
- * 依存: js/config.js, js/constants/*.js, js/globals.js, js/utils.js
- * 参照元: js/auth.js, main.js
- *
- * @see MODULE_GUIDE.md
+ * Updated: 2026-04-17T13:00:00Z
  */
+console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v5)');
 
 /* ===== メニュー・正規化・通信・同期 ===== */
 /* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */
@@ -623,6 +618,7 @@ async function startWorkerPolling(immediate) {
     if (r && r.data && Object.keys(r.data).length > 0) {
       applyState(r.data);
     } else {
+      console.log('【DEBUG】pollAction: No data changes detected.');
       logSyncDecision({
         memberId: '__poll__',
         remoteRev: 0,
@@ -631,6 +627,11 @@ async function startWorkerPolling(immediate) {
         localServerUpdated: lastSyncTimestamp,
         decision: SYNC_DECISION.SKIP
       });
+      // 強制描画フラグがある場合は、データがなくても描画状態を反映させる
+      if (window.FORCE_RENDER_ONCE) {
+          console.log('【DEBUG】pollAction: FORCE_RENDER_ONCE active. Ensuring applyState is called even with empty data.');
+          applyState({});
+      }
     }
   };
 
@@ -703,14 +704,24 @@ async function fetchConfigOnce(nocache = false) {
 
       setupMenus(menus);
       
+      console.log('【DEBUG】fetchConfigOnce: Calling render().');
       render();
+      window.FORCE_RENDER_ONCE = false; // 描画されたのでフラグを落とす
 
       // ★追加: DOM描画直後に最新キャッシュを適用
       if (typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
         if (typeof applyState === 'function') {
+          console.log('【DEBUG】fetchConfigOnce: Re-applying STATE_CACHE.');
           applyState(STATE_CACHE);
         }
       }
+    } else {
+        console.log(`【DEBUG】fetchConfigOnce: shouldUpdate is false (upd=${updated}, cfgUpd=${CONFIG_UPDATED}). ForceRender=${window.FORCE_RENDER_ONCE}`);
+        if (window.FORCE_RENDER_ONCE) {
+            console.log('【DEBUG】fetchConfigOnce: FORCE_RENDER_ONCE active despite no config update. Calling render().');
+            render();
+            window.FORCE_RENDER_ONCE = false;
+        }
     }
   }
 }

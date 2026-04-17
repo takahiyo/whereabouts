@@ -1398,23 +1398,23 @@
   <script src="js/constants/ui.js" defer></script>
   <script src="js/constants/defaults.js" defer></script>
   <script src="js/constants/column-definitions.js" defer></script>
-  <script src="js/constants/messages.js?v=20260414_v2" defer></script>
-  <script src="js/globals.js?v=20260417_v3" defer></script>
-  <script src="js/utils.js?v=20260414_v2" defer></script>
+  <script src="js/constants/messages.js?v=20260417_v5" defer></script>
+  <script src="js/globals.js?v=20260417_v5" defer></script>
+  <script src="js/utils.js?v=20260417_v5" defer></script>
   <script src="js/services/qr-generator.js" defer></script>
   <script src="js/services/csv.js" defer></script>
-  <script src="js/layout.js?v=20260414_v2" defer></script>
+  <script src="js/layout.js?v=20260417_v5" defer></script>
   <script src="js/filters.js" defer></script>
   <script src="js/board.js?v=20260414_v2" defer></script>
   <script src="js/vacations.js" defer></script>
   <script src="js/offices.js" defer></script>
-  <script src="js/firebase-auth.js" type="module"></script>
-  <script src="js/auth.js?v=20260417_v3" type="module"></script>
-  <script src="js/sync.js?v=20260414_v2" defer></script>
+  <script src="js/firebase-auth.js?v=20260417_v5" type="module"></script>
+  <script src="js/auth.js?v=20260417_v5" type="module"></script>
+  <script src="js/sync.js?v=20260417_v5" defer></script>
   <script src="js/admin.js?v=20260414_v2" defer></script>
   <script src="js/tools.js" defer></script>
   <script src="js/notices.js" defer></script>
-  <script src="main.js?v=20260414_v2" defer></script>
+  <script src="main.js?v=20260417_v5" defer></script>
 
 </body>
 
@@ -9480,6 +9480,7 @@ var CURRENT_ROLE = 'user'; // 'user', 'officeAdmin', 'superAdmin'
 var SESSION_TOKEN = localStorage.getItem(SESSION_KEY) || '';
 /** 拠点カラム設定 (Phase 3) */
 var OFFICE_COLUMN_CONFIG = null;
+var FORCE_RENDER_ONCE = false;
 try {
   // 自動ログイン等のため、拠点IDが判明している場合はそこから読み込む
   const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
@@ -14370,7 +14371,8 @@ let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
 const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v3)');
+// Updated: 2026-04-17T13:00:00Z
+console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v5)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
@@ -14684,7 +14686,9 @@ async function finalizeLogin(data) {
   window.CURRENT_OFFICE_ID = data.office;
   window.CURRENT_ROLE = data.role || 'user';
   window.SESSION_TOKEN = data.token;
+  window.FORCE_RENDER_ONCE = true;
   isBooting = false;
+  console.log(`【DEBUG】finalizeLogin: token=${!!window.SESSION_TOKEN}, isBooting=${isBooting}`);
 
   localStorage.setItem(SESSION_KEY, window.SESSION_TOKEN);
   localStorage.setItem(LOCAL_OFFICE_KEY, window.CURRENT_OFFICE_ID);
@@ -14696,12 +14700,16 @@ async function finalizeLogin(data) {
 
   if (loginEl) loginEl.classList.add('u-hidden');
   if (loginFormEl) loginFormEl.classList.add('u-hidden');
-  if (board) board.classList.remove('u-hidden');
+  if (board) {
+      board.classList.remove('u-hidden');
+      console.log('【DEBUG】board.classList from finalizeLogin:', board.className);
+  }
   
   sessionStorage.setItem(PERSISTENT_SESSION_KEY, 'true');
   ensureAuthUI();
 
   // 同期サイクル
+  console.log('【DEBUG】Starting synchronization cycles...');
   if (typeof startRemoteSync === 'function') startRemoteSync(true);
   if (typeof startConfigWatch === 'function') startConfigWatch();
   if (typeof startNoticesPolling === 'function') startNoticesPolling();
@@ -14904,14 +14912,9 @@ window.checkLogin = checkLogin;
 ```javascript
 /**
  * js/sync.js - データ同期・通信ロジック
- *
- * Cloudflare Workers経由のポーリングと設定監視を管理する。
- *
- * 依存: js/config.js, js/constants/*.js, js/globals.js, js/utils.js
- * 参照元: js/auth.js, main.js
- *
- * @see MODULE_GUIDE.md
+ * Updated: 2026-04-17T13:00:00Z
  */
+console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v5)');
 
 /* ===== メニュー・正規化・通信・同期 ===== */
 /* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */
@@ -15527,6 +15530,7 @@ async function startWorkerPolling(immediate) {
     if (r && r.data && Object.keys(r.data).length > 0) {
       applyState(r.data);
     } else {
+      console.log('【DEBUG】pollAction: No data changes detected.');
       logSyncDecision({
         memberId: '__poll__',
         remoteRev: 0,
@@ -15535,6 +15539,11 @@ async function startWorkerPolling(immediate) {
         localServerUpdated: lastSyncTimestamp,
         decision: SYNC_DECISION.SKIP
       });
+      // 強制描画フラグがある場合は、データがなくても描画状態を反映させる
+      if (window.FORCE_RENDER_ONCE) {
+          console.log('【DEBUG】pollAction: FORCE_RENDER_ONCE active. Ensuring applyState is called even with empty data.');
+          applyState({});
+      }
     }
   };
 
@@ -15607,14 +15616,24 @@ async function fetchConfigOnce(nocache = false) {
 
       setupMenus(menus);
       
+      console.log('【DEBUG】fetchConfigOnce: Calling render().');
       render();
+      window.FORCE_RENDER_ONCE = false; // 描画されたのでフラグを落とす
 
       // ★追加: DOM描画直後に最新キャッシュを適用
       if (typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
         if (typeof applyState === 'function') {
+          console.log('【DEBUG】fetchConfigOnce: Re-applying STATE_CACHE.');
           applyState(STATE_CACHE);
         }
       }
+    } else {
+        console.log(`【DEBUG】fetchConfigOnce: shouldUpdate is false (upd=${updated}, cfgUpd=${CONFIG_UPDATED}). ForceRender=${window.FORCE_RENDER_ONCE}`);
+        if (window.FORCE_RENDER_ONCE) {
+            console.log('【DEBUG】fetchConfigOnce: FORCE_RENDER_ONCE active despite no config update. Calling render().');
+            render();
+            window.FORCE_RENDER_ONCE = false;
+        }
     }
   }
 }
@@ -19846,7 +19865,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ログイン状態確認
   // js/auth.js で定義された checkLogin を呼び出す
   if (typeof checkLogin === 'function') {
+    console.log('【DEBUG】main.js: checkLogin 開始');
     await checkLogin();
+    console.log('【DEBUG】main.js: checkLogin 完了');
   } else {
     console.error("checkLogin function not found");
   }

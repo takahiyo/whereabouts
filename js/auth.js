@@ -42,7 +42,8 @@ let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
 const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v3)');
+// Updated: 2026-04-17T13:00:00Z
+console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v5)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
@@ -356,7 +357,9 @@ async function finalizeLogin(data) {
   window.CURRENT_OFFICE_ID = data.office;
   window.CURRENT_ROLE = data.role || 'user';
   window.SESSION_TOKEN = data.token;
+  window.FORCE_RENDER_ONCE = true;
   isBooting = false;
+  console.log(`【DEBUG】finalizeLogin: token=${!!window.SESSION_TOKEN}, isBooting=${isBooting}`);
 
   localStorage.setItem(SESSION_KEY, window.SESSION_TOKEN);
   localStorage.setItem(LOCAL_OFFICE_KEY, window.CURRENT_OFFICE_ID);
@@ -368,12 +371,16 @@ async function finalizeLogin(data) {
 
   if (loginEl) loginEl.classList.add('u-hidden');
   if (loginFormEl) loginFormEl.classList.add('u-hidden');
-  if (board) board.classList.remove('u-hidden');
+  if (board) {
+      board.classList.remove('u-hidden');
+      console.log('【DEBUG】board.classList from finalizeLogin:', board.className);
+  }
   
   sessionStorage.setItem(PERSISTENT_SESSION_KEY, 'true');
   ensureAuthUI();
 
   // 同期サイクル
+  console.log('【DEBUG】Starting synchronization cycles...');
   if (typeof startRemoteSync === 'function') startRemoteSync(true);
   if (typeof startConfigWatch === 'function') startConfigWatch();
   if (typeof startNoticesPolling === 'function') startNoticesPolling();
