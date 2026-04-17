@@ -1393,28 +1393,29 @@
 
   <script src="js/config.js" defer></script>
   <!-- 定数ファイル (SSOT) - config.jsの後、globals.jsの前に読み込む -->
-  <script src="js/constants/storage.js?v=20260414_v2" defer></script>
+  <script src="js/constants/storage.js?v=v7" defer></script>
   <script src="js/constants/timing.js" defer></script>
   <script src="js/constants/ui.js" defer></script>
   <script src="js/constants/defaults.js" defer></script>
   <script src="js/constants/column-definitions.js" defer></script>
-  <script src="js/constants/messages.js?v=20260417_v5" defer></script>
-  <script src="js/globals.js?v=20260417_v7" defer></script>
-  <script src="js/utils.js?v=20260417_v5" defer></script>
+  <script src="js/constants/messages.js?v=v7" defer></script>
+  <script src="js/globals.js?v=v7" defer></script>
+  <script src="js/utils.js?v=v7" defer></script>
   <script src="js/services/qr-generator.js" defer></script>
   <script src="js/services/csv.js" defer></script>
-  <script src="js/layout.js?v=20260417_v5" defer></script>
+  <script src="js/layout.js?v=v7" defer></script>
   <script src="js/filters.js" defer></script>
-  <script src="js/board.js?v=20260414_v2" defer></script>
+  <script src="js/board.js?v=v7" defer></script>
   <script src="js/vacations.js" defer></script>
   <script src="js/offices.js" defer></script>
-  <script src="js/firebase-auth.js?v=20260417_v6" type="module"></script>
-  <script src="js/auth.js?v=20260417_v7" type="module"></script>
-  <script src="js/sync.js?v=20260417_v7" defer></script>
-  <script src="js/admin.js?v=20260414_v2" defer></script>
+  <script src="js/firebase-config.js?v=v7" defer></script>
+  <script src="js/firebase-auth.js?v=v7" type="module"></script>
+  <script src="js/auth.js?v=v7" defer></script>
+  <script src="js/sync.js?v=v7" defer></script>
+  <script src="js/admin.js?v=v7" defer></script>
   <script src="js/tools.js" defer></script>
   <script src="js/notices.js" defer></script>
-  <script src="main.js?v=20260417_v7" defer></script>
+  <script src="main.js?v=v7" defer></script>
 
 </body>
 
@@ -7205,6 +7206,7 @@ export default {
       }
 
       /* --- Common Auth Logic --- */
+      /* --- Common Auth Logic --- */
       let authContext = null; 
       const providedToken = getParam('token');
       
@@ -7221,25 +7223,24 @@ export default {
         const fbPayload = await verifyFirebaseToken(providedToken);
         if (fbPayload && fbPayload.email_verified) {
           // Firebase 認証済みの場合は DB からユーザー情報を取得
-          try {
-            const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(fbPayload.sub).first();
-            if (user) authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
-          } catch (dbErr) {
-            console.error('[Common Auth] D1 User Lookup Error:', dbErr.message);
-            // signupアクション自体の場合はここではエラーを投げず、アクション側で詳細に処理させる
-            if (action !== 'signup') {
-                throw new Error(`Database error during auth: ${dbErr.message}`);
-            }
+          const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(fbPayload.sub).first();
+          if (user) {
+            authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
+          } else {
+            // Firebase 認証は成功したが、D1 にユーザーが登録されていない（新規ユーザー）
+            authContext = { office: null, role: 'user', email: fbPayload.email, isFirebase: true };
           }
         }
+
         if (!authContext) {
           const workerPayload = await verifyWorkerToken(providedToken);
-          if (workerPayload) authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
+          if (workerPayload) {
+            authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
+          }
         }
       } catch (authErr) {
         console.error('[Common Auth Critical Error]', authErr);
-        // 重大な認証エラー（パース失敗ではなくDB接続不可など）が発生した場合は 500 へ飛ばす
-        if (authErr.message.includes('Database')) {
+        if (authErr && authErr.message && authErr.message.includes('Database')) {
             throw authErr;
         }
       }
@@ -7251,38 +7252,40 @@ export default {
       requestContext.officeId = requestedOfficeId;
 
       /**
-       * 認可ガード (Security Reinforcement)
-       * スーパー管理者でない限り、リクエストされた拠点がトークンに紐付けられた拠点と一致することを強制する。
+       * [V7] Authorization Guard
+       * Verify if the user has permission to access the requested office.
        */
-      const bypassActions = ['login', 'signup', 'publicListOffices', 'createOffice', 'listOffices', 'addOffice', 'deleteOffice'];
-      if (!bypassActions.includes(action)) {
-          if (tokenRole !== 'superAdmin') {
-              // 1. 公開拠点への読み取り (get) は許可する（オプション）
-              let isPublicAction = false;
-              if (action === 'get' || action === 'getConfig' || action === 'getTools' || action === 'getNotices' || action === 'getEventColorMap') {
-                  // ここで D1 から is_public を確認するコストをかけるか、
-                  // あるいは単純に officeId === tokenOffice を厳格に守るか。
-                  // セキュリティを優先し、一旦「自分の拠点以外は一切不可」とする。
-              }
+      function validateOfficeAccess(context, reqOfficeId, currentAction) {
+        const bypassActions = ['login', 'signup', 'publicListOffices', 'createOffice', 'listOffices', 'addOffice', 'deleteOffice', 'renew'];
+        if (bypassActions.includes(currentAction)) return { ok: true };
+        
+        if (!context) return { ok: false, error: 'unauthorized', reason: 'no_auth_context' };
+        if (context.role === 'superAdmin') return { ok: true };
 
-              if (requestedOfficeId && requestedOfficeId !== tokenOffice) {
-                  console.warn(`[Auth Guard] Blocked unauthorized access: action=${action}, request=${requestedOfficeId}, authorized=${tokenOffice}`);
-                  return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'office_access_denied' }), { status: 403, headers: corsHeaders });
-              }
-          }
+        // Firebase User check
+        if (context.isFirebase && !context.office) {
+           return { ok: false, error: 'unauthorized', reason: 'no_office_assigned' };
+        }
+
+        // Office ID Mismatch check
+        if (reqOfficeId && reqOfficeId !== context.office) {
+          console.warn(`[Auth Guard] Blocked unauthorized access: action=${currentAction}, request=${reqOfficeId}, authorized=${context.office}`);
+          return { ok: false, error: 'unauthorized', reason: 'office_access_denied' };
+        }
+
+        return { ok: true };
       }
 
-      /**
-       * データベースクエリ実行用安全ラッパー (SSOT/Robustness)
-       * @param {Function} queryFn 
-       * @param {string} errorLabel 
-       */
+      const authGuardResult = validateOfficeAccess(authContext, requestedOfficeId, action);
+      if (!authGuardResult.ok) {
+        return new Response(JSON.stringify(authGuardResult), { status: 403, headers: corsHeaders });
+      }
+
       async function safeDbQuery(queryFn, errorLabel = 'database_error') {
-        try {
-          return await queryFn();
-        } catch (e) {
+        try { return await queryFn(); }
+        catch (e) { 
           console.error(`[DB Error ${errorLabel}]`, e.message);
-          throw e; // 上位の handleAction 側で JSON 応答として処理
+          throw e;
         }
       }
 
@@ -7292,7 +7295,6 @@ export default {
         return response;
       } catch (e) {
         console.error(`[Worker Fatal Error] action=${action}:`, e);
-        // すべてのエラーレスポンスを JSON 形式に統一
         return new Response(JSON.stringify({ 
           ok: false, 
           error: 'internal_server_error', 
@@ -7304,7 +7306,6 @@ export default {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         });
       }
-
       async function handleAction() {
         console.log(`[Worker Action] ${action} (Office: ${requestContext.officeId})`);
         /* --- LOGIN (Hyperhybrid: Support both Shared PW and legacy flow) --- */
@@ -7486,10 +7487,7 @@ export default {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
         
-        // Data Isolation Check
-        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
-        }
+        // Isolation handled by V7 Auth Guard
 
         const nocache = getParam('nocache') === '1';
         const cacheKey = `config_v2:${officeId}`;
@@ -7580,9 +7578,25 @@ export default {
 
       /* --- RENEW TOKEN --- */
       if (action === 'renew') {
-        const token = getParam('token');
-        if (!token || !tokenOffice) {
-          console.warn('[renew] Unauthorized:', { hasToken: !!token, hasOffice: !!tokenOffice });
+        const token = providedToken;
+        if (!token) {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'token_missing' }), { headers: corsHeaders });
+        }
+
+        // Firebase ユーザーだが拠点が未紐付けの場合、成功（ok: true）を返すが office は null とする
+        // これによりフロントエンド側で「ログイン状態だが拠点未指定」と判別できる
+        if (authContext && authContext.isFirebase && !tokenOffice) {
+          return new Response(JSON.stringify({ 
+            ok: true, 
+            token: token,
+            role: tokenRole, 
+            office: null, 
+            officeName: null,
+            email: authContext.email 
+          }), { headers: corsHeaders });
+        }
+
+        if (!tokenOffice) {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'invalid_session' }), { headers: corsHeaders });
         }
         
@@ -7603,11 +7617,6 @@ export default {
       if (action === 'get' || action === 'getFor') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
-
-        // Data Isolation Check: リクエストされた拠点とトークンの拠点が一致するか、またはスーパー管理者か
-        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
-          console.warn(`[get] Unauthorized access attempt: requestOffice=${officeId}, tokenOffice=${tokenOffice}`);
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'office_mismatch' }), { headers: corsHeaders });
         }
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
@@ -7765,10 +7774,7 @@ export default {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
 
-        // Data Isolation Check
-        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
-        }
+        // Isolation handled by V7 Auth Guard
 
         const cacheKey = `notices:${officeId}`;
         if (statusCache) {
@@ -8762,19 +8768,31 @@ var CONFIG = {
  */
 
 // ============================================
-// セッション関連キー
+// セッション関連キー (SSOT 指定キー)
 // ============================================
 /** セッショントークン保存キー */
-const SESSION_KEY = "presence-session-token";
+const SESSION_KEY = "SESSION_TOKEN";
+
+/** 拠点ID保存キー */
+const SESSION_OFFICE_KEY = "presence-office-id";
+
+/** 拠点名保存キー */
+const SESSION_OFFICE_NAME_KEY = "officeName";
 
 /** ユーザー権限保存キー */
 const SESSION_ROLE_KEY = "presence-role";
 
-/** 拠点ID保存キー */
-const SESSION_OFFICE_KEY = "presence-office";
+// ============================================
+// ローカルストレージ互換・拡張キー
+// ============================================
+/** 自動ログイン用拠点ID保存キー (SESSION_OFFICE_KEYに統合予定だが互換維持) */
+const LOCAL_OFFICE_KEY = SESSION_OFFICE_KEY;
 
-/** 拠点名保存キー */
-const SESSION_OFFICE_NAME_KEY = "presence-office-name";
+/** 自動ログイン用ユーザー権限保存キー */
+const LOCAL_ROLE_KEY = SESSION_ROLE_KEY;
+
+/** 自動ログイン用拠点名保存キー */
+const LOCAL_OFFICE_NAME_KEY = SESSION_OFFICE_NAME_KEY;
 
 /** 拠点カラム設定保存キー (Phase 2) */
 function getColumnConfigKey(officeId) {
@@ -8782,42 +8800,26 @@ function getColumnConfigKey(officeId) {
 }
 
 // ============================================
-// ローカルストレージキー
+// アプリケーション内部状態用キー
 // ============================================
-/** 自動ログイン用拠点ID保存キー */
-const LOCAL_OFFICE_KEY = "presence_office";
-
-/** 自動ログイン用ユーザー権限保存キー */
-const LOCAL_ROLE_KEY = "presence_role";
-
-/** 自動ログイン用拠点名保存キー */
-const LOCAL_OFFICE_NAME_KEY = "presence_office_name";
-
 /** ボードデータ保存用キーベース */
 const STORE_KEY_BASE = "presence-board-v4";
 
 /** お知らせ折りたたみ状態キー */
 const NOTICE_COLLAPSE_STORAGE_KEY = 'noticeAreaCollapsed';
 
-// ============================================
-// キャッシュ関連キー
-// ============================================
 /**
- * 状態キャッシュキー（CONFIG.storageKeysから参照）
- * 値は sync.js で { savedAt, state } の自己修復用エンベロープ保存にも利用される。
- * @deprecated CONFIG.storageKeys.stateCache を使用すること
+ * 状態キャッシュキー
  */
 const STORAGE_KEY_CACHE_FALLBACK = 'whereabouts_state_cache';
 
 /**
- * 最終同期時刻キー（CONFIG.storageKeysから参照）
- * @deprecated CONFIG.storageKeys.lastSync を使用すること
+ * 最終同期時刻キー
  */
 const STORAGE_KEY_SYNC_FALLBACK = 'whereabouts_last_sync';
 
 /**
- * 行単位競合回復状態キー（CONFIG.storageKeysから参照）
- * @deprecated CONFIG.storageKeys.conflictRecovery を使用すること
+ * 行単位競合回復状態キー
  */
 const STORAGE_KEY_CONFLICT_RECOVERY_FALLBACK = 'whereabouts_conflict_recovery';
 
@@ -8846,10 +8848,6 @@ const CLEAR_ON_LOGOUT_KEYS = [
     D1_SESSION_LOCK_KEY
 ];
 
-
-// ============================================
-// イベント選択状態キー生成
-// ============================================
 /**
  * イベント選択状態のストレージキーを生成
  * @param {string} officeId - 拠点ID
@@ -8857,6 +8855,33 @@ const CLEAR_ON_LOGOUT_KEYS = [
  */
 function eventSelectionKey(officeId) {
   return `${STORE_KEY_BASE}:event:${officeId || '__none__'}`;
+}
+
+// ============================================
+// 非モジュール環境（globals.js等）向けのグローバル展開
+// ============================================
+if (typeof window !== 'undefined') {
+  window.STORAGE_KEYS = Object.freeze({
+    SESSION_KEY,
+    SESSION_OFFICE_KEY,
+    SESSION_OFFICE_NAME_KEY,
+    SESSION_ROLE_KEY,
+    LOCAL_OFFICE_KEY,
+    LOCAL_ROLE_KEY,
+    LOCAL_OFFICE_NAME_KEY,
+    STORE_KEY_BASE,
+    PERSISTENT_SESSION_KEY,
+    D1_SESSION_LOCK_KEY,
+    CLEAR_ON_LOGOUT_KEYS
+  });
+  // 個別定数も互換性のために window に展開
+  window.SESSION_KEY = SESSION_KEY;
+  window.LOCAL_OFFICE_KEY = LOCAL_OFFICE_KEY;
+  window.LOCAL_ROLE_KEY = LOCAL_ROLE_KEY;
+  window.LOCAL_OFFICE_NAME_KEY = LOCAL_OFFICE_NAME_KEY;
+  window.STORE_KEY_BASE = STORE_KEY_BASE;
+  window.getColumnConfigKey = getColumnConfigKey;
+  window.eventSelectionKey = eventSelectionKey;
 }
 
 `
@@ -14256,7 +14281,7 @@ async function refreshPublicOfficeSelect(selectedId){
  * Firebase コンソール > プロジェクト設定 > 全般 > マイアプリ で取得した内容を貼り付けてください。
  */
 
-export const firebaseConfig = {
+window.firebaseConfig = {
   // Firebase コンソールから取得したプロジェクト設定
   apiKey: "AIzaSyA_CKaAyt7aiZ0tXgv-0lHviCVV4y8urBQ",
   authDomain: "whereabouts-f3388.firebaseapp.com",
@@ -14287,10 +14312,9 @@ import {
   onAuthStateChanged,
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { firebaseConfig } from './firebase-config.js';
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(window.firebaseConfig);
 const auth = getAuth(app);
 
 /**
@@ -14378,6 +14402,15 @@ export function watchAuthState(callback) {
   });
 }
 
+// Attach to window for non-module script compatibility
+if (typeof window !== 'undefined') {
+  window.fbSignup = signup;
+  window.fbLogin = login;
+  window.fbLogout = logout;
+  window.watchAuthState = watchAuthState;
+  window.getValidToken = getValidToken;
+}
+
 `
 
 ### js/auth.js
@@ -14390,16 +14423,14 @@ export function watchAuthState(callback) {
  * 2. 管理者ポータル (Firebase): オーナー用 (拠点開設・管理者登録)
  * 
  * [REF] js/constants/messages.js, js/sync.js, CloudflareWorkers_worker.js
+ * 依存: js/constants/storage.js (グローバル変数展開済みであること)
  */
 
-import { 
-  signup as fbSignup, 
-  login as fbLogin, 
-  logout as fbLogout, 
-  watchAuthState,
-  getValidToken as getFbToken
-} from './firebase-auth.js';
-import { firebaseConfig } from './firebase-config.js';
+// Firebase Auth Function Wrappers (Attached to window in firebase-auth.js)
+const getFbToken = () => window.getValidToken ? window.getValidToken() : Promise.resolve(null);
+const fbLogin = (id, pw) => window.fbLogin ? window.fbLogin(id, pw) : Promise.reject('Firebase Auth NOT ready');
+const fbSignup = (email, pw) => window.fbSignup ? window.fbSignup(email, pw) : Promise.reject('Firebase Auth NOT ready');
+const fbLogout = () => window.fbLogout ? window.fbLogout() : Promise.resolve();
 
 /**
  * @typedef {Object} SessionContext
@@ -14409,31 +14440,22 @@ import { firebaseConfig } from './firebase-config.js';
  * @property {string} token - Firebase idToken または D1 セッションID
  */
 
-// DOM Elements
-const loginEl = document.getElementById('login');
+// DOM Elements (Shared elements are defined in globals.js)
 const loginFormEl = document.getElementById('loginForm');
-const board = document.getElementById('board');
-const loginMsg = document.getElementById('loginMsg');
-const adminBtn = document.getElementById('adminBtn');
-const logoutBtn = document.getElementById('logoutBtn');
-const toolsBtn = document.getElementById('toolsBtn');
-const manualBtn = document.getElementById('manualBtn');
-const qrBtn = document.getElementById('qrBtn');
-const qrModal = document.getElementById('qrModal');
 const btnSimpleLogin = document.getElementById('btnSimpleLogin');
 
 // Auth State Variables
 let isBooting = true;
-const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
-const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
+// Constants for session local cache (using global keys from storage.js)
+// window.PERSISTENT_SESSION_KEY and window.D1_SESSION_LOCK_KEY are available globally.
 
-// Updated: 2026-04-17T13:41:00Z
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v7)');
+// Updated: 2026-04-17 (V7.1 Global Consistency Fix)
+console.log('【DEBUG】js/auth.js Loaded (Version: v7.1)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
  */
-export const AuthManager = {
+window.AuthManager = {
     config: null,
     session: null,
 
@@ -14450,7 +14472,7 @@ export const AuthManager = {
         this.handleUrlParams();
 
         // 1. D1セッションロックの確認（Flicker防止）
-        const authType = sessionStorage.getItem(D1_SESSION_LOCK_KEY);
+        const authType = sessionStorage.getItem(window.D1_SESSION_LOCK_KEY);
         if (authType === 'd1') {
             console.log("[Auth] D1 Session Lock Active.");
             const restored = await this.restoreD1Session();
@@ -14458,45 +14480,46 @@ export const AuthManager = {
         }
 
         // 2. Firebase の状態を確認 (オーナー用)
-        return new Promise((resolve) => {
-            watchAuthState(async (user) => {
-                console.log('【DEBUG】watchAuthState 通知受理. User:', user ? user.email : 'null');
-                
-                // D1セッションがアクティブな場合は Firebase の状態変化を完全に遮断
-                if (sessionStorage.getItem(D1_SESSION_LOCK_KEY) === 'd1') {
-                    console.log('【DEBUG】[ガード] D1セッション中につき Firebase 状態変化を無視します');
-                    return;
-                }
-
-                if (user) {
-                    const result = await this.handleFirebaseUser(user);
-                    resolve(result);
-                } else {
-                    // D1 セッションは init 冒頭で確認済みのため、ここでは無条件でログイン画面を表示する
-                    // ※ window.SESSION_TOKEN が残っていても Firebase user=null ならリセット扱い
-                    console.log(`【DEBUG】Firebase user=null. isBooting=${isBooting}, SESSION_TOKEN=${!!window.SESSION_TOKEN}, => show officeLogin`);
-                    if (isBooting) {
-                        // 古いトークンおよび残存セッション情報を完全クリア
-                        this.clearSession();
-                        switchAuthView('officeLogin');
+        if (window.watchAuthState) {
+            return new Promise((resolve) => {
+                window.watchAuthState(async (user) => {
+                    console.log('【DEBUG】watchAuthState 通知受理. User:', user ? user.email : 'null');
+                    
+                    // D1セッションがアクティブな場合は Firebase の状態変化を完全に遮断
+                    if (sessionStorage.getItem(window.D1_SESSION_LOCK_KEY) === 'd1') {
+                        console.log('【DEBUG】[ガード] D1セッション中につき Firebase 状態変化を無視します');
+                        return;
                     }
-                    resolve(false);
-                }
-                isBooting = false;
+
+                    if (user) {
+                        const result = await this.handleFirebaseUser(user);
+                        resolve(result);
+                    } else {
+                        // D1 セッションは init 冒頭で確認済みのため、ここでは無条件でログイン画面を表示する
+                        // ※ window.SESSION_TOKEN が残っていても Firebase user=null ならリセット扱い
+                        console.log(`【DEBUG】Firebase user=null. isBooting=${isBooting}, SESSION_TOKEN=${!!window.SESSION_TOKEN}, => show officeLogin`);
+                        if (isBooting) {
+                            // 古いトークンおよび残存セッション情報を完全クリア
+                            this.clearSession();
+                            switchAuthView('officeLogin');
+                        }
+                        resolve(false);
+                    }
+                    isBooting = false;
+                });
             });
-        });
+        } else {
+            console.warn('[Auth] watchAuthState is not available. Firebase features disabled.');
+            return Promise.resolve(false);
+        }
     },
 
     /**
      * Firebase 設定バリデーション
      */
     checkFirebaseConfig() {
-        if (!firebaseConfig || firebaseConfig.apiKey === 'YOUR_API_KEY') {
+        if (!window.firebaseConfig || window.firebaseConfig.apiKey === 'YOUR_API_KEY') {
             console.warn('[Auth] Firebase configuration is incomplete.');
-            if (btnSimpleLogin) {
-                // IDに@が含まれる場合はFirebaseログインを促すため、バリデーションはログイン時に行う
-                // ただし、管理者登録ボタンなどはここで制御可能
-            }
         }
     },
 
@@ -14524,8 +14547,8 @@ export const AuthManager = {
      * D1セッションの復元
      */
     async restoreD1Session() {
-        const storedToken = localStorage.getItem(SESSION_KEY);
-        const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
+        const storedToken = localStorage.getItem(window.SESSION_KEY);
+        const storedOffice = localStorage.getItem(window.LOCAL_OFFICE_KEY);
         
         if (storedToken && storedOffice) {
             try {
@@ -14535,8 +14558,8 @@ export const AuthManager = {
                     this.session = this.createSessionContext('d1', {
                         token: storedToken,
                         officeId: storedOffice,
-                        role: res.role || localStorage.getItem(LOCAL_ROLE_KEY) || 'user',
-                        officeName: localStorage.getItem(LOCAL_OFFICE_NAME_KEY) || storedOffice
+                        role: res.role || localStorage.getItem(window.LOCAL_ROLE_KEY) || 'user',
+                        officeName: localStorage.getItem(window.LOCAL_OFFICE_NAME_KEY) || storedOffice
                     });
                     await finalizeLogin(res);
                     isBooting = false;
@@ -14546,7 +14569,7 @@ export const AuthManager = {
                 console.error('【DEBUG】D1セッション復元中に例外発生:', e);
             }
         }
-        sessionStorage.removeItem(D1_SESSION_LOCK_KEY);
+        sessionStorage.removeItem(window.D1_SESSION_LOCK_KEY);
         return false;
     },
 
@@ -14558,7 +14581,7 @@ export const AuthManager = {
             const urlParams = new URLSearchParams(window.location.search);
             const hasOfficeParam = !!urlParams.get('office');
             
-            if (window.SESSION_TOKEN || sessionStorage.getItem(PERSISTENT_SESSION_KEY) || hasOfficeParam) {
+            if (window.SESSION_TOKEN || sessionStorage.getItem(window.PERSISTENT_SESSION_KEY) || hasOfficeParam) {
                 return;
             }
             switchAuthView('verify');
@@ -14583,13 +14606,10 @@ export const AuthManager = {
                         return true;
                     }
                 } else {
-                    console.log('【DEBUG】User has no office_id. Clearing stale office cache and redirecting to createOffice.');
-                    // 拠点が紐付いていない場合はキャッシュを確実に消去
-                    localStorage.removeItem(LOCAL_OFFICE_KEY);
-                    localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
-                    window.CURRENT_OFFICE_ID = '';
+                    console.log('【DEBUG】User has no office_id. Redirecting to createOffice.');
+                    // 拠点を持っていない場合は、既存の拠点キャッシュ（もしあれば）をクリアして混同を防ぐ
+                    this.clearSession();
                     if (typeof updateTitleBtn === 'function') updateTitleBtn('拠点が未開設です');
-                    
                     switchAuthView('createOffice');
                     return true;
                 }
@@ -14610,7 +14630,7 @@ export const AuthManager = {
 
         if (id.includes('@')) {
             // Firebase設定チェック
-            if (!firebaseConfig || firebaseConfig.apiKey === 'YOUR_API_KEY') {
+            if (!window.firebaseConfig || window.firebaseConfig.apiKey === 'YOUR_API_KEY') {
                 showError(typeof AUTH_MESSAGES !== 'undefined' ? AUTH_MESSAGES.ERROR.CONFIG_INCOMPLETE : 'Firebaseの設定が未完了です。');
                 return;
             }
@@ -14618,7 +14638,7 @@ export const AuthManager = {
             if (res.ok) {
                 // キャッシュをクリアしてからリロードすることで、ログイン後の「拠点跨ぎ」を防止
                 this.clearSession();
-                sessionStorage.setItem(D1_SESSION_LOCK_KEY, 'firebase');
+                sessionStorage.setItem(window.D1_SESSION_LOCK_KEY, 'firebase');
                 location.reload();
             } else {
                 if (res.error === 'email_not_verified') switchAuthView('verify');
@@ -14651,11 +14671,11 @@ export const AuthManager = {
     createSessionContext(type, data) {
         const session = {
             authType: type,
-            officeId: data.officeId.toLowerCase(),
+            officeId: (data.officeId || '').toLowerCase(),
             role: data.role || 'staff',
             token: data.token
         };
-        sessionStorage.setItem(D1_SESSION_LOCK_KEY, type);
+        sessionStorage.setItem(window.D1_SESSION_LOCK_KEY, type);
         return session;
     },
 
@@ -14684,8 +14704,7 @@ export const AuthManager = {
         } else if (resp.error === 'unauthorized') {
             if (resp.reason === 'office_access_denied') {
                 alert('この拠点へのアクセス権限がありません。自分が開設した拠点を使用してください。');
-                localStorage.removeItem(LOCAL_OFFICE_KEY);
-                localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
+                this.clearSession();
                 location.reload();
                 return;
             }
@@ -14708,19 +14727,12 @@ export const AuthManager = {
     clearSession() {
         console.log('【DEBUG】AuthManager.clearSession: キャッシュ情報をクリアします');
         
-        // 1. 定義済みのキーをすべて削除
-        if (typeof CLEAR_ON_LOGOUT_KEYS !== 'undefined') {
-            CLEAR_ON_LOGOUT_KEYS.forEach(key => {
-                localStorage.removeItem(key);
-                sessionStorage.removeItem(key);
-            });
-        } else {
-            // フォールバック (万が一定数が読み込めていない場合)
-            ['presence-session-token', 'presence_office', 'presence_role', 'whereabouts_persistent_session', 'whereabouts_auth_type'].forEach(k => {
-                localStorage.removeItem(k);
-                sessionStorage.removeItem(k);
-            });
-        }
+        // [V7] CLEAR_ON_LOGOUT_KEYS を使用して完全に破棄
+        const keys = window.STORAGE_KEYS ? (window.STORAGE_KEYS.CLEAR_ON_LOGOUT_KEYS || []) : [];
+        keys.forEach(key => {
+            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
+        });
 
         // 2. メモリ上の変数をリセット
         window.SESSION_TOKEN = '';
@@ -14743,8 +14755,6 @@ function switchAuthView(view) {
 
   if (loginEl && loginFormEl) {
     const isVerifiedView = (view === 'officeLogin' || view === 'verify' || view === 'createOffice');
-    // sessionStorage.getItem(PERSISTENT_SESSION_KEY) を単独で OR にすると board が非表示でも true になり、
-    // login 画面も表示されずに白画面になる原因となるため削除。実際の DOM の状態で判定する。
     const isBoardVisible = (board && !board.classList.contains('u-hidden'));
     
     if (isVerifiedView && window.SESSION_TOKEN && isBoardVisible) {
@@ -14793,11 +14803,11 @@ async function finalizeLogin(data) {
   isBooting = false;
   console.log(`【DEBUG】finalizeLogin: office=${window.CURRENT_OFFICE_ID}, token=${!!window.SESSION_TOKEN}, role=${window.CURRENT_ROLE}`);
 
-  localStorage.setItem(SESSION_KEY, window.SESSION_TOKEN);
-  localStorage.setItem(LOCAL_OFFICE_KEY, window.CURRENT_OFFICE_ID);
-  localStorage.setItem(LOCAL_ROLE_KEY, CURRENT_ROLE);
-  const officeName = data.officeName || CURRENT_OFFICE_ID;
-  localStorage.setItem(LOCAL_OFFICE_NAME_KEY, officeName);
+  localStorage.setItem(window.SESSION_KEY, window.SESSION_TOKEN);
+  localStorage.setItem(window.SESSION_OFFICE_KEY, window.CURRENT_OFFICE_ID);
+  localStorage.setItem(window.SESSION_ROLE_KEY, window.CURRENT_ROLE);
+  const officeName = data.officeName || window.CURRENT_OFFICE_ID;
+  localStorage.setItem(window.SESSION_OFFICE_NAME_KEY, officeName);
   
   if (typeof updateTitleBtn === 'function') updateTitleBtn(officeName);
 
@@ -14808,7 +14818,7 @@ async function finalizeLogin(data) {
       console.log('【DEBUG】board.classList from finalizeLogin:', board.className);
   }
   
-  sessionStorage.setItem(PERSISTENT_SESSION_KEY, 'true');
+  sessionStorage.setItem(window.PERSISTENT_SESSION_KEY, 'true');
   ensureAuthUI();
 
   // 同期サイクル
@@ -14862,7 +14872,7 @@ document.getElementById('btnSimpleLogin')?.addEventListener('click', async () =>
     const password = document.getElementById('loginPassword').value;
     if (!loginId || !password) return showError('拠点名またはメールアドレスとパスワードを入力してください。');
     
-    await AuthManager.login(loginId, password);
+    await window.AuthManager.login(loginId, password);
 });
 
 // 管理者登録
@@ -14870,7 +14880,7 @@ document.getElementById('btnAuthSignup')?.addEventListener('click', async () => 
   const email = document.getElementById('signupEmail').value;
   const pw = document.getElementById('signupPw').value;
 
-  if (!firebaseConfig || firebaseConfig.apiKey === 'YOUR_API_KEY') {
+  if (!window.firebaseConfig || window.firebaseConfig.apiKey === 'YOUR_API_KEY') {
     return showError(typeof AUTH_MESSAGES !== 'undefined' ? AUTH_MESSAGES.ERROR.CONFIG_INCOMPLETE : 'Firebaseの設定が完了していません。');
   }
 
@@ -14907,13 +14917,13 @@ document.getElementById('btnCreateOffice')?.addEventListener('click', async () =
   }
 
   const fbToken = await getFbToken();
-  const res = await AuthManager.fetchFromWorker('createOffice', { 
+  const res = await window.AuthManager.fetchFromWorker('createOffice', { 
     token: fbToken, officeId, name, password 
   });
   
   if (res.ok) {
     toast('オフィスを作成しました！管理パネルで初期設定を行ってください。');
-    const loginResp = await AuthManager.fetchFromWorker('renew', { token: fbToken });
+    const loginResp = await window.AuthManager.fetchFromWorker('renew', { token: fbToken });
     if (loginResp.ok) {
       await finalizeLogin(loginResp);
       if (typeof window.openAdminModal === 'function') window.openAdminModal();
@@ -14928,12 +14938,12 @@ document.getElementById('btnCreateOffice')?.addEventListener('click', async () =
 /**
  * QRコードモーダルの表示と動的生成
  */
-export function showQrModal(show) {
+window.showQrModal = function(show) {
   if (!qrModal) return;
   if (show) {
     let targetUrl = window.location.origin + window.location.pathname;
-    if (CURRENT_OFFICE_ID) {
-      targetUrl += (targetUrl.includes('?') ? '&' : '?') + 'office=' + encodeURIComponent(CURRENT_OFFICE_ID);
+    if (window.CURRENT_OFFICE_ID) {
+      targetUrl += (targetUrl.includes('?') ? '&' : '?') + 'office=' + encodeURIComponent(window.CURRENT_OFFICE_ID);
     }
 
     try {
@@ -14965,28 +14975,22 @@ export function showQrModal(show) {
     qrModal.classList.remove('show');
     qrModal.style.display = 'none';
   }
-}
+};
 
 document.getElementById('linkGotoSignup')?.addEventListener('click', (e) => { e.preventDefault(); switchAuthView('signup'); });
 document.getElementById('linkGotoLogin')?.addEventListener('click', (e) => { e.preventDefault(); switchAuthView('officeLogin'); });
 document.getElementById('linkBackToLoginFromVerify')?.addEventListener('click', (e) => { e.preventDefault(); logoutAction(); });
-document.getElementById('qrModalClose')?.addEventListener('click', () => showQrModal(false));
-qrModal?.addEventListener('click', (e) => { if (e.target === qrModal) showQrModal(false); });
+document.getElementById('qrModalClose')?.addEventListener('click', () => window.showQrModal(false));
+qrModal?.addEventListener('click', (e) => { if (e.target === qrModal) window.showQrModal(false); });
 document.getElementById('btnVerifyDone')?.addEventListener('click', () => location.reload());
 
 const logoutAction = async () => {
-  localStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(LOCAL_OFFICE_KEY);
-  localStorage.removeItem(LOCAL_OFFICE_NAME_KEY);
-  localStorage.removeItem(LOCAL_ROLE_KEY);
-  sessionStorage.removeItem(PERSISTENT_SESSION_KEY);
-  sessionStorage.removeItem(D1_SESSION_LOCK_KEY);
+  window.AuthManager.clearSession();
   if (typeof fbLogout === 'function') await fbLogout();
   location.reload();
 };
 document.getElementById('logoutBtn')?.addEventListener('click', logoutAction);
 window.logout = logoutAction;
-window.showQrModal = showQrModal;
 
 function ensureAuthUI() {
   const loggedIn = !!window.SESSION_TOKEN;
@@ -15007,8 +15011,7 @@ function ensureAuthUI() {
   if (adminOfficeRow) adminOfficeRow.style.display = (window.CURRENT_ROLE === 'superAdmin') ? 'flex' : 'none';
 }
 window.ensureAuthUI = ensureAuthUI;
-export const checkLogin = () => AuthManager.init({ remoteEndpoint: window.CONFIG ? window.CONFIG.remoteEndpoint : (typeof CONFIG !== 'undefined' ? CONFIG.remoteEndpoint : '') });
-window.checkLogin = checkLogin;
+window.checkLogin = () => window.AuthManager.init({ remoteEndpoint: window.CONFIG ? window.CONFIG.remoteEndpoint : (typeof CONFIG !== 'undefined' ? CONFIG.remoteEndpoint : '') });
 
 `
 
