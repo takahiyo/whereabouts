@@ -393,7 +393,12 @@ export default {
           await env.DB.prepare('INSERT INTO users (firebase_uid, email, created_at, updated_at) VALUES (?, ?, ?, ?)')
             .bind(uid, email, nowTs, nowTs).run();
 
-          return new Response(JSON.stringify({ ok: true, message: 'signup_success' }), { headers: corsHeaders });
+          const newUser = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(uid).first();
+          return new Response(JSON.stringify({ 
+            ok: true, 
+            message: 'signup_success',
+            user: newUser || { firebase_uid: uid, email: email }
+          }), { headers: corsHeaders });
         } catch (dbErr) {
           console.error('[Signup DB Error]', dbErr.message);
           return new Response(JSON.stringify({ 
@@ -556,6 +561,7 @@ export default {
         const officeData = await env.DB.prepare('SELECT name FROM offices WHERE id = ?').bind(tokenOffice).first();
         return new Response(JSON.stringify({ 
           ok: true, 
+          token: token,
           role: tokenRole, 
           office: tokenOffice, 
           officeName: officeData ? officeData.name : tokenOffice,

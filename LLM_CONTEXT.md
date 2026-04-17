@@ -1399,7 +1399,7 @@
   <script src="js/constants/defaults.js" defer></script>
   <script src="js/constants/column-definitions.js" defer></script>
   <script src="js/constants/messages.js?v=20260417_v5" defer></script>
-  <script src="js/globals.js?v=20260417_v5" defer></script>
+  <script src="js/globals.js?v=20260417_v6" defer></script>
   <script src="js/utils.js?v=20260417_v5" defer></script>
   <script src="js/services/qr-generator.js" defer></script>
   <script src="js/services/csv.js" defer></script>
@@ -1408,13 +1408,13 @@
   <script src="js/board.js?v=20260414_v2" defer></script>
   <script src="js/vacations.js" defer></script>
   <script src="js/offices.js" defer></script>
-  <script src="js/firebase-auth.js?v=20260417_v5" type="module"></script>
-  <script src="js/auth.js?v=20260417_v5" type="module"></script>
-  <script src="js/sync.js?v=20260417_v5" defer></script>
+  <script src="js/firebase-auth.js?v=20260417_v6" type="module"></script>
+  <script src="js/auth.js?v=20260417_v6" type="module"></script>
+  <script src="js/sync.js?v=20260417_v6" defer></script>
   <script src="js/admin.js?v=20260414_v2" defer></script>
   <script src="js/tools.js" defer></script>
   <script src="js/notices.js" defer></script>
-  <script src="main.js?v=20260417_v5" defer></script>
+  <script src="main.js?v=20260417_v6" defer></script>
 
 </body>
 
@@ -7398,7 +7398,12 @@ export default {
           await env.DB.prepare('INSERT INTO users (firebase_uid, email, created_at, updated_at) VALUES (?, ?, ?, ?)')
             .bind(uid, email, nowTs, nowTs).run();
 
-          return new Response(JSON.stringify({ ok: true, message: 'signup_success' }), { headers: corsHeaders });
+          const newUser = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(uid).first();
+          return new Response(JSON.stringify({ 
+            ok: true, 
+            message: 'signup_success',
+            user: newUser || { firebase_uid: uid, email: email }
+          }), { headers: corsHeaders });
         } catch (dbErr) {
           console.error('[Signup DB Error]', dbErr.message);
           return new Response(JSON.stringify({ 
@@ -7561,6 +7566,7 @@ export default {
         const officeData = await env.DB.prepare('SELECT name FROM offices WHERE id = ?').bind(tokenOffice).first();
         return new Response(JSON.stringify({ 
           ok: true, 
+          token: token,
           role: tokenRole, 
           office: tokenOffice, 
           officeName: officeData ? officeData.name : tokenOffice,
@@ -14371,8 +14377,8 @@ let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
 const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
-// Updated: 2026-04-17T13:00:00Z
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v5)');
+// Updated: 2026-04-17T13:18:00Z
+console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v6)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
@@ -14531,8 +14537,10 @@ export const AuthManager = {
                         await finalizeLogin(loginResp);
                         return true;
                     }
-                } else if (isBooting) {
+                } else {
+                    console.log('【DEBUG】User has no office_id. Redirecting to createOffice.');
                     switchAuthView('createOffice');
+                    return true;
                 }
             } else {
                 this.handleWorkerError(resp);
@@ -14685,10 +14693,12 @@ async function finalizeLogin(data) {
 
   window.CURRENT_OFFICE_ID = data.office;
   window.CURRENT_ROLE = data.role || 'user';
-  window.SESSION_TOKEN = data.token;
+  if (data.token) {
+    window.SESSION_TOKEN = data.token;
+  }
   window.FORCE_RENDER_ONCE = true;
   isBooting = false;
-  console.log(`【DEBUG】finalizeLogin: token=${!!window.SESSION_TOKEN}, isBooting=${isBooting}`);
+  console.log(`【DEBUG】finalizeLogin: office=${window.CURRENT_OFFICE_ID}, token=${!!window.SESSION_TOKEN}, role=${window.CURRENT_ROLE}`);
 
   localStorage.setItem(SESSION_KEY, window.SESSION_TOKEN);
   localStorage.setItem(LOCAL_OFFICE_KEY, window.CURRENT_OFFICE_ID);
@@ -14912,9 +14922,9 @@ window.checkLogin = checkLogin;
 ```javascript
 /**
  * js/sync.js - データ同期・通信ロジック
- * Updated: 2026-04-17T13:00:00Z
+ * Updated: 2026-04-17T13:18:00Z
  */
-console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v5)');
+console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v6)');
 
 /* ===== メニュー・正規化・通信・同期 ===== */
 /* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */

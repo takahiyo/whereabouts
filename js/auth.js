@@ -42,8 +42,8 @@ let isBooting = true;
 const PERSISTENT_SESSION_KEY = 'whereabouts_persistent_session';
 const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
 
-// Updated: 2026-04-17T13:00:00Z
-console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v5)');
+// Updated: 2026-04-17T13:18:00Z
+console.log('【DEBUG】js/auth.js Loaded (Version: v20260417_v6)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
@@ -202,8 +202,10 @@ export const AuthManager = {
                         await finalizeLogin(loginResp);
                         return true;
                     }
-                } else if (isBooting) {
+                } else {
+                    console.log('【DEBUG】User has no office_id. Redirecting to createOffice.');
                     switchAuthView('createOffice');
+                    return true;
                 }
             } else {
                 this.handleWorkerError(resp);
@@ -356,10 +358,12 @@ async function finalizeLogin(data) {
 
   window.CURRENT_OFFICE_ID = data.office;
   window.CURRENT_ROLE = data.role || 'user';
-  window.SESSION_TOKEN = data.token;
+  if (data.token) {
+    window.SESSION_TOKEN = data.token;
+  }
   window.FORCE_RENDER_ONCE = true;
   isBooting = false;
-  console.log(`【DEBUG】finalizeLogin: token=${!!window.SESSION_TOKEN}, isBooting=${isBooting}`);
+  console.log(`【DEBUG】finalizeLogin: office=${window.CURRENT_OFFICE_ID}, token=${!!window.SESSION_TOKEN}, role=${window.CURRENT_ROLE}`);
 
   localStorage.setItem(SESSION_KEY, window.SESSION_TOKEN);
   localStorage.setItem(LOCAL_OFFICE_KEY, window.CURRENT_OFFICE_ID);
