@@ -1421,7 +1421,7 @@
 
 </html>
 
-`
+```
 
 ### styles.css
 
@@ -6654,7 +6654,7 @@ td.time.need-time select:focus~.time-hint {
 .u-link-blue { color: var(--color-blue-600); text-decoration: underline; cursor: pointer; }
 
 
-`
+```
 
 ### print-list.css
 
@@ -6878,7 +6878,7 @@ td.time.need-time select:focus~.time-hint {
     }
 
 }
-`
+```
 
 ### schema.sql
 
@@ -6999,7 +6999,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_office ON users(office_id);
 
 
-`
+```
 
 ### CloudflareWorkers_worker.js
 
@@ -7307,7 +7307,12 @@ export default {
         });
       }
       async function handleAction() {
-        console.log(`[Worker Action] ${action} (Office: ${requestContext.officeId})`);
+        /* 権限レベルの判定ヘルパー */
+        const isAuthorizedAdmin = (role) => {
+          return role === 'officeAdmin' || role === 'superAdmin' || role === 'owner';
+        };
+
+        console.log(`[Worker Action] ${action} (Office: ${requestContext.officeId}, Role: ${tokenRole})`);
         /* --- LOGIN (Hyperhybrid: Support both Shared PW and legacy flow) --- */
       if (action === 'login') {
         const officeId = getParam('office');
@@ -7349,7 +7354,7 @@ export default {
         }
 
         let role = '';
-        if (password && password === office.admin_password) {
+        if (password && office.admin_password && password === office.admin_password) {
           role = 'officeAdmin';
         } else if (password && password === office.password) {
           role = 'user';
@@ -7463,8 +7468,6 @@ export default {
         if (!newOfficeId || !officeName || !password) {
           return new Response(JSON.stringify({ ok: false, error: 'invalid_params' }), { headers: corsHeaders });
         }
-        // Admin PW が未指定なら PW と同じにする (Deprecated への対応)
-        if (!adminPassword) adminPassword = password;
 
         const nowTs = Date.now();
         try {
@@ -7617,7 +7620,6 @@ export default {
       if (action === 'get' || action === 'getFor') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
-        }
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
 
@@ -7700,7 +7702,7 @@ export default {
 
       /* --- SET TOOLS --- */
       if (action === 'setTools') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (!tokenOffice || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const toolsStr = getParam('tools') || '[]';
         const nowTs = Date.now();
 
@@ -7739,7 +7741,7 @@ export default {
            if (tokenRole === 'user') return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
         
-        if (tokenRole !== 'superAdmin' && (tokenRole !== 'officeAdmin' || officeId !== tokenOffice)) {
+        if (tokenRole !== 'superAdmin' && !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
 
@@ -7801,7 +7803,7 @@ export default {
 
       /* --- SET NOTICES --- */
       if (action === 'setNotices') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (!tokenOffice || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const noticesList = JSON.parse(getParam('notices') || '[]');
         const nowTs = Date.now();
 
@@ -7859,7 +7861,7 @@ export default {
 
       /* --- SET VACATION (Full) --- */
       if (action === 'setVacation') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (!tokenOffice || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const dataStr = getParam('vacations') || getParam('data');
         const parsedData = safeJSONParse(dataStr);
         const list = Array.isArray(parsedData) ? parsedData : (parsedData ? [parsedData] : []);
@@ -7890,10 +7892,9 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- DELETE VACATION --- */
       if (action === 'deleteVacation') {
         const id = getParam('id');
-        if (!tokenOffice || !id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+        if (!tokenOffice || !id || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
 
         await env.DB.prepare('DELETE FROM vacations WHERE office_id = ? AND id = ?')
           .bind(tokenOffice, id)
@@ -7906,7 +7907,7 @@ export default {
       /* --- SET VACATION BITS --- */
       if (action === 'setVacationBits') {
         const payload = safeJSONParse(getParam('data'), {});
-        if (!tokenOffice || !payload.id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+        if (!tokenOffice || !payload.id || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
 
         await env.DB.prepare('UPDATE vacations SET members_bits = ?, updated = ? WHERE office_id = ? AND id = ?')
           .bind(payload.membersBits || '', Date.now(), tokenOffice, payload.id)
@@ -7939,7 +7940,7 @@ export default {
       /* --- SET COLUMN CONFIG (Phase 2) --- */
       if (action === 'setColumnConfig') {
         const officeId = getParam('office') || tokenOffice;
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
@@ -7979,7 +7980,7 @@ export default {
       /* --- GET OFFICE SETTINGS --- */
       if (action === 'getOfficeSettings') {
         const officeId = getParam('office') || tokenOffice;
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
         const office = await env.DB.prepare('SELECT auto_clear_config FROM offices WHERE id = ?')
@@ -7992,7 +7993,7 @@ export default {
       /* --- SET OFFICE SETTINGS --- */
       if (action === 'setOfficeSettings') {
         const officeId = getParam('office') || tokenOffice;
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
         let settingsRaw = getParamRaw('settings');
@@ -8011,7 +8012,7 @@ export default {
       if (action === 'renameOffice') {
         const officeId = getParam('office') || tokenOffice;
         const newName = getParam('name');
-        if (!officeId || !newName || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !newName || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
         await env.DB.prepare('UPDATE offices SET name = ? WHERE id = ?').bind(newName, officeId).run();
@@ -8082,7 +8083,7 @@ export default {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
 
-        if (action === 'setFor' && tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin') {
+        if (action === 'setFor' && !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
@@ -8217,7 +8218,7 @@ export default {
       /* --- SET CONFIG FOR (Admin: Update member roster structure) --- */
       if (action === 'setConfigFor') {
         const officeId = getParam('office') || tokenOffice;
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
         // dataパラメータを取得（オブジェクトまたはJSON文字列の両方に対応）
@@ -8527,7 +8528,7 @@ async function ensureDatabaseSchema(env) {
   }
 }
 
-`
+```
 
 ### sw.js
 
@@ -8622,7 +8623,7 @@ self.addEventListener('fetch', (e) => {
   })());
 });
 
-`
+```
 
 ### js/config.js
 
@@ -8752,7 +8753,7 @@ var CONFIG = {
     }
 };
 
-`
+```
 
 ### js/constants/storage.js
 
@@ -8884,7 +8885,7 @@ if (typeof window !== 'undefined') {
   window.eventSelectionKey = eventSelectionKey;
 }
 
-`
+```
 
 ### js/constants/timing.js
 
@@ -9019,7 +9020,7 @@ const NIGHT_MODE_START_HOUR = 22;
 /** 夜間モード終了時刻（時） */
 const NIGHT_MODE_END_HOUR = 7;
 
-`
+```
 
 ### js/constants/ui.js
 
@@ -9162,7 +9163,7 @@ const TITLE_SUFFIX = "在籍確認表";
 /** ヘッダータイトルの区切り文字 */
 const TITLE_SEPARATOR = "　";
 
-`
+```
 
 ### js/constants/defaults.js
 
@@ -9249,7 +9250,7 @@ const DEFAULT_TOMORROW_PLAN_OPTIONS = Object.freeze([
  */
 const DEFAULT_WORKER_ENDPOINT = "https://whereabouts.taka-hiyo.workers.dev";
 
-`
+```
 
 ### js/constants/column-definitions.js
 
@@ -9404,7 +9405,7 @@ function getColumnDefinition(key) {
   return COLUMN_DEFINITIONS.find(d => d.key === key) || null;
 }
 
-`
+```
 
 ### js/constants/messages.js
 
@@ -9437,7 +9438,7 @@ const AUTH_MESSAGES = Object.freeze({
   }
 });
 
-`
+```
 
 ### js/constants/index.js
 
@@ -9464,7 +9465,7 @@ const AUTH_MESSAGES = Object.freeze({
 // 現在はグローバルスコープで動作するため、このファイルは
 // ドキュメント用のインデックスとして機能する
 
-`
+```
 
 ### js/globals.js
 
@@ -9563,10 +9564,9 @@ var SESSION_TOKEN = localStorage.getItem(SESSION_KEY) || '';
 var OFFICE_COLUMN_CONFIG = null;
 var FORCE_RENDER_ONCE = false;
 try {
-  // 自動ログイン等のため、拠点IDが判明している場合はそこから読み込む
-  const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
-  const savedConfig = localStorage.getItem(getColumnConfigKey(storedOffice));
-  if (savedConfig) OFFICE_COLUMN_CONFIG = JSON.parse(savedConfig);
+  /* Eager loading from localStorage is disabled to prevent data leakage. 
+     Config is loaded in sync.js:fetchConfigOnce instead. */
+
 } catch (e) {
   console.error("Failed to load column config from storage:", e);
 }
@@ -9617,7 +9617,7 @@ document.addEventListener('visibilitychange', () => {
     resumeEventSyncOnVisible = false;
   }
 });
-function isOfficeAdmin() { return CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin'; }
+function isOfficeAdmin() { return CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin' || CURRENT_ROLE === 'owner'; }
 
 function getRosterOrdering() {
   if (!Array.isArray(GROUPS)) return [];
@@ -11100,7 +11100,7 @@ window.OFFICE_COLUMN_CONFIG = OFFICE_COLUMN_CONFIG;
 // 現状のコードベースではこれらへの再代入は auth.js 等で行われるため、
 // auth.js 側で window.SESSION_TOKEN = ... のように扱うのが確実。
 
-`
+```
 
 ### js/utils.js
 
@@ -11218,7 +11218,7 @@ function clearLocalCache() {
   }
 }
 
-`
+```
 
 ### js/services/qr-generator.js
 
@@ -11756,7 +11756,7 @@ function qr8BitByte(data) {
 
 window.qrcode = qrcode;
 
-`
+```
 
 ### js/services/csv.js
 
@@ -11874,7 +11874,7 @@ window.qrcode = qrcode;
 
 })(window);
 
-`
+```
 
 ### js/layout.js
 
@@ -12007,7 +12007,7 @@ function startGridObserver(){
   updateCols();
 }
 
-`
+```
 
 ### js/filters.js
 
@@ -12081,7 +12081,7 @@ function updateStatusFilterCounts(){
   statusFilter.value = (cur==='' || STATUSES.some(x=>x.value===cur)) ? cur : '';
 }
 
-`
+```
 
 ### js/board.js
 
@@ -12339,8 +12339,8 @@ function bindCandidatePanelGlobals() {
  */
 function getEnabledColumns() {
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.board)) {
-    // [AFTER] 新規拠点などで設定が未完了の場合は、標準的なカラムセットを表示する
-    return ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
+    // [AFTER] 新規拠点などで設定が未完了の場合は、安全のため氏名のみを表示する
+    return ['name'];
   }
   return OFFICE_COLUMN_CONFIG.board;
 }
@@ -12352,9 +12352,9 @@ function getEnabledColumns() {
  */
 function getCardColumns() {
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.card)) {
-    return getEnabledColumns();
+    return ['name'];
   }
-  return OFFICE_COLUMN_CONFIG.card; // 氏名の強制注入を停止
+  return OFFICE_COLUMN_CONFIG.card;
 }
 
 /* 行UI */
@@ -13012,7 +13012,7 @@ function wireEvents() {
   board.addEventListener('change', handleStatusTimeChange);
 }
 
-`
+```
 
 ### js/vacations.js
 
@@ -14232,7 +14232,7 @@ window.stopVacationsPolling = stopVacationsPolling;
 window.renderVacationList = renderVacationList;
 window.applyVacations = applyVacations;
 
-`
+```
 
 ### js/offices.js
 
@@ -14269,7 +14269,7 @@ async function refreshPublicOfficeSelect(selectedId){
   }
 }
 
-`
+```
 
 ### js/firebase-config.js
 
@@ -14292,7 +14292,7 @@ window.firebaseConfig = {
   measurementId: "G-SLXCBCX483"
 };
 
-`
+```
 
 ### js/firebase-auth.js
 
@@ -14411,7 +14411,7 @@ if (typeof window !== 'undefined') {
   window.getValidToken = getValidToken;
 }
 
-`
+```
 
 ### js/auth.js
 
@@ -14738,6 +14738,8 @@ window.AuthManager = {
         window.SESSION_TOKEN = '';
         window.CURRENT_OFFICE_ID = '';
         window.CURRENT_ROLE = 'user';
+        window.OFFICE_COLUMN_CONFIG = null;
+        window.MENUS = null;
         this.session = null;
     }
 };
@@ -15013,7 +15015,7 @@ function ensureAuthUI() {
 window.ensureAuthUI = ensureAuthUI;
 window.checkLogin = () => window.AuthManager.init({ remoteEndpoint: window.CONFIG ? window.CONFIG.remoteEndpoint : (typeof CONFIG !== 'undefined' ? CONFIG.remoteEndpoint : '') });
 
-`
+```
 
 ### js/sync.js
 
@@ -15980,7 +15982,7 @@ function applyState(data) {
   applyFilters();
 }
 
-`
+```
 
 ### js/admin.js
 
@@ -19102,7 +19104,7 @@ async function deleteOfficeSingle(id, name) {
 }
 
 
-`
+```
 
 ### js/tools.js
 
@@ -19483,7 +19485,7 @@ window.coerceToolVisibleFlag = coerceToolVisibleFlag;
 window.startToolsPolling = startToolsPolling;
 window.stopToolsPolling = stopToolsPolling;
 
-`
+```
 
 ### js/notices.js
 
@@ -19942,7 +19944,7 @@ function applyNoticeCollapsedState(noticesArea) {
   }
 }
 
-`
+```
 
 ### main.js
 
@@ -20057,7 +20059,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 
-`
+```
 
 ### package.json
 
@@ -20075,7 +20077,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 }
 
-`
+```
 
 ### wrangler.toml
 
@@ -20124,5 +20126,5 @@ database_id = "350bb3cf-27be-4e96-9ce4-c2bf89ab678c"
 [env.dev.triggers]
 crons = ["0 * * * *"]
 
-`
+```
 
