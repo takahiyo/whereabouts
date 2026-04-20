@@ -1296,6 +1296,8 @@ export default {
               ));
             }
           }
+        }
+
         if (statements.length > 0) {
           await env.DB.batch(statements);
         }
