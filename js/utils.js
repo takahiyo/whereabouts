@@ -105,7 +105,6 @@ function clearLocalCache() {
     if (typeof lastSyncTimestamp !== 'undefined') {
         lastSyncTimestamp = 0;
     }
-    console.log("Local cache cleared.");
   } catch (e) {
     console.error("Cache clear failed:", e);
   }

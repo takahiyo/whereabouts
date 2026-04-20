@@ -8643,7 +8643,6 @@ self.addEventListener('fetch', (e) => {
 // 環境判定: 'dev.' で始まるサブドメイン、localhost、または IP 指定の場合は開発環境 (dev worker) を使用
 const hostname = window.location.hostname;
 const isDev = hostname.startsWith('dev.') || hostname.includes('localhost') || hostname === '127.0.0.1';
-console.log('【DEBUG】hostname:', hostname, 'isDev:', isDev);
 
 var CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
@@ -8905,20 +8904,7 @@ if (typeof window !== 'undefined') {
 // ============================================
 // ポーリング間隔（デフォルト値）
 // ============================================
-/** リモート同期ポーリング間隔（ミリ秒）- CONFIG.remotePollMs で上書き可 */
-const DEFAULT_REMOTE_POLL_MS = 60000;
-
-/** 夜間ポーリング間隔（ミリ秒）- CONFIG.nightPollMs で上書き可 */
-const DEFAULT_NIGHT_POLL_MS = 3600000;
-
-/** 設定監視ポーリング間隔（ミリ秒）- CONFIG.configPollMs で上書き可 */
-const DEFAULT_CONFIG_POLL_MS = 300000;
-
-/** イベント同期間隔（ミリ秒）- CONFIG.eventSyncIntervalMs で上書き可 */
-const DEFAULT_EVENT_SYNC_INTERVAL_MS = 600000; // 10分
-
-/** トークンデフォルトTTL（ミリ秒）- CONFIG.tokenDefaultTtl で上書き可 */
-const DEFAULT_TOKEN_TTL_MS = 3600000;
+// ポーリング間隔は config.js / globals.js 内で直接規定（使用されていない定数を整理）
 
 // ============================================
 // 同期自己修復（デフォルト値）
@@ -8978,29 +8964,7 @@ const DEFAULT_SYNC_CACHE_MAX_SERVER_UPDATED_AHEAD_MS = 300000;
  */
 const DEFAULT_SYNC_CACHE_PURGE_DRIFT_THRESHOLD_MS = 86400000;
 
-// ============================================
-// API通信
-// ============================================
-/** APIリクエストデフォルトタイムアウト（ミリ秒） */
-const API_TIMEOUT_MS = 20000;
-
-// ============================================
-// UI関連タイミング
-// ============================================
-/** トースト表示時間（ミリ秒） */
-const TOAST_DURATION_MS = 2400;
-
-/** 自動保存ステータス表示時間（ミリ秒） */
-const AUTO_SAVE_STATUS_DISPLAY_MS = 2000;
-
-/** 日付カラー自動保存デバウンス（ミリ秒） */
-const EVENT_COLOR_SAVE_DEBOUNCE_MS = 800;
-
-/** 保存ボタン再有効化遅延（ミリ秒） */
-const SAVE_BUTTON_REENABLE_DELAY_MS = 1000;
-
-/** イベント同期再開遅延（ミリ秒） */
-const EVENT_SYNC_RESUME_DELAY_MS = 5000;
+// APIおよびUI関連タイミング定数は未使用のため削除
 
 // ============================================
 // 時刻選択範囲
@@ -9011,14 +8975,7 @@ const TIME_RANGE_START_MIN = 7 * 60;
 /** 時刻選択終了（分） - 22:00 */
 const TIME_RANGE_END_MIN = 22 * 60;
 
-// ============================================
-// 夜間モード判定
-// ============================================
-/** 夜間モード開始時刻（時） */
-const NIGHT_MODE_START_HOUR = 22;
-
-/** 夜間モード終了時刻（時） */
-const NIGHT_MODE_END_HOUR = 7;
+// 夜間モード関連定数は未使用のため削除
 
 ```
 
@@ -9053,22 +9010,7 @@ const ROW_STATUS_CLASSES = Object.freeze([
   'st-off'        // 休み
 ]);
 
-/**
- * ステータス値からCSSクラスへのマッピング
- * @type {Map<string, string>}
- */
-const STATUS_CLASS_MAPPING = Object.freeze(new Map([
-  ['在席', 'st-here'],
-  ['外出', 'st-out'],
-  ['会議', 'st-meeting'],
-  ['在宅勤務', 'st-remote'],
-  ['出張', 'st-trip'],
-  ['研修', 'st-training'],
-  ['健康診断', 'st-health'],
-  ['ドック', 'st-coadoc'],
-  ['帰宅', 'st-home'],
-  ['休み', 'st-off']
-]));
+// STATUS_CLASS_MAPPING は削除済（使用されていないため）
 
 // ============================================
 // レイアウト関連
@@ -11212,7 +11154,6 @@ function clearLocalCache() {
     if (typeof lastSyncTimestamp !== 'undefined') {
         lastSyncTimestamp = 0;
     }
-    console.log("Local cache cleared.");
   } catch (e) {
     console.error("Cache clear failed:", e);
   }
@@ -14466,7 +14407,6 @@ window.AuthManager = {
         this.config = config;
         this.checkFirebaseConfig();
         
-        console.log('【DEBUG】AuthManager.init 開始');
 
         // URLパラメータによる自動入力 (?office=拠点ID)
         this.handleUrlParams();
@@ -14474,7 +14414,6 @@ window.AuthManager = {
         // 1. D1セッションロックの確認（Flicker防止）
         const authType = sessionStorage.getItem(window.D1_SESSION_LOCK_KEY);
         if (authType === 'd1') {
-            console.log("[Auth] D1 Session Lock Active.");
             const restored = await this.restoreD1Session();
             if (restored) return true;
         }
@@ -14483,11 +14422,9 @@ window.AuthManager = {
         if (window.watchAuthState) {
             return new Promise((resolve) => {
                 window.watchAuthState(async (user) => {
-                    console.log('【DEBUG】watchAuthState 通知受理. User:', user ? user.email : 'null');
                     
                     // D1セッションがアクティブな場合は Firebase の状態変化を完全に遮断
                     if (sessionStorage.getItem(window.D1_SESSION_LOCK_KEY) === 'd1') {
-                        console.log('【DEBUG】[ガード] D1セッション中につき Firebase 状態変化を無視します');
                         return;
                     }
 
@@ -14497,7 +14434,6 @@ window.AuthManager = {
                     } else {
                         // D1 セッションは init 冒頭で確認済みのため、ここでは無条件でログイン画面を表示する
                         // ※ window.SESSION_TOKEN が残っていても Firebase user=null ならリセット扱い
-                        console.log(`【DEBUG】Firebase user=null. isBooting=${isBooting}, SESSION_TOKEN=${!!window.SESSION_TOKEN}, => show officeLogin`);
                         if (isBooting) {
                             // 古いトークンおよび残存セッション情報を完全クリア
                             this.clearSession();
@@ -14554,7 +14490,6 @@ window.AuthManager = {
             try {
                 const res = await this.fetchFromWorker('renew', { token: storedToken });
                 if (res.ok && res.office === storedOffice) {
-                    console.log('【DEBUG】D1セッションの検証に成功しました');
                     this.session = this.createSessionContext('d1', {
                         token: storedToken,
                         officeId: storedOffice,
@@ -14606,7 +14541,6 @@ window.AuthManager = {
                         return true;
                     }
                 } else {
-                    console.log('【DEBUG】User has no office_id. Redirecting to createOffice.');
                     // 拠点を持っていない場合は、既存の拠点キャッシュ（もしあれば）をクリアして混同を防ぐ
                     this.clearSession();
                     if (typeof updateTitleBtn === 'function') updateTitleBtn('拠点が未開設です');
@@ -14725,7 +14659,6 @@ window.AuthManager = {
      * ログアウト時やユーザー切り替え時の拠点情報残存を防ぐ。
      */
     clearSession() {
-        console.log('【DEBUG】AuthManager.clearSession: キャッシュ情報をクリアします');
         
         // [V7] CLEAR_ON_LOGOUT_KEYS を使用して完全に破棄
         const keys = window.STORAGE_KEYS ? (window.STORAGE_KEYS.CLEAR_ON_LOGOUT_KEYS || []) : [];
@@ -14748,7 +14681,6 @@ window.AuthManager = {
  * UI の切り替え
  */
 function switchAuthView(view) {
-  console.log(`【DEBUG】switchAuthView 遷移先: ${view}`);
   const areas = ['loginFormArea', 'signupFormArea', 'verifyEmailArea', 'createOfficeArea'];
   areas.forEach(id => {
     const el = document.getElementById(id);
@@ -14760,7 +14692,6 @@ function switchAuthView(view) {
     const isBoardVisible = (board && !board.classList.contains('u-hidden'));
     
     if (isVerifiedView && window.SESSION_TOKEN && isBoardVisible) {
-      console.log('【DEBUG】switchAuthView: Board is already visible and SESSION_TOKEN exists. Returning early.');
       return;
     }
     
@@ -14803,7 +14734,6 @@ async function finalizeLogin(data) {
   }
   window.FORCE_RENDER_ONCE = true;
   isBooting = false;
-  console.log(`【DEBUG】finalizeLogin: office=${window.CURRENT_OFFICE_ID}, token=${!!window.SESSION_TOKEN}, role=${window.CURRENT_ROLE}`);
 
   localStorage.setItem(window.SESSION_KEY, window.SESSION_TOKEN);
   localStorage.setItem(window.SESSION_OFFICE_KEY, window.CURRENT_OFFICE_ID);
@@ -14817,14 +14747,12 @@ async function finalizeLogin(data) {
   if (loginFormEl) loginFormEl.classList.add('u-hidden');
   if (board) {
       board.classList.remove('u-hidden');
-      console.log('【DEBUG】board.classList from finalizeLogin:', board.className);
   }
   
   sessionStorage.setItem(window.PERSISTENT_SESSION_KEY, 'true');
   ensureAuthUI();
 
   // 同期サイクル
-  console.log('【DEBUG】Starting synchronization cycles...');
   if (typeof startRemoteSync === 'function') startRemoteSync(true);
   if (typeof startConfigWatch === 'function') startConfigWatch();
   if (typeof startNoticesPolling === 'function') startNoticesPolling();
@@ -15640,7 +15568,6 @@ async function startWorkerPolling(immediate) {
     if (r && r.data && Object.keys(r.data).length > 0) {
       applyState(r.data);
     } else {
-      console.log('【DEBUG】pollAction: No data changes detected.');
       logSyncDecision({
         memberId: '__poll__',
         remoteRev: 0,
@@ -15649,9 +15576,7 @@ async function startWorkerPolling(immediate) {
         localServerUpdated: lastSyncTimestamp,
         decision: SYNC_DECISION.SKIP
       });
-      // 強制描画フラグがある場合は、データがなくても描画状態を反映させる
       if (window.FORCE_RENDER_ONCE) {
-          console.log('【DEBUG】pollAction: FORCE_RENDER_ONCE active. Ensuring applyState is called even with empty data.');
           applyState({});
       }
     }
@@ -15674,9 +15599,6 @@ function startRemoteSync(immediate) {
     console.error("Office ID not found. Cannot start sync.");
     return;
   }
-
-  console.log("Starting sync via Cloudflare Worker.");
-
   startWorkerPolling(immediate);
 
   if (typeof startToolsPolling === 'function') { startToolsPolling(); }
@@ -15726,21 +15648,17 @@ async function fetchConfigOnce(nocache = false) {
 
       setupMenus(menus);
       
-      console.log('【DEBUG】fetchConfigOnce: Calling render().');
       render();
       window.FORCE_RENDER_ONCE = false; // 描画されたのでフラグを落とす
 
       // ★追加: DOM描画直後に最新キャッシュを適用
       if (typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
         if (typeof applyState === 'function') {
-          console.log('【DEBUG】fetchConfigOnce: Re-applying STATE_CACHE.');
           applyState(STATE_CACHE);
         }
       }
     } else {
-        console.log(`【DEBUG】fetchConfigOnce: shouldUpdate is false (upd=${updated}, cfgUpd=${CONFIG_UPDATED}). ForceRender=${window.FORCE_RENDER_ONCE}`);
         if (window.FORCE_RENDER_ONCE) {
-            console.log('【DEBUG】fetchConfigOnce: FORCE_RENDER_ONCE active despite no config update. Calling render().');
             render();
             window.FORCE_RENDER_ONCE = false;
         }
@@ -16317,7 +16235,6 @@ if (adminModal) {
         resetPanelScroll(panel);
 
         // ★デバッグログ: タブ切り替え直後
-        console.log(`[DEBUG] Tab Switch Initiated: ${targetTab}`);
       }
 
       if (targetTab === 'notices') {
@@ -16680,7 +16597,6 @@ function filteredMemberList() {
 }
 
   function renderMemberTable() {
-    console.log('[DEBUG] Calling renderMemberTable');
     const container = document.getElementById('memberTableBody');
   if (!memberTableBody) { return; }
   memberTableBody.textContent = '';
@@ -18466,10 +18382,8 @@ async function loadColumnConfig() {
       columnSettingContainer.innerHTML = '<p class="u-text-center u-text-gray">設定を読み込み中...</p>';
     }
     const res = await apiPost({ action: 'getColumnConfig', token: SESSION_TOKEN, office });
-    console.log('[loadColumnConfig] res:', res);
     // サーバーに設定がない場合は null のまま渡す（新拠点＝未設定状態）
     const config = (res && res.columnConfig) || null;
-    console.log('[loadColumnConfig] Using config:', config);
     renderColumnConfig(config);
   } catch (e) {
     console.error('loadColumnConfig error', e);

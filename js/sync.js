@@ -618,7 +618,6 @@ async function startWorkerPolling(immediate) {
     if (r && r.data && Object.keys(r.data).length > 0) {
       applyState(r.data);
     } else {
-      console.log('【DEBUG】pollAction: No data changes detected.');
       logSyncDecision({
         memberId: '__poll__',
         remoteRev: 0,
@@ -627,9 +626,7 @@ async function startWorkerPolling(immediate) {
         localServerUpdated: lastSyncTimestamp,
         decision: SYNC_DECISION.SKIP
       });
-      // 強制描画フラグがある場合は、データがなくても描画状態を反映させる
       if (window.FORCE_RENDER_ONCE) {
-          console.log('【DEBUG】pollAction: FORCE_RENDER_ONCE active. Ensuring applyState is called even with empty data.');
           applyState({});
       }
     }
@@ -652,9 +649,6 @@ function startRemoteSync(immediate) {
     console.error("Office ID not found. Cannot start sync.");
     return;
   }
-
-  console.log("Starting sync via Cloudflare Worker.");
-
   startWorkerPolling(immediate);
 
   if (typeof startToolsPolling === 'function') { startToolsPolling(); }
@@ -704,21 +698,17 @@ async function fetchConfigOnce(nocache = false) {
 
       setupMenus(menus);
       
-      console.log('【DEBUG】fetchConfigOnce: Calling render().');
       render();
       window.FORCE_RENDER_ONCE = false; // 描画されたのでフラグを落とす
 
       // ★追加: DOM描画直後に最新キャッシュを適用
       if (typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
         if (typeof applyState === 'function') {
-          console.log('【DEBUG】fetchConfigOnce: Re-applying STATE_CACHE.');
           applyState(STATE_CACHE);
         }
       }
     } else {
-        console.log(`【DEBUG】fetchConfigOnce: shouldUpdate is false (upd=${updated}, cfgUpd=${CONFIG_UPDATED}). ForceRender=${window.FORCE_RENDER_ONCE}`);
         if (window.FORCE_RENDER_ONCE) {
-            console.log('【DEBUG】fetchConfigOnce: FORCE_RENDER_ONCE active despite no config update. Calling render().');
             render();
             window.FORCE_RENDER_ONCE = false;
         }

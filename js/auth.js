@@ -48,7 +48,6 @@ window.AuthManager = {
         this.config = config;
         this.checkFirebaseConfig();
         
-        console.log('【DEBUG】AuthManager.init 開始');
 
         // URLパラメータによる自動入力 (?office=拠点ID)
         this.handleUrlParams();
@@ -56,7 +55,6 @@ window.AuthManager = {
         // 1. D1セッションロックの確認（Flicker防止）
         const authType = sessionStorage.getItem(window.D1_SESSION_LOCK_KEY);
         if (authType === 'd1') {
-            console.log("[Auth] D1 Session Lock Active.");
             const restored = await this.restoreD1Session();
             if (restored) return true;
         }
@@ -65,11 +63,9 @@ window.AuthManager = {
         if (window.watchAuthState) {
             return new Promise((resolve) => {
                 window.watchAuthState(async (user) => {
-                    console.log('【DEBUG】watchAuthState 通知受理. User:', user ? user.email : 'null');
                     
                     // D1セッションがアクティブな場合は Firebase の状態変化を完全に遮断
                     if (sessionStorage.getItem(window.D1_SESSION_LOCK_KEY) === 'd1') {
-                        console.log('【DEBUG】[ガード] D1セッション中につき Firebase 状態変化を無視します');
                         return;
                     }
 
@@ -79,7 +75,6 @@ window.AuthManager = {
                     } else {
                         // D1 セッションは init 冒頭で確認済みのため、ここでは無条件でログイン画面を表示する
                         // ※ window.SESSION_TOKEN が残っていても Firebase user=null ならリセット扱い
-                        console.log(`【DEBUG】Firebase user=null. isBooting=${isBooting}, SESSION_TOKEN=${!!window.SESSION_TOKEN}, => show officeLogin`);
                         if (isBooting) {
                             // 古いトークンおよび残存セッション情報を完全クリア
                             this.clearSession();
@@ -136,7 +131,6 @@ window.AuthManager = {
             try {
                 const res = await this.fetchFromWorker('renew', { token: storedToken });
                 if (res.ok && res.office === storedOffice) {
-                    console.log('【DEBUG】D1セッションの検証に成功しました');
                     this.session = this.createSessionContext('d1', {
                         token: storedToken,
                         officeId: storedOffice,
@@ -188,7 +182,6 @@ window.AuthManager = {
                         return true;
                     }
                 } else {
-                    console.log('【DEBUG】User has no office_id. Redirecting to createOffice.');
                     // 拠点を持っていない場合は、既存の拠点キャッシュ（もしあれば）をクリアして混同を防ぐ
                     this.clearSession();
                     if (typeof updateTitleBtn === 'function') updateTitleBtn('拠点が未開設です');
@@ -307,7 +300,6 @@ window.AuthManager = {
      * ログアウト時やユーザー切り替え時の拠点情報残存を防ぐ。
      */
     clearSession() {
-        console.log('【DEBUG】AuthManager.clearSession: キャッシュ情報をクリアします');
         
         // [V7] CLEAR_ON_LOGOUT_KEYS を使用して完全に破棄
         const keys = window.STORAGE_KEYS ? (window.STORAGE_KEYS.CLEAR_ON_LOGOUT_KEYS || []) : [];
@@ -330,7 +322,6 @@ window.AuthManager = {
  * UI の切り替え
  */
 function switchAuthView(view) {
-  console.log(`【DEBUG】switchAuthView 遷移先: ${view}`);
   const areas = ['loginFormArea', 'signupFormArea', 'verifyEmailArea', 'createOfficeArea'];
   areas.forEach(id => {
     const el = document.getElementById(id);
@@ -342,7 +333,6 @@ function switchAuthView(view) {
     const isBoardVisible = (board && !board.classList.contains('u-hidden'));
     
     if (isVerifiedView && window.SESSION_TOKEN && isBoardVisible) {
-      console.log('【DEBUG】switchAuthView: Board is already visible and SESSION_TOKEN exists. Returning early.');
       return;
     }
     
@@ -385,7 +375,6 @@ async function finalizeLogin(data) {
   }
   window.FORCE_RENDER_ONCE = true;
   isBooting = false;
-  console.log(`【DEBUG】finalizeLogin: office=${window.CURRENT_OFFICE_ID}, token=${!!window.SESSION_TOKEN}, role=${window.CURRENT_ROLE}`);
 
   localStorage.setItem(window.SESSION_KEY, window.SESSION_TOKEN);
   localStorage.setItem(window.SESSION_OFFICE_KEY, window.CURRENT_OFFICE_ID);
@@ -399,14 +388,12 @@ async function finalizeLogin(data) {
   if (loginFormEl) loginFormEl.classList.add('u-hidden');
   if (board) {
       board.classList.remove('u-hidden');
-      console.log('【DEBUG】board.classList from finalizeLogin:', board.className);
   }
   
   sessionStorage.setItem(window.PERSISTENT_SESSION_KEY, 'true');
   ensureAuthUI();
 
   // 同期サイクル
-  console.log('【DEBUG】Starting synchronization cycles...');
   if (typeof startRemoteSync === 'function') startRemoteSync(true);
   if (typeof startConfigWatch === 'function') startConfigWatch();
   if (typeof startNoticesPolling === 'function') startNoticesPolling();

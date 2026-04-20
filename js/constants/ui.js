@@ -26,22 +26,7 @@ const ROW_STATUS_CLASSES = Object.freeze([
   'st-off'        // 休み
 ]);
 
-/**
- * ステータス値からCSSクラスへのマッピング
- * @type {Map<string, string>}
- */
-const STATUS_CLASS_MAPPING = Object.freeze(new Map([
-  ['在席', 'st-here'],
-  ['外出', 'st-out'],
-  ['会議', 'st-meeting'],
-  ['在宅勤務', 'st-remote'],
-  ['出張', 'st-trip'],
-  ['研修', 'st-training'],
-  ['健康診断', 'st-health'],
-  ['ドック', 'st-coadoc'],
-  ['帰宅', 'st-home'],
-  ['休み', 'st-off']
-]));
+// STATUS_CLASS_MAPPING は削除済（使用されていないため）
 
 // ============================================
 // レイアウト関連

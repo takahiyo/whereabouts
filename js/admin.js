@@ -328,7 +328,6 @@ if (adminModal) {
         resetPanelScroll(panel);
 
         // ★デバッグログ: タブ切り替え直後
-        console.log(`[DEBUG] Tab Switch Initiated: ${targetTab}`);
       }
 
       if (targetTab === 'notices') {
@@ -691,7 +690,6 @@ function filteredMemberList() {
 }
 
   function renderMemberTable() {
-    console.log('[DEBUG] Calling renderMemberTable');
     const container = document.getElementById('memberTableBody');
   if (!memberTableBody) { return; }
   memberTableBody.textContent = '';
@@ -2477,10 +2475,8 @@ async function loadColumnConfig() {
       columnSettingContainer.innerHTML = '<p class="u-text-center u-text-gray">設定を読み込み中...</p>';
     }
     const res = await apiPost({ action: 'getColumnConfig', token: SESSION_TOKEN, office });
-    console.log('[loadColumnConfig] res:', res);
     // サーバーに設定がない場合は null のまま渡す（新拠点＝未設定状態）
     const config = (res && res.columnConfig) || null;
-    console.log('[loadColumnConfig] Using config:', config);
     renderColumnConfig(config);
   } catch (e) {
     console.error('loadColumnConfig error', e);

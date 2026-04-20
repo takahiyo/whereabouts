@@ -13,20 +13,7 @@
 // ============================================
 // ポーリング間隔（デフォルト値）
 // ============================================
-/** リモート同期ポーリング間隔（ミリ秒）- CONFIG.remotePollMs で上書き可 */
-const DEFAULT_REMOTE_POLL_MS = 60000;
-
-/** 夜間ポーリング間隔（ミリ秒）- CONFIG.nightPollMs で上書き可 */
-const DEFAULT_NIGHT_POLL_MS = 3600000;
-
-/** 設定監視ポーリング間隔（ミリ秒）- CONFIG.configPollMs で上書き可 */
-const DEFAULT_CONFIG_POLL_MS = 300000;
-
-/** イベント同期間隔（ミリ秒）- CONFIG.eventSyncIntervalMs で上書き可 */
-const DEFAULT_EVENT_SYNC_INTERVAL_MS = 600000; // 10分
-
-/** トークンデフォルトTTL（ミリ秒）- CONFIG.tokenDefaultTtl で上書き可 */
-const DEFAULT_TOKEN_TTL_MS = 3600000;
+// ポーリング間隔は config.js / globals.js 内で直接規定（使用されていない定数を整理）
 
 // ============================================
 // 同期自己修復（デフォルト値）
@@ -86,29 +73,7 @@ const DEFAULT_SYNC_CACHE_MAX_SERVER_UPDATED_AHEAD_MS = 300000;
  */
 const DEFAULT_SYNC_CACHE_PURGE_DRIFT_THRESHOLD_MS = 86400000;
 
-// ============================================
-// API通信
-// ============================================
-/** APIリクエストデフォルトタイムアウト（ミリ秒） */
-const API_TIMEOUT_MS = 20000;
-
-// ============================================
-// UI関連タイミング
-// ============================================
-/** トースト表示時間（ミリ秒） */
-const TOAST_DURATION_MS = 2400;
-
-/** 自動保存ステータス表示時間（ミリ秒） */
-const AUTO_SAVE_STATUS_DISPLAY_MS = 2000;
-
-/** 日付カラー自動保存デバウンス（ミリ秒） */
-const EVENT_COLOR_SAVE_DEBOUNCE_MS = 800;
-
-/** 保存ボタン再有効化遅延（ミリ秒） */
-const SAVE_BUTTON_REENABLE_DELAY_MS = 1000;
-
-/** イベント同期再開遅延（ミリ秒） */
-const EVENT_SYNC_RESUME_DELAY_MS = 5000;
+// APIおよびUI関連タイミング定数は未使用のため削除
 
 // ============================================
 // 時刻選択範囲
@@ -119,11 +84,4 @@ const TIME_RANGE_START_MIN = 7 * 60;
 /** 時刻選択終了（分） - 22:00 */
 const TIME_RANGE_END_MIN = 22 * 60;
 
-// ============================================
-// 夜間モード判定
-// ============================================
-/** 夜間モード開始時刻（時） */
-const NIGHT_MODE_START_HOUR = 22;
-
-/** 夜間モード終了時刻（時） */
-const NIGHT_MODE_END_HOUR = 7;
+// 夜間モード関連定数は未使用のため削除
