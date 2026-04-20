@@ -1261,8 +1261,8 @@ export default {
           });
         });
 
-        // 削除
-        statements.push(env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(officeId));
+        // 削除（Batchから分離し、単独で明示的に実行させてD1のバッチ空回りバグを回避）
+        await env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(officeId).run();
 
         // 挿入（グループを跨いだ通し番号 global_idx を display_order に使用）
         let global_idx = 0;
@@ -1296,9 +1296,9 @@ export default {
               ));
             }
           }
+        if (statements.length > 0) {
+          await env.DB.batch(statements);
         }
-
-        await env.DB.batch(statements);
 
         // キャッシュクリア
         if (statusCache) {
