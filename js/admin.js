@@ -21,10 +21,8 @@ function openAdminModal() {
   adminModal.classList.add('show');
   adminModal.style.display = 'flex';
   
-  // 初期データの読み込み
-  if (!adminMembersLoaded) {
-    loadAdminMembers(true);
-  }
+  // 初期データの読み込み (常に最新を取得)
+  loadAdminMembers(true);
   
   // 必要に応じてお知らせなどの自動読み込み
   if (typeof autoLoadNoticesOnAdminOpen === 'function') {
@@ -309,6 +307,8 @@ if (adminModal) {
     btn.addEventListener('click', async () => {
       const targetTab = btn.dataset.tab;
 
+      const currentTab = Array.from(adminTabButtons).find(b => b.classList.contains('active'))?.dataset.tab;
+
       adminTabButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
@@ -327,8 +327,6 @@ if (adminModal) {
       if (panel) {
         panel.classList.add('active');
         resetPanelScroll(panel);
-
-        // ★デバッグログ: タブ切り替え直後
       }
 
       if (targetTab === 'notices') {
@@ -341,11 +339,14 @@ if (adminModal) {
           await loadAutoClearSettings(office);
         }
       } else if (targetTab === 'groups') {
-        if (!adminMembersLoaded) { await loadAdminMembers(); }
-        else { renderGroupOrderList(); }
+        // グループとメンバー間は相互にデータを引き継ぐが、他タブからの移動時はリロードして未保存を破棄
+        const force = (currentTab !== 'groups' && currentTab !== 'members');
+        await loadAdminMembers(force);
+        renderGroupOrderList();
       } else if (targetTab === 'members') {
-        if (!adminMembersLoaded) { await loadAdminMembers(); }
-        else { renderMemberTable(); }
+        const force = (currentTab !== 'groups' && currentTab !== 'members');
+        await loadAdminMembers(force);
+        renderMemberTable();
       } else if (targetTab === 'events') {
         refreshVacationOfficeOptions();
         const officeId = (vacationOfficeSelect?.value) || adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
@@ -355,7 +356,7 @@ if (adminModal) {
         refreshVacationNoticeOptions();
         await loadVacationsList();
       } else if (targetTab === 'tools') {
-        await loadAdminTools();
+        await loadAdminTools(true); // 常に最新を取得
       } else if (targetTab === 'columns') {
         await loadColumnConfig();
       } else if (targetTab === 'offices') {
