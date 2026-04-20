@@ -92,10 +92,9 @@ var SESSION_TOKEN = localStorage.getItem(SESSION_KEY) || '';
 var OFFICE_COLUMN_CONFIG = null;
 var FORCE_RENDER_ONCE = false;
 try {
-  // 自動ログイン等のため、拠点IDが判明している場合はそこから読み込む
-  const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
-  const savedConfig = localStorage.getItem(getColumnConfigKey(storedOffice));
-  if (savedConfig) OFFICE_COLUMN_CONFIG = JSON.parse(savedConfig);
+  /* Eager loading from localStorage is disabled to prevent data leakage. 
+     Config is loaded in sync.js:fetchConfigOnce instead. */
+
 } catch (e) {
   console.error("Failed to load column config from storage:", e);
 }

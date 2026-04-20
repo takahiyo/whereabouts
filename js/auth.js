@@ -320,6 +320,8 @@ window.AuthManager = {
         window.SESSION_TOKEN = '';
         window.CURRENT_OFFICE_ID = '';
         window.CURRENT_ROLE = 'user';
+        window.OFFICE_COLUMN_CONFIG = null;
+        window.MENUS = null;
         this.session = null;
     }
 };

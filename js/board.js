@@ -251,8 +251,8 @@ function bindCandidatePanelGlobals() {
  */
 function getEnabledColumns() {
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.board)) {
-    // [AFTER] 新規拠点などで設定が未完了の場合は、標準的なカラムセットを表示する
-    return ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
+    // [AFTER] 新規拠点などで設定が未完了の場合は、安全のため氏名のみを表示する
+    return ['name'];
   }
   return OFFICE_COLUMN_CONFIG.board;
 }
@@ -264,9 +264,9 @@ function getEnabledColumns() {
  */
 function getCardColumns() {
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.card)) {
-    return getEnabledColumns();
+    return ['name'];
   }
-  return OFFICE_COLUMN_CONFIG.card; // 氏名の強制注入を停止
+  return OFFICE_COLUMN_CONFIG.card;
 }
 
 /* 行UI */
