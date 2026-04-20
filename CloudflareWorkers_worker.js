@@ -614,7 +614,6 @@ export default {
       if (action === 'get' || action === 'getFor') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
-        }
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
 
