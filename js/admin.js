@@ -11,6 +11,7 @@
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
+const btnGroupSave = document.getElementById('btnGroupSave');
 
 /**
  * 管理モーダルを開く
@@ -380,6 +381,7 @@ let adminToolsLoaded = false, adminToolsOfficeId = '';
 let adminColumnAllKeys = [], adminColumnUiState = {}, adminCustomColumnsState = [], adminColumnLcPrefix = 'adminColumnLc_';
 
 if (btnMemberSave) { btnMemberSave.addEventListener('click', () => handleMemberSave()); }
+if (btnGroupSave) { btnGroupSave.addEventListener('click', () => handleMemberSave()); }
 if (btnColumnSave) { btnColumnSave.addEventListener('click', () => saveColumnConfig()); }
 if (btnAddOffice) { btnAddOffice.addEventListener('click', () => addOffice()); }
   if (memberEditForm) {
