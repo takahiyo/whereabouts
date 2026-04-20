@@ -146,7 +146,7 @@ document.addEventListener('visibilitychange', () => {
     resumeEventSyncOnVisible = false;
   }
 });
-function isOfficeAdmin() { return CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin'; }
+function isOfficeAdmin() { return CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin' || CURRENT_ROLE === 'owner'; }
 
 function getRosterOrdering() {
   if (!Array.isArray(GROUPS)) return [];
