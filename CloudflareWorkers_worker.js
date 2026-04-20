@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cloudflare Worker for Whereabouts Board (D1 Backend)
  * 従来の Firestore 版から D1 (SQL) に移行した完全版
  */
@@ -343,7 +343,7 @@ export default {
         }
 
         let role = '';
-        if (password && password === office.admin_password) {
+        if (password && office.admin_password && password === office.admin_password) {
           role = 'officeAdmin';
         } else if (password && password === office.password) {
           role = 'user';
@@ -457,8 +457,6 @@ export default {
         if (!newOfficeId || !officeName || !password) {
           return new Response(JSON.stringify({ ok: false, error: 'invalid_params' }), { headers: corsHeaders });
         }
-        // Admin PW が未指定なら PW と同じにする (Deprecated への対応)
-        if (!adminPassword) adminPassword = password;
 
         const nowTs = Date.now();
         try {
