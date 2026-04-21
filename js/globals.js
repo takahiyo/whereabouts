@@ -84,17 +84,17 @@ const EVENT_SYNC_INTERVAL_MS = (typeof CONFIG !== 'undefined' && CONFIG.eventSyn
 
 /* 認証状態 */
 /* --- 状態 --- */
-let CURRENT_OFFICE_ID = '';
-let CURRENT_OFFICE_NAME = '';
-let CURRENT_ROLE = 'user'; // 'user', 'officeAdmin', 'superAdmin'
-let SESSION_TOKEN = localStorage.getItem(SESSION_KEY) || '';
+var CURRENT_OFFICE_ID = '';
+var CURRENT_OFFICE_NAME = '';
+var CURRENT_ROLE = 'user'; // 'user', 'officeAdmin', 'superAdmin'
+var SESSION_TOKEN = localStorage.getItem(SESSION_KEY) || '';
 /** 拠点カラム設定 (Phase 3) */
-let OFFICE_COLUMN_CONFIG = null;
+var OFFICE_COLUMN_CONFIG = null;
+var FORCE_RENDER_ONCE = false;
 try {
-  // 自動ログイン等のため、拠点IDが判明している場合はそこから読み込む
-  const storedOffice = localStorage.getItem(LOCAL_OFFICE_KEY);
-  const savedConfig = localStorage.getItem(getColumnConfigKey(storedOffice));
-  if (savedConfig) OFFICE_COLUMN_CONFIG = JSON.parse(savedConfig);
+  /* Eager loading from localStorage is disabled to prevent data leakage. 
+     Config is loaded in sync.js:fetchConfigOnce instead. */
+
 } catch (e) {
   console.error("Failed to load column config from storage:", e);
 }
@@ -145,7 +145,7 @@ document.addEventListener('visibilitychange', () => {
     resumeEventSyncOnVisible = false;
   }
 });
-function isOfficeAdmin() { return CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin'; }
+function isOfficeAdmin() { return CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin' || CURRENT_ROLE === 'owner'; }
 
 function getRosterOrdering() {
   if (!Array.isArray(GROUPS)) return [];
@@ -1616,3 +1616,14 @@ if (btnEventPrint) {
 
 /* レイアウト定数は constants/ui.js で定義 */
 /* PANEL_MIN_PX, GAP_PX, MAX_COLS, CARD_BREAKPOINT_PX */
+// --- Module Compatibility Window Exports ---
+// ES Modules (like auth.js) cannot access top-level let/const from plain scripts.
+window.SESSION_TOKEN = SESSION_TOKEN;
+window.CURRENT_ROLE = CURRENT_ROLE;
+window.CURRENT_OFFICE_ID = CURRENT_OFFICE_ID;
+window.CURRENT_OFFICE_NAME = CURRENT_OFFICE_NAME;
+window.OFFICE_COLUMN_CONFIG = OFFICE_COLUMN_CONFIG;
+
+// また、値が更新された際にも window 側が同期されるように、代入時に注意が必要だが、
+// 現状のコードベースではこれらへの再代入は auth.js 等で行われるため、
+// auth.js 側で window.SESSION_TOKEN = ... のように扱うのが確実。

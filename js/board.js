@@ -251,8 +251,8 @@ function bindCandidatePanelGlobals() {
  */
 function getEnabledColumns() {
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.board)) {
-    // [AFTER] 新規拠点などで設定が未完了の場合は、標準的なカラムセットを表示する
-    return ['name', 'workHours', 'status', 'time', 'tomorrowPlan', 'note'];
+    // [AFTER] 新規拠点などで設定が未完了の場合は、安全のため氏名のみを表示する
+    return ['name'];
   }
   return OFFICE_COLUMN_CONFIG.board;
 }
@@ -264,9 +264,9 @@ function getEnabledColumns() {
  */
 function getCardColumns() {
   if (!OFFICE_COLUMN_CONFIG || !Array.isArray(OFFICE_COLUMN_CONFIG.card)) {
-    return getEnabledColumns();
+    return ['name'];
   }
-  return OFFICE_COLUMN_CONFIG.card; // 氏名の強制注入を停止
+  return OFFICE_COLUMN_CONFIG.card;
 }
 
 /* 行UI */
@@ -548,7 +548,9 @@ function render() {
     // 修正箇所: ボードの表示をここで確実にする（早期リターンの前に行う）
     board.classList.remove('u-hidden');
 
-    if (!GROUPS || GROUPS.length === 0) {
+    const totalMembersCount = (GROUPS || []).reduce((sum, g) => sum + (Array.isArray(g.members) ? g.members.length : 0), 0);
+
+    if (!GROUPS || GROUPS.length === 0 || totalMembersCount === 0) {
       const isAdmin = (typeof CURRENT_ROLE !== 'undefined' && (CURRENT_ROLE === 'owner' || CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin'));
       const msg = isAdmin 
         ? '表示するメンバーがいません。右上の「管理」ボタン（または管理パネル）からメンバーを登録してください。'
@@ -563,6 +565,9 @@ function render() {
       return;
     }
     GROUPS.forEach((g, i) => {
+      // メンバーが0人の場合は枠を描画しない
+      if (!Array.isArray(g.members) || g.members.length === 0) return;
+
       try {
         frag.appendChild(buildPanel(g, i, enabledKeys, cardKeys));
       } catch (e) {

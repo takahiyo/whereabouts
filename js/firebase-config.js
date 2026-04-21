@@ -5,7 +5,7 @@
  * Firebase コンソール > プロジェクト設定 > 全般 > マイアプリ で取得した内容を貼り付けてください。
  */
 
-export const firebaseConfig = {
+window.firebaseConfig = {
   // Firebase コンソールから取得したプロジェクト設定
   apiKey: "AIzaSyA_CKaAyt7aiZ0tXgv-0lHviCVV4y8urBQ",
   authDomain: "whereabouts-f3388.firebaseapp.com",

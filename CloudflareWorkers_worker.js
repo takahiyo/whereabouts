@@ -200,6 +200,7 @@ export default {
       }
 
       /* --- Common Auth Logic --- */
+      /* --- Common Auth Logic --- */
       let authContext = null; 
       const providedToken = getParam('token');
       
@@ -216,32 +217,71 @@ export default {
         const fbPayload = await verifyFirebaseToken(providedToken);
         if (fbPayload && fbPayload.email_verified) {
           // Firebase 認証済みの場合は DB からユーザー情報を取得
-          try {
-            const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(fbPayload.sub).first();
-            if (user) authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
-          } catch (dbErr) {
-            console.error('[Common Auth] D1 User Lookup Error:', dbErr.message);
-            // signupアクション自体の場合はここではエラーを投げず、アクション側で詳細に処理させる
-            if (action !== 'signup') {
-                throw new Error(`Database error during auth: ${dbErr.message}`);
-            }
+          const user = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(fbPayload.sub).first();
+          if (user) {
+            authContext = { office: user.office_id, role: user.role, email: user.email, isFirebase: true };
+          } else {
+            // Firebase 認証は成功したが、D1 にユーザーが登録されていない（新規ユーザー）
+            authContext = { office: null, role: 'user', email: fbPayload.email, isFirebase: true };
           }
         }
+
         if (!authContext) {
           const workerPayload = await verifyWorkerToken(providedToken);
-          if (workerPayload) authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
+          if (workerPayload) {
+            authContext = { office: workerPayload.office, role: workerPayload.role, isFirebase: false };
+          }
         }
       } catch (authErr) {
         console.error('[Common Auth Critical Error]', authErr);
-        // 重大な認証エラー（パース失敗ではなくDB接続不可など）が発生した場合は 500 へ飛ばす
-        if (authErr.message.includes('Database')) {
+        if (authErr && authErr.message && authErr.message.includes('Database')) {
             throw authErr;
         }
       }
 
       const tokenRole = authContext ? authContext.role : '';
       const tokenOffice = authContext ? authContext.office : '';
-      requestContext.officeId = getParam('office') || tokenOffice || null;
+      
+      const requestedOfficeId = getParam('office') || tokenOffice || null;
+      requestContext.officeId = requestedOfficeId;
+
+      /**
+       * [V7] Authorization Guard
+       * Verify if the user has permission to access the requested office.
+       */
+      function validateOfficeAccess(context, reqOfficeId, currentAction) {
+        const bypassActions = ['login', 'signup', 'publicListOffices', 'createOffice', 'listOffices', 'addOffice', 'deleteOffice', 'renew'];
+        if (bypassActions.includes(currentAction)) return { ok: true };
+        
+        if (!context) return { ok: false, error: 'unauthorized', reason: 'no_auth_context' };
+        if (context.role === 'superAdmin') return { ok: true };
+
+        // Firebase User check
+        if (context.isFirebase && !context.office) {
+           return { ok: false, error: 'unauthorized', reason: 'no_office_assigned' };
+        }
+
+        // Office ID Mismatch check
+        if (reqOfficeId && reqOfficeId !== context.office) {
+          console.warn(`[Auth Guard] Blocked unauthorized access: action=${currentAction}, request=${reqOfficeId}, authorized=${context.office}`);
+          return { ok: false, error: 'unauthorized', reason: 'office_access_denied' };
+        }
+
+        return { ok: true };
+      }
+
+      const authGuardResult = validateOfficeAccess(authContext, requestedOfficeId, action);
+      if (!authGuardResult.ok) {
+        return new Response(JSON.stringify(authGuardResult), { status: 403, headers: corsHeaders });
+      }
+
+      async function safeDbQuery(queryFn, errorLabel = 'database_error') {
+        try { return await queryFn(); }
+        catch (e) { 
+          console.error(`[DB Error ${errorLabel}]`, e.message);
+          throw e;
+        }
+      }
 
       /* --- Actions --- */
       try {
@@ -253,16 +293,20 @@ export default {
           ok: false, 
           error: 'internal_server_error', 
           message: e.message,
-          stack: e.stack,
-          debug: { action, officeId: requestContext.officeId }
+          reason: 'Worker execution failed',
+          action: action
         }), { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         });
       }
-
       async function handleAction() {
-        console.log(`[Worker Action] ${action} (Office: ${requestContext.officeId})`);
+        /* 権限レベルの判定ヘルパー */
+        const isAuthorizedAdmin = (role) => {
+          return role === 'officeAdmin' || role === 'superAdmin' || role === 'owner';
+        };
+
+        console.log(`[Worker Action] ${action} (Office: ${requestContext.officeId}, Role: ${tokenRole})`);
         /* --- LOGIN (Hyperhybrid: Support both Shared PW and legacy flow) --- */
       if (action === 'login') {
         const officeId = getParam('office');
@@ -304,7 +348,7 @@ export default {
         }
 
         let role = '';
-        if (password && password === office.admin_password) {
+        if (password && office.admin_password && password === office.admin_password) {
           role = 'officeAdmin';
         } else if (password && password === office.password) {
           role = 'user';
@@ -378,7 +422,12 @@ export default {
           await env.DB.prepare('INSERT INTO users (firebase_uid, email, created_at, updated_at) VALUES (?, ?, ?, ?)')
             .bind(uid, email, nowTs, nowTs).run();
 
-          return new Response(JSON.stringify({ ok: true, message: 'signup_success' }), { headers: corsHeaders });
+          const newUser = await env.DB.prepare('SELECT * FROM users WHERE firebase_uid = ?').bind(uid).first();
+          return new Response(JSON.stringify({ 
+            ok: true, 
+            message: 'signup_success',
+            user: newUser || { firebase_uid: uid, email: email }
+          }), { headers: corsHeaders });
         } catch (dbErr) {
           console.error('[Signup DB Error]', dbErr.message);
           return new Response(JSON.stringify({ 
@@ -408,9 +457,9 @@ export default {
         const newOfficeId = getParam('officeId');
         const officeName = getParam('name');
         const password = getParam('password');
-        const adminPassword = getParam('adminPassword');
+        let adminPassword = getParam('adminPassword');
 
-        if (!newOfficeId || !officeName || !password || !adminPassword) {
+        if (!newOfficeId || !officeName || !password) {
           return new Response(JSON.stringify({ ok: false, error: 'invalid_params' }), { headers: corsHeaders });
         }
 
@@ -435,10 +484,7 @@ export default {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
         
-        // Data Isolation Check
-        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
-        }
+        // Isolation handled by V7 Auth Guard
 
         const nocache = getParam('nocache') === '1';
         const cacheKey = `config_v2:${officeId}`;
@@ -529,9 +575,25 @@ export default {
 
       /* --- RENEW TOKEN --- */
       if (action === 'renew') {
-        const token = getParam('token');
-        if (!token || !tokenOffice) {
-          console.warn('[renew] Unauthorized:', { hasToken: !!token, hasOffice: !!tokenOffice });
+        const token = providedToken;
+        if (!token) {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'token_missing' }), { headers: corsHeaders });
+        }
+
+        // Firebase ユーザーだが拠点が未紐付けの場合、成功（ok: true）を返すが office は null とする
+        // これによりフロントエンド側で「ログイン状態だが拠点未指定」と判別できる
+        if (authContext && authContext.isFirebase && !tokenOffice) {
+          return new Response(JSON.stringify({ 
+            ok: true, 
+            token: token,
+            role: tokenRole, 
+            office: null, 
+            officeName: null,
+            email: authContext.email 
+          }), { headers: corsHeaders });
+        }
+
+        if (!tokenOffice) {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'invalid_session' }), { headers: corsHeaders });
         }
         
@@ -539,6 +601,7 @@ export default {
         const officeData = await env.DB.prepare('SELECT name FROM offices WHERE id = ?').bind(tokenOffice).first();
         return new Response(JSON.stringify({ 
           ok: true, 
+          token: token,
           role: tokenRole, 
           office: tokenOffice, 
           officeName: officeData ? officeData.name : tokenOffice,
@@ -551,12 +614,6 @@ export default {
       if (action === 'get' || action === 'getFor') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ ok: false, error: 'invalid_request' }), { headers: corsHeaders });
-
-        // Data Isolation Check: リクエストされた拠点とトークンの拠点が一致するか、またはスーパー管理者か
-        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
-          console.warn(`[get] Unauthorized access attempt: requestOffice=${officeId}, tokenOffice=${tokenOffice}`);
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized', reason: 'office_mismatch' }), { headers: corsHeaders });
-        }
         const since = Number(getParam('since') || 0);
         const nocache = getParam('nocache') === '1';
 
@@ -639,7 +696,7 @@ export default {
 
       /* --- SET TOOLS --- */
       if (action === 'setTools') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (!tokenOffice || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const toolsStr = getParam('tools') || '[]';
         const nowTs = Date.now();
 
@@ -653,55 +710,49 @@ export default {
 
       /* --- GET EVENT COLOR MAP --- */
       if (action === 'getEventColorMap') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (!tokenOffice) return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         const officeId = getParam('office') || tokenOffice;
         
-        try {
+        const result = await safeDbQuery(async () => {
           const row = await env.DB.prepare('SELECT colors_json, updated FROM event_color_maps WHERE office_id = ?')
             .bind(officeId)
             .first();
-            
-          const colors = row ? safeJSONParse(row.colors_json) : {};
-          return new Response(JSON.stringify({ 
-            ok: true, 
-            colors: colors, 
-            updated: row ? row.updated : 0 
-          }), { headers: corsHeaders });
-        } catch (e) {
-          console.error('[getEventColorMap Error]', e.message);
-          return new Response(JSON.stringify({ ok: true, colors: {}, updated: 0, warning: 'table_not_found' }), { headers: corsHeaders });
-        }
+          return row;
+        }, 'getEventColorMap');
+
+        const colors = result ? safeJSONParse(result.colors_json) : {};
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          colors: colors, 
+          updated: result ? result.updated : 0 
+        }), { headers: corsHeaders });
       }
 
       /* --- SET EVENT COLOR MAP --- */
       if (action === 'setEventColorMap') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId || !tokenRole || (tokenRole === 'user' && officeId === tokenOffice)) {
-           if (tokenRole === 'user') return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+           if (tokenRole === 'user') return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
         
-        // Data Isolation Check & Permission Check
-        if (tokenRole !== 'superAdmin' && (tokenRole !== 'officeAdmin' || officeId !== tokenOffice)) {
-          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (tokenRole !== 'superAdmin' && !isAuthorizedAdmin(tokenRole)) {
+          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
 
-        const dataRaw = getParam('data'); // JSON string from frontend
-        
-        // フロントエンドは JSON.stringify({ colors: payload }) を送ってくる
+        const dataRaw = getParam('data');
         let incoming = safeJSONParse(dataRaw);
         if (!incoming || typeof incoming.colors !== 'object') {
-          // data パラメータが単なるカラーマップの場合の互換性
           if (incoming && typeof incoming === 'object' && !incoming.colors) {
             incoming = { colors: incoming };
           } else {
-            return new Response(JSON.stringify({ error: 'invalid_data' }), { headers: corsHeaders });
+            return new Response(JSON.stringify({ ok: false, error: 'invalid_data' }), { headers: corsHeaders });
           }
         }
 
         const colorsJson = JSON.stringify(incoming.colors);
         const nowTs = Date.now();
         
-        try {
+        await safeDbQuery(async () => {
           await env.DB.prepare(`
             INSERT INTO event_color_maps (office_id, colors_json, updated)
             VALUES (?, ?, ?)
@@ -709,12 +760,9 @@ export default {
               colors_json = excluded.colors_json,
               updated = excluded.updated
           `).bind(officeId, colorsJson, nowTs).run();
+        }, 'setEventColorMap');
 
-          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
-        } catch (e) {
-          console.error('[setEventColorMap Error]', e.message);
-          return new Response(JSON.stringify({ ok: false, error: 'server_error', detail: e.message }), { status: 500, headers: corsHeaders });
-        }
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
       /* --- GET NOTICES --- */
@@ -722,10 +770,7 @@ export default {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
 
-        // Data Isolation Check
-        if (tokenRole !== 'superAdmin' && officeId !== tokenOffice) {
-          return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
-        }
+        // Isolation handled by V7 Auth Guard
 
         const cacheKey = `notices:${officeId}`;
         if (statusCache) {
@@ -752,7 +797,7 @@ export default {
 
       /* --- SET NOTICES --- */
       if (action === 'setNotices') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (!tokenOffice || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const noticesList = JSON.parse(getParam('notices') || '[]');
         const nowTs = Date.now();
 
@@ -810,7 +855,7 @@ export default {
 
       /* --- SET VACATION (Full) --- */
       if (action === 'setVacation') {
-        if (!tokenOffice) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        if (!tokenOffice || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         const dataStr = getParam('vacations') || getParam('data');
         const parsedData = safeJSONParse(dataStr);
         const list = Array.isArray(parsedData) ? parsedData : (parsedData ? [parsedData] : []);
@@ -841,10 +886,9 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- DELETE VACATION --- */
       if (action === 'deleteVacation') {
         const id = getParam('id');
-        if (!tokenOffice || !id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+        if (!tokenOffice || !id || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
 
         await env.DB.prepare('DELETE FROM vacations WHERE office_id = ? AND id = ?')
           .bind(tokenOffice, id)
@@ -857,7 +901,7 @@ export default {
       /* --- SET VACATION BITS --- */
       if (action === 'setVacationBits') {
         const payload = safeJSONParse(getParam('data'), {});
-        if (!tokenOffice || !payload.id) return new Response(JSON.stringify({ error: 'invalid_request' }), { headers: corsHeaders });
+        if (!tokenOffice || !payload.id || !isAuthorizedAdmin(tokenRole)) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
 
         await env.DB.prepare('UPDATE vacations SET members_bits = ?, updated = ? WHERE office_id = ? AND id = ?')
           .bind(payload.membersBits || '', Date.now(), tokenOffice, payload.id)
@@ -890,7 +934,7 @@ export default {
       /* --- SET COLUMN CONFIG (Phase 2) --- */
       if (action === 'setColumnConfig') {
         const officeId = getParam('office') || tokenOffice;
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
@@ -930,7 +974,7 @@ export default {
       /* --- GET OFFICE SETTINGS --- */
       if (action === 'getOfficeSettings') {
         const officeId = getParam('office') || tokenOffice;
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
         const office = await env.DB.prepare('SELECT auto_clear_config FROM offices WHERE id = ?')
@@ -943,7 +987,7 @@ export default {
       /* --- SET OFFICE SETTINGS --- */
       if (action === 'setOfficeSettings') {
         const officeId = getParam('office') || tokenOffice;
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
         let settingsRaw = getParamRaw('settings');
@@ -962,19 +1006,19 @@ export default {
       if (action === 'renameOffice') {
         const officeId = getParam('office') || tokenOffice;
         const newName = getParam('name');
-        if (!officeId || !newName || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !newName || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
         await env.DB.prepare('UPDATE offices SET name = ? WHERE id = ?').bind(newName, officeId).run();
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      /* --- SET OFFICE PASSWORD --- */
+      /* --- SET OFFICE PASSWORD (Legacy/Combined) --- */
       if (action === 'setOfficePassword') {
         const officeId = getParam('id') || getParam('office') || tokenOffice;
         const pw = getParam('password');
         const apw = getParam('adminPassword');
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin' && tokenRole !== 'owner')) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
         let query = 'UPDATE offices SET ';
@@ -989,12 +1033,51 @@ export default {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
+      /* --- SET USER PASSWORD (Staff Password - New Policy) --- */
+      if (action === 'setUserPassword') {
+        const officeId = getParam('office') || tokenOffice;
+        const newPw = getParam('password');
+
+        // [AUTH] 権限チェック (Admin role required)
+        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin' && tokenRole !== 'owner')) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
+        }
+
+        if (!newPw) {
+          return new Response(JSON.stringify({ ok: false, error: 'invalid_request', message: 'パスワードが指定されていません' }), { headers: corsHeaders });
+        }
+
+        // [VALIDATION] 強度要件: 12文字以上、かつ(英大, 英小, 数, 記)から2種類以上
+        const hasUpper = /[A-Z]/.test(newPw);
+        const hasLower = /[a-z]/.test(newPw);
+        const hasNum = /[0-9]/.test(newPw);
+        const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPw);
+        const typeCount = [hasUpper, hasLower, hasNum, hasSymbol].filter(Boolean).length;
+
+        if (newPw.length < 12 || typeCount < 2) {
+          return new Response(JSON.stringify({ 
+            ok: false, 
+            error: 'weak_password', 
+            message: 'パスワードは12文字以上、かつ2種類以上の文字種を含めてください' 
+          }), { headers: corsHeaders });
+        }
+
+        // 実行
+        await env.DB.prepare('UPDATE offices SET password = ?, updated_at = ? WHERE id = ?')
+          .bind(newPw, Date.now(), officeId)
+          .run();
+
+        console.log(`[setUserPassword] Success for office: ${officeId}`);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+
       /* --- SET / SET FOR (Status Sync & Batch Update) --- */
       if (action === 'set' || action === 'setFor') {
         const officeId = getParam('office') || tokenOffice;
         if (!officeId) return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
 
-        if (action === 'setFor' && tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin') {
+        if (action === 'setFor' && !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ error: 'unauthorized' }), { headers: corsHeaders });
         }
 
@@ -1129,7 +1212,7 @@ export default {
       /* --- SET CONFIG FOR (Admin: Update member roster structure) --- */
       if (action === 'setConfigFor') {
         const officeId = getParam('office') || tokenOffice;
-        if (!officeId || (tokenRole !== 'officeAdmin' && tokenRole !== 'superAdmin')) {
+        if (!officeId || !isAuthorizedAdmin(tokenRole)) {
           return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { headers: corsHeaders });
         }
         // dataパラメータを取得（オブジェクトまたはJSON文字列の両方に対応）
@@ -1178,8 +1261,8 @@ export default {
           });
         });
 
-        // 削除
-        statements.push(env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(officeId));
+        // 削除（Batchから分離し、単独で明示的に実行させてD1のバッチ空回りバグを回避）
+        await env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(officeId).run();
 
         // 挿入（グループを跨いだ通し番号 global_idx を display_order に使用）
         let global_idx = 0;
@@ -1215,7 +1298,9 @@ export default {
           }
         }
 
-        await env.DB.batch(statements);
+        if (statements.length > 0) {
+          await env.DB.batch(statements);
+        }
 
         // キャッシュクリア
         if (statusCache) {

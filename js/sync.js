@@ -1,13 +1,8 @@
 /**
  * js/sync.js - データ同期・通信ロジック
- *
- * Cloudflare Workers経由のポーリングと設定監視を管理する。
- *
- * 依存: js/config.js, js/constants/*.js, js/globals.js, js/utils.js
- * 参照元: js/auth.js, main.js
- *
- * @see MODULE_GUIDE.md
+ * Updated: 2026-04-17T13:41:00Z
  */
+console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v7)');
 
 /* ===== メニュー・正規化・通信・同期 ===== */
 /* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */
@@ -631,6 +626,9 @@ async function startWorkerPolling(immediate) {
         localServerUpdated: lastSyncTimestamp,
         decision: SYNC_DECISION.SKIP
       });
+      if (window.FORCE_RENDER_ONCE) {
+          applyState({});
+      }
     }
   };
 
@@ -651,9 +649,6 @@ function startRemoteSync(immediate) {
     console.error("Office ID not found. Cannot start sync.");
     return;
   }
-
-  console.log("Starting sync via Cloudflare Worker.");
-
   startWorkerPolling(immediate);
 
   if (typeof startToolsPolling === 'function') { startToolsPolling(); }
@@ -704,6 +699,7 @@ async function fetchConfigOnce(nocache = false) {
       setupMenus(menus);
       
       render();
+      window.FORCE_RENDER_ONCE = false; // 描画されたのでフラグを落とす
 
       // ★追加: DOM描画直後に最新キャッシュを適用
       if (typeof STATE_CACHE !== 'undefined' && Object.keys(STATE_CACHE).length > 0) {
@@ -711,6 +707,11 @@ async function fetchConfigOnce(nocache = false) {
           applyState(STATE_CACHE);
         }
       }
+    } else {
+        if (window.FORCE_RENDER_ONCE) {
+            render();
+            window.FORCE_RENDER_ONCE = false;
+        }
     }
   }
 }

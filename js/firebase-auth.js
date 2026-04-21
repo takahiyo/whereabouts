@@ -13,10 +13,9 @@ import {
   onAuthStateChanged,
   signOut
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { firebaseConfig } from './firebase-config.js';
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(window.firebaseConfig);
 const auth = getAuth(app);
 
 /**
@@ -102,4 +101,13 @@ export function watchAuthState(callback) {
   onAuthStateChanged(auth, (user) => {
     callback(user);
   });
+}
+
+// Attach to window for non-module script compatibility
+if (typeof window !== 'undefined') {
+  window.fbSignup = signup;
+  window.fbLogin = login;
+  window.fbLogout = logout;
+  window.watchAuthState = watchAuthState;
+  window.getValidToken = getValidToken;
 }

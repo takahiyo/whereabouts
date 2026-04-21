@@ -24,7 +24,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ログイン状態確認
   // js/auth.js で定義された checkLogin を呼び出す
   if (typeof checkLogin === 'function') {
+    console.log('【DEBUG】main.js: checkLogin 開始');
     await checkLogin();
+    console.log('【DEBUG】main.js: checkLogin 完了');
   } else {
     console.error("checkLogin function not found");
   }

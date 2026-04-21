@@ -11,6 +11,7 @@
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
+const btnGroupSave = document.getElementById('btnGroupSave');
 
 /**
  * 管理モーダルを開く
@@ -20,10 +21,8 @@ function openAdminModal() {
   adminModal.classList.add('show');
   adminModal.style.display = 'flex';
   
-  // 初期データの読み込み
-  if (!adminMembersLoaded) {
-    loadAdminMembers(true);
-  }
+  // 初期データの読み込み (常に最新を取得)
+  loadAdminMembers(true);
   
   // 必要に応じてお知らせなどの自動読み込み
   if (typeof autoLoadNoticesOnAdminOpen === 'function') {
@@ -264,11 +263,31 @@ btnRenameOffice.addEventListener('click', async () => {
 btnSetPw.addEventListener('click', async () => {
   const office = selectedOfficeId(); if (!office) return;
   const pw = (setPw.value || '').trim();
-  const apw = (setAdminPw.value || '').trim();
-  if (!pw && !apw) { toast('更新する項目を入力', false); return; }
-  const r = await adminSetOfficePassword(office, pw, apw);
-  if (r && r.ok) { toast('パスワードを更新しました'); setPw.value = ''; setAdminPw.value = ''; }
-  else toast('更新に失敗', false);
+
+  // [VALIDATION] 12文字以上、2種類以上の文字種
+  if (!pw) {
+    toast('パスワードを入力してください', false);
+    return;
+  }
+
+  const hasUpper = /[A-Z]/.test(pw);
+  const hasLower = /[a-z]/.test(pw);
+  const hasNum = /[0-9]/.test(pw);
+  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw);
+  const typeCount = [hasUpper, hasLower, hasNum, hasSymbol].filter(Boolean).length;
+
+  if (pw.length < 12 || typeCount < 2) {
+    toast(AUTH_MESSAGES.ERROR.INVALID_PASSWORD_FORMAT, false);
+    return;
+  }
+
+  const r = await adminSetUserPassword(office, pw);
+  if (r && r.ok) {
+    toast('一般利用者パスワードを更新しました');
+    setPw.value = '';
+  } else {
+    toast('更新に失敗: ' + (r.message || r.error || '不明なエラー'), false);
+  }
 });
 
 /* 管理モーダルのタブ切り替え */
@@ -288,6 +307,8 @@ if (adminModal) {
     btn.addEventListener('click', async () => {
       const targetTab = btn.dataset.tab;
 
+      const currentTab = Array.from(adminTabButtons).find(b => b.classList.contains('active'))?.dataset.tab;
+
       adminTabButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
@@ -306,9 +327,6 @@ if (adminModal) {
       if (panel) {
         panel.classList.add('active');
         resetPanelScroll(panel);
-
-        // ★デバッグログ: タブ切り替え直後
-        console.log(`[DEBUG] Tab Switch Initiated: ${targetTab}`);
       }
 
       if (targetTab === 'notices') {
@@ -321,11 +339,14 @@ if (adminModal) {
           await loadAutoClearSettings(office);
         }
       } else if (targetTab === 'groups') {
-        if (!adminMembersLoaded) { await loadAdminMembers(); }
-        else { renderGroupOrderList(); }
+        // グループとメンバー間は相互にデータを引き継ぐが、他タブからの移動時はリロードして未保存を破棄
+        const force = (currentTab !== 'groups' && currentTab !== 'members');
+        await loadAdminMembers(force);
+        renderGroupOrderList();
       } else if (targetTab === 'members') {
-        if (!adminMembersLoaded) { await loadAdminMembers(); }
-        else { renderMemberTable(); }
+        const force = (currentTab !== 'groups' && currentTab !== 'members');
+        await loadAdminMembers(force);
+        renderMemberTable();
       } else if (targetTab === 'events') {
         refreshVacationOfficeOptions();
         const officeId = (vacationOfficeSelect?.value) || adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
@@ -335,7 +356,7 @@ if (adminModal) {
         refreshVacationNoticeOptions();
         await loadVacationsList();
       } else if (targetTab === 'tools') {
-        await loadAdminTools();
+        await loadAdminTools(true); // 常に最新を取得
       } else if (targetTab === 'columns') {
         await loadColumnConfig();
       } else if (targetTab === 'offices') {
@@ -361,6 +382,7 @@ let adminToolsLoaded = false, adminToolsOfficeId = '';
 let adminColumnAllKeys = [], adminColumnUiState = {}, adminCustomColumnsState = [], adminColumnLcPrefix = 'adminColumnLc_';
 
 if (btnMemberSave) { btnMemberSave.addEventListener('click', () => handleMemberSave()); }
+if (btnGroupSave) { btnGroupSave.addEventListener('click', () => handleMemberSave()); }
 if (btnColumnSave) { btnColumnSave.addEventListener('click', () => saveColumnConfig()); }
 if (btnAddOffice) { btnAddOffice.addEventListener('click', () => addOffice()); }
   if (memberEditForm) {
@@ -671,7 +693,6 @@ function filteredMemberList() {
 }
 
   function renderMemberTable() {
-    console.log('[DEBUG] Calling renderMemberTable');
     const container = document.getElementById('memberTableBody');
   if (!memberTableBody) { return; }
   memberTableBody.textContent = '';
@@ -1004,7 +1025,9 @@ function buildMemberSavePayload() {
   const groups = [];
   groupOrder.forEach(gName => {
     const mems = grouped.get(gName) || [];
-    // if (!mems.length) return; // 空グループも保持する
+    // ▼変更点: メンバーが0人のグループは含めない (枠だけが残る不具合防止)
+    if (!mems.length) return;
+    
     mems.sort((a, b) => (a.order || 0) - (b.order || 0));
 
     // ★修正: render()で正しく表示されるよう、現在のステータス情報(STATE_CACHE優先)を含める
@@ -2117,6 +2140,7 @@ async function adminSetForChunked(office, dataObjFull) {
 }
 async function adminRenameOffice(office, name) { return await apiPost({ action: 'renameOffice', office, name, token: SESSION_TOKEN }); }
 async function adminSetOfficePassword(office, pw, apw) { const q = { action: 'setOfficePassword', id: office, token: SESSION_TOKEN }; if (pw) q.password = pw; if (apw) q.adminPassword = apw; return await apiPost(q); }
+async function adminSetUserPassword(office, pw) { return await apiPost({ action: 'setUserPassword', office, password: pw, token: SESSION_TOKEN }); }
 async function adminGetVacation(office) { return await apiPost({ action: 'getVacation', token: SESSION_TOKEN, office, nocache: '1' }); }
 async function adminSetVacation(office, payload) { const q = { action: 'setVacation', token: SESSION_TOKEN, office, data: JSON.stringify(payload) }; return await apiPost(q); }
 async function saveVacationBits(office, payload) { const q = { action: 'setVacationBits', token: SESSION_TOKEN, office, data: JSON.stringify(payload) }; return await apiPost(q); }
@@ -2456,10 +2480,8 @@ async function loadColumnConfig() {
       columnSettingContainer.innerHTML = '<p class="u-text-center u-text-gray">設定を読み込み中...</p>';
     }
     const res = await apiPost({ action: 'getColumnConfig', token: SESSION_TOKEN, office });
-    console.log('[loadColumnConfig] res:', res);
     // サーバーに設定がない場合は null のまま渡す（新拠点＝未設定状態）
     const config = (res && res.columnConfig) || null;
-    console.log('[loadColumnConfig] Using config:', config);
     renderColumnConfig(config);
   } catch (e) {
     console.error('loadColumnConfig error', e);

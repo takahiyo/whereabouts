@@ -13,9 +13,8 @@
 // 環境判定: 'dev.' で始まるサブドメイン、localhost、または IP 指定の場合は開発環境 (dev worker) を使用
 const hostname = window.location.hostname;
 const isDev = hostname.startsWith('dev.') || hostname.includes('localhost') || hostname === '127.0.0.1';
-console.log('【DEBUG】hostname:', hostname, 'isDev:', isDev);
 
-const CONFIG = {
+var CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
     authMode: 'worker',
     // 環境に応じてエンドポイントを切り替え

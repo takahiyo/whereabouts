@@ -20,6 +20,7 @@ AIコーディングにおいて以下を実現する：
 
 | ドキュメント | 内容 | 読むタイミング |
 |--------------|------|----------------|
+| [LLM_CONTEXT.md](./LLM_CONTEXT.md) | **LLM/NotebookLM向け**（要約＋**全ソース全文**・再生成は `scripts/build_llm_context.ps1`） | リポジトリ全体を1ファイルで渡す／NotebookLM取り込み用 |
 | [CORE_PRINCIPLES.md](./CORE_PRINCIPLES.md) | **基本原則（最重要）** | 作業開始時に必ず読む |
 
 ### 作業別ガイド
