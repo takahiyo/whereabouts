@@ -42,6 +42,20 @@ function coerceToolVisibleFlag(raw) {
   return !(s === 'false' || s === '0' || s === 'off' || s === 'no' || s === 'hide');
 }
 
+function normalizeToolUrlValue(raw) {
+  const url = String(raw || '').trim();
+  if (!url) return '';
+  // 既にスキームがある URL（https:, mailto:, tel: 等）はそのまま使う。
+  if (/^[a-z][a-z\d+\-.]*:/i.test(url)) return url;
+  if (url.startsWith('//')) return `https:${url}`;
+  // アプリ内リンクは相対 URL として残す。
+  if (url.startsWith('/') || url.startsWith('#') || url.startsWith('./') || url.startsWith('../')) return url;
+  // 管理画面で「egpass.hatolog.jp」のようにスキームなしで入力された外部URLは、
+  // ブラウザが現在の Pages/GitHub URL 配下の相対パスとして解釈しないよう https:// を補う。
+  if (/^[\w.-]+\.[a-z]{2,}(?:[/?#:].*)?$/i.test(url)) return `https://${url}`;
+  return url;
+}
+
 function ensureUniqueToolId(ctx, preferred) {
   let base = (preferred == null ? '' : String(preferred)).trim();
   if (!base) { base = `tool_${ctx.seq}`; ctx.seq += 1; }
@@ -71,7 +85,7 @@ function normalizeToolItem(raw, ctx, parentId) {
   const visible = coerceToolVisibleFlag(raw.visible ?? raw.display ?? raw.show ?? true);
   const parentSrc = raw.parentId != null ? String(raw.parentId) : '';
   const titleStr = String(titleSrc || '').trim();
-  const urlStr = String(urlSrc || '').trim();
+  const urlStr = normalizeToolUrlValue(urlSrc);
   const noteStr = String(noteSrc || '').trim();
   const parent = parentSrc.trim() || parentId || '';
   const node = {
@@ -371,5 +385,6 @@ window.saveTools = saveTools;
 window.normalizeTools = normalizeTools;
 window.normalizeToolsWithMeta = normalizeToolsWithMeta;
 window.coerceToolVisibleFlag = coerceToolVisibleFlag;
+window.normalizeToolUrlValue = normalizeToolUrlValue;
 window.startToolsPolling = startToolsPolling;
 window.stopToolsPolling = stopToolsPolling;
