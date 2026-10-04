@@ -176,7 +176,7 @@
         <!-- タブパネル1: 基本設定 -->
         <div id="tabBasic" class="tab-panel active" data-tab="basic">
           <div class="admin-toolbar">
-            <h4>⚙️ 基本設定</h4>
+            <h4>自動消去の設定</h4>
           </div>
           <div class="admin-grid">
             <div class="admin-box admin-box-stacked">
@@ -302,7 +302,7 @@
           <div class="admin-toolbar">
             <h4>📁 グループ操作</h4>
             <div class="admin-toolbar-actions">
-              <button id="btnGroupSave" class="btn-pill">💾 変更を保存</button>
+              <button id="btnGroupSave" class="btn-pill">💾 名簿の変更を保存</button>
             </div>
           </div>
 
@@ -333,7 +333,7 @@
           <div class="admin-toolbar">
             <h4>👥 メンバー管理</h4>
             <div class="admin-toolbar-actions">
-              <button id="btnMemberSave" class="btn-pill">💾 変更を保存</button>
+              <button id="btnMemberSave" class="btn-pill">💾 名簿の変更を保存</button>
             </div>
           </div>
             <!-- モーダル形式に変更 -->
@@ -408,7 +408,7 @@
         <!-- タブパネル: カラム構成 (Phase 6) -->
         <div id="tabColumns" class="tab-panel" data-tab="columns">
           <div class="admin-toolbar">
-            <h4>🎛️ カラム構成</h4>
+            <h4>表示項目・レイアウト</h4>
             <div class="admin-toolbar-actions">
               <button id="btnAddCustomColumn" class="btn-pill">➕ 新規追加</button>
               <button id="btnColumnSave" class="btn-pill">💾 保存</button>
@@ -494,32 +494,12 @@
               <div class="u-flex-between-center u-mb-8">
                 <h4 class="u-m-0">登録済みのイベント</h4>
               </div>
-              <div class="vacation-table-wrap">
-                <table class="vacation-table">
-                  <thead>
-                    <tr>
-                      <th class="u-w-44">並び</th>
-                      <th>タイトル</th>
-                      <th>期間</th>
-                      <th>対象拠点</th>
-                      <th>休暇固定（種別）</th>
-                      <th>色</th>
-                      <th>備考</th>
-                      <th>表示</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody id="vacationListBody">
-                    <tr>
-                      <td colspan="9" class="u-text-center u-text-gray">読み込み待ち</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <div id="vacationListBody" class="event-admin-list" aria-label="登録済みのイベント"></div>
             </div>
 
             <div class="admin-box">
-              <h4>イベントの作成 / 更新</h4>
+              <h4 id="vacationEditorTitle">新しいイベントを作成</h4>
+              <p class="admin-note">公開範囲と休暇への反映を確認して保存してください。日付の指定はメイン画面のイベントから行います。</p>
               <div class="vacation-form">
                 <div class="vacation-row">
                   <label>対象拠点
@@ -548,11 +528,13 @@
                   </div>
                 </div>
                 <div class="vacation-row vacation-row-two-cols">
-                  <label>
-                    種別
-                    <input id="vacationTypeText" type="text" value="休暇固定（一覧で切替）" readonly />
-                    <span class="vacation-helper">※ 種別は一覧の「休暇固定」列で変更できます。</span>
-                  </label>
+                  <fieldset class="event-form-flags">
+                    <legend>表示・休暇への反映</legend>
+                    <label><input id="vacationVisible" type="checkbox" checked /> メイン画面に表示する</label>
+                    <label><input id="vacationIsVacation" type="checkbox" checked /> 休暇固定</label>
+                    <span class="vacation-helper">休暇固定を外すと「予定のみ」です。指定日の在席ステータスを休みに変更しません。</span>
+                    <input id="vacationTypeText" type="hidden" />
+                  </fieldset>
                   <label>色/カテゴリー
                     <select id="vacationColor" aria-label="色/カテゴリー">
                       <option value="amber">サニー</option>
@@ -573,7 +555,7 @@
                 </div>
                 <div class="vacation-actions">
                   <button id="btnVacationSave" class="btn-pill">💾 作成/更新</button>
-                  <button id="btnVacationDelete" class="btn-pill btn-danger">🗑️ 削除</button>
+                  <button id="btnVacationDelete" class="btn-pill btn-danger" disabled>🗑️ 削除</button>
                   <button id="btnVacationClear" class="btn-pill">🧹 入力クリア</button>
                   <button id="btnVacationReload" class="btn-pill">🔄 一覧更新</button>
                 </div>
@@ -643,7 +625,8 @@
               イベントの内容を表示</button>
           </div>
           <div id="vacationRadioList" class="vacation-radio-list u-hidden"></div>
-          <div id="eventGanttWrap" class="vacation-gantt-head">
+          <p id="eventSelectionEmpty" class="event-selection-empty" role="status">イベントを選択すると、日付とメンバーの表が表示されます。</p>
+          <div id="eventGanttWrap" class="vacation-gantt-head u-hidden">
             <div class="vacation-gantt-sticky-header">
               <div class="event-toolbar">
                 <div class="event-toolbar__hint">
@@ -985,10 +968,11 @@
 
       <section id="manualAdmin" class="manual-section manual-tab-content">
         <h4>⚙️ 管理者マニュアル</h4>
+        <p>管理メニューは「メンバー・グループ」「お知らせ・イベント」「ツール」「在席表の設定」「拠点・アクセス」の5領域です。CSVは名簿の領域、印刷は在席表の設定にあります。画面を往復しても編集を保持しますが、保存ボタンで確定してください。</p>
 
         <div class="manual-alert manual-alert-warning">
           <strong>🔐 管理者ログインについて</strong><br>
-          管理パネルを表示するには、<strong>管理者パスワード</strong>でログインしてください。<br>
+          管理パネルを表示するには、<strong>管理者アカウント</strong>でログインしてください。<br>
           一般ユーザーパスワードではログインできても「管理」ボタンは表示されません。
         </div>
 
@@ -1123,15 +1107,12 @@
 
         <p class="u-mt-12 u-mb-8"><strong>イベントの作成</strong></p>
         <ol class="u-lh-18">
-          <li>管理パネルを開き、<strong>「📅 イベント管理」</strong>タブをクリック</li>
-          <li><strong>対象拠点</strong>を選択（スーパー管理者の場合）</li>
-          <li><strong>タイトル</strong>を入力（例：「GW期間休暇」「年末年始休暇」）</li>
-          <li><strong>開始日</strong>と<strong>終了日</strong>を入力（カレンダーから選択可能）</li>
-          <li><strong>備考</strong>（任意）を入力（社内共有用のメモなど）</li>
-          <li><strong>「表示する」</strong>チェックボックスをONにすると、ユーザーがイベントボタンから選択できるようになります</li>
-          <li>ガントチャート（日付×メンバーの表）で、休暇対象のメンバーと日付のセルをクリック/ドラッグしてONにします</li>
-          <li><strong>「💾 作成/更新」</strong>ボタンをクリック</li>
-          <li>✅「イベントを保存しました」と表示されたら成功です</li>
+          <li>管理パネルの「お知らせ・イベント」→「イベント」を開きます</li>
+          <li>対象拠点、タイトル、開始日、終了日を入力します</li>
+          <li>必要なら関連するお知らせと色/カテゴリーを選びます</li>
+          <li>「メイン画面に表示する」と「休暇固定」を確認し、「💾 作成/更新」で保存します</li>
+          <li>メイン画面の「イベント」から作成したイベントを選択します</li>
+          <li>日付とメンバーの表でON/OFFを指定し、「💾 保存」で保存します</li>
         </ol>
 
         <p class="u-mt-12 u-mb-8"><strong>イベントの編集</strong></p>
@@ -1161,7 +1142,7 @@
         <p class="u-mt-12 u-mb-8"><strong>イベントの並び替え</strong></p>
         <p>「登録済みのイベント」一覧では、複数のイベントの表示順序を変更できます。</p>
         <ol class="u-lh-18">
-          <li>一覧の「並び」列にある<strong>「↑」「↓」ボタン</strong>をクリックすると、イベントの順序が入れ替わります</li>
+          <li>一覧カードの<strong>「↑」「↓」ボタン</strong>をクリックすると、イベントの順序が入れ替わります</li>
           <li>上にあるイベントほど優先度が高く、ユーザーが選択する際のリストの上位に表示されます</li>
           <li>並び替え後、<strong>自動的に保存</strong>されます（保存ボタンを押す必要はありません）</li>
         </ol>
@@ -1170,22 +1151,12 @@
         </div>
 
         <p class="u-mt-12 u-mb-8"><strong>休暇種別（休暇固定）の設定</strong></p>
-        <p>各イベントに対して、ステータスとして表示される「休暇種別」を設定できます。</p>
+        <p>イベントの日付指定を在席表の「休み」に反映するかを選びます。</p>
         <ul class="u-lh-18">
-          <li><strong>設定場所</strong>：「登録済みのイベント」一覧の<strong>「休暇固定（種別）」</strong>列</li>
-          <li><strong>操作方法</strong>：該当の列をクリックすると、ドロップダウンから種別を選択できます</li>
-          <li><strong>選択肢</strong>：「休み」「休暇」「特休」「有給」「代休」などから選択可能</li>
-          <li><strong>自動保存</strong>：選択すると即座に保存され、ユーザーの画面に反映されます</li>
+          <li>一覧カードの「休暇固定」は切り替えるとすぐ保存されます</li>
+          <li>作成/編集フォームでは「休暇固定」を確認し、「作成/更新」で保存します</li>
+          <li>OFFは「予定のみ」です。日付の指定を在席表の休みに反映しません</li>
         </ul>
-        <div class="manual-alert manual-alert-success">
-          <strong>使用例</strong>
-          <ul class="u-my-4 u-lh-16">
-            <li>「GW期間休暇」→ 種別：<strong>「休暇」</strong>（通常の長期休暇）</li>
-            <li>「年末年始休暇」→ 種別：<strong>「休み」</strong>（会社休業日）</li>
-            <li>「夏季休暇」→ 種別：<strong>「有給」</strong>（有給休暇推奨期間）</li>
-            <li>「創立記念日」→ 種別：<strong>「特休」</strong>（特別休暇）</li>
-          </ul>
-        </div>
 
         <p class="u-mt-12 u-mb-8"><strong>色/カテゴリーの設定</strong></p>
         <p>イベントに色を設定することで、視覚的に区別しやすくなります。</p>
@@ -1206,22 +1177,17 @@
         </ul>
 
         <p class="u-mt-12 u-mb-8"><strong>管理者によるユーザー休暇日の編集</strong></p>
-        <p>管理者は、イベント作成時のガントチャートで全ユーザーの休暇日を一括設定できます。</p>
         <ol class="u-lh-18">
-          <li>イベント作成/更新フォームで<strong>開始日と終了日</strong>を入力すると、ガントチャートが表示されます</li>
-          <li>ガントチャート上で、<strong>各メンバーの休暇日をクリック/ドラッグ</strong>してON（青色）に設定します</li>
-          <li>複数のメンバーを一度に設定する場合は、<strong>ドラッグ操作</strong>が便利です</li>
-          <li>設定後、<strong>「💾 作成/更新」</strong>ボタンをクリックすると保存されます</li>
-          <li>✅ ユーザーがそのイベントを選択すると、設定した日が自動的に「休み」ステータスになります</li>
+          <li>メイン画面の「イベント」で対象を選択します</li>
+          <li>セルのクリック/ドラッグ、スマホではタップで指定します。ONにはチェックが表示されます</li>
+          <li>Tabで表に入り、矢印で移動、Enter/Spaceでも切り替えられます</li>
+          <li>「💾 保存」を押します。保存前に他のイベントへ切り替えると編集中の指定は破棄されます</li>
         </ol>
-        <div class="manual-alert manual-alert-danger">
-          <strong>⚠️ 重要</strong>：イベントカレンダーでユーザー自身が変更した休暇日は、<strong>ユーザー個人のデータ</strong>として保存されます。<br>
-          管理者が後からガントチャートを編集しても、既にユーザーが保存した個人設定は上書きされません。
-        </div>
+        <p class="manual-hint">日付の指定はイベントの共有データです。同じイベントを利用するメンバーの画面にも反映されます。</p>
 
         <p class="u-mt-12 u-mb-8"><strong>表示/非表示の切り替え</strong></p>
         <ul class="u-lh-18">
-          <li>「登録済みのイベント」一覧の<strong>「表示」チェックボックス</strong>で切り替えられます</li>
+          <li>一覧カードの<strong>「メイン画面に表示」チェックボックス</strong>で切り替えられます</li>
           <li>チェックON：ユーザーがイベントボタンから選択できます</li>
           <li>チェックOFF：管理者のみ閲覧可能（ユーザーには表示されません）</li>
           <li>複数のイベントを同時に「表示」にできますが、ユーザーが選択できるのは1つだけです</li>
@@ -1283,12 +1249,12 @@
         </details>
         <details class="manual-details">
           <summary>Q. イベントの並び順を変更したい</summary>
-          <p>A. 「登録済みのイベント」一覧の「並び」列にある↑↓ボタンをクリックすると順序を変更できます。変更は自動保存されます。</p>
+          <p>A. 「登録済みのイベント」一覧カードの↑↓ボタンをクリックすると順序を変更できます。変更は自動保存されます。</p>
         </details>
         <details class="manual-details">
-          <summary>Q. 休暇種別（休暇固定）を変更したい</summary>
+          <summary>Q. 休暇固定を変更したい</summary>
           <p>A.
-            「登録済みのイベント」一覧の「休暇固定（種別）」列をクリックすると、ドロップダウンから種別（休み、休暇、特休、有給、代休など）を選択できます。選択すると即座に保存されます。</p>
+            一覧カードの「休暇固定」を切り替えると即座に保存されます。作成/編集フォームでも設定でき、その場合は「作成/更新」で保存します。</p>
         </details>
         <details class="manual-details">
           <summary>Q. イベントの色を変更したい</summary>
@@ -1302,13 +1268,12 @@
         <details class="manual-details">
           <summary>Q. ユーザーが個別に変更した休暇日を管理者が確認できますか？</summary>
           <p>A.
-            ユーザーが長期休暇カレンダーで変更した内容は、そのユーザーの「メンバーの休暇指定ビット（membersBits）」として保存されています。管理者はCSVエクスポートで確認できますが、直接編集する機能は現在ありません。各ユーザーが自分で長期休暇カレンダーから変更してください。
+            日付の指定はイベントの共有データです。メイン画面の「イベント」から対象を選択すると、管理者も確認・編集できます。変更後は「保存」を押してください。
           </p>
         </details>
         <details class="manual-details">
           <summary>Q. ガントチャートで設定した休暇日が反映されない</summary>
-          <p>A. ガントチャートでセルをクリック/ドラッグした後、必ず「💾
-            作成/更新」ボタンをクリックして保存してください。また、ユーザー側で該当イベントを選択していない場合は、休暇日として反映されません。</p>
+          <p>A. メイン画面のイベントで日付を指定した後、「💾 保存」を押してください。イベント管理で「休暇固定」がONになっていることも確認してください。</p>
         </details>
         <details class="manual-details">
           <summary>Q. イベントの対象拠点を変更したい</summary>
@@ -3738,44 +3703,6 @@ td.time.need-time select:focus~.time-hint {
   margin: 4px 0 8px;
 }
 
-.vacation-table-wrap {
-  overflow: auto;
-  max-height: 340px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-}
-
-.vacation-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.vacation-table th,
-.vacation-table td {
-  border-bottom: 1px solid #e5e7eb;
-  padding: 8px;
-  text-align: left;
-  vertical-align: top;
-}
-
-.vacation-table th {
-  background: #f9fafb;
-  color: #374151;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.vacation-table tr:last-child td {
-  border-bottom: none;
-}
-
-.vacation-drag-cell {
-  width: 44px;
-  text-align: center;
-}
-
 .vacation-drag-handle {
   cursor: grab;
   display: inline-flex;
@@ -4225,39 +4152,7 @@ td.time.need-time select:focus~.time-hint {
   border-bottom: 3px solid #6b7280;
 }
 
-.vacation-gantt tbody tr:hover {
-  background: #f0f9ff;
-}
-
-.vacation-gantt tbody tr:hover th.member-name {
-  background: #dbeafe;
-  color: #1e40af;
-  font-weight: 700;
-}
-
-.vacation-gantt tbody tr:hover td {
-  background: #e0f2fe;
-}
-
-.vacation-gantt thead th.hover-highlight,
-.vacation-gantt td.hover-highlight {
-  box-shadow: inset 0 0 0 2px #93c5fd;
-}
-
-.vacation-gantt td.hover-highlight:not(.vac-cell.on) {
-  background: #dbeafe !important;
-  color: #1e40af;
-}
-
-.vacation-gantt .vac-cell.on.hover-highlight {
-  color: #fff;
-  box-shadow: inset 0 0 0 2px #bfdbfe, inset 0 0 0 4px rgba(191, 219, 254, 0.55);
-}
-
-.vacation-gantt tbody tr .hover-highlight {
-  font-weight: 700;
-}
-
+/* 行・列の強調はappearance.cssの線で示し、日付/ONの背景色を保持する。 */
 .vacation-gantt .vac-day-label {
   display: flex;
   flex-direction: column;
@@ -4485,10 +4380,6 @@ td.time.need-time select:focus~.time-hint {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-}
-
-.event-modal .vacation-table-wrap {
-  max-height: unset;
 }
 
 .vacation-select-wrap {
@@ -5740,7 +5631,6 @@ td.time.need-time select:focus~.time-hint {
   /* 陷・ｽﾎ夂ｹｧ・ｳ郢晢ｽｳ郢晢ｿｽ繝ｪ邵ｺ・ｮ郢晢ｽｪ郢ｧ・ｻ郢晢ｿｽ繝ｨ */
   #eventModal .admin-card,
   #eventModal .admin-card-body,
-  #eventModal .vacation-table-wrap,
   #eventModal .vacation-gantt {
     display: block !important;
     width: 100% !important;
@@ -6969,6 +6859,161 @@ body .login {
 }
 @media (prefers-reduced-motion: reduce) {
   body *, body *::before, body *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+
+/* [REF] HTML: adminModal全作業領域; JS: admin.jsのナビ/動的編集DOM; STATE: active/hidden;
+   LAYER: 既存管理dialog内; SPLIT: LAST。旧固定色を各外観の共通トークンに統合する。 */
+#adminModal {
+  --bg-secondary: var(--ui-soft); --bg-white: var(--ui-surface); --border: var(--ui-line); --accent: var(--ui-accent);
+}
+#adminModal .admin-card-body { background: var(--ui-menu-surface); overflow-y: auto; }
+#adminModal .tab-panel.active { flex: 0 0 auto; min-height: 0; overflow: visible; }
+#adminModal .admin-card-header h3 { margin: 0; }
+#adminModal .admin-tabs { padding: 0; margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.admin-areas, #adminModal .tab-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-areas { margin: 0; grid-column: 1 / -1; }
+#adminModal .tab-buttons { margin: 0; }
+#adminModal .admin-reload { margin: 0; padding: 6px 10px; font-size: 12px; }
+#adminModal .admin-area-btn { background: var(--ui-button-face); color: var(--ui-ink); border: 1px solid var(--ui-line); border-radius: var(--ui-radius); padding: 10px 14px; min-height: 44px; font: 650 14px var(--ui-heading-font); }
+#adminModal .admin-area-btn.active { background: var(--ui-accent); border-color: var(--ui-accent); color: #fff; }
+#adminModal .tab-btn { padding: 6px 12px; min-height: 40px; font-size: 13px; }
+#adminModal .tab-btn.active { color: var(--ui-accent); background: var(--ui-soft); border-color: var(--ui-accent); }
+#adminModal h4, #adminModal h5, #adminModal label { color: var(--ui-ink); }
+#adminModal .admin-note, #adminModal .vacation-helper, #adminModal .member-edit-mode, #adminModal .u-text-gray { color: var(--ui-muted); }
+#adminModal .u-text-red { color: var(--ui-danger); }
+#adminModal .notices-manager-toolbar, #adminModal .tools-manager-toolbar { background: transparent; }
+#adminModal .notices-manager-scroll, #adminModal .tools-manager-scroll { overflow: visible; }
+#adminModal .notices-manager-info, #adminModal .tools-manager-info, #adminModal .auto-clear-fields-container,
+#adminModal .csv-file-selection, #adminModal .member-filter-row { background: var(--ui-soft); border-color: var(--ui-line); color: var(--ui-ink); }
+#adminModal .csv-file-selection[data-selected="true"] { color: var(--ui-accent); border-color: var(--ui-accent); }
+#adminModal .notice-edit-item, #adminModal .tool-edit-item, #adminModal .group-order-item,
+#adminModal .notice-visibility-toggle, #adminModal .tool-visibility-toggle {
+  background: var(--ui-section-surface); color: var(--ui-ink); border-color: var(--ui-line); border-radius: var(--ui-radius);
+}
+#adminModal .notice-edit-item.hidden-notice, #adminModal .tool-edit-item.hidden-tool { background: var(--ui-soft); border-style: dashed; }
+#adminModal .notice-edit-item.dragging, #adminModal .tool-edit-item.dragging { background: var(--ui-soft); border-color: var(--ui-accent); }
+#adminModal .notice-edit-item.drag-over, #adminModal .tool-edit-item.drag-over { border-top-color: var(--ui-accent); }
+#adminModal .notice-edit-item:hover, #adminModal .tool-edit-item:hover { border-color: var(--ui-accent); box-shadow: var(--ui-shadow); }
+#adminModal .notice-edit-handle, #adminModal .tool-edit-handle { color: var(--ui-muted); }
+#adminModal .unified-column-item, #adminModal .column-order-item { background: var(--ui-section-surface) !important; border-color: var(--ui-line); }
+#adminModal .column-order-label, #adminModal .column-width-label, #adminModal .column-toggle-label { color: var(--ui-ink); }
+#adminModal .column-order-badge { background: var(--ui-soft); color: var(--ui-accent); border-color: var(--ui-line); }
+#adminModal .group-order-label, #adminModal .member-order-num { color: var(--ui-ink); }
+#adminModal .group-header-row td { background: var(--ui-soft); color: var(--ui-ink); }
+#adminModal .member-table, #adminModal .admin-table { color: var(--ui-ink); background: var(--ui-section-surface); }
+#adminModal .member-table-wrap { background: var(--ui-section-surface); }
+#adminModal :is(.member-table, .admin-table) th { background: var(--ui-soft); color: var(--ui-ink); border-color: var(--ui-line); }
+#adminModal :is(.member-table, .admin-table) td { border-color: var(--ui-line); }
+#adminModal :is(.member-table, .admin-table) tr:hover { background: var(--ui-soft); }
+#adminModal button { font-family: inherit; border-radius: 8px; min-height: 40px; }
+#adminModal button:not(.admin-area-btn):not(.tab-btn) { background: var(--ui-button-face); color: var(--ui-ink); border: 1px solid var(--ui-line); }
+#adminModal button.btn-primary, #adminModal button.btn-success { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
+#adminModal button.btn-danger, #adminModal button.btn-remove-notice, #adminModal button.btn-remove-tool,
+#adminModal button.btn-group-del { background: var(--ui-danger-soft); color: var(--ui-danger); border-color: var(--ui-danger); }
+#adminModal button:hover:not(:disabled):not(.active) { border-color: var(--ui-accent); box-shadow: none; transform: none; }
+#adminModal button:disabled { opacity: .45; cursor: default; }
+#adminModal input[type="checkbox"], #adminModal input[type="radio"] { accent-color: var(--ui-accent); flex: 0 0 auto; }
+#adminModal select, #adminModal textarea { min-width: 0; max-width: 100%; border-radius: 8px; }
+#adminModal textarea { box-sizing: border-box; }
+#adminModal .admin-row { flex-wrap: wrap; }
+#adminModal .admin-toolbar { flex-wrap: wrap; border-color: var(--ui-line); }
+#adminModal .admin-toolbar-actions { flex-wrap: wrap; }
+#adminModal .admin-row input { min-width: 0; }
+#adminModal .notice-edit-controls, #adminModal .tool-edit-controls { flex-wrap: wrap; gap: 6px; }
+#adminModal .notice-edit-row, #adminModal .tool-edit-row { min-width: 0; margin-left: 0; }
+#adminModal .notice-edit-row input, #adminModal .tool-edit-row input { min-width: 0; max-width: 100%; }
+#adminModal .btn-move-up, #adminModal .btn-move-down { min-width: 36px; width: 36px; height: 40px; }
+
+/* [REF] HTML: tabEvents; JS: renderVacationRowsと既存保存/並び替え; SPLIT: LAST。
+   項目名を各カードに置き、横幅が不足する9列の表を廃止する。 */
+#adminModal .vacation-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+#adminModal .vacation-grid > .admin-box { min-width: 0; }
+.event-admin-list { display: grid; gap: 12px; }
+.event-admin-card { padding: 14px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius); background: var(--ui-section-surface); min-width: 0; }
+.event-admin-card-heading { display: flex; align-items: center; gap: 10px; }
+.event-admin-card-heading h5 { font-size: 16px; margin: 0; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.event-admin-card-heading button { flex: 0 0 auto; }
+.event-admin-details { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin: 14px 0; }
+.event-admin-details > div { min-width: 0; }
+.event-admin-details > div:last-child { grid-column: 1 / -1; }
+.event-admin-details dt { color: var(--ui-muted); font-size: 12px; white-space: nowrap; }
+.event-admin-details dd { margin: 4px 0 0; color: var(--ui-ink); font-size: 14px; overflow-wrap: anywhere; }
+.event-admin-card-controls { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; border-top: 1px solid var(--ui-line); padding-top: 10px; }
+.event-admin-card-controls label { display: flex; gap: 6px; align-items: center; min-height: 40px; font-size: 13px; white-space: nowrap; }
+.event-order-actions { display: flex; gap: 4px; margin-left: auto; }
+.event-order-actions button { min-width: 36px; padding: 6px; }
+.event-admin-card.vacation-dragging { opacity: .5; border-color: var(--ui-accent); }
+.event-form-flags { border: 1px solid var(--ui-line); border-radius: 8px; margin: 0; padding: 10px; min-width: 0; }
+#adminModal .event-form-flags label { display: flex; flex-direction: row; gap: 8px; align-items: center; margin: 8px 0; }
+.event-form-flags legend { font-size: 13px; color: var(--ui-muted); }
+#adminModal .vacation-form label { min-width: 0; }
+#adminModal .vacation-row-two-cols:has(.event-form-flags) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+#adminModal .vacation-form input, #adminModal .vacation-form select { box-sizing: border-box; width: 100%; }
+#adminModal .vacation-form input[type="checkbox"] { width: 18px; height: 18px; }
+#adminModal .vacation-actions { flex-wrap: wrap; gap: 8px; }
+.event-selection-empty { padding: 24px; border: 1px dashed var(--ui-line); background: var(--ui-soft); color: var(--ui-muted); border-radius: var(--ui-radius); }
+body .event-select-toolbar, body .event-legend-item { background: var(--ui-soft); border-color: var(--ui-line); }
+body .event-select-label, body .event-legend-text { color: var(--ui-ink); }
+body .event-toolbar__hint, body .vacation-gantt-touch-hint, body .event-legend-type, body .event-legend-empty { color: var(--ui-muted); }
+body .vacation-gantt-sticky-header, body .vac-color-palette { background: var(--ui-menu-surface); border-color: var(--ui-line); color: var(--ui-ink); }
+body #eventModal button.btn-primary { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
+body #eventModal button.btn-secondary { background: var(--ui-button-face); color: var(--ui-ink); border: 1px solid var(--ui-line); }
+body #eventSelectDropdown { min-width: 0; max-width: 100%; }
+body #eventModal .event-modal-header { padding: 12px 24px; margin: 0; background: var(--ui-header-face); border-bottom: 1px solid var(--ui-line); }
+
+/* [REF] HTML: イベント日付表; JS: vacations.jsのvac-axis-*とon; STATE: hover/focus;
+   日付カテゴリーの背景とON/OFFを保持し、行列を線、交点を枠で強調する。 */
+body .vacation-gantt table { width: max-content; min-width: 0; }
+body .vacation-gantt .vac-cell, body .vacation-gantt .vac-day-header { box-sizing: border-box; min-width: 32px; width: 32px; padding: 3px 2px; }
+body .vacation-gantt .vac-cell { height: 32px; }
+body .vacation-gantt .vac-month-text { position: absolute; inset: 6px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body .vacation-gantt .vac-month-header { height: 32px; }
+body .vacation-gantt th.member-name { background: var(--ui-surface); color: var(--ui-ink); }
+body .vacation-gantt th.group-name { background: var(--ui-soft); color: var(--ui-ink); }
+body .vacation-gantt .member-name.member-has-bit { background: var(--ui-soft); color: var(--ui-accent); }
+body .vacation-gantt .vac-cell.on,
+body .vacation-gantt .vac-cell.on:is(.weekend-sat, .weekend-sun, .holiday) { background: var(--ui-accent); color: #fff; }
+body .vacation-gantt .vac-cell.on::after { content: '✓'; font-size: 15px; }
+body .vacation-gantt .vac-axis-row { box-shadow: inset 0 1px var(--ui-accent), inset 0 -1px var(--ui-accent); }
+body .vacation-gantt .vac-axis-column { box-shadow: inset 1px 0 var(--ui-accent), inset -1px 0 var(--ui-accent); }
+body .vacation-gantt th.vac-axis-row, body .vacation-gantt th.vac-axis-column { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
+body .vacation-gantt .vac-axis-cell { box-shadow: inset 0 0 0 2px var(--ui-accent), inset 0 0 0 3px var(--ui-surface); }
+body .vacation-gantt .vac-cell:focus-visible { outline: 2px solid var(--ui-ink); outline-offset: -3px; }
+@media (pointer: coarse) { body .vacation-gantt .vac-cell { height: 44px; } }
+@media (max-width: 960px) {
+  #adminModal .vacation-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  #adminModal .admin-card-header { padding: 12px; }
+  #adminModal .admin-tabs { grid-template-columns: minmax(0, 1fr); }
+  #adminModal .tab-panel { padding: 12px; }
+  #adminModal .admin-box { padding: 12px; }
+  .admin-areas { display: grid; grid-template-columns: 1fr 1fr; }
+  #adminModal .admin-area-btn { padding: 8px; font-size: 12px; }
+  #adminModal .tab-buttons { gap: 4px; }
+  #adminModal .tab-btn { padding: 6px 8px; }
+  #adminModal .vacation-row-two-cols, #adminModal .vacation-row-inline { grid-template-columns: minmax(0, 1fr); flex-direction: column; align-items: stretch; }
+  #adminModal .layout-config-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  #adminModal .unified-column-item > div { flex-wrap: wrap; gap: 8px !important; }
+  #adminModal .column-toggle-grp, #adminModal .column-width-group { flex-wrap: wrap; min-width: 0; margin-left: 0; }
+  #adminModal .unified-column-item > div[style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+  #adminModal .notice-edit-row, #adminModal .tool-edit-row { display: grid; grid-template-columns: minmax(0, 1fr); padding-left: 24px; box-sizing: border-box; }
+  #adminModal .notice-edit-controls, #adminModal .tool-edit-controls { width: auto; margin-left: 0; white-space: normal; }
+  #adminModal .notice-edit-item input[type="text"], #adminModal .tool-edit-item input[type="text"], #adminModal .tool-edit-item input[type="url"] { width: 100%; margin-left: 0; }
+  #adminModal .office-add-form .u-grid-2-cols { grid-template-columns: minmax(0, 1fr); }
+  /* メンバーの表を項目名付きカードへ。セルのクリック編集とID/並び順は保持する。 */
+  #adminModal table.member-table { display: block; min-width: 0; }
+  #adminModal .member-table thead { display: none; }
+  #adminModal .member-table tbody { display: grid; gap: 10px; }
+  #adminModal .member-table tr[data-member-id] { display: grid; grid-template-columns: minmax(0, 1fr); padding: 10px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius); background: var(--ui-section-surface); }
+  #adminModal .member-table tr[data-member-id] td { display: grid; grid-template-columns: 62px minmax(0, 1fr); align-items: center; gap: 6px; min-width: 0; width: auto; max-width: none; box-sizing: border-box; white-space: normal; overflow: visible; text-align: left; overflow-wrap: anywhere; min-height: 40px; }
+  #adminModal .member-table tr[data-member-id] td::before { content: attr(data-label); font-size: 12px; color: var(--ui-muted); }
+  #adminModal .member-table tr[data-member-id] td:nth-child(3) { font-weight: 700; }
+  #adminModal .member-table tr[data-member-id] td:last-child { border-bottom: 0; }
+  #adminModal .member-table .group-header-row { display: block; }
+  #adminModal .member-table .group-header-row td { display: block; min-width: 0; width: auto; padding: 12px !important; border-radius: 8px; }
+  #adminModal .member-order-cell { justify-content: flex-start; }
+  #adminModal .member-inline-input { min-width: 0; width: 100%; }
 }
 
 ```
@@ -9543,6 +9588,34 @@ const DIALOG_FOCUSABLE_SELECTOR = 'a[href], button, input:not([type="hidden"]), 
 /** マニュアルの既存タブ構造。主ナビ刷新とは独立した操作復旧。 */
 const MANUAL_UI = Object.freeze({ tabButtons: '.manual-tab-btn' });
 
+/** 作業目的による管理ナビ。既存の編集・保存単位を維持して再配置する。 */
+const ADMIN_NAVIGATION = Object.freeze([
+  { id: 'roster', label: 'メンバー・グループ', pages: [
+    { tab: 'members', panel: 'tabMembers', label: 'メンバー登録・編集' },
+    { tab: 'groups', panel: 'tabGroups', label: 'グループ・表示順' },
+    { tab: 'csv', panel: 'tabCsv', label: 'CSV取込・書出し', move: 'btnExport' }
+  ] },
+  { id: 'communication', label: 'お知らせ・イベント', pages: [
+    { tab: 'events', panel: 'tabEvents', label: 'イベント' },
+    { tab: 'notices', panel: 'tabNotices', label: 'お知らせ' }
+  ] },
+  { id: 'tools', label: 'ツール', pages: [{ tab: 'tools', panel: 'tabTools', label: 'リンク・ツール' }] },
+  { id: 'board', label: '在席表の設定', pages: [
+    { tab: 'columns', panel: 'tabColumns', label: '表示項目・レイアウト' },
+    { tab: 'basic', panel: 'tabBasic', label: '自動消去' },
+    { tab: 'output', panel: 'tabOutput', label: '印刷・PDF', move: 'btnPrintList' }
+  ] },
+  { id: 'access', label: '拠点・アクセス', pages: [
+    { tab: 'access', panel: 'tabAccess', label: '拠点名・パスワード', move: 'btnRenameOffice' },
+    { tab: 'offices', panel: 'tabOffices', label: '拠点一覧・追加', superAdminOnly: true }
+  ] }
+]);
+/** イベント設定と未選択表示のDOM。保存API/ビット形式は既存のまま。 */
+const EVENT_ADMIN_UI = Object.freeze({
+  visible: 'vacationVisible', vacation: 'vacationIsVacation', heading: 'vacationEditorTitle',
+  empty: 'eventSelectionEmpty', calendar: 'eventGanttWrap', idPrefix: 'vacation_'
+});
+
 ```
 
 ### js/constants/defaults.js
@@ -10489,15 +10562,13 @@ function renderVacationRadioList(list, options) {
   const onSelectChange = typeof opts.onSelectChange === 'function' ? opts.onSelectChange : null;
   const onFocus = typeof opts.onFocus === 'function' ? opts.onFocus : null;
   const selectedIds = new Set((opts.selectedIds || []).map(v => String(v)));
-  const syncSelectedIds = () => {
-    selectedIds.clear();
-    (selectedEventIds || []).forEach(v => selectedIds.add(String(v)));
-  };
 
   if (!Array.isArray(list) || list.length === 0) {
+    dropdown.onchange = null;
+    selectedEventIds = [];
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = '登録されたイベントはありません';
+    placeholder.textContent = opts.emptyMessage || '登録されたイベントはありません';
     placeholder.disabled = true;
     dropdown.appendChild(placeholder);
     dropdown.disabled = true;
@@ -10528,12 +10599,10 @@ function renderVacationRadioList(list, options) {
     itemMap.set(id, item);
   });
 
-  // 選択イベントを復元
-  syncSelectedIds();
+  // 削除済みIDを復元せず、未選択ではカレンダーを開かない。
+  selectedIds.forEach(id => { if (!itemMap.has(id)) selectedIds.delete(id); });
   const firstSelected = Array.from(selectedIds)[0];
-  if (firstSelected) {
-    dropdown.value = firstSelected;
-  }
+  dropdown.value = firstSelected || '';
 
   // お知らせボタンの状態を更新
   function updateNoticeButton() {
@@ -10541,21 +10610,22 @@ function renderVacationRadioList(list, options) {
     const currentItem = itemMap.get(currentId);
     if (currentItem && noticeBtn) {
       const hasNotice = hasRelatedNotice(currentItem);
+      noticeBtn.classList.toggle('u-hidden', !hasNotice);
       noticeBtn.style.display = hasNotice ? 'inline-block' : 'none';
       noticeBtn.disabled = !hasNotice;
     } else if (noticeBtn) {
+      noticeBtn.classList.add('u-hidden');
       noticeBtn.style.display = 'none';
     }
   }
   updateNoticeButton();
 
   // プルダウン変更イベント
-  dropdown.addEventListener('change', () => {
+  // 再読込みのたびに古いitemMapを持つlistenerが蓄積しないよう置換する。
+  dropdown.onchange = () => {
     const id = dropdown.value;
-    if (!id) return;
-    syncSelectedIds();
     selectedIds.clear();
-    selectedIds.add(id);
+    if (id) selectedIds.add(id);
     const arr = Array.from(selectedIds);
     selectedEventIds = arr;
     saveEventIds(officeId, arr);
@@ -10563,30 +10633,22 @@ function renderVacationRadioList(list, options) {
     updateNoticeButton();
     if (onSelectChange) onSelectChange(arr, item, id, true);
     if (onFocus) onFocus(item, id);
-  });
+  };
 
   // お知らせボタンのクリックイベント
   if (noticeBtn) {
-    const existingListeners = noticeBtn.cloneNode(true);
-    noticeBtn.parentNode.replaceChild(existingListeners, noticeBtn);
-    existingListeners.addEventListener('click', () => {
+    noticeBtn.onclick = () => {
       const id = dropdown.value;
       const item = itemMap.get(id);
       if (item) {
         openRelatedNotice(item, { fromEventCalendar: true, openMode: 'modal' });
       }
-    });
+    };
   }
 
   selectedEventIds = Array.from(selectedIds);
 
-  // 初期フォーカス
-  if (firstSelected) {
-    const firstItem = itemMap.get(firstSelected);
-    if (firstItem && onFocus) {
-      onFocus(firstItem, firstSelected);
-    }
-  }
+  // 詳細の初期表示はloadEventsでプルダウンと同じIDから決める。
 }
 
 function updateEventCardStates() {
@@ -10807,6 +10869,9 @@ function getEventGanttController() {
 }
 
 function updateEventDetail(item, officeId) {
+  // 未選択の7日間の入力表が、先頭イベントの選択と誤認されるのを防ぐ。
+  document.getElementById(EVENT_ADMIN_UI.calendar)?.classList.toggle('u-hidden', !item);
+  document.getElementById(EVENT_ADMIN_UI.empty)?.classList.toggle('u-hidden', !!item);
   const ctrl = getEventGanttController();
   if (!item) {
     eventSelectedId = '';
@@ -10885,18 +10950,13 @@ async function refreshEventDataSilent(officeId) {
           selectedEventIds = ids;
           saveEventIds(targetOfficeId, ids);
         },
-        // ▼ 修正: 自動更新時は、詳細データの再読み込み（上書き）を行わないようにするため null を指定
-        onFocus: null
+        // 初期表示は復元しないが、利用者が選び直した時は詳細を切り替える。
+        onFocus: handleEventSelection
       });
     }
     updateEventButtonVisibility(targetOfficeId, normalizedList);
-    const firstSelected = selectedEventIds?.[0] || '';
-    if (firstSelected) {
-      const selectedItem = findCachedEvent(targetOfficeId, firstSelected);
-      // ▼ 修正: 編集中（未保存）の内容が上書きされて消えるのを防ぐためコメントアウト
-      /* if (selectedItem) updateEventDetail(selectedItem, targetOfficeId);
-      */
-    }
+    // 有効な選択がある間は編集中のビットを保持。削除された選択は入力表ごと閉じる。
+    if (!selectedEventIds.length) updateEventDetail(null, targetOfficeId);
     await applyEventDisplay(selectedEventIds && selectedEventIds.length ? selectedEventIds : visibleItems);
     return filteredList;
   } catch (err) {
@@ -10920,7 +10980,9 @@ async function loadEvents(officeId, showToastOnSuccess = false, options = {}) {
     return [];
   }
   try {
-    const res = await apiPost({ action: 'getVacation', token: SESSION_TOKEN, office: targetOfficeId, nocache: '1' });
+    // 保存直後は成功した原稿を表示し、非同期KV失効前の古い一覧で上書きしない。
+    const res = Array.isArray(opts.list) ? { vacations: opts.list }
+      : await apiPost({ action: 'getVacation', token: SESSION_TOKEN, office: targetOfficeId, nocache: '1' });
     if (res?.error === 'unauthorized') {
       if (typeof logout === 'function') { await logout(); }
       cachedEvents = { officeId: '', list: [] };
@@ -10965,9 +11027,7 @@ async function loadEvents(officeId, showToastOnSuccess = false, options = {}) {
       },
       onFocus: handleEventSelection
     });
-    const initialSelection = savedIds.map(id => findCachedEvent(targetOfficeId, id)).find(Boolean)
-      || (opts.visibleOnly === true ? visibleItems[0] : (visibleItems[0] || filteredList[0]))
-      || null;
+    const initialSelection = findCachedEvent(targetOfficeId, document.getElementById('eventSelectDropdown')?.value) || null;
     if (initialSelection) {
       handleEventSelection(initialSelection);
       if (opts.onSelect) { opts.onSelect(initialSelection, String(initialSelection.id || initialSelection.vacationId || '')); }
@@ -14157,7 +14217,11 @@ function wireEvents() {
         th.colSpan = group.end - group.start + 1;
         const span = document.createElement('span');
         span.className = 'vac-month-text';
-        span.textContent = group.label;
+        // 短期間でも月を見分けられるよう、列幅を広げず年/月または月だけを表示する。
+        const monthStart = new Date(dateSlots[group.start]);
+        span.textContent = group.end > group.start ? `${monthStart.getFullYear()}/${monthStart.getMonth() + 1}` : `${monthStart.getMonth() + 1}月`;
+        span.title = group.label;
+        th.setAttribute('aria-label', group.label);
         th.appendChild(span);
         monthRow.appendChild(th);
       });
@@ -14216,6 +14280,8 @@ function wireEvents() {
             if (dow === 0) td.classList.add('weekend-sun');
             if (dow === 6) td.classList.add('weekend-sat');
             td.setAttribute('role', 'button');
+            // 一つのTab入口から矢印で移動し、長期間でも大量のTab停止点を作らない。
+            td.tabIndex = cursor === 0 && date === dateSlots[0] ? 0 : -1;
             td.setAttribute('aria-label', `${group.title || ''} ${member.name || ''} ${date}`);
             td.setAttribute('aria-pressed', 'false');
             tr.appendChild(td);
@@ -14289,6 +14355,8 @@ function wireEvents() {
       }
       toggleBit(date, idx, toValue);
       cell.classList.toggle('on', toValue);
+      cell.setAttribute('aria-pressed', String(toValue));
+      applyHoverHighlights(cell);
     }
 
     function handlePointerOver(e) {
@@ -14303,6 +14371,7 @@ function wireEvents() {
       }
       toggleBit(date, idx, draggingState.toValue);
       cell.classList.toggle('on', draggingState.toValue);
+      cell.setAttribute('aria-pressed', String(draggingState.toValue));
     }
 
     function handlePointerMove(e) {
@@ -14318,6 +14387,7 @@ function wireEvents() {
     }
 
     function handlePointerUp() {
+      if (draggingState) applyBitsToCells();
       draggingState = null;
       if (tableEl) {
         tableEl.classList.remove('dragging');
@@ -14326,7 +14396,9 @@ function wireEvents() {
 
     function clearHoverHighlights() {
       if (!tableEl) return;
-      tableEl.querySelectorAll('.hover-highlight').forEach(el => el.classList.remove('hover-highlight'));
+      tableEl.querySelectorAll('.vac-axis-column, .vac-axis-row, .vac-axis-cell').forEach(el => {
+        el.classList.remove('vac-axis-column', 'vac-axis-row', 'vac-axis-cell');
+      });
     }
 
     function applyHoverHighlights(cell) {
@@ -14334,12 +14406,13 @@ function wireEvents() {
       clearHoverHighlights();
       const date = cell.dataset.date;
       if (date) {
-        tableEl.querySelectorAll(`[data-date="${date}"]`).forEach(el => el.classList.add('hover-highlight'));
+        tableEl.querySelectorAll(`[data-date="${date}"]`).forEach(el => el.classList.add('vac-axis-column'));
       }
       const row = cell.closest('tr');
       if (row) {
-        row.querySelectorAll('th, td').forEach(el => el.classList.add('hover-highlight'));
+        row.querySelectorAll('th, td').forEach(el => el.classList.add('vac-axis-row'));
       }
+      cell.classList.add('vac-axis-cell');
     }
 
     function scrollToGroup(anchorId) {
@@ -14452,9 +14525,10 @@ function wireEvents() {
       tableEl.addEventListener('pointerover', handlePointerOver);
       tableEl.addEventListener('pointermove', handlePointerMove, { passive: false });
       tableEl.addEventListener('touchmove', handlePointerMove, { passive: false });
+      tableEl.addEventListener('keydown', handleCellKeydown);
       ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => tableEl.addEventListener(ev, handlePointerUp));
-      const tbody = tableEl.querySelector('tbody');
-      if (tbody) {
+      // 各グループのtbodyに共通の委譲先を置く。最初のtbodyだけには登録しない。
+      {
         const handleHover = (e) => {
           const cell = e.target.closest('td.vac-cell');
           if (!cell) return;
@@ -14465,12 +14539,34 @@ function wireEvents() {
           if (!cell) return;
           clearHoverHighlights();
         };
-        tbody.addEventListener('mouseover', handleHover);
-        tbody.addEventListener('mouseout', handleOut);
-        tbody.addEventListener('focusin', handleHover);
-        tbody.addEventListener('focusout', handleOut);
+        tableEl.addEventListener('pointerover', handleHover);
+        tableEl.addEventListener('pointerout', handleOut);
+        tableEl.addEventListener('focusin', handleHover);
+        tableEl.addEventListener('focusout', handleOut);
       }
       tableEl.addEventListener('mouseleave', clearHoverHighlights);
+    }
+
+    /** 日付表の矢印移動とEnter/SpaceによるON/OFF。@param {KeyboardEvent} e 操作 @returns {void} */
+    function handleCellKeydown(e) {
+      const cell = e.target.closest('.vac-cell');
+      if (!cell) return;
+      const member = Number(cell.dataset.memberIndex), date = cell.dataset.date;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (!e.repeat) { toggleBit(date, member, !cell.classList.contains('on')); applyBitsToCells(); }
+        return;
+      }
+      const day = dateSlots.indexOf(date);
+      let targetMember = member, targetDay = day;
+      if (e.key === 'ArrowLeft') targetDay--;
+      else if (e.key === 'ArrowRight') targetDay++;
+      else if (e.key === 'ArrowUp') targetMember--;
+      else if (e.key === 'ArrowDown') targetMember++;
+      else return;
+      e.preventDefault();
+      const target = tableEl.querySelector(`.vac-cell[data-member-index="${targetMember}"][data-date="${dateSlots[targetDay]}"]`);
+      if (target) { cell.tabIndex = -1; target.tabIndex = 0; target.focus(); }
     }
 
     function rebuild() {
@@ -16456,6 +16552,8 @@ const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
 const btnGroupSave = document.getElementById('btnGroupSave');
+/** 同じ拠点での画面往復では編集中のDOMを保持し、明示的な再読込みで更新する。 */
+const adminPageOffices = new Map();
 
 /**
  * 管理モーダルを開く
@@ -16464,14 +16562,7 @@ function openAdminModal() {
   if (!adminModal) return;
   adminModal.classList.add('show');
   adminModal.style.display = 'flex';
-  
-  // 初期データの読み込み (常に最新を取得)
-  loadAdminMembers(true);
-  
-  // 必要に応じてお知らせなどの自動読み込み
-  if (typeof autoLoadNoticesOnAdminOpen === 'function') {
-    autoLoadNoticesOnAdminOpen();
-  }
+  updateAdminNavigation(adminModal.querySelector('.tab-btn.active')?.dataset.tab || ADMIN_NAVIGATION[0].pages[0].tab);
   
   // 管理者には拠点選択を表示するように戻す（将来的なマルチ拠点対応を見越して）
   // ただし現在のSSOT原則に基づき、CURRENT_OFFICE_IDを初期値とする
@@ -16479,13 +16570,8 @@ function openAdminModal() {
     adminOfficeSel.value = CURRENT_OFFICE_ID;
   }
 
-  // アクティブなタブに応じた初期データのロード
-  const office = selectedOfficeId();
-  if (office) {
-    if (document.getElementById('tabBasic')?.classList.contains('active')) {
-      loadAutoClearSettings(office);
-    }
-  }
+  // 開いた作業だけを読み込む。同じ拠点の原稿は保持し、拠点が変われば読み直す。
+  adminModal.querySelector('.tab-btn.active')?.click();
 }
 
 /**
@@ -16749,6 +16835,76 @@ btnSetPw.addEventListener('click', async () => {
   }
 });
 
+/** 管理のDOMを作業別に分類する。入力要素を移動して既存の参照とlistenerを保持する。 @returns {void} */
+function initAdminNavigation() {
+  if (!adminModal) return;
+  const navigation = adminModal.querySelector('.admin-tabs');
+  const subnav = navigation.querySelector('.tab-buttons');
+  const areas = document.createElement('nav');
+  areas.className = 'admin-areas'; areas.setAttribute('aria-label', '管理する内容');
+  subnav.setAttribute('aria-label', '管理の作業');
+  navigation.prepend(areas);
+  const reload = document.createElement('button');
+  reload.type = 'button'; reload.className = 'btn-secondary admin-reload';
+  reload.textContent = '編集中の内容を破棄して再読込み';
+  reload.addEventListener('click', () => {
+    if (!confirm('表示中の作業の未保存の編集を破棄して、保存済みの内容を読み直しますか？')) return;
+    const button = adminModal.querySelector('.tab-btn.active');
+    adminPageOffices.delete(button.dataset.tab);
+    if (button.dataset.tab === 'members' || button.dataset.tab === 'groups') { adminMembersLoaded = false; adminPageOffices.delete('members'); }
+    if (button.dataset.tab === 'tools') adminToolsLoaded = false;
+    button.click();
+  });
+  navigation.append(reload);
+  ADMIN_NAVIGATION.forEach(area => {
+    const areaButton = document.createElement('button');
+    areaButton.type = 'button'; areaButton.className = 'admin-area-btn';
+    areaButton.dataset.area = area.id; areaButton.textContent = area.label;
+    areaButton.addEventListener('click', () => {
+      const current = adminModal.querySelector('.tab-btn.active')?.dataset.tab;
+      const page = area.pages.find(page => page.tab === current) || area.pages[0];
+      subnav.querySelector(`[data-tab="${page.tab}"]`).click();
+    });
+    areas.append(areaButton);
+    area.pages.forEach(page => {
+      if (page.move) {
+        const panel = document.createElement('section');
+        panel.id = page.panel; panel.className = 'tab-panel'; panel.dataset.tab = page.tab;
+        const heading = document.createElement('h4'); heading.textContent = page.label;
+        panel.append(heading, document.getElementById(page.move).closest('.admin-box'));
+        adminModal.querySelector('.admin-card-body').append(panel);
+      }
+      let button = subnav.querySelector(`[data-tab="${page.tab}"]`);
+      if (!button) { button = document.createElement('button'); button.className = 'tab-btn'; button.dataset.tab = page.tab; }
+      button.type = 'button'; button.textContent = page.label; subnav.append(button);
+    });
+  });
+  adminModal.querySelectorAll('.tab-panel, .tab-btn').forEach(el => el.classList.remove('active'));
+  const first = ADMIN_NAVIGATION[0].pages[0];
+  document.getElementById(first.panel).classList.add('active');
+  subnav.querySelector(`[data-tab="${first.tab}"]`).classList.add('active');
+  updateAdminNavigation(first.tab);
+}
+
+/** 選択領域の作業だけを表示し、他領域の入力DOMは保持する。 @param {string} tab 作業ID @returns {void} */
+function updateAdminNavigation(tab) {
+  const area = ADMIN_NAVIGATION.find(area => area.pages.some(page => page.tab === tab)) || ADMIN_NAVIGATION[0];
+  adminModal.querySelectorAll('.admin-area-btn').forEach(button => {
+    const active = button.dataset.area === area.id;
+    button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false');
+  });
+  ADMIN_NAVIGATION.forEach(group => group.pages.forEach(page => {
+    const button = adminModal.querySelector(`.tab-btn[data-tab="${page.tab}"]`);
+    button.classList.toggle('u-hidden', group !== area || (page.superAdminOnly === true && CURRENT_ROLE !== 'superAdmin'));
+    button.setAttribute('aria-current', page.tab === tab ? 'page' : 'false');
+  }));
+  const reload = adminModal.querySelector('.admin-reload');
+  // 移動した単純な入力/出力パネルには、読み込む一覧や原稿がない。
+  reload?.classList.toggle('u-hidden', !!area.pages.find(page => page.tab === tab)?.move);
+}
+
+/* 保存方式は変えずに、5領域から既存の編集画面へ移動する。 */
+initAdminNavigation();
 /* 管理モーダルのタブ切り替え */
 if (adminModal) {
   const adminTabButtons = adminModal.querySelectorAll('.admin-tabs .tab-btn');
@@ -16765,24 +16921,15 @@ if (adminModal) {
   adminTabButtons.forEach(btn => {
     btn.addEventListener('click', async () => {
       const targetTab = btn.dataset.tab;
-
-      const currentTab = Array.from(adminTabButtons).find(b => b.classList.contains('active'))?.dataset.tab;
+      if (targetTab === 'offices' && CURRENT_ROLE !== 'superAdmin') return;
+      updateAdminNavigation(targetTab);
 
       adminTabButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
       adminTabPanels.forEach(panel => panel.classList.remove('active'));
-      const panelMap = {
-        basic: adminModal.querySelector('#tabBasic'),
-        groups: adminModal.querySelector('#tabGroups'),
-        members: adminModal.querySelector('#tabMembers'),
-        notices: adminModal.querySelector('#tabNotices'),
-        events: adminModal.querySelector('#tabEvents'),
-        tools: adminModal.querySelector('#tabTools'),
-        columns: adminModal.querySelector('#tabColumns'),
-        offices: adminModal.querySelector('#tabOffices')
-      };
-      const panel = panelMap[targetTab];
+      const page = ADMIN_NAVIGATION.flatMap(area => area.pages).find(page => page.tab === targetTab);
+      const panel = page ? document.getElementById(page.panel) : null;
       if (panel) {
         panel.classList.add('active');
         resetPanelScroll(panel);
@@ -16798,24 +16945,22 @@ if (adminModal) {
           await loadAutoClearSettings(office);
         }
       } else if (targetTab === 'groups') {
-        // グループとメンバー間は相互にデータを引き継ぐが、他タブからの移動時はリロードして未保存を破棄
-        const force = (currentTab !== 'groups' && currentTab !== 'members');
-        await loadAdminMembers(force);
+        // 領域の往復で編集中の名簿を破棄しない。再読込みは拠点変更/明示操作で行う。
+        await loadAdminMembers(false);
         renderGroupOrderList();
       } else if (targetTab === 'members') {
-        const force = (currentTab !== 'groups' && currentTab !== 'members');
-        await loadAdminMembers(force);
+        await loadAdminMembers(false);
         renderMemberTable();
       } else if (targetTab === 'events') {
-        refreshVacationOfficeOptions();
-        const officeId = (vacationOfficeSelect?.value) || adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
-        if (typeof fetchNotices === 'function') {
-          await fetchNotices(officeId);
+        const officeId = selectedOfficeId();
+        if (adminPageOffices.get(targetTab) !== officeId) {
+          refreshVacationOfficeOptions();
+          if (typeof fetchNotices === 'function') await fetchNotices(officeId);
+          refreshVacationNoticeOptions();
+          await loadVacationsList();
         }
-        refreshVacationNoticeOptions();
-        await loadVacationsList();
       } else if (targetTab === 'tools') {
-        await loadAdminTools(true); // 常に最新を取得
+        await loadAdminTools(false); // 領域の往復では未保存の編集を保持
       } else if (targetTab === 'columns') {
         await loadColumnConfig();
       } else if (targetTab === 'offices') {
@@ -16918,7 +17063,7 @@ function setMemberTableMessage(msg) {
 
 async function loadAdminMembers(force) {
   const office = selectedOfficeId(); if (!office) return;
-  if (force !== true && adminMembersLoaded && adminMemberList.length) { return; }
+  if (force !== true && adminMembersLoaded && adminPageOffices.get('members') === office) { return; }
   try {
     setMemberTableMessage('読み込み中...');
     const [cfg, dataRes] = await Promise.all([
@@ -16953,6 +17098,7 @@ async function loadAdminMembers(force) {
     renderGroupOrderList();
     openMemberEditor(null);
     adminMembersLoaded = true;
+    adminPageOffices.set('members', office);
   } catch (err) {
     console.error('loadAdminMembers error', err);
     setMemberTableMessage('メンバーの取得に失敗しました');
@@ -17350,6 +17496,9 @@ function filteredMemberList() {
     // ------------------------------------------
 
     tr.append(orderTd, groupTd, nameTd, extTd, mobileTd, emailTd, actionTd);
+    // 狭い画面でも項目名を失わない。表見出しを唯一のラベル定義として再利用する。
+    const headers = memberTableBody.closest('table').querySelectorAll('thead th');
+    Array.from(tr.children).forEach((cell, index) => { cell.dataset.label = headers[index]?.textContent.trim() || ''; });
     fragment.appendChild(tr);
   });
   memberTableBody.appendChild(fragment);
@@ -17812,6 +17961,7 @@ async function loadAdminTools(force = false) {
  * @param {string} officeId 拠点ID
  */
 async function loadAutoClearSettings(officeId) {
+  if (adminPageOffices.get('basic') === officeId) return;
   try {
     const params = { action: 'getOfficeSettings', token: SESSION_TOKEN, office: officeId };
     const res = await apiPost(params);
@@ -17831,6 +17981,7 @@ async function loadAutoClearSettings(officeId) {
           cb.checked = fields.includes(cb.value);
         });
       }
+      adminPageOffices.set('basic', officeId);
     }
   } catch (e) {
     console.error('loadAutoClearSettings error:', e);
@@ -18102,6 +18253,10 @@ function getSelectedNoticeInfo() {
 }
 
 function resetVacationForm() {
+  document.getElementById(EVENT_ADMIN_UI.visible).checked = true;
+  document.getElementById(EVENT_ADMIN_UI.vacation).checked = true;
+  document.getElementById(EVENT_ADMIN_UI.heading).textContent = '新しいイベントを作成';
+  if (btnVacationDelete) btnVacationDelete.disabled = true;
   if (vacationTitleInput) vacationTitleInput.value = '';
   if (vacationStartInput) vacationStartInput.value = '';
   if (vacationEndInput) vacationEndInput.value = '';
@@ -18118,6 +18273,10 @@ function resetVacationForm() {
 
 function fillVacationForm(item) {
   if (!item) return;
+  document.getElementById(EVENT_ADMIN_UI.visible).checked = coerceVacationVisibleFlag(item.visible);
+  document.getElementById(EVENT_ADMIN_UI.vacation).checked = item.isVacation === true;
+  document.getElementById(EVENT_ADMIN_UI.heading).textContent = 'イベントを編集';
+  if (btnVacationDelete) btnVacationDelete.disabled = false;
   if (vacationTitleInput) vacationTitleInput.value = item.title || '';
   if (vacationStartInput) vacationStartInput.value = item.startDate || item.start || item.from || '';
   if (vacationEndInput) vacationEndInput.value = item.endDate || item.end || item.to || '';
@@ -18171,101 +18330,69 @@ function normalizeVacationList(list, officeId) {
   return normalized;
 }
 
+/** イベントを項目名付きのカードで表示する。@param {Array} list 一覧 @param {string} officeId 拠点 @returns {void} */
 function renderVacationRows(list, officeId) {
   if (!vacationListBody) return;
-  const normalizedList = normalizeVacationList(list, officeId);
-  cachedVacationList = normalizedList;
-  vacationListBody.textContent = '';
-  if (!Array.isArray(normalizedList) || normalizedList.length === 0) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 9; td.style.textAlign = 'center'; td.textContent = 'イベントはありません';
-    tr.appendChild(td); vacationListBody.appendChild(tr); return;
+  adminPageOffices.set('events', officeId);
+  cachedVacationList = normalizeVacationList(list, officeId);
+  vacationListBody.replaceChildren();
+  if (!cachedVacationList.length) {
+    const empty = document.createElement('p'); empty.className = 'admin-note';
+    empty.textContent = 'イベントはありません。右のフォームから作成できます。'; vacationListBody.append(empty); return;
   }
-
-  normalizedList.forEach((item, idx) => {
-    const tr = document.createElement('tr');
-    const idStr = String(item.id || item.vacationId || '');
-    tr.dataset.vacationId = idStr;
-    tr.dataset.order = String(item.order || idx + 1);
-    const dragTd = document.createElement('td');
-    dragTd.className = 'vacation-drag-cell';
-    const dragBtn = document.createElement('button');
-    dragBtn.type = 'button';
-    dragBtn.className = 'vacation-drag-handle';
-    dragBtn.draggable = true;
-    dragBtn.title = 'ドラッグして並び替え';
-    dragBtn.innerHTML = '<span aria-hidden="true">☰</span>';
-    dragTd.appendChild(dragBtn);
-    const titleTd = document.createElement('td'); titleTd.textContent = item.title || '';
-    const start = item.startDate || item.start || item.from || '';
-    const end = item.endDate || item.end || item.to || '';
-    const periodTd = document.createElement('td'); periodTd.textContent = start || end ? `${start || ''}〜${end || ''}` : '-';
-    const officeTd = document.createElement('td'); officeTd.textContent = item.office || '';
-    const typeTd = document.createElement('td');
-    const typeToggle = document.createElement('input');
-    typeToggle.type = 'checkbox';
-    typeToggle.checked = item.isVacation === true;
-    const typeLabel = document.createElement('span');
-    typeLabel.className = 'vacation-type-label';
-    typeLabel.textContent = getVacationTypeLabel(typeToggle.checked);
-    typeToggle.addEventListener('change', async () => {
-      typeToggle.disabled = true;
-      const success = await updateVacationFlags(item, { isVacation: typeToggle.checked });
-      if (!success) {
-        typeToggle.checked = !typeToggle.checked;
-      } else {
-        typeLabel.textContent = getVacationTypeLabel(typeToggle.checked);
-      }
-      typeToggle.disabled = false;
-    });
-    typeTd.append(typeToggle, typeLabel);
-    const colorTd = document.createElement('td');
-    const colorBadge = document.createElement('span');
-    colorBadge.className = `event-color-dot ${getEventColorClass(item.color)}`.trim();
-    colorBadge.title = EVENT_COLOR_LABELS[item.color] || '';
-    colorTd.appendChild(colorBadge);
-    const noteTd = document.createElement('td');
-    const noticeSel = findNoticeSelectionForItem(item);
-    if (noticeSel && noticeSel.title) {
-      const link = document.createElement('a');
-      link.href = '#noticesArea';
-      link.textContent = noticeSel.title;
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (typeof toggleNoticesArea === 'function') { toggleNoticesArea(); }
-        const noticesArea = document.getElementById('noticesArea');
-        if (noticesArea) {
-          noticesArea.style.display = 'block';
-          noticesArea.classList.remove('collapsed');
-          noticesArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+  cachedVacationList.forEach((item, index) => {
+    const card = document.createElement('article'); card.className = 'event-admin-card';
+    card.dataset.vacationId = String(item.id || item.vacationId || ''); card.dataset.order = String(item.order || index + 1);
+    const heading = document.createElement('div'); heading.className = 'event-admin-card-heading';
+    const badge = document.createElement('span'); badge.className = ('event-color-dot ' + getEventColorClass(item.color)).trim();
+    badge.title = EVENT_COLOR_LABELS[item.color] || '';
+    const title = document.createElement('h5'); title.textContent = item.title || '名称なし'; heading.append(badge, title);
+    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn-secondary'; edit.textContent = '編集';
+    edit.setAttribute('aria-label', (item.title || 'イベント') + 'を編集');
+    edit.addEventListener('click', () => { fillVacationForm(item); vacationTitleInput?.focus(); vacationTitleInput?.scrollIntoView({ block: 'nearest' }); });
+    heading.append(edit); card.append(heading);
+    const details = document.createElement('dl'); details.className = 'event-admin-details';
+    const addDetail = (label, value) => {
+      const group = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = label; dd.textContent = value || '—'; group.append(dt, dd); details.append(group);
+    };
+    const start = item.startDate || item.start || item.from || '', end = item.endDate || item.end || item.to || '';
+    addDetail('期間', start || end ? start + ' 〜 ' + end : '未設定');
+    addDetail('対象拠点', item.office || officeId);
+    addDetail('お知らせ・備考', findNoticeSelectionForItem(item)?.title || item.note || item.memo);
+    card.append(details);
+    const controls = document.createElement('div'); controls.className = 'event-admin-card-controls';
+    const addToggle = (labelText, key, checked) => {
+      const label = document.createElement('label'), input = document.createElement('input');
+      input.type = 'checkbox'; input.checked = checked; input.setAttribute('aria-label', (item.title || 'イベント') + ': ' + labelText);
+      input.addEventListener('change', async () => {
+        input.disabled = true;
+        const success = await updateVacationFlags(item, { [key]: input.checked });
+        if (!success) input.checked = !input.checked;
+        input.disabled = false;
       });
-      noteTd.appendChild(link);
-    } else if (item.note || item.memo) {
-      noteTd.textContent = item.note || item.memo || '';
-    } else {
-      noteTd.textContent = '-';
+      label.append(input, document.createTextNode(labelText)); controls.append(label);
+    };
+    addToggle('メイン画面に表示', 'visible', coerceVacationVisibleFlag(item.visible));
+    addToggle('休暇固定', 'isVacation', item.isVacation === true);
+    const order = document.createElement('div'); order.className = 'event-order-actions';
+    const handle = document.createElement('button'); handle.type = 'button'; handle.draggable = true;
+    handle.className = 'vacation-drag-handle'; handle.textContent = '☰'; handle.title = 'ドラッグして並び替え';
+    handle.setAttribute('aria-label', (item.title || 'イベント') + 'をドラッグして並び替え');
+    order.append(handle);
+    for (const [offset, text] of [[-1, '↑'], [1, '↓']]) {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = text;
+      button.disabled = offset < 0 ? index === 0 : index === cachedVacationList.length - 1;
+      button.setAttribute('aria-label', (item.title || 'イベント') + (offset < 0 ? 'を上へ' : 'を下へ'));
+      button.addEventListener('click', async () => {
+        const neighbor = offset < 0 ? card.previousElementSibling : card.nextElementSibling;
+        if (!neighbor) return;
+        vacationListBody.insertBefore(card, offset < 0 ? neighbor : neighbor.nextSibling);
+        await persistVacationOrders(getVacationOrderMapFromDom());
+      });
+      order.append(button);
     }
-    const visibleTd = document.createElement('td');
-    const visibleToggle = document.createElement('input');
-    visibleToggle.type = 'checkbox';
-    visibleToggle.checked = item.visible === true;
-    visibleToggle.addEventListener('change', async () => {
-      visibleToggle.disabled = true;
-      const success = await updateVacationFlags(item, { visible: visibleToggle.checked });
-      if (!success) {
-        visibleToggle.checked = !visibleToggle.checked;
-      }
-      visibleToggle.disabled = false;
-    });
-    visibleTd.appendChild(visibleToggle);
-    const actionTd = document.createElement('td');
-    const editBtn = document.createElement('button'); editBtn.textContent = '編集'; editBtn.className = 'btn-secondary';
-    editBtn.addEventListener('click', () => fillVacationForm(item));
-    actionTd.appendChild(editBtn);
-    tr.append(dragTd, titleTd, periodTd, officeTd, typeTd, colorTd, noteTd, visibleTd, actionTd);
-    vacationListBody.appendChild(tr);
+    controls.append(order); card.append(controls); vacationListBody.append(card);
   });
   initVacationSort();
 }
@@ -18274,7 +18401,7 @@ function getVacationOrderMapFromDom() {
   const map = new Map();
   if (!vacationListBody) return map;
   let idx = 1;
-  vacationListBody.querySelectorAll('tr[data-vacation-id]').forEach(tr => {
+  vacationListBody.querySelectorAll('[data-vacation-id]').forEach(tr => {
     const idStr = tr.dataset.vacationId || '';
     if (!idStr) return;
     map.set(idStr, idx++);
@@ -18337,10 +18464,10 @@ async function persistVacationOrders(orderMap) {
   }).filter(Boolean);
   if (!payloads.length) return;
   try {
-    await Promise.all(payloads.map(p => adminSetVacation(office, p)));
+    const responses = await Promise.all(payloads.map(p => adminSetVacation(office, p)));
+    if (responses.some(res => !res || res.ok !== true)) throw new Error('order_save_failed');
     toast('並び順を保存しました');
-    await loadVacationsList(false, office);
-    await loadEvents(office, false);
+    await reflectSavedVacations(office, payloads);
   } catch (err) {
     console.error('persistVacationOrders error', err);
     toast('並び順の保存に失敗しました', false);
@@ -18356,7 +18483,7 @@ function initVacationSort() {
   vacationListBody.addEventListener('dragstart', e => {
     const handle = e.target.closest('.vacation-drag-handle');
     if (!handle) { e.preventDefault(); return; }
-    const row = handle.closest('tr');
+    const row = handle.closest('[data-vacation-id]');
     if (!row) return;
     vacationDragRow = row;
     row.classList.add('vacation-dragging');
@@ -18366,7 +18493,7 @@ function initVacationSort() {
   vacationListBody.addEventListener('dragover', e => {
     if (!vacationDragRow) return;
     e.preventDefault();
-    const targetRow = e.target.closest('tr[data-vacation-id]');
+    const targetRow = e.target.closest('[data-vacation-id]');
     if (!targetRow || targetRow === vacationDragRow) return;
     const rect = targetRow.getBoundingClientRect();
     const offset = e.clientY - rect.top;
@@ -18390,7 +18517,7 @@ async function updateVacationFlags(item, overrides = {}) {
   if (!payload) return false;
   try {
     const res = await adminSetVacation(office, payload);
-    if (res && res.ok !== false) {
+    if (res && res.ok === true) {
       if (res.vacation) {
         item.visible = res.vacation.visible === true;
         item.isVacation = res.vacation.isVacation === true;
@@ -18400,12 +18527,7 @@ async function updateVacationFlags(item, overrides = {}) {
         item.isVacation = isVacation;
       }
       toast('イベント設定を更新しました');
-      if (Array.isArray(res.vacations)) {
-        renderVacationRows(res.vacations, office);
-      } else {
-        await loadVacationsList(false, office);
-      }
-      if (office) { await loadEvents(office, false); }
+      await reflectSavedVacations(office, [res.vacation || payload], res.vacations);
       return true;
     }
     throw new Error(res && res.error ? String(res.error) : 'update_failed');
@@ -18420,7 +18542,7 @@ async function loadVacationsList(showToastOnSuccess = false, officeOverride) {
   const office = officeOverride || getVacationTargetOffice(); if (!office) return;
   if (vacationListBody) {
     vacationListBody.textContent = '';
-    const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 9; td.style.textAlign = 'center'; td.textContent = '読み込み中...'; tr.appendChild(td); vacationListBody.appendChild(tr);
+    const message = document.createElement('p'); message.textContent = '読み込み中…'; vacationListBody.append(message);
   }
   try {
     const res = await adminGetVacation(office);
@@ -18431,7 +18553,7 @@ async function loadVacationsList(showToastOnSuccess = false, officeOverride) {
     console.error('loadVacationsList error', err);
     if (vacationListBody) {
       vacationListBody.textContent = '';
-      const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 9; td.style.textAlign = 'center'; td.textContent = '読み込みに失敗しました'; tr.appendChild(td); vacationListBody.appendChild(tr);
+      const message = document.createElement('p'); message.textContent = '読み込みに失敗しました'; vacationListBody.append(message);
     }
     toast('イベントの取得に失敗しました', false);
   } finally {
@@ -18451,7 +18573,9 @@ function buildVacationPayload() {
   const id = (vacationIdInput?.value || '').trim();
   const color = (vacationColorSelect?.value || 'amber');
 
-  const payload = { office, title, start, end, membersBits, color };
+  const payload = { office, title, start, end, membersBits, color,
+    visible: document.getElementById(EVENT_ADMIN_UI.visible).checked,
+    isVacation: document.getElementById(EVENT_ADMIN_UI.vacation).checked };
 
   const orderMap = getVacationOrderMapFromDom();
   if (id && orderMap.has(id)) {
@@ -18480,23 +18604,34 @@ function buildVacationPayload() {
   return { payload, errors };
 }
 
+/** 保存成功した原稿を一覧とメインへ反映。KVの非同期失効直後の再GETは避ける。
+ * @param {string} office 拠点 @param {Array} changes 保存したイベント @param {Array} complete サーバーが返した完全一覧 @returns {Promise<void>}
+ */
+async function reflectSavedVacations(office, changes, complete) {
+  const merged = new Map(cachedVacationList.map(item => [String(item.id || item.vacationId), item]));
+  changes.forEach(item => {
+    const id = String(item.id || item.vacationId);
+    merged.set(id, { ...merged.get(id), ...item, startDate: item.startDate || item.start || '', endDate: item.endDate || item.end || '', office });
+  });
+  const list = Array.isArray(complete) ? complete : Array.from(merged.values());
+  renderVacationRows(list, office);
+  await loadEvents(office, false, { list });
+}
+
 async function persistVacationPayload(payload, { resetFormOnSuccess = true, showToast = true } = {}) {
   if (!payload || !payload.office) return false;
+  // 既存APIが受け付けるidを先に用意し、{ok:true}だけの応答でも新規イベントを表示できる。
+  if (!payload.id) payload.id = EVENT_ADMIN_UI.idPrefix + crypto.randomUUID();
   try {
     const res = await adminSetVacation(payload.office, payload);
-    if (res && res.ok !== false) {
-      if (res.id && vacationIdInput) { vacationIdInput.value = res.id; }
+    if (res && res.ok === true) {
+      if (vacationIdInput) { vacationIdInput.value = res.id || payload.id; }
       if (res.vacation) {
         if (vacationTypeText) vacationTypeText.value = getVacationTypeLabel(res.vacation.isVacation !== false);
         if (vacationColorSelect && res.vacation.color) { vacationColorSelect.value = res.vacation.color; }
       }
       if (showToast) toast('イベントを保存しました');
-      if (Array.isArray(res.vacations)) {
-        renderVacationRows(res.vacations, payload.office);
-      } else {
-        await loadVacationsList(false, payload.office);
-      }
-      await loadEvents(payload.office, false);
+      await reflectSavedVacations(payload.office, [res.vacation || { ...payload, id: res.id || payload.id }], res.vacations);
       if (resetFormOnSuccess) {
         resetVacationForm();
       }
@@ -18537,10 +18672,14 @@ async function handleCreateNoticeFromEvent() {
 }
 
 async function handleVacationSave() {
+  if (btnVacationSave?.disabled) return;
   const { payload, errors } = buildVacationPayload();
   if (!payload || errors?.includes('missing_title')) { toast('タイトルを入力してください', false); return; }
   if (errors?.includes('invalid_range')) { toast('開始日と終了日の指定を確認してください', false); return; }
-  await persistVacationPayload(payload, { resetFormOnSuccess: true, showToast: true });
+  // 新規IDを生成する保存の多重送信を防ぐ。
+  if (btnVacationSave) btnVacationSave.disabled = true;
+  try { await persistVacationPayload(payload, { resetFormOnSuccess: true, showToast: true }); }
+  finally { if (btnVacationSave) btnVacationSave.disabled = false; }
 }
 
 async function handleVacationAutoSave() {
@@ -18556,10 +18695,11 @@ async function handleVacationDelete() {
   if (!confirm('選択中のイベントを削除しますか？')) return;
   try {
     const res = await adminDeleteVacation(office, id);
-    if (res && res.ok !== false) {
+    if (res && res.ok === true) {
       toast('削除しました');
       resetVacationForm();
-      await loadVacationsList();
+      const list = cachedVacationList.filter(item => String(item.id || item.vacationId) !== id);
+      await reflectSavedVacations(office, [], list);
     } else {
       throw new Error(res && res.error ? String(res.error) : 'delete_failed');
     }
@@ -18612,10 +18752,12 @@ async function adminDeleteVacation(office, id) { return await apiPost({ action: 
 async function autoLoadNoticesOnAdminOpen() {
   const office = adminSelectedOfficeId || CURRENT_OFFICE_ID;
   if (!office) return;
+  if (adminPageOffices.get('notices') === office) return;
   try {
     const params = { action: 'getNotices', token: SESSION_TOKEN, nocache: '1', office };
     const res = await apiPost(params);
     if (res && res.notices) {
+      adminPageOffices.set('notices', office);
       noticesEditor.innerHTML = '';
       if (res.notices.length === 0) {
         addNoticeEditorItem();
@@ -18934,6 +19076,7 @@ function createPrintRowDiv(m) {
 /* カラム構成管理 (Phase 6) */
 async function loadColumnConfig() {
   const office = selectedOfficeId(); if (!office) return;
+  if (adminPageOffices.get('columns') === office) return;
   try {
     if (columnSettingContainer) {
       columnSettingContainer.innerHTML = '<p class="u-text-center u-text-gray">設定を読み込み中...</p>';
@@ -18942,6 +19085,7 @@ async function loadColumnConfig() {
     // サーバーに設定がない場合は null のまま渡す（新拠点＝未設定状態）
     const config = (res && res.columnConfig) || null;
     renderColumnConfig(config);
+    adminPageOffices.set('columns', office);
   } catch (e) {
     console.error('loadColumnConfig error', e);
     if (columnSettingContainer) {

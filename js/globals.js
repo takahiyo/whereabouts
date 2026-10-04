@@ -649,15 +649,13 @@ function renderVacationRadioList(list, options) {
   const onSelectChange = typeof opts.onSelectChange === 'function' ? opts.onSelectChange : null;
   const onFocus = typeof opts.onFocus === 'function' ? opts.onFocus : null;
   const selectedIds = new Set((opts.selectedIds || []).map(v => String(v)));
-  const syncSelectedIds = () => {
-    selectedIds.clear();
-    (selectedEventIds || []).forEach(v => selectedIds.add(String(v)));
-  };
 
   if (!Array.isArray(list) || list.length === 0) {
+    dropdown.onchange = null;
+    selectedEventIds = [];
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = '登録されたイベントはありません';
+    placeholder.textContent = opts.emptyMessage || '登録されたイベントはありません';
     placeholder.disabled = true;
     dropdown.appendChild(placeholder);
     dropdown.disabled = true;
@@ -688,12 +686,10 @@ function renderVacationRadioList(list, options) {
     itemMap.set(id, item);
   });
 
-  // 選択イベントを復元
-  syncSelectedIds();
+  // 削除済みIDを復元せず、未選択ではカレンダーを開かない。
+  selectedIds.forEach(id => { if (!itemMap.has(id)) selectedIds.delete(id); });
   const firstSelected = Array.from(selectedIds)[0];
-  if (firstSelected) {
-    dropdown.value = firstSelected;
-  }
+  dropdown.value = firstSelected || '';
 
   // お知らせボタンの状態を更新
   function updateNoticeButton() {
@@ -701,21 +697,22 @@ function renderVacationRadioList(list, options) {
     const currentItem = itemMap.get(currentId);
     if (currentItem && noticeBtn) {
       const hasNotice = hasRelatedNotice(currentItem);
+      noticeBtn.classList.toggle('u-hidden', !hasNotice);
       noticeBtn.style.display = hasNotice ? 'inline-block' : 'none';
       noticeBtn.disabled = !hasNotice;
     } else if (noticeBtn) {
+      noticeBtn.classList.add('u-hidden');
       noticeBtn.style.display = 'none';
     }
   }
   updateNoticeButton();
 
   // プルダウン変更イベント
-  dropdown.addEventListener('change', () => {
+  // 再読込みのたびに古いitemMapを持つlistenerが蓄積しないよう置換する。
+  dropdown.onchange = () => {
     const id = dropdown.value;
-    if (!id) return;
-    syncSelectedIds();
     selectedIds.clear();
-    selectedIds.add(id);
+    if (id) selectedIds.add(id);
     const arr = Array.from(selectedIds);
     selectedEventIds = arr;
     saveEventIds(officeId, arr);
@@ -723,30 +720,22 @@ function renderVacationRadioList(list, options) {
     updateNoticeButton();
     if (onSelectChange) onSelectChange(arr, item, id, true);
     if (onFocus) onFocus(item, id);
-  });
+  };
 
   // お知らせボタンのクリックイベント
   if (noticeBtn) {
-    const existingListeners = noticeBtn.cloneNode(true);
-    noticeBtn.parentNode.replaceChild(existingListeners, noticeBtn);
-    existingListeners.addEventListener('click', () => {
+    noticeBtn.onclick = () => {
       const id = dropdown.value;
       const item = itemMap.get(id);
       if (item) {
         openRelatedNotice(item, { fromEventCalendar: true, openMode: 'modal' });
       }
-    });
+    };
   }
 
   selectedEventIds = Array.from(selectedIds);
 
-  // 初期フォーカス
-  if (firstSelected) {
-    const firstItem = itemMap.get(firstSelected);
-    if (firstItem && onFocus) {
-      onFocus(firstItem, firstSelected);
-    }
-  }
+  // 詳細の初期表示はloadEventsでプルダウンと同じIDから決める。
 }
 
 function updateEventCardStates() {
@@ -967,6 +956,9 @@ function getEventGanttController() {
 }
 
 function updateEventDetail(item, officeId) {
+  // 未選択の7日間の入力表が、先頭イベントの選択と誤認されるのを防ぐ。
+  document.getElementById(EVENT_ADMIN_UI.calendar)?.classList.toggle('u-hidden', !item);
+  document.getElementById(EVENT_ADMIN_UI.empty)?.classList.toggle('u-hidden', !!item);
   const ctrl = getEventGanttController();
   if (!item) {
     eventSelectedId = '';
@@ -1045,18 +1037,13 @@ async function refreshEventDataSilent(officeId) {
           selectedEventIds = ids;
           saveEventIds(targetOfficeId, ids);
         },
-        // ▼ 修正: 自動更新時は、詳細データの再読み込み（上書き）を行わないようにするため null を指定
-        onFocus: null
+        // 初期表示は復元しないが、利用者が選び直した時は詳細を切り替える。
+        onFocus: handleEventSelection
       });
     }
     updateEventButtonVisibility(targetOfficeId, normalizedList);
-    const firstSelected = selectedEventIds?.[0] || '';
-    if (firstSelected) {
-      const selectedItem = findCachedEvent(targetOfficeId, firstSelected);
-      // ▼ 修正: 編集中（未保存）の内容が上書きされて消えるのを防ぐためコメントアウト
-      /* if (selectedItem) updateEventDetail(selectedItem, targetOfficeId);
-      */
-    }
+    // 有効な選択がある間は編集中のビットを保持。削除された選択は入力表ごと閉じる。
+    if (!selectedEventIds.length) updateEventDetail(null, targetOfficeId);
     await applyEventDisplay(selectedEventIds && selectedEventIds.length ? selectedEventIds : visibleItems);
     return filteredList;
   } catch (err) {
@@ -1080,7 +1067,9 @@ async function loadEvents(officeId, showToastOnSuccess = false, options = {}) {
     return [];
   }
   try {
-    const res = await apiPost({ action: 'getVacation', token: SESSION_TOKEN, office: targetOfficeId, nocache: '1' });
+    // 保存直後は成功した原稿を表示し、非同期KV失効前の古い一覧で上書きしない。
+    const res = Array.isArray(opts.list) ? { vacations: opts.list }
+      : await apiPost({ action: 'getVacation', token: SESSION_TOKEN, office: targetOfficeId, nocache: '1' });
     if (res?.error === 'unauthorized') {
       if (typeof logout === 'function') { await logout(); }
       cachedEvents = { officeId: '', list: [] };
@@ -1125,9 +1114,7 @@ async function loadEvents(officeId, showToastOnSuccess = false, options = {}) {
       },
       onFocus: handleEventSelection
     });
-    const initialSelection = savedIds.map(id => findCachedEvent(targetOfficeId, id)).find(Boolean)
-      || (opts.visibleOnly === true ? visibleItems[0] : (visibleItems[0] || filteredList[0]))
-      || null;
+    const initialSelection = findCachedEvent(targetOfficeId, document.getElementById('eventSelectDropdown')?.value) || null;
     if (initialSelection) {
       handleEventSelection(initialSelection);
       if (opts.onSelect) { opts.onSelect(initialSelection, String(initialSelection.id || initialSelection.vacationId || '')); }

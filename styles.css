@@ -2284,44 +2284,6 @@ td.time.need-time select:focus~.time-hint {
   margin: 4px 0 8px;
 }
 
-.vacation-table-wrap {
-  overflow: auto;
-  max-height: 340px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-}
-
-.vacation-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.vacation-table th,
-.vacation-table td {
-  border-bottom: 1px solid #e5e7eb;
-  padding: 8px;
-  text-align: left;
-  vertical-align: top;
-}
-
-.vacation-table th {
-  background: #f9fafb;
-  color: #374151;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.vacation-table tr:last-child td {
-  border-bottom: none;
-}
-
-.vacation-drag-cell {
-  width: 44px;
-  text-align: center;
-}
-
 .vacation-drag-handle {
   cursor: grab;
   display: inline-flex;
@@ -2771,39 +2733,7 @@ td.time.need-time select:focus~.time-hint {
   border-bottom: 3px solid #6b7280;
 }
 
-.vacation-gantt tbody tr:hover {
-  background: #f0f9ff;
-}
-
-.vacation-gantt tbody tr:hover th.member-name {
-  background: #dbeafe;
-  color: #1e40af;
-  font-weight: 700;
-}
-
-.vacation-gantt tbody tr:hover td {
-  background: #e0f2fe;
-}
-
-.vacation-gantt thead th.hover-highlight,
-.vacation-gantt td.hover-highlight {
-  box-shadow: inset 0 0 0 2px #93c5fd;
-}
-
-.vacation-gantt td.hover-highlight:not(.vac-cell.on) {
-  background: #dbeafe !important;
-  color: #1e40af;
-}
-
-.vacation-gantt .vac-cell.on.hover-highlight {
-  color: #fff;
-  box-shadow: inset 0 0 0 2px #bfdbfe, inset 0 0 0 4px rgba(191, 219, 254, 0.55);
-}
-
-.vacation-gantt tbody tr .hover-highlight {
-  font-weight: 700;
-}
-
+/* 行・列の強調はappearance.cssの線で示し、日付/ONの背景色を保持する。 */
 .vacation-gantt .vac-day-label {
   display: flex;
   flex-direction: column;
@@ -3031,10 +2961,6 @@ td.time.need-time select:focus~.time-hint {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-}
-
-.event-modal .vacation-table-wrap {
-  max-height: unset;
 }
 
 .vacation-select-wrap {
@@ -4286,7 +4212,6 @@ td.time.need-time select:focus~.time-hint {
   /* 陷・ｽﾎ夂ｹｧ・ｳ郢晢ｽｳ郢晢ｿｽ繝ｪ邵ｺ・ｮ郢晢ｽｪ郢ｧ・ｻ郢晢ｿｽ繝ｨ */
   #eventModal .admin-card,
   #eventModal .admin-card-body,
-  #eventModal .vacation-table-wrap,
   #eventModal .vacation-gantt {
     display: block !important;
     width: 100% !important;

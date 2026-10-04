@@ -650,7 +650,11 @@
         th.colSpan = group.end - group.start + 1;
         const span = document.createElement('span');
         span.className = 'vac-month-text';
-        span.textContent = group.label;
+        // 短期間でも月を見分けられるよう、列幅を広げず年/月または月だけを表示する。
+        const monthStart = new Date(dateSlots[group.start]);
+        span.textContent = group.end > group.start ? `${monthStart.getFullYear()}/${monthStart.getMonth() + 1}` : `${monthStart.getMonth() + 1}月`;
+        span.title = group.label;
+        th.setAttribute('aria-label', group.label);
         th.appendChild(span);
         monthRow.appendChild(th);
       });
@@ -709,6 +713,8 @@
             if (dow === 0) td.classList.add('weekend-sun');
             if (dow === 6) td.classList.add('weekend-sat');
             td.setAttribute('role', 'button');
+            // 一つのTab入口から矢印で移動し、長期間でも大量のTab停止点を作らない。
+            td.tabIndex = cursor === 0 && date === dateSlots[0] ? 0 : -1;
             td.setAttribute('aria-label', `${group.title || ''} ${member.name || ''} ${date}`);
             td.setAttribute('aria-pressed', 'false');
             tr.appendChild(td);
@@ -782,6 +788,8 @@
       }
       toggleBit(date, idx, toValue);
       cell.classList.toggle('on', toValue);
+      cell.setAttribute('aria-pressed', String(toValue));
+      applyHoverHighlights(cell);
     }
 
     function handlePointerOver(e) {
@@ -796,6 +804,7 @@
       }
       toggleBit(date, idx, draggingState.toValue);
       cell.classList.toggle('on', draggingState.toValue);
+      cell.setAttribute('aria-pressed', String(draggingState.toValue));
     }
 
     function handlePointerMove(e) {
@@ -811,6 +820,7 @@
     }
 
     function handlePointerUp() {
+      if (draggingState) applyBitsToCells();
       draggingState = null;
       if (tableEl) {
         tableEl.classList.remove('dragging');
@@ -819,7 +829,9 @@
 
     function clearHoverHighlights() {
       if (!tableEl) return;
-      tableEl.querySelectorAll('.hover-highlight').forEach(el => el.classList.remove('hover-highlight'));
+      tableEl.querySelectorAll('.vac-axis-column, .vac-axis-row, .vac-axis-cell').forEach(el => {
+        el.classList.remove('vac-axis-column', 'vac-axis-row', 'vac-axis-cell');
+      });
     }
 
     function applyHoverHighlights(cell) {
@@ -827,12 +839,13 @@
       clearHoverHighlights();
       const date = cell.dataset.date;
       if (date) {
-        tableEl.querySelectorAll(`[data-date="${date}"]`).forEach(el => el.classList.add('hover-highlight'));
+        tableEl.querySelectorAll(`[data-date="${date}"]`).forEach(el => el.classList.add('vac-axis-column'));
       }
       const row = cell.closest('tr');
       if (row) {
-        row.querySelectorAll('th, td').forEach(el => el.classList.add('hover-highlight'));
+        row.querySelectorAll('th, td').forEach(el => el.classList.add('vac-axis-row'));
       }
+      cell.classList.add('vac-axis-cell');
     }
 
     function scrollToGroup(anchorId) {
@@ -945,9 +958,10 @@
       tableEl.addEventListener('pointerover', handlePointerOver);
       tableEl.addEventListener('pointermove', handlePointerMove, { passive: false });
       tableEl.addEventListener('touchmove', handlePointerMove, { passive: false });
+      tableEl.addEventListener('keydown', handleCellKeydown);
       ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => tableEl.addEventListener(ev, handlePointerUp));
-      const tbody = tableEl.querySelector('tbody');
-      if (tbody) {
+      // 各グループのtbodyに共通の委譲先を置く。最初のtbodyだけには登録しない。
+      {
         const handleHover = (e) => {
           const cell = e.target.closest('td.vac-cell');
           if (!cell) return;
@@ -958,12 +972,34 @@
           if (!cell) return;
           clearHoverHighlights();
         };
-        tbody.addEventListener('mouseover', handleHover);
-        tbody.addEventListener('mouseout', handleOut);
-        tbody.addEventListener('focusin', handleHover);
-        tbody.addEventListener('focusout', handleOut);
+        tableEl.addEventListener('pointerover', handleHover);
+        tableEl.addEventListener('pointerout', handleOut);
+        tableEl.addEventListener('focusin', handleHover);
+        tableEl.addEventListener('focusout', handleOut);
       }
       tableEl.addEventListener('mouseleave', clearHoverHighlights);
+    }
+
+    /** 日付表の矢印移動とEnter/SpaceによるON/OFF。@param {KeyboardEvent} e 操作 @returns {void} */
+    function handleCellKeydown(e) {
+      const cell = e.target.closest('.vac-cell');
+      if (!cell) return;
+      const member = Number(cell.dataset.memberIndex), date = cell.dataset.date;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (!e.repeat) { toggleBit(date, member, !cell.classList.contains('on')); applyBitsToCells(); }
+        return;
+      }
+      const day = dateSlots.indexOf(date);
+      let targetMember = member, targetDay = day;
+      if (e.key === 'ArrowLeft') targetDay--;
+      else if (e.key === 'ArrowRight') targetDay++;
+      else if (e.key === 'ArrowUp') targetMember--;
+      else if (e.key === 'ArrowDown') targetMember++;
+      else return;
+      e.preventDefault();
+      const target = tableEl.querySelector(`.vac-cell[data-member-index="${targetMember}"][data-date="${dateSlots[targetDay]}"]`);
+      if (target) { cell.tabIndex = -1; target.tabIndex = 0; target.focus(); }
     }
 
     function rebuild() {

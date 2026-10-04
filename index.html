@@ -96,7 +96,7 @@
         <!-- タブパネル1: 基本設定 -->
         <div id="tabBasic" class="tab-panel active" data-tab="basic">
           <div class="admin-toolbar">
-            <h4>⚙️ 基本設定</h4>
+            <h4>自動消去の設定</h4>
           </div>
           <div class="admin-grid">
             <div class="admin-box admin-box-stacked">
@@ -222,7 +222,7 @@
           <div class="admin-toolbar">
             <h4>📁 グループ操作</h4>
             <div class="admin-toolbar-actions">
-              <button id="btnGroupSave" class="btn-pill">💾 変更を保存</button>
+              <button id="btnGroupSave" class="btn-pill">💾 名簿の変更を保存</button>
             </div>
           </div>
 
@@ -253,7 +253,7 @@
           <div class="admin-toolbar">
             <h4>👥 メンバー管理</h4>
             <div class="admin-toolbar-actions">
-              <button id="btnMemberSave" class="btn-pill">💾 変更を保存</button>
+              <button id="btnMemberSave" class="btn-pill">💾 名簿の変更を保存</button>
             </div>
           </div>
             <!-- モーダル形式に変更 -->
@@ -328,7 +328,7 @@
         <!-- タブパネル: カラム構成 (Phase 6) -->
         <div id="tabColumns" class="tab-panel" data-tab="columns">
           <div class="admin-toolbar">
-            <h4>🎛️ カラム構成</h4>
+            <h4>表示項目・レイアウト</h4>
             <div class="admin-toolbar-actions">
               <button id="btnAddCustomColumn" class="btn-pill">➕ 新規追加</button>
               <button id="btnColumnSave" class="btn-pill">💾 保存</button>
@@ -414,32 +414,12 @@
               <div class="u-flex-between-center u-mb-8">
                 <h4 class="u-m-0">登録済みのイベント</h4>
               </div>
-              <div class="vacation-table-wrap">
-                <table class="vacation-table">
-                  <thead>
-                    <tr>
-                      <th class="u-w-44">並び</th>
-                      <th>タイトル</th>
-                      <th>期間</th>
-                      <th>対象拠点</th>
-                      <th>休暇固定（種別）</th>
-                      <th>色</th>
-                      <th>備考</th>
-                      <th>表示</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody id="vacationListBody">
-                    <tr>
-                      <td colspan="9" class="u-text-center u-text-gray">読み込み待ち</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <div id="vacationListBody" class="event-admin-list" aria-label="登録済みのイベント"></div>
             </div>
 
             <div class="admin-box">
-              <h4>イベントの作成 / 更新</h4>
+              <h4 id="vacationEditorTitle">新しいイベントを作成</h4>
+              <p class="admin-note">公開範囲と休暇への反映を確認して保存してください。日付の指定はメイン画面のイベントから行います。</p>
               <div class="vacation-form">
                 <div class="vacation-row">
                   <label>対象拠点
@@ -468,11 +448,13 @@
                   </div>
                 </div>
                 <div class="vacation-row vacation-row-two-cols">
-                  <label>
-                    種別
-                    <input id="vacationTypeText" type="text" value="休暇固定（一覧で切替）" readonly />
-                    <span class="vacation-helper">※ 種別は一覧の「休暇固定」列で変更できます。</span>
-                  </label>
+                  <fieldset class="event-form-flags">
+                    <legend>表示・休暇への反映</legend>
+                    <label><input id="vacationVisible" type="checkbox" checked /> メイン画面に表示する</label>
+                    <label><input id="vacationIsVacation" type="checkbox" checked /> 休暇固定</label>
+                    <span class="vacation-helper">休暇固定を外すと「予定のみ」です。指定日の在席ステータスを休みに変更しません。</span>
+                    <input id="vacationTypeText" type="hidden" />
+                  </fieldset>
                   <label>色/カテゴリー
                     <select id="vacationColor" aria-label="色/カテゴリー">
                       <option value="amber">サニー</option>
@@ -493,7 +475,7 @@
                 </div>
                 <div class="vacation-actions">
                   <button id="btnVacationSave" class="btn-pill">💾 作成/更新</button>
-                  <button id="btnVacationDelete" class="btn-pill btn-danger">🗑️ 削除</button>
+                  <button id="btnVacationDelete" class="btn-pill btn-danger" disabled>🗑️ 削除</button>
                   <button id="btnVacationClear" class="btn-pill">🧹 入力クリア</button>
                   <button id="btnVacationReload" class="btn-pill">🔄 一覧更新</button>
                 </div>
@@ -563,7 +545,8 @@
               イベントの内容を表示</button>
           </div>
           <div id="vacationRadioList" class="vacation-radio-list u-hidden"></div>
-          <div id="eventGanttWrap" class="vacation-gantt-head">
+          <p id="eventSelectionEmpty" class="event-selection-empty" role="status">イベントを選択すると、日付とメンバーの表が表示されます。</p>
+          <div id="eventGanttWrap" class="vacation-gantt-head u-hidden">
             <div class="vacation-gantt-sticky-header">
               <div class="event-toolbar">
                 <div class="event-toolbar__hint">
@@ -905,10 +888,11 @@
 
       <section id="manualAdmin" class="manual-section manual-tab-content">
         <h4>⚙️ 管理者マニュアル</h4>
+        <p>管理メニューは「メンバー・グループ」「お知らせ・イベント」「ツール」「在席表の設定」「拠点・アクセス」の5領域です。CSVは名簿の領域、印刷は在席表の設定にあります。画面を往復しても編集を保持しますが、保存ボタンで確定してください。</p>
 
         <div class="manual-alert manual-alert-warning">
           <strong>🔐 管理者ログインについて</strong><br>
-          管理パネルを表示するには、<strong>管理者パスワード</strong>でログインしてください。<br>
+          管理パネルを表示するには、<strong>管理者アカウント</strong>でログインしてください。<br>
           一般ユーザーパスワードではログインできても「管理」ボタンは表示されません。
         </div>
 
@@ -1043,15 +1027,12 @@
 
         <p class="u-mt-12 u-mb-8"><strong>イベントの作成</strong></p>
         <ol class="u-lh-18">
-          <li>管理パネルを開き、<strong>「📅 イベント管理」</strong>タブをクリック</li>
-          <li><strong>対象拠点</strong>を選択（スーパー管理者の場合）</li>
-          <li><strong>タイトル</strong>を入力（例：「GW期間休暇」「年末年始休暇」）</li>
-          <li><strong>開始日</strong>と<strong>終了日</strong>を入力（カレンダーから選択可能）</li>
-          <li><strong>備考</strong>（任意）を入力（社内共有用のメモなど）</li>
-          <li><strong>「表示する」</strong>チェックボックスをONにすると、ユーザーがイベントボタンから選択できるようになります</li>
-          <li>ガントチャート（日付×メンバーの表）で、休暇対象のメンバーと日付のセルをクリック/ドラッグしてONにします</li>
-          <li><strong>「💾 作成/更新」</strong>ボタンをクリック</li>
-          <li>✅「イベントを保存しました」と表示されたら成功です</li>
+          <li>管理パネルの「お知らせ・イベント」→「イベント」を開きます</li>
+          <li>対象拠点、タイトル、開始日、終了日を入力します</li>
+          <li>必要なら関連するお知らせと色/カテゴリーを選びます</li>
+          <li>「メイン画面に表示する」と「休暇固定」を確認し、「💾 作成/更新」で保存します</li>
+          <li>メイン画面の「イベント」から作成したイベントを選択します</li>
+          <li>日付とメンバーの表でON/OFFを指定し、「💾 保存」で保存します</li>
         </ol>
 
         <p class="u-mt-12 u-mb-8"><strong>イベントの編集</strong></p>
@@ -1081,7 +1062,7 @@
         <p class="u-mt-12 u-mb-8"><strong>イベントの並び替え</strong></p>
         <p>「登録済みのイベント」一覧では、複数のイベントの表示順序を変更できます。</p>
         <ol class="u-lh-18">
-          <li>一覧の「並び」列にある<strong>「↑」「↓」ボタン</strong>をクリックすると、イベントの順序が入れ替わります</li>
+          <li>一覧カードの<strong>「↑」「↓」ボタン</strong>をクリックすると、イベントの順序が入れ替わります</li>
           <li>上にあるイベントほど優先度が高く、ユーザーが選択する際のリストの上位に表示されます</li>
           <li>並び替え後、<strong>自動的に保存</strong>されます（保存ボタンを押す必要はありません）</li>
         </ol>
@@ -1090,22 +1071,12 @@
         </div>
 
         <p class="u-mt-12 u-mb-8"><strong>休暇種別（休暇固定）の設定</strong></p>
-        <p>各イベントに対して、ステータスとして表示される「休暇種別」を設定できます。</p>
+        <p>イベントの日付指定を在席表の「休み」に反映するかを選びます。</p>
         <ul class="u-lh-18">
-          <li><strong>設定場所</strong>：「登録済みのイベント」一覧の<strong>「休暇固定（種別）」</strong>列</li>
-          <li><strong>操作方法</strong>：該当の列をクリックすると、ドロップダウンから種別を選択できます</li>
-          <li><strong>選択肢</strong>：「休み」「休暇」「特休」「有給」「代休」などから選択可能</li>
-          <li><strong>自動保存</strong>：選択すると即座に保存され、ユーザーの画面に反映されます</li>
+          <li>一覧カードの「休暇固定」は切り替えるとすぐ保存されます</li>
+          <li>作成/編集フォームでは「休暇固定」を確認し、「作成/更新」で保存します</li>
+          <li>OFFは「予定のみ」です。日付の指定を在席表の休みに反映しません</li>
         </ul>
-        <div class="manual-alert manual-alert-success">
-          <strong>使用例</strong>
-          <ul class="u-my-4 u-lh-16">
-            <li>「GW期間休暇」→ 種別：<strong>「休暇」</strong>（通常の長期休暇）</li>
-            <li>「年末年始休暇」→ 種別：<strong>「休み」</strong>（会社休業日）</li>
-            <li>「夏季休暇」→ 種別：<strong>「有給」</strong>（有給休暇推奨期間）</li>
-            <li>「創立記念日」→ 種別：<strong>「特休」</strong>（特別休暇）</li>
-          </ul>
-        </div>
 
         <p class="u-mt-12 u-mb-8"><strong>色/カテゴリーの設定</strong></p>
         <p>イベントに色を設定することで、視覚的に区別しやすくなります。</p>
@@ -1126,22 +1097,17 @@
         </ul>
 
         <p class="u-mt-12 u-mb-8"><strong>管理者によるユーザー休暇日の編集</strong></p>
-        <p>管理者は、イベント作成時のガントチャートで全ユーザーの休暇日を一括設定できます。</p>
         <ol class="u-lh-18">
-          <li>イベント作成/更新フォームで<strong>開始日と終了日</strong>を入力すると、ガントチャートが表示されます</li>
-          <li>ガントチャート上で、<strong>各メンバーの休暇日をクリック/ドラッグ</strong>してON（青色）に設定します</li>
-          <li>複数のメンバーを一度に設定する場合は、<strong>ドラッグ操作</strong>が便利です</li>
-          <li>設定後、<strong>「💾 作成/更新」</strong>ボタンをクリックすると保存されます</li>
-          <li>✅ ユーザーがそのイベントを選択すると、設定した日が自動的に「休み」ステータスになります</li>
+          <li>メイン画面の「イベント」で対象を選択します</li>
+          <li>セルのクリック/ドラッグ、スマホではタップで指定します。ONにはチェックが表示されます</li>
+          <li>Tabで表に入り、矢印で移動、Enter/Spaceでも切り替えられます</li>
+          <li>「💾 保存」を押します。保存前に他のイベントへ切り替えると編集中の指定は破棄されます</li>
         </ol>
-        <div class="manual-alert manual-alert-danger">
-          <strong>⚠️ 重要</strong>：イベントカレンダーでユーザー自身が変更した休暇日は、<strong>ユーザー個人のデータ</strong>として保存されます。<br>
-          管理者が後からガントチャートを編集しても、既にユーザーが保存した個人設定は上書きされません。
-        </div>
+        <p class="manual-hint">日付の指定はイベントの共有データです。同じイベントを利用するメンバーの画面にも反映されます。</p>
 
         <p class="u-mt-12 u-mb-8"><strong>表示/非表示の切り替え</strong></p>
         <ul class="u-lh-18">
-          <li>「登録済みのイベント」一覧の<strong>「表示」チェックボックス</strong>で切り替えられます</li>
+          <li>一覧カードの<strong>「メイン画面に表示」チェックボックス</strong>で切り替えられます</li>
           <li>チェックON：ユーザーがイベントボタンから選択できます</li>
           <li>チェックOFF：管理者のみ閲覧可能（ユーザーには表示されません）</li>
           <li>複数のイベントを同時に「表示」にできますが、ユーザーが選択できるのは1つだけです</li>
@@ -1203,12 +1169,12 @@
         </details>
         <details class="manual-details">
           <summary>Q. イベントの並び順を変更したい</summary>
-          <p>A. 「登録済みのイベント」一覧の「並び」列にある↑↓ボタンをクリックすると順序を変更できます。変更は自動保存されます。</p>
+          <p>A. 「登録済みのイベント」一覧カードの↑↓ボタンをクリックすると順序を変更できます。変更は自動保存されます。</p>
         </details>
         <details class="manual-details">
-          <summary>Q. 休暇種別（休暇固定）を変更したい</summary>
+          <summary>Q. 休暇固定を変更したい</summary>
           <p>A.
-            「登録済みのイベント」一覧の「休暇固定（種別）」列をクリックすると、ドロップダウンから種別（休み、休暇、特休、有給、代休など）を選択できます。選択すると即座に保存されます。</p>
+            一覧カードの「休暇固定」を切り替えると即座に保存されます。作成/編集フォームでも設定でき、その場合は「作成/更新」で保存します。</p>
         </details>
         <details class="manual-details">
           <summary>Q. イベントの色を変更したい</summary>
@@ -1222,13 +1188,12 @@
         <details class="manual-details">
           <summary>Q. ユーザーが個別に変更した休暇日を管理者が確認できますか？</summary>
           <p>A.
-            ユーザーが長期休暇カレンダーで変更した内容は、そのユーザーの「メンバーの休暇指定ビット（membersBits）」として保存されています。管理者はCSVエクスポートで確認できますが、直接編集する機能は現在ありません。各ユーザーが自分で長期休暇カレンダーから変更してください。
+            日付の指定はイベントの共有データです。メイン画面の「イベント」から対象を選択すると、管理者も確認・編集できます。変更後は「保存」を押してください。
           </p>
         </details>
         <details class="manual-details">
           <summary>Q. ガントチャートで設定した休暇日が反映されない</summary>
-          <p>A. ガントチャートでセルをクリック/ドラッグした後、必ず「💾
-            作成/更新」ボタンをクリックして保存してください。また、ユーザー側で該当イベントを選択していない場合は、休暇日として反映されません。</p>
+          <p>A. メイン画面のイベントで日付を指定した後、「💾 保存」を押してください。イベント管理で「休暇固定」がONになっていることも確認してください。</p>
         </details>
         <details class="manual-details">
           <summary>Q. イベントの対象拠点を変更したい</summary>

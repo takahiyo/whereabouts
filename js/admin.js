@@ -12,6 +12,8 @@ const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
 const btnGroupSave = document.getElementById('btnGroupSave');
+/** 同じ拠点での画面往復では編集中のDOMを保持し、明示的な再読込みで更新する。 */
+const adminPageOffices = new Map();
 
 /**
  * 管理モーダルを開く
@@ -20,14 +22,7 @@ function openAdminModal() {
   if (!adminModal) return;
   adminModal.classList.add('show');
   adminModal.style.display = 'flex';
-  
-  // 初期データの読み込み (常に最新を取得)
-  loadAdminMembers(true);
-  
-  // 必要に応じてお知らせなどの自動読み込み
-  if (typeof autoLoadNoticesOnAdminOpen === 'function') {
-    autoLoadNoticesOnAdminOpen();
-  }
+  updateAdminNavigation(adminModal.querySelector('.tab-btn.active')?.dataset.tab || ADMIN_NAVIGATION[0].pages[0].tab);
   
   // 管理者には拠点選択を表示するように戻す（将来的なマルチ拠点対応を見越して）
   // ただし現在のSSOT原則に基づき、CURRENT_OFFICE_IDを初期値とする
@@ -35,13 +30,8 @@ function openAdminModal() {
     adminOfficeSel.value = CURRENT_OFFICE_ID;
   }
 
-  // アクティブなタブに応じた初期データのロード
-  const office = selectedOfficeId();
-  if (office) {
-    if (document.getElementById('tabBasic')?.classList.contains('active')) {
-      loadAutoClearSettings(office);
-    }
-  }
+  // 開いた作業だけを読み込む。同じ拠点の原稿は保持し、拠点が変われば読み直す。
+  adminModal.querySelector('.tab-btn.active')?.click();
 }
 
 /**
@@ -305,6 +295,76 @@ btnSetPw.addEventListener('click', async () => {
   }
 });
 
+/** 管理のDOMを作業別に分類する。入力要素を移動して既存の参照とlistenerを保持する。 @returns {void} */
+function initAdminNavigation() {
+  if (!adminModal) return;
+  const navigation = adminModal.querySelector('.admin-tabs');
+  const subnav = navigation.querySelector('.tab-buttons');
+  const areas = document.createElement('nav');
+  areas.className = 'admin-areas'; areas.setAttribute('aria-label', '管理する内容');
+  subnav.setAttribute('aria-label', '管理の作業');
+  navigation.prepend(areas);
+  const reload = document.createElement('button');
+  reload.type = 'button'; reload.className = 'btn-secondary admin-reload';
+  reload.textContent = '編集中の内容を破棄して再読込み';
+  reload.addEventListener('click', () => {
+    if (!confirm('表示中の作業の未保存の編集を破棄して、保存済みの内容を読み直しますか？')) return;
+    const button = adminModal.querySelector('.tab-btn.active');
+    adminPageOffices.delete(button.dataset.tab);
+    if (button.dataset.tab === 'members' || button.dataset.tab === 'groups') { adminMembersLoaded = false; adminPageOffices.delete('members'); }
+    if (button.dataset.tab === 'tools') adminToolsLoaded = false;
+    button.click();
+  });
+  navigation.append(reload);
+  ADMIN_NAVIGATION.forEach(area => {
+    const areaButton = document.createElement('button');
+    areaButton.type = 'button'; areaButton.className = 'admin-area-btn';
+    areaButton.dataset.area = area.id; areaButton.textContent = area.label;
+    areaButton.addEventListener('click', () => {
+      const current = adminModal.querySelector('.tab-btn.active')?.dataset.tab;
+      const page = area.pages.find(page => page.tab === current) || area.pages[0];
+      subnav.querySelector(`[data-tab="${page.tab}"]`).click();
+    });
+    areas.append(areaButton);
+    area.pages.forEach(page => {
+      if (page.move) {
+        const panel = document.createElement('section');
+        panel.id = page.panel; panel.className = 'tab-panel'; panel.dataset.tab = page.tab;
+        const heading = document.createElement('h4'); heading.textContent = page.label;
+        panel.append(heading, document.getElementById(page.move).closest('.admin-box'));
+        adminModal.querySelector('.admin-card-body').append(panel);
+      }
+      let button = subnav.querySelector(`[data-tab="${page.tab}"]`);
+      if (!button) { button = document.createElement('button'); button.className = 'tab-btn'; button.dataset.tab = page.tab; }
+      button.type = 'button'; button.textContent = page.label; subnav.append(button);
+    });
+  });
+  adminModal.querySelectorAll('.tab-panel, .tab-btn').forEach(el => el.classList.remove('active'));
+  const first = ADMIN_NAVIGATION[0].pages[0];
+  document.getElementById(first.panel).classList.add('active');
+  subnav.querySelector(`[data-tab="${first.tab}"]`).classList.add('active');
+  updateAdminNavigation(first.tab);
+}
+
+/** 選択領域の作業だけを表示し、他領域の入力DOMは保持する。 @param {string} tab 作業ID @returns {void} */
+function updateAdminNavigation(tab) {
+  const area = ADMIN_NAVIGATION.find(area => area.pages.some(page => page.tab === tab)) || ADMIN_NAVIGATION[0];
+  adminModal.querySelectorAll('.admin-area-btn').forEach(button => {
+    const active = button.dataset.area === area.id;
+    button.classList.toggle('active', active); button.setAttribute('aria-current', active ? 'page' : 'false');
+  });
+  ADMIN_NAVIGATION.forEach(group => group.pages.forEach(page => {
+    const button = adminModal.querySelector(`.tab-btn[data-tab="${page.tab}"]`);
+    button.classList.toggle('u-hidden', group !== area || (page.superAdminOnly === true && CURRENT_ROLE !== 'superAdmin'));
+    button.setAttribute('aria-current', page.tab === tab ? 'page' : 'false');
+  }));
+  const reload = adminModal.querySelector('.admin-reload');
+  // 移動した単純な入力/出力パネルには、読み込む一覧や原稿がない。
+  reload?.classList.toggle('u-hidden', !!area.pages.find(page => page.tab === tab)?.move);
+}
+
+/* 保存方式は変えずに、5領域から既存の編集画面へ移動する。 */
+initAdminNavigation();
 /* 管理モーダルのタブ切り替え */
 if (adminModal) {
   const adminTabButtons = adminModal.querySelectorAll('.admin-tabs .tab-btn');
@@ -321,24 +381,15 @@ if (adminModal) {
   adminTabButtons.forEach(btn => {
     btn.addEventListener('click', async () => {
       const targetTab = btn.dataset.tab;
-
-      const currentTab = Array.from(adminTabButtons).find(b => b.classList.contains('active'))?.dataset.tab;
+      if (targetTab === 'offices' && CURRENT_ROLE !== 'superAdmin') return;
+      updateAdminNavigation(targetTab);
 
       adminTabButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
       adminTabPanels.forEach(panel => panel.classList.remove('active'));
-      const panelMap = {
-        basic: adminModal.querySelector('#tabBasic'),
-        groups: adminModal.querySelector('#tabGroups'),
-        members: adminModal.querySelector('#tabMembers'),
-        notices: adminModal.querySelector('#tabNotices'),
-        events: adminModal.querySelector('#tabEvents'),
-        tools: adminModal.querySelector('#tabTools'),
-        columns: adminModal.querySelector('#tabColumns'),
-        offices: adminModal.querySelector('#tabOffices')
-      };
-      const panel = panelMap[targetTab];
+      const page = ADMIN_NAVIGATION.flatMap(area => area.pages).find(page => page.tab === targetTab);
+      const panel = page ? document.getElementById(page.panel) : null;
       if (panel) {
         panel.classList.add('active');
         resetPanelScroll(panel);
@@ -354,24 +405,22 @@ if (adminModal) {
           await loadAutoClearSettings(office);
         }
       } else if (targetTab === 'groups') {
-        // グループとメンバー間は相互にデータを引き継ぐが、他タブからの移動時はリロードして未保存を破棄
-        const force = (currentTab !== 'groups' && currentTab !== 'members');
-        await loadAdminMembers(force);
+        // 領域の往復で編集中の名簿を破棄しない。再読込みは拠点変更/明示操作で行う。
+        await loadAdminMembers(false);
         renderGroupOrderList();
       } else if (targetTab === 'members') {
-        const force = (currentTab !== 'groups' && currentTab !== 'members');
-        await loadAdminMembers(force);
+        await loadAdminMembers(false);
         renderMemberTable();
       } else if (targetTab === 'events') {
-        refreshVacationOfficeOptions();
-        const officeId = (vacationOfficeSelect?.value) || adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
-        if (typeof fetchNotices === 'function') {
-          await fetchNotices(officeId);
+        const officeId = selectedOfficeId();
+        if (adminPageOffices.get(targetTab) !== officeId) {
+          refreshVacationOfficeOptions();
+          if (typeof fetchNotices === 'function') await fetchNotices(officeId);
+          refreshVacationNoticeOptions();
+          await loadVacationsList();
         }
-        refreshVacationNoticeOptions();
-        await loadVacationsList();
       } else if (targetTab === 'tools') {
-        await loadAdminTools(true); // 常に最新を取得
+        await loadAdminTools(false); // 領域の往復では未保存の編集を保持
       } else if (targetTab === 'columns') {
         await loadColumnConfig();
       } else if (targetTab === 'offices') {
@@ -474,7 +523,7 @@ function setMemberTableMessage(msg) {
 
 async function loadAdminMembers(force) {
   const office = selectedOfficeId(); if (!office) return;
-  if (force !== true && adminMembersLoaded && adminMemberList.length) { return; }
+  if (force !== true && adminMembersLoaded && adminPageOffices.get('members') === office) { return; }
   try {
     setMemberTableMessage('読み込み中...');
     const [cfg, dataRes] = await Promise.all([
@@ -509,6 +558,7 @@ async function loadAdminMembers(force) {
     renderGroupOrderList();
     openMemberEditor(null);
     adminMembersLoaded = true;
+    adminPageOffices.set('members', office);
   } catch (err) {
     console.error('loadAdminMembers error', err);
     setMemberTableMessage('メンバーの取得に失敗しました');
@@ -906,6 +956,9 @@ function filteredMemberList() {
     // ------------------------------------------
 
     tr.append(orderTd, groupTd, nameTd, extTd, mobileTd, emailTd, actionTd);
+    // 狭い画面でも項目名を失わない。表見出しを唯一のラベル定義として再利用する。
+    const headers = memberTableBody.closest('table').querySelectorAll('thead th');
+    Array.from(tr.children).forEach((cell, index) => { cell.dataset.label = headers[index]?.textContent.trim() || ''; });
     fragment.appendChild(tr);
   });
   memberTableBody.appendChild(fragment);
@@ -1368,6 +1421,7 @@ async function loadAdminTools(force = false) {
  * @param {string} officeId 拠点ID
  */
 async function loadAutoClearSettings(officeId) {
+  if (adminPageOffices.get('basic') === officeId) return;
   try {
     const params = { action: 'getOfficeSettings', token: SESSION_TOKEN, office: officeId };
     const res = await apiPost(params);
@@ -1387,6 +1441,7 @@ async function loadAutoClearSettings(officeId) {
           cb.checked = fields.includes(cb.value);
         });
       }
+      adminPageOffices.set('basic', officeId);
     }
   } catch (e) {
     console.error('loadAutoClearSettings error:', e);
@@ -1658,6 +1713,10 @@ function getSelectedNoticeInfo() {
 }
 
 function resetVacationForm() {
+  document.getElementById(EVENT_ADMIN_UI.visible).checked = true;
+  document.getElementById(EVENT_ADMIN_UI.vacation).checked = true;
+  document.getElementById(EVENT_ADMIN_UI.heading).textContent = '新しいイベントを作成';
+  if (btnVacationDelete) btnVacationDelete.disabled = true;
   if (vacationTitleInput) vacationTitleInput.value = '';
   if (vacationStartInput) vacationStartInput.value = '';
   if (vacationEndInput) vacationEndInput.value = '';
@@ -1674,6 +1733,10 @@ function resetVacationForm() {
 
 function fillVacationForm(item) {
   if (!item) return;
+  document.getElementById(EVENT_ADMIN_UI.visible).checked = coerceVacationVisibleFlag(item.visible);
+  document.getElementById(EVENT_ADMIN_UI.vacation).checked = item.isVacation === true;
+  document.getElementById(EVENT_ADMIN_UI.heading).textContent = 'イベントを編集';
+  if (btnVacationDelete) btnVacationDelete.disabled = false;
   if (vacationTitleInput) vacationTitleInput.value = item.title || '';
   if (vacationStartInput) vacationStartInput.value = item.startDate || item.start || item.from || '';
   if (vacationEndInput) vacationEndInput.value = item.endDate || item.end || item.to || '';
@@ -1727,101 +1790,69 @@ function normalizeVacationList(list, officeId) {
   return normalized;
 }
 
+/** イベントを項目名付きのカードで表示する。@param {Array} list 一覧 @param {string} officeId 拠点 @returns {void} */
 function renderVacationRows(list, officeId) {
   if (!vacationListBody) return;
-  const normalizedList = normalizeVacationList(list, officeId);
-  cachedVacationList = normalizedList;
-  vacationListBody.textContent = '';
-  if (!Array.isArray(normalizedList) || normalizedList.length === 0) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 9; td.style.textAlign = 'center'; td.textContent = 'イベントはありません';
-    tr.appendChild(td); vacationListBody.appendChild(tr); return;
+  adminPageOffices.set('events', officeId);
+  cachedVacationList = normalizeVacationList(list, officeId);
+  vacationListBody.replaceChildren();
+  if (!cachedVacationList.length) {
+    const empty = document.createElement('p'); empty.className = 'admin-note';
+    empty.textContent = 'イベントはありません。右のフォームから作成できます。'; vacationListBody.append(empty); return;
   }
-
-  normalizedList.forEach((item, idx) => {
-    const tr = document.createElement('tr');
-    const idStr = String(item.id || item.vacationId || '');
-    tr.dataset.vacationId = idStr;
-    tr.dataset.order = String(item.order || idx + 1);
-    const dragTd = document.createElement('td');
-    dragTd.className = 'vacation-drag-cell';
-    const dragBtn = document.createElement('button');
-    dragBtn.type = 'button';
-    dragBtn.className = 'vacation-drag-handle';
-    dragBtn.draggable = true;
-    dragBtn.title = 'ドラッグして並び替え';
-    dragBtn.innerHTML = '<span aria-hidden="true">☰</span>';
-    dragTd.appendChild(dragBtn);
-    const titleTd = document.createElement('td'); titleTd.textContent = item.title || '';
-    const start = item.startDate || item.start || item.from || '';
-    const end = item.endDate || item.end || item.to || '';
-    const periodTd = document.createElement('td'); periodTd.textContent = start || end ? `${start || ''}〜${end || ''}` : '-';
-    const officeTd = document.createElement('td'); officeTd.textContent = item.office || '';
-    const typeTd = document.createElement('td');
-    const typeToggle = document.createElement('input');
-    typeToggle.type = 'checkbox';
-    typeToggle.checked = item.isVacation === true;
-    const typeLabel = document.createElement('span');
-    typeLabel.className = 'vacation-type-label';
-    typeLabel.textContent = getVacationTypeLabel(typeToggle.checked);
-    typeToggle.addEventListener('change', async () => {
-      typeToggle.disabled = true;
-      const success = await updateVacationFlags(item, { isVacation: typeToggle.checked });
-      if (!success) {
-        typeToggle.checked = !typeToggle.checked;
-      } else {
-        typeLabel.textContent = getVacationTypeLabel(typeToggle.checked);
-      }
-      typeToggle.disabled = false;
-    });
-    typeTd.append(typeToggle, typeLabel);
-    const colorTd = document.createElement('td');
-    const colorBadge = document.createElement('span');
-    colorBadge.className = `event-color-dot ${getEventColorClass(item.color)}`.trim();
-    colorBadge.title = EVENT_COLOR_LABELS[item.color] || '';
-    colorTd.appendChild(colorBadge);
-    const noteTd = document.createElement('td');
-    const noticeSel = findNoticeSelectionForItem(item);
-    if (noticeSel && noticeSel.title) {
-      const link = document.createElement('a');
-      link.href = '#noticesArea';
-      link.textContent = noticeSel.title;
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (typeof toggleNoticesArea === 'function') { toggleNoticesArea(); }
-        const noticesArea = document.getElementById('noticesArea');
-        if (noticesArea) {
-          noticesArea.style.display = 'block';
-          noticesArea.classList.remove('collapsed');
-          noticesArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+  cachedVacationList.forEach((item, index) => {
+    const card = document.createElement('article'); card.className = 'event-admin-card';
+    card.dataset.vacationId = String(item.id || item.vacationId || ''); card.dataset.order = String(item.order || index + 1);
+    const heading = document.createElement('div'); heading.className = 'event-admin-card-heading';
+    const badge = document.createElement('span'); badge.className = ('event-color-dot ' + getEventColorClass(item.color)).trim();
+    badge.title = EVENT_COLOR_LABELS[item.color] || '';
+    const title = document.createElement('h5'); title.textContent = item.title || '名称なし'; heading.append(badge, title);
+    const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn-secondary'; edit.textContent = '編集';
+    edit.setAttribute('aria-label', (item.title || 'イベント') + 'を編集');
+    edit.addEventListener('click', () => { fillVacationForm(item); vacationTitleInput?.focus(); vacationTitleInput?.scrollIntoView({ block: 'nearest' }); });
+    heading.append(edit); card.append(heading);
+    const details = document.createElement('dl'); details.className = 'event-admin-details';
+    const addDetail = (label, value) => {
+      const group = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = label; dd.textContent = value || '—'; group.append(dt, dd); details.append(group);
+    };
+    const start = item.startDate || item.start || item.from || '', end = item.endDate || item.end || item.to || '';
+    addDetail('期間', start || end ? start + ' 〜 ' + end : '未設定');
+    addDetail('対象拠点', item.office || officeId);
+    addDetail('お知らせ・備考', findNoticeSelectionForItem(item)?.title || item.note || item.memo);
+    card.append(details);
+    const controls = document.createElement('div'); controls.className = 'event-admin-card-controls';
+    const addToggle = (labelText, key, checked) => {
+      const label = document.createElement('label'), input = document.createElement('input');
+      input.type = 'checkbox'; input.checked = checked; input.setAttribute('aria-label', (item.title || 'イベント') + ': ' + labelText);
+      input.addEventListener('change', async () => {
+        input.disabled = true;
+        const success = await updateVacationFlags(item, { [key]: input.checked });
+        if (!success) input.checked = !input.checked;
+        input.disabled = false;
       });
-      noteTd.appendChild(link);
-    } else if (item.note || item.memo) {
-      noteTd.textContent = item.note || item.memo || '';
-    } else {
-      noteTd.textContent = '-';
+      label.append(input, document.createTextNode(labelText)); controls.append(label);
+    };
+    addToggle('メイン画面に表示', 'visible', coerceVacationVisibleFlag(item.visible));
+    addToggle('休暇固定', 'isVacation', item.isVacation === true);
+    const order = document.createElement('div'); order.className = 'event-order-actions';
+    const handle = document.createElement('button'); handle.type = 'button'; handle.draggable = true;
+    handle.className = 'vacation-drag-handle'; handle.textContent = '☰'; handle.title = 'ドラッグして並び替え';
+    handle.setAttribute('aria-label', (item.title || 'イベント') + 'をドラッグして並び替え');
+    order.append(handle);
+    for (const [offset, text] of [[-1, '↑'], [1, '↓']]) {
+      const button = document.createElement('button'); button.type = 'button'; button.textContent = text;
+      button.disabled = offset < 0 ? index === 0 : index === cachedVacationList.length - 1;
+      button.setAttribute('aria-label', (item.title || 'イベント') + (offset < 0 ? 'を上へ' : 'を下へ'));
+      button.addEventListener('click', async () => {
+        const neighbor = offset < 0 ? card.previousElementSibling : card.nextElementSibling;
+        if (!neighbor) return;
+        vacationListBody.insertBefore(card, offset < 0 ? neighbor : neighbor.nextSibling);
+        await persistVacationOrders(getVacationOrderMapFromDom());
+      });
+      order.append(button);
     }
-    const visibleTd = document.createElement('td');
-    const visibleToggle = document.createElement('input');
-    visibleToggle.type = 'checkbox';
-    visibleToggle.checked = item.visible === true;
-    visibleToggle.addEventListener('change', async () => {
-      visibleToggle.disabled = true;
-      const success = await updateVacationFlags(item, { visible: visibleToggle.checked });
-      if (!success) {
-        visibleToggle.checked = !visibleToggle.checked;
-      }
-      visibleToggle.disabled = false;
-    });
-    visibleTd.appendChild(visibleToggle);
-    const actionTd = document.createElement('td');
-    const editBtn = document.createElement('button'); editBtn.textContent = '編集'; editBtn.className = 'btn-secondary';
-    editBtn.addEventListener('click', () => fillVacationForm(item));
-    actionTd.appendChild(editBtn);
-    tr.append(dragTd, titleTd, periodTd, officeTd, typeTd, colorTd, noteTd, visibleTd, actionTd);
-    vacationListBody.appendChild(tr);
+    controls.append(order); card.append(controls); vacationListBody.append(card);
   });
   initVacationSort();
 }
@@ -1830,7 +1861,7 @@ function getVacationOrderMapFromDom() {
   const map = new Map();
   if (!vacationListBody) return map;
   let idx = 1;
-  vacationListBody.querySelectorAll('tr[data-vacation-id]').forEach(tr => {
+  vacationListBody.querySelectorAll('[data-vacation-id]').forEach(tr => {
     const idStr = tr.dataset.vacationId || '';
     if (!idStr) return;
     map.set(idStr, idx++);
@@ -1893,10 +1924,10 @@ async function persistVacationOrders(orderMap) {
   }).filter(Boolean);
   if (!payloads.length) return;
   try {
-    await Promise.all(payloads.map(p => adminSetVacation(office, p)));
+    const responses = await Promise.all(payloads.map(p => adminSetVacation(office, p)));
+    if (responses.some(res => !res || res.ok !== true)) throw new Error('order_save_failed');
     toast('並び順を保存しました');
-    await loadVacationsList(false, office);
-    await loadEvents(office, false);
+    await reflectSavedVacations(office, payloads);
   } catch (err) {
     console.error('persistVacationOrders error', err);
     toast('並び順の保存に失敗しました', false);
@@ -1912,7 +1943,7 @@ function initVacationSort() {
   vacationListBody.addEventListener('dragstart', e => {
     const handle = e.target.closest('.vacation-drag-handle');
     if (!handle) { e.preventDefault(); return; }
-    const row = handle.closest('tr');
+    const row = handle.closest('[data-vacation-id]');
     if (!row) return;
     vacationDragRow = row;
     row.classList.add('vacation-dragging');
@@ -1922,7 +1953,7 @@ function initVacationSort() {
   vacationListBody.addEventListener('dragover', e => {
     if (!vacationDragRow) return;
     e.preventDefault();
-    const targetRow = e.target.closest('tr[data-vacation-id]');
+    const targetRow = e.target.closest('[data-vacation-id]');
     if (!targetRow || targetRow === vacationDragRow) return;
     const rect = targetRow.getBoundingClientRect();
     const offset = e.clientY - rect.top;
@@ -1946,7 +1977,7 @@ async function updateVacationFlags(item, overrides = {}) {
   if (!payload) return false;
   try {
     const res = await adminSetVacation(office, payload);
-    if (res && res.ok !== false) {
+    if (res && res.ok === true) {
       if (res.vacation) {
         item.visible = res.vacation.visible === true;
         item.isVacation = res.vacation.isVacation === true;
@@ -1956,12 +1987,7 @@ async function updateVacationFlags(item, overrides = {}) {
         item.isVacation = isVacation;
       }
       toast('イベント設定を更新しました');
-      if (Array.isArray(res.vacations)) {
-        renderVacationRows(res.vacations, office);
-      } else {
-        await loadVacationsList(false, office);
-      }
-      if (office) { await loadEvents(office, false); }
+      await reflectSavedVacations(office, [res.vacation || payload], res.vacations);
       return true;
     }
     throw new Error(res && res.error ? String(res.error) : 'update_failed');
@@ -1976,7 +2002,7 @@ async function loadVacationsList(showToastOnSuccess = false, officeOverride) {
   const office = officeOverride || getVacationTargetOffice(); if (!office) return;
   if (vacationListBody) {
     vacationListBody.textContent = '';
-    const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 9; td.style.textAlign = 'center'; td.textContent = '読み込み中...'; tr.appendChild(td); vacationListBody.appendChild(tr);
+    const message = document.createElement('p'); message.textContent = '読み込み中…'; vacationListBody.append(message);
   }
   try {
     const res = await adminGetVacation(office);
@@ -1987,7 +2013,7 @@ async function loadVacationsList(showToastOnSuccess = false, officeOverride) {
     console.error('loadVacationsList error', err);
     if (vacationListBody) {
       vacationListBody.textContent = '';
-      const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 9; td.style.textAlign = 'center'; td.textContent = '読み込みに失敗しました'; tr.appendChild(td); vacationListBody.appendChild(tr);
+      const message = document.createElement('p'); message.textContent = '読み込みに失敗しました'; vacationListBody.append(message);
     }
     toast('イベントの取得に失敗しました', false);
   } finally {
@@ -2007,7 +2033,9 @@ function buildVacationPayload() {
   const id = (vacationIdInput?.value || '').trim();
   const color = (vacationColorSelect?.value || 'amber');
 
-  const payload = { office, title, start, end, membersBits, color };
+  const payload = { office, title, start, end, membersBits, color,
+    visible: document.getElementById(EVENT_ADMIN_UI.visible).checked,
+    isVacation: document.getElementById(EVENT_ADMIN_UI.vacation).checked };
 
   const orderMap = getVacationOrderMapFromDom();
   if (id && orderMap.has(id)) {
@@ -2036,23 +2064,34 @@ function buildVacationPayload() {
   return { payload, errors };
 }
 
+/** 保存成功した原稿を一覧とメインへ反映。KVの非同期失効直後の再GETは避ける。
+ * @param {string} office 拠点 @param {Array} changes 保存したイベント @param {Array} complete サーバーが返した完全一覧 @returns {Promise<void>}
+ */
+async function reflectSavedVacations(office, changes, complete) {
+  const merged = new Map(cachedVacationList.map(item => [String(item.id || item.vacationId), item]));
+  changes.forEach(item => {
+    const id = String(item.id || item.vacationId);
+    merged.set(id, { ...merged.get(id), ...item, startDate: item.startDate || item.start || '', endDate: item.endDate || item.end || '', office });
+  });
+  const list = Array.isArray(complete) ? complete : Array.from(merged.values());
+  renderVacationRows(list, office);
+  await loadEvents(office, false, { list });
+}
+
 async function persistVacationPayload(payload, { resetFormOnSuccess = true, showToast = true } = {}) {
   if (!payload || !payload.office) return false;
+  // 既存APIが受け付けるidを先に用意し、{ok:true}だけの応答でも新規イベントを表示できる。
+  if (!payload.id) payload.id = EVENT_ADMIN_UI.idPrefix + crypto.randomUUID();
   try {
     const res = await adminSetVacation(payload.office, payload);
-    if (res && res.ok !== false) {
-      if (res.id && vacationIdInput) { vacationIdInput.value = res.id; }
+    if (res && res.ok === true) {
+      if (vacationIdInput) { vacationIdInput.value = res.id || payload.id; }
       if (res.vacation) {
         if (vacationTypeText) vacationTypeText.value = getVacationTypeLabel(res.vacation.isVacation !== false);
         if (vacationColorSelect && res.vacation.color) { vacationColorSelect.value = res.vacation.color; }
       }
       if (showToast) toast('イベントを保存しました');
-      if (Array.isArray(res.vacations)) {
-        renderVacationRows(res.vacations, payload.office);
-      } else {
-        await loadVacationsList(false, payload.office);
-      }
-      await loadEvents(payload.office, false);
+      await reflectSavedVacations(payload.office, [res.vacation || { ...payload, id: res.id || payload.id }], res.vacations);
       if (resetFormOnSuccess) {
         resetVacationForm();
       }
@@ -2093,10 +2132,14 @@ async function handleCreateNoticeFromEvent() {
 }
 
 async function handleVacationSave() {
+  if (btnVacationSave?.disabled) return;
   const { payload, errors } = buildVacationPayload();
   if (!payload || errors?.includes('missing_title')) { toast('タイトルを入力してください', false); return; }
   if (errors?.includes('invalid_range')) { toast('開始日と終了日の指定を確認してください', false); return; }
-  await persistVacationPayload(payload, { resetFormOnSuccess: true, showToast: true });
+  // 新規IDを生成する保存の多重送信を防ぐ。
+  if (btnVacationSave) btnVacationSave.disabled = true;
+  try { await persistVacationPayload(payload, { resetFormOnSuccess: true, showToast: true }); }
+  finally { if (btnVacationSave) btnVacationSave.disabled = false; }
 }
 
 async function handleVacationAutoSave() {
@@ -2112,10 +2155,11 @@ async function handleVacationDelete() {
   if (!confirm('選択中のイベントを削除しますか？')) return;
   try {
     const res = await adminDeleteVacation(office, id);
-    if (res && res.ok !== false) {
+    if (res && res.ok === true) {
       toast('削除しました');
       resetVacationForm();
-      await loadVacationsList();
+      const list = cachedVacationList.filter(item => String(item.id || item.vacationId) !== id);
+      await reflectSavedVacations(office, [], list);
     } else {
       throw new Error(res && res.error ? String(res.error) : 'delete_failed');
     }
@@ -2168,10 +2212,12 @@ async function adminDeleteVacation(office, id) { return await apiPost({ action: 
 async function autoLoadNoticesOnAdminOpen() {
   const office = adminSelectedOfficeId || CURRENT_OFFICE_ID;
   if (!office) return;
+  if (adminPageOffices.get('notices') === office) return;
   try {
     const params = { action: 'getNotices', token: SESSION_TOKEN, nocache: '1', office };
     const res = await apiPost(params);
     if (res && res.notices) {
+      adminPageOffices.set('notices', office);
       noticesEditor.innerHTML = '';
       if (res.notices.length === 0) {
         addNoticeEditorItem();
@@ -2490,6 +2536,7 @@ function createPrintRowDiv(m) {
 /* カラム構成管理 (Phase 6) */
 async function loadColumnConfig() {
   const office = selectedOfficeId(); if (!office) return;
+  if (adminPageOffices.get('columns') === office) return;
   try {
     if (columnSettingContainer) {
       columnSettingContainer.innerHTML = '<p class="u-text-center u-text-gray">設定を読み込み中...</p>';
@@ -2498,6 +2545,7 @@ async function loadColumnConfig() {
     // サーバーに設定がない場合は null のまま渡す（新拠点＝未設定状態）
     const config = (res && res.columnConfig) || null;
     renderColumnConfig(config);
+    adminPageOffices.set('columns', office);
   } catch (e) {
     console.error('loadColumnConfig error', e);
     if (columnSettingContainer) {

@@ -241,3 +241,158 @@ body .login {
 @media (prefers-reduced-motion: reduce) {
   body *, body *::before, body *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+/* [REF] HTML: adminModal全作業領域; JS: admin.jsのナビ/動的編集DOM; STATE: active/hidden;
+   LAYER: 既存管理dialog内; SPLIT: LAST。旧固定色を各外観の共通トークンに統合する。 */
+#adminModal {
+  --bg-secondary: var(--ui-soft); --bg-white: var(--ui-surface); --border: var(--ui-line); --accent: var(--ui-accent);
+}
+#adminModal .admin-card-body { background: var(--ui-menu-surface); overflow-y: auto; }
+#adminModal .tab-panel.active { flex: 0 0 auto; min-height: 0; overflow: visible; }
+#adminModal .admin-card-header h3 { margin: 0; }
+#adminModal .admin-tabs { padding: 0; margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.admin-areas, #adminModal .tab-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-areas { margin: 0; grid-column: 1 / -1; }
+#adminModal .tab-buttons { margin: 0; }
+#adminModal .admin-reload { margin: 0; padding: 6px 10px; font-size: 12px; }
+#adminModal .admin-area-btn { background: var(--ui-button-face); color: var(--ui-ink); border: 1px solid var(--ui-line); border-radius: var(--ui-radius); padding: 10px 14px; min-height: 44px; font: 650 14px var(--ui-heading-font); }
+#adminModal .admin-area-btn.active { background: var(--ui-accent); border-color: var(--ui-accent); color: #fff; }
+#adminModal .tab-btn { padding: 6px 12px; min-height: 40px; font-size: 13px; }
+#adminModal .tab-btn.active { color: var(--ui-accent); background: var(--ui-soft); border-color: var(--ui-accent); }
+#adminModal h4, #adminModal h5, #adminModal label { color: var(--ui-ink); }
+#adminModal .admin-note, #adminModal .vacation-helper, #adminModal .member-edit-mode, #adminModal .u-text-gray { color: var(--ui-muted); }
+#adminModal .u-text-red { color: var(--ui-danger); }
+#adminModal .notices-manager-toolbar, #adminModal .tools-manager-toolbar { background: transparent; }
+#adminModal .notices-manager-scroll, #adminModal .tools-manager-scroll { overflow: visible; }
+#adminModal .notices-manager-info, #adminModal .tools-manager-info, #adminModal .auto-clear-fields-container,
+#adminModal .csv-file-selection, #adminModal .member-filter-row { background: var(--ui-soft); border-color: var(--ui-line); color: var(--ui-ink); }
+#adminModal .csv-file-selection[data-selected="true"] { color: var(--ui-accent); border-color: var(--ui-accent); }
+#adminModal .notice-edit-item, #adminModal .tool-edit-item, #adminModal .group-order-item,
+#adminModal .notice-visibility-toggle, #adminModal .tool-visibility-toggle {
+  background: var(--ui-section-surface); color: var(--ui-ink); border-color: var(--ui-line); border-radius: var(--ui-radius);
+}
+#adminModal .notice-edit-item.hidden-notice, #adminModal .tool-edit-item.hidden-tool { background: var(--ui-soft); border-style: dashed; }
+#adminModal .notice-edit-item.dragging, #adminModal .tool-edit-item.dragging { background: var(--ui-soft); border-color: var(--ui-accent); }
+#adminModal .notice-edit-item.drag-over, #adminModal .tool-edit-item.drag-over { border-top-color: var(--ui-accent); }
+#adminModal .notice-edit-item:hover, #adminModal .tool-edit-item:hover { border-color: var(--ui-accent); box-shadow: var(--ui-shadow); }
+#adminModal .notice-edit-handle, #adminModal .tool-edit-handle { color: var(--ui-muted); }
+#adminModal .unified-column-item, #adminModal .column-order-item { background: var(--ui-section-surface) !important; border-color: var(--ui-line); }
+#adminModal .column-order-label, #adminModal .column-width-label, #adminModal .column-toggle-label { color: var(--ui-ink); }
+#adminModal .column-order-badge { background: var(--ui-soft); color: var(--ui-accent); border-color: var(--ui-line); }
+#adminModal .group-order-label, #adminModal .member-order-num { color: var(--ui-ink); }
+#adminModal .group-header-row td { background: var(--ui-soft); color: var(--ui-ink); }
+#adminModal .member-table, #adminModal .admin-table { color: var(--ui-ink); background: var(--ui-section-surface); }
+#adminModal .member-table-wrap { background: var(--ui-section-surface); }
+#adminModal :is(.member-table, .admin-table) th { background: var(--ui-soft); color: var(--ui-ink); border-color: var(--ui-line); }
+#adminModal :is(.member-table, .admin-table) td { border-color: var(--ui-line); }
+#adminModal :is(.member-table, .admin-table) tr:hover { background: var(--ui-soft); }
+#adminModal button { font-family: inherit; border-radius: 8px; min-height: 40px; }
+#adminModal button:not(.admin-area-btn):not(.tab-btn) { background: var(--ui-button-face); color: var(--ui-ink); border: 1px solid var(--ui-line); }
+#adminModal button.btn-primary, #adminModal button.btn-success { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
+#adminModal button.btn-danger, #adminModal button.btn-remove-notice, #adminModal button.btn-remove-tool,
+#adminModal button.btn-group-del { background: var(--ui-danger-soft); color: var(--ui-danger); border-color: var(--ui-danger); }
+#adminModal button:hover:not(:disabled):not(.active) { border-color: var(--ui-accent); box-shadow: none; transform: none; }
+#adminModal button:disabled { opacity: .45; cursor: default; }
+#adminModal input[type="checkbox"], #adminModal input[type="radio"] { accent-color: var(--ui-accent); flex: 0 0 auto; }
+#adminModal select, #adminModal textarea { min-width: 0; max-width: 100%; border-radius: 8px; }
+#adminModal textarea { box-sizing: border-box; }
+#adminModal .admin-row { flex-wrap: wrap; }
+#adminModal .admin-toolbar { flex-wrap: wrap; border-color: var(--ui-line); }
+#adminModal .admin-toolbar-actions { flex-wrap: wrap; }
+#adminModal .admin-row input { min-width: 0; }
+#adminModal .notice-edit-controls, #adminModal .tool-edit-controls { flex-wrap: wrap; gap: 6px; }
+#adminModal .notice-edit-row, #adminModal .tool-edit-row { min-width: 0; margin-left: 0; }
+#adminModal .notice-edit-row input, #adminModal .tool-edit-row input { min-width: 0; max-width: 100%; }
+#adminModal .btn-move-up, #adminModal .btn-move-down { min-width: 36px; width: 36px; height: 40px; }
+
+/* [REF] HTML: tabEvents; JS: renderVacationRowsと既存保存/並び替え; SPLIT: LAST。
+   項目名を各カードに置き、横幅が不足する9列の表を廃止する。 */
+#adminModal .vacation-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+#adminModal .vacation-grid > .admin-box { min-width: 0; }
+.event-admin-list { display: grid; gap: 12px; }
+.event-admin-card { padding: 14px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius); background: var(--ui-section-surface); min-width: 0; }
+.event-admin-card-heading { display: flex; align-items: center; gap: 10px; }
+.event-admin-card-heading h5 { font-size: 16px; margin: 0; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.event-admin-card-heading button { flex: 0 0 auto; }
+.event-admin-details { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin: 14px 0; }
+.event-admin-details > div { min-width: 0; }
+.event-admin-details > div:last-child { grid-column: 1 / -1; }
+.event-admin-details dt { color: var(--ui-muted); font-size: 12px; white-space: nowrap; }
+.event-admin-details dd { margin: 4px 0 0; color: var(--ui-ink); font-size: 14px; overflow-wrap: anywhere; }
+.event-admin-card-controls { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; border-top: 1px solid var(--ui-line); padding-top: 10px; }
+.event-admin-card-controls label { display: flex; gap: 6px; align-items: center; min-height: 40px; font-size: 13px; white-space: nowrap; }
+.event-order-actions { display: flex; gap: 4px; margin-left: auto; }
+.event-order-actions button { min-width: 36px; padding: 6px; }
+.event-admin-card.vacation-dragging { opacity: .5; border-color: var(--ui-accent); }
+.event-form-flags { border: 1px solid var(--ui-line); border-radius: 8px; margin: 0; padding: 10px; min-width: 0; }
+#adminModal .event-form-flags label { display: flex; flex-direction: row; gap: 8px; align-items: center; margin: 8px 0; }
+.event-form-flags legend { font-size: 13px; color: var(--ui-muted); }
+#adminModal .vacation-form label { min-width: 0; }
+#adminModal .vacation-row-two-cols:has(.event-form-flags) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+#adminModal .vacation-form input, #adminModal .vacation-form select { box-sizing: border-box; width: 100%; }
+#adminModal .vacation-form input[type="checkbox"] { width: 18px; height: 18px; }
+#adminModal .vacation-actions { flex-wrap: wrap; gap: 8px; }
+.event-selection-empty { padding: 24px; border: 1px dashed var(--ui-line); background: var(--ui-soft); color: var(--ui-muted); border-radius: var(--ui-radius); }
+body .event-select-toolbar, body .event-legend-item { background: var(--ui-soft); border-color: var(--ui-line); }
+body .event-select-label, body .event-legend-text { color: var(--ui-ink); }
+body .event-toolbar__hint, body .vacation-gantt-touch-hint, body .event-legend-type, body .event-legend-empty { color: var(--ui-muted); }
+body .vacation-gantt-sticky-header, body .vac-color-palette { background: var(--ui-menu-surface); border-color: var(--ui-line); color: var(--ui-ink); }
+body #eventModal button.btn-primary { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
+body #eventModal button.btn-secondary { background: var(--ui-button-face); color: var(--ui-ink); border: 1px solid var(--ui-line); }
+body #eventSelectDropdown { min-width: 0; max-width: 100%; }
+body #eventModal .event-modal-header { padding: 12px 24px; margin: 0; background: var(--ui-header-face); border-bottom: 1px solid var(--ui-line); }
+
+/* [REF] HTML: イベント日付表; JS: vacations.jsのvac-axis-*とon; STATE: hover/focus;
+   日付カテゴリーの背景とON/OFFを保持し、行列を線、交点を枠で強調する。 */
+body .vacation-gantt table { width: max-content; min-width: 0; }
+body .vacation-gantt .vac-cell, body .vacation-gantt .vac-day-header { box-sizing: border-box; min-width: 32px; width: 32px; padding: 3px 2px; }
+body .vacation-gantt .vac-cell { height: 32px; }
+body .vacation-gantt .vac-month-text { position: absolute; inset: 6px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body .vacation-gantt .vac-month-header { height: 32px; }
+body .vacation-gantt th.member-name { background: var(--ui-surface); color: var(--ui-ink); }
+body .vacation-gantt th.group-name { background: var(--ui-soft); color: var(--ui-ink); }
+body .vacation-gantt .member-name.member-has-bit { background: var(--ui-soft); color: var(--ui-accent); }
+body .vacation-gantt .vac-cell.on,
+body .vacation-gantt .vac-cell.on:is(.weekend-sat, .weekend-sun, .holiday) { background: var(--ui-accent); color: #fff; }
+body .vacation-gantt .vac-cell.on::after { content: '✓'; font-size: 15px; }
+body .vacation-gantt .vac-axis-row { box-shadow: inset 0 1px var(--ui-accent), inset 0 -1px var(--ui-accent); }
+body .vacation-gantt .vac-axis-column { box-shadow: inset 1px 0 var(--ui-accent), inset -1px 0 var(--ui-accent); }
+body .vacation-gantt th.vac-axis-row, body .vacation-gantt th.vac-axis-column { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
+body .vacation-gantt .vac-axis-cell { box-shadow: inset 0 0 0 2px var(--ui-accent), inset 0 0 0 3px var(--ui-surface); }
+body .vacation-gantt .vac-cell:focus-visible { outline: 2px solid var(--ui-ink); outline-offset: -3px; }
+@media (pointer: coarse) { body .vacation-gantt .vac-cell { height: 44px; } }
+@media (max-width: 960px) {
+  #adminModal .vacation-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  #adminModal .admin-card-header { padding: 12px; }
+  #adminModal .admin-tabs { grid-template-columns: minmax(0, 1fr); }
+  #adminModal .tab-panel { padding: 12px; }
+  #adminModal .admin-box { padding: 12px; }
+  .admin-areas { display: grid; grid-template-columns: 1fr 1fr; }
+  #adminModal .admin-area-btn { padding: 8px; font-size: 12px; }
+  #adminModal .tab-buttons { gap: 4px; }
+  #adminModal .tab-btn { padding: 6px 8px; }
+  #adminModal .vacation-row-two-cols, #adminModal .vacation-row-inline { grid-template-columns: minmax(0, 1fr); flex-direction: column; align-items: stretch; }
+  #adminModal .layout-config-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  #adminModal .unified-column-item > div { flex-wrap: wrap; gap: 8px !important; }
+  #adminModal .column-toggle-grp, #adminModal .column-width-group { flex-wrap: wrap; min-width: 0; margin-left: 0; }
+  #adminModal .unified-column-item > div[style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+  #adminModal .notice-edit-row, #adminModal .tool-edit-row { display: grid; grid-template-columns: minmax(0, 1fr); padding-left: 24px; box-sizing: border-box; }
+  #adminModal .notice-edit-controls, #adminModal .tool-edit-controls { width: auto; margin-left: 0; white-space: normal; }
+  #adminModal .notice-edit-item input[type="text"], #adminModal .tool-edit-item input[type="text"], #adminModal .tool-edit-item input[type="url"] { width: 100%; margin-left: 0; }
+  #adminModal .office-add-form .u-grid-2-cols { grid-template-columns: minmax(0, 1fr); }
+  /* メンバーの表を項目名付きカードへ。セルのクリック編集とID/並び順は保持する。 */
+  #adminModal table.member-table { display: block; min-width: 0; }
+  #adminModal .member-table thead { display: none; }
+  #adminModal .member-table tbody { display: grid; gap: 10px; }
+  #adminModal .member-table tr[data-member-id] { display: grid; grid-template-columns: minmax(0, 1fr); padding: 10px; border: 1px solid var(--ui-line); border-radius: var(--ui-radius); background: var(--ui-section-surface); }
+  #adminModal .member-table tr[data-member-id] td { display: grid; grid-template-columns: 62px minmax(0, 1fr); align-items: center; gap: 6px; min-width: 0; width: auto; max-width: none; box-sizing: border-box; white-space: normal; overflow: visible; text-align: left; overflow-wrap: anywhere; min-height: 40px; }
+  #adminModal .member-table tr[data-member-id] td::before { content: attr(data-label); font-size: 12px; color: var(--ui-muted); }
+  #adminModal .member-table tr[data-member-id] td:nth-child(3) { font-weight: 700; }
+  #adminModal .member-table tr[data-member-id] td:last-child { border-bottom: 0; }
+  #adminModal .member-table .group-header-row { display: block; }
+  #adminModal .member-table .group-header-row td { display: block; min-width: 0; width: auto; padding: 12px !important; border-radius: 8px; }
+  #adminModal .member-order-cell { justify-content: flex-start; }
+  #adminModal .member-inline-input { min-width: 0; width: 100%; }
+}

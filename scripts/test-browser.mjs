@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { runAdminPrototypeChecks } from '../tests/admin-prototype.browser.mjs';
 import { runBoardLayoutChecks } from '../tests/board-layout.browser.mjs';
+import { runEventAdminChecks } from '../tests/event-admin.browser.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const server = http.createServer((request, response) => {
@@ -94,7 +95,8 @@ try {
     await page.evaluate(() => {
       const dialog = document.getElementById('adminModal');
       dialog.classList.add('show'); dialog.style.display = 'flex';
-      document.getElementById('tabBasic').classList.add('active');
+      dialog.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+      document.getElementById('tabCsv').classList.add('active');
     });
     assert.equal(await page.locator('#btnImport').isDisabled(), true);
     await page.locator('#csvFile').setInputFiles({ name: '選択確認.csv', mimeType: 'text/csv', buffer: Buffer.from('abc') });
@@ -112,6 +114,7 @@ try {
     await page.close();
   }
   await runBoardLayoutChecks(browser, `http://127.0.0.1:${server.address().port}`);
+  await runEventAdminChecks(browser, `http://127.0.0.1:${server.address().port}`);
   await runAdminPrototypeChecks(browser, `http://127.0.0.1:${server.address().port}`);
 } finally {
   if (browser) await browser.close();

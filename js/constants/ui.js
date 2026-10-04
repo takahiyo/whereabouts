@@ -143,3 +143,31 @@ const READ_ONLY_DIALOGS = Object.freeze([
 const DIALOG_FOCUSABLE_SELECTOR = 'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]';
 /** マニュアルの既存タブ構造。主ナビ刷新とは独立した操作復旧。 */
 const MANUAL_UI = Object.freeze({ tabButtons: '.manual-tab-btn' });
+
+/** 作業目的による管理ナビ。既存の編集・保存単位を維持して再配置する。 */
+const ADMIN_NAVIGATION = Object.freeze([
+  { id: 'roster', label: 'メンバー・グループ', pages: [
+    { tab: 'members', panel: 'tabMembers', label: 'メンバー登録・編集' },
+    { tab: 'groups', panel: 'tabGroups', label: 'グループ・表示順' },
+    { tab: 'csv', panel: 'tabCsv', label: 'CSV取込・書出し', move: 'btnExport' }
+  ] },
+  { id: 'communication', label: 'お知らせ・イベント', pages: [
+    { tab: 'events', panel: 'tabEvents', label: 'イベント' },
+    { tab: 'notices', panel: 'tabNotices', label: 'お知らせ' }
+  ] },
+  { id: 'tools', label: 'ツール', pages: [{ tab: 'tools', panel: 'tabTools', label: 'リンク・ツール' }] },
+  { id: 'board', label: '在席表の設定', pages: [
+    { tab: 'columns', panel: 'tabColumns', label: '表示項目・レイアウト' },
+    { tab: 'basic', panel: 'tabBasic', label: '自動消去' },
+    { tab: 'output', panel: 'tabOutput', label: '印刷・PDF', move: 'btnPrintList' }
+  ] },
+  { id: 'access', label: '拠点・アクセス', pages: [
+    { tab: 'access', panel: 'tabAccess', label: '拠点名・パスワード', move: 'btnRenameOffice' },
+    { tab: 'offices', panel: 'tabOffices', label: '拠点一覧・追加', superAdminOnly: true }
+  ] }
+]);
+/** イベント設定と未選択表示のDOM。保存API/ビット形式は既存のまま。 */
+const EVENT_ADMIN_UI = Object.freeze({
+  visible: 'vacationVisible', vacation: 'vacationIsVacation', heading: 'vacationEditorTitle',
+  empty: 'eventSelectionEmpty', calendar: 'eventGanttWrap', idPrefix: 'vacation_'
+});
