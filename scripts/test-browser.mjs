@@ -89,6 +89,22 @@ try {
     await page.waitForFunction(() => document.activeElement.id === 'toolsModalClose');
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => document.activeElement.id === 'toolsBtn');
+    // CSV選択表示だけを既存管理DOMで確認。管理の読込/取込処理は呼ばない。
+    await page.evaluate(() => {
+      const dialog = document.getElementById('adminModal');
+      dialog.classList.add('show'); dialog.style.display = 'flex';
+      document.getElementById('tabBasic').classList.add('active');
+    });
+    assert.equal(await page.locator('#btnImport').isDisabled(), true);
+    await page.locator('#csvFile').setInputFiles({ name: '選択確認.csv', mimeType: 'text/csv', buffer: Buffer.from('abc') });
+    assert.match(await page.locator('#csvFileSelection').textContent(), /選択済み: 選択確認.csv（3バイト）/);
+    assert.equal(await page.locator('#csvFileSelection').isVisible(), true);
+    assert.equal(await page.locator('#btnImport').isDisabled(), false);
+    await page.locator('#csvFile').setInputFiles({ name: '変更後.csv', mimeType: 'text/csv', buffer: Buffer.from('abcd') });
+    assert.match(await page.locator('#csvFileSelection').textContent(), /変更後.csv（4バイト）/);
+    await page.locator('#csvFile').setInputFiles([]);
+    assert.match(await page.locator('#csvFileSelection').textContent(), /選択されていません/);
+    assert.equal(await page.locator('#btnImport').isDisabled(), true);
     assert.deepEqual(errors, []);
     assert(externalActions.every(action => ['publicListOffices', 'getTools'].includes(action)));
     console.log(`Browser checks passed at ${width}px: startup, manual tabs, dialog Tab/Escape/restore, nesting, no write requests.`);

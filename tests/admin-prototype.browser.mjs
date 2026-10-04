@@ -43,10 +43,30 @@ async function checkCsvWorkflow(page, origin, width, screenshotDir) {
   assert.deepEqual(csv.previewImport(exported, FIXTURE).changes, []);
   await selectCsv(page, exported);
   await page.getByRole('heading', { name: '検証完了 · 6名 / 3グループ' }).waitFor();
+  assert.match(await page.locator('#csv-selection').textContent(), /選択済み: sample.csv/);
+  assert.match(await page.locator('#csv-phase').textContent(), /検証が完了/);
+  assert.equal(await page.locator('#csv-apply').isDisabled(), true);
+
+  // 読込みが遅くても選択結果を即表示し、選択解除後に旧結果を復活させない。
+  await page.evaluate(() => {
+    const read = File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer = function () {
+      File.prototype.arrayBuffer = read;
+      return new Promise(resolve => { window.releaseCsvRead = async () => resolve(await read.call(this)); });
+    };
+  });
+  await selectCsv(page, exported);
+  assert.match(await page.locator('#csv-phase').textContent(), /読込み・検証中/);
+  assert.match(await page.locator('#csv-selection').textContent(), /選択済み: sample.csv/);
+  await page.locator('#csv-file').setInputFiles([]);
+  await page.evaluate(() => window.releaseCsvRead());
+  assert.match(await page.locator('#csv-selection').textContent(), /選択されていません/);
+  assert.equal(await page.locator('#csv-phase').textContent(), '');
   assert.equal(await page.locator('#csv-apply').isDisabled(), true);
 
   await selectCsv(page, '在席管理CSV\n不正ヘッダ');
   await page.getByRole('heading', { name: '取込みできません' }).waitFor();
+  assert.match(await page.locator('#csv-phase').textContent(), /検証エラー/);
   assert.equal(await page.locator('#csv-apply').isDisabled(), true);
   const replacement = copyRoster(FIXTURE);
   replacement.members = replacement.members.slice(0, 2);
@@ -102,6 +122,66 @@ async function navigate(page, name) {
   await item.click();
 }
 
+/** @param {object} page 試作 @param {string} origin URL @param {number} width 幅 @param {string} screenshotDir 画像先 @returns {Promise<void>} */
+async function checkWorkspaceWorkflow(page, origin, width, screenshotDir) {
+  page.once('dialog', dialog => dialog.accept());
+  await page.goto(`${origin}/prototypes/admin/index.html`);
+  const root = page.locator('#section-preview');
+  await navigate(page, 'ツール');
+  await root.locator('[data-add]').click();
+  await root.locator('[name="title"]').fill('<img src=x> 新ツール');
+  await root.locator('[name="url"]').fill('javascript:alert(1)');
+  await root.locator('form').getByRole('button', { name: '下書きに反映' }).click();
+  assert.match(await root.locator('.form-error').textContent(), /http/);
+  await root.locator('[name="url"]').fill('example.invalid/path');
+  await root.locator('form').getByRole('button', { name: '下書きに反映' }).click();
+  assert.equal(await root.locator('.resource-detail img').count(), 0);
+  assert.equal(await root.getByRole('link', { name: 'リンクを開く' }).getAttribute('href'), 'https://example.invalid/path');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  if (screenshotDir) await page.screenshot({ path: path.join(screenshotDir, `tools-${width}.png`), fullPage: true });
+  await page.locator('#review').click();
+  await page.locator('#confirm-resource').click();
+  assert.match(await page.locator('#draft-summary').textContent(), /変更はありません/);
+
+  await navigate(page, 'お知らせ・予定');
+  await root.locator('[data-type="events"]').click();
+  await root.locator('[data-add]').click();
+  await root.locator('[name="title"]').fill('入力を保持する予定');
+  await root.locator('[name="start"]').fill('2026-10-20');
+  await root.locator('[name="end"]').fill('2026-10-21');
+  await root.locator('[data-manage-notices]').click();
+  await root.locator('[data-add]').click();
+  await root.locator('[name="title"]').fill('新しい関連お知らせ');
+  await root.locator('[name="content"]').fill('改行を含む\n本文');
+  await root.locator('form').getByRole('button', { name: '下書きに反映' }).click();
+  await root.locator('[data-type="events"]').click();
+  assert.equal(await root.locator('[name="title"]').inputValue(), '入力を保持する予定');
+  await navigate(page, 'ツール');
+  await navigate(page, 'お知らせ・予定');
+  assert.equal(await root.locator('[name="title"]').inputValue(), '入力を保持する予定');
+  await root.locator('[name="noticeId"]').selectOption({ label: '新しい関連お知らせ' });
+  await root.locator('form').getByRole('button', { name: '下書きに反映' }).click();
+  await page.locator('#review').click();
+  await page.locator('#confirm-resource').click();
+  assert.match(await page.locator('#status').textContent(), /お知らせを先に/);
+  await root.locator('[data-type="notices"]').click();
+  await page.locator('#review').click();
+  await page.locator('#confirm-resource').click();
+  await root.locator('[data-type="events"]').click();
+  assert.match(await page.locator('#draft-summary').textContent(), /1件/);
+  await page.locator('#review').click();
+  await page.locator('#confirm-resource').click();
+  await root.locator('[data-type="notices"]').click();
+  await root.locator('[data-back]').click();
+  await root.locator('[data-item]').filter({ hasText: '新しい関連お知らせ' }).click();
+  page.once('dialog', dialog => dialog.accept());
+  await root.locator('[data-delete]').click();
+  assert.match(await page.locator('#status').textContent(), /先に予定の関連を解除/);
+  assert.equal(await root.locator('.resource-row').count(), 2);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  assert.deepEqual(await page.evaluate(() => [localStorage.length, sessionStorage.length]), [0, 0]);
+}
+
 /** @param {object} browser 注入されたブラウザ @param {string} origin ローカルサーバー @returns {Promise<void>} */
 export async function runAdminPrototypeChecks(browser, origin) {
   const screenshotDir = process.env.PROTOTYPE_SCREENSHOTS;
@@ -123,6 +203,13 @@ export async function runAdminPrototypeChecks(browser, origin) {
     if (screenshotDir && [390, 820, 1280, 1920].includes(width)) await page.screenshot({ path: path.join(screenshotDir, `admin-${width}.png`), fullPage: true });
     await navigate(page, 'お知らせ・予定');
     assert.equal(await page.getByRole('heading', { name: '関連お知らせの選択・作成' }).isVisible(), true);
+    await page.locator('#section-preview [data-item]').first().click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Notice detail overflow at ${width}`);
+    await page.locator('#section-preview [data-back]').click();
+    await navigate(page, 'ツール');
+    await page.locator('#section-preview [data-item]').first().click();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Tool detail overflow at ${width}`);
+    await page.locator('#section-preview [data-back]').click();
     await navigate(page, 'メンバー・グループ');
 
     await loadSample(page, 'large');
@@ -149,12 +236,12 @@ export async function runAdminPrototypeChecks(browser, origin) {
       await page.locator('[data-group="sample-sales"]').click();
       await page.locator('#search').fill('花子');
       assert.equal(await page.locator('.member-row').count(), 1);
-      assert.match(await page.locator('.member-info').textContent(), /順序 1\/2/);
+      assert.match(await page.locator('.member-row .member-info').textContent(), /順序 1\/2/);
       page.once('dialog', dialog => dialog.accept());
       await page.locator('#member-order').click();
       assert.equal(await page.locator('.member-row').count(), 2);
       await page.getByRole('button', { name: '佐藤 花子を下へ', exact: true }).click();
-      assert.match(await page.locator('.member-info').first().textContent(), /鈴木 太郎/);
+      assert.match(await page.locator('.member-row .member-info').first().textContent(), /鈴木 太郎/);
       await page.locator('#member-order').click();
 
       await page.locator('#add-group').click();
@@ -221,10 +308,11 @@ export async function runAdminPrototypeChecks(browser, origin) {
       assert.equal(await page.locator('#detail-body img').count(), 0);
       assert.equal(await page.locator('#detail-body h2').textContent(), '<img src=x onerror=alert(1)>');
       await checkCsvWorkflow(page, origin, width, screenshotDir);
+      await checkWorkspaceWorkflow(page, origin, width, screenshotDir);
     }
     assert.deepEqual(errors, [], `Runtime errors at ${width}`);
     assert.deepEqual(unexpectedRequests, [], `Prototype isolation at ${width}`);
-    console.log(`Admin prototype checks passed at ${width}px: layout, navigation, 100/0 members, long names, selection reset, isolation${[390, 1280].includes(width) ? ', roster/CSV workflows, draft retention, deletion and local confirmation' : ''}.`);
+    console.log(`Admin prototype checks passed at ${width}px: layout, resource details, navigation, 100/0 members, long names, selection reset, isolation${[390, 1280].includes(width) ? ', roster/CSV/workspace workflows, draft retention, deletion and local confirmation' : ''}.`);
     await page.close();
   }
 }

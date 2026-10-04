@@ -132,6 +132,21 @@ btnExport.addEventListener('click', async () => {
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
 });
+/** @returns {void} ファイルの選択だけを表示し、読込み/保存は取り込みボタンに委ねる。 */
+function syncCsvFileSelection() {
+  const input = document.getElementById(CSV_FILE_UI.input);
+  const status = document.getElementById(CSV_FILE_UI.status);
+  const button = document.getElementById(CSV_FILE_UI.importButton);
+  if (!input || !status || !button) return;
+  const file = input.files?.[0];
+  status.textContent = file ? `選択済み: ${CsvService.describeFile(file)}。${CSV_FILE_UI.ready}` : CSV_FILE_UI.empty;
+  status.dataset.selected = String(Boolean(file));
+  button.disabled = !file;
+}
+document.getElementById(CSV_FILE_UI.input)?.addEventListener('change', syncCsvFileSelection);
+document.getElementById(CSV_FILE_UI.input)?.addEventListener('cancel', syncCsvFileSelection);
+syncCsvFileSelection();
+
 btnImport.addEventListener('click', async () => {
   const office = selectedOfficeId(); if (!office) return;
   const file = csvFile.files && csvFile.files[0];

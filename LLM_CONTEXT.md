@@ -179,9 +179,10 @@
                 <h5>📤 在席確認表リスト インポート</h5>
                 <div class="admin-row">
                   <label for="csvFile" class="btn-pill btn-file-label">📁 ファイルを選択</label>
-                  <input type="file" id="csvFile" class="u-hidden-input" accept=".csv,text/csv" />
-                  <button id="btnImport" class="btn-pill">📤 取り込み</button>
+                  <input type="file" id="csvFile" class="u-hidden-input" accept=".csv,text/csv" aria-describedby="csvFileSelection" />
+                  <button id="btnImport" class="btn-pill" disabled>📤 取り込み</button>
                 </div>
+                <p id="csvFileSelection" class="csv-file-selection" data-selected="false" role="status" aria-live="polite">ファイルが選択されていません。</p>
               </div>
             </div>
 
@@ -2854,6 +2855,22 @@ td.time.need-time select:focus~.time-hint {
   flex-wrap: wrap;
   align-items: center;
   margin-bottom: 8px;
+}
+
+/* [REF] HTML: index.html CSV選択状況; JS: admin.jsのdata-selected更新; SPLIT: SAFE */
+.csv-file-selection {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+.csv-file-selection[data-selected="true"] {
+  border-color: #4f927b;
+  background: #edf8f2;
+  color: #14513c;
 }
 
 .admin-note {
@@ -9053,6 +9070,12 @@ const ROW_STATUS_CLASSES = Object.freeze([
   'st-off'        // 休み
 ]);
 
+/** 既存管理画面のCSV選択表示。保存/取込処理とは分けて扱う。 */
+const CSV_FILE_UI = Object.freeze({
+  input: 'csvFile', status: 'csvFileSelection', importButton: 'btnImport',
+  empty: 'ファイルが選択されていません。', ready: '「取り込み」を押すと読み込まれます。'
+});
+
 // STATUS_CLASS_MAPPING は削除済（使用されていないため）
 
 // ============================================
@@ -11763,6 +11786,11 @@ window.qrcode = qrcode;
         defaultStatus: '在席'
     });
 
+    /** @param {File} file 選択ファイル @returns {string} ファイル名と大きさ（選択表示用） */
+    function describeFile(file) {
+        return `${file.name}（${new Intl.NumberFormat('ja-JP').format(file.size)}バイト）`;
+    }
+
     /**
      * 文字列が計算式として評価されないようにエスケープ処理を行う
      * @param {string} s
@@ -11862,6 +11890,7 @@ window.qrcode = qrcode;
     // グローバルに公開
     global.CsvService = {
         format,
+        describeFile,
         csvProtectFormula,
         toCsvRow,
         parseCSV,
@@ -16180,6 +16209,21 @@ btnExport.addEventListener('click', async () => {
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
 });
+/** @returns {void} ファイルの選択だけを表示し、読込み/保存は取り込みボタンに委ねる。 */
+function syncCsvFileSelection() {
+  const input = document.getElementById(CSV_FILE_UI.input);
+  const status = document.getElementById(CSV_FILE_UI.status);
+  const button = document.getElementById(CSV_FILE_UI.importButton);
+  if (!input || !status || !button) return;
+  const file = input.files?.[0];
+  status.textContent = file ? `選択済み: ${CsvService.describeFile(file)}。${CSV_FILE_UI.ready}` : CSV_FILE_UI.empty;
+  status.dataset.selected = String(Boolean(file));
+  button.disabled = !file;
+}
+document.getElementById(CSV_FILE_UI.input)?.addEventListener('change', syncCsvFileSelection);
+document.getElementById(CSV_FILE_UI.input)?.addEventListener('cancel', syncCsvFileSelection);
+syncCsvFileSelection();
+
 btnImport.addEventListener('click', async () => {
   const office = selectedOfficeId(); if (!office) return;
   const file = csvFile.files && csvFile.files[0];

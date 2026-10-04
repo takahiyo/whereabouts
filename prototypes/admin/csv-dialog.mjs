@@ -13,29 +13,41 @@ export function openCsvDialog({ service, openDialog, closeDialog, getDraft, appl
   const dialog = document.querySelector('dialog[open]');
   const fileInput = dialog.querySelector('#csv-file'), encoding = dialog.querySelector('#csv-encoding');
   const result = dialog.querySelector('#csv-result'), applyButton = dialog.querySelector('#csv-apply');
+  // Native file入力の表示幅に左右されず、選択した名前と状態を別々に読み取れるようにする。
+  const selection = document.createElement('p'), phase = document.createElement('p');
+  selection.id = 'csv-selection'; selection.className = 'file-selection'; selection.textContent = 'ファイルが選択されていません。';
+  phase.id = 'csv-phase'; phase.className = 'hint'; phase.setAttribute('role', 'status');
+  fileInput.setAttribute('aria-describedby', selection.id);
+  dialog.querySelector('.csv-input').append(selection, phase);
   let generation = 0, preview = null;
 
   /** @returns {Promise<void>} 遅い旧ファイルの読込み結果を新しい選択へ適用しない */
   async function inspectFile() {
     const token = ++generation, file = fileInput.files[0];
     preview = null; applyButton.disabled = true;
-    if (!file) { result.innerHTML = '<p class="hint">ファイルを選択してください。</p>'; return; }
+    selection.textContent = file ? `選択済み: ${service.describeFile(file)}` : 'ファイルが選択されていません。';
+    selection.dataset.selected = String(Boolean(file));
+    if (!file) { phase.textContent = ''; result.innerHTML = '<p class="hint">ファイルを選択してください。</p>'; return; }
+    phase.textContent = '読込み・検証中です。まだ下書きには反映していません。';
     result.textContent = 'CSVを読み込み、検証しています…';
     try {
       const text = await decodeCsvFile(file, encoding.value);
       if (token !== generation || !fileInput.isConnected || !dialog.open) return;
       preview = csv.previewImport(text, getDraft());
       if (preview.errors.length) {
+        phase.textContent = '検証エラーがあります。ファイルを修正して選び直してください。';
         result.innerHTML = `<div class="form-error" role="alert"><h3>取込みできません</h3><ul class="change-list">${preview.errors.map(message => `<li>${escape(message)}</li>`).join('')}</ul></div>`;
         return;
       }
       const { summary, changes, warnings } = preview;
+      phase.textContent = changes.length ? '検証が完了しました。差分を確認して下書きへ反映してください。' : '検証が完了しました。現在の下書きからの変更はありません。';
       result.innerHTML = `<h3>検証完了 · ${summary.total}名 / ${summary.groups}グループ</h3><p>追加 ${summary.added}名 · 削除 ${summary.removed.length}名 · 差分 ${changes.length}件</p><p class="hint">CSVの在席・業務時間・戻り時間・明日の予定・備考も置換対象です。</p>${warnings.length ? `<ul class="change-list">${warnings.map(message => `<li>${escape(message)}</li>`).join('')}</ul>` : ''}${changes.length ? `<ul class="change-list">${changes.map(message => `<li>${escape(message)}</li>`).join('')}</ul>` : '<p>現在の下書きからの変更はありません。</p>'}${summary.removed.length ? `<div class="csv-deletions"><h3>削除対象</h3><ul class="change-list">${summary.removed.map(member => `<li>${escape(member.name)}（ID: ${escape(member.id)}）</li>`).join('')}</ul><label class="confirm-target"><input id="csv-delete-confirm" type="checkbox">CSVに含まれない${summary.removed.length}名を下書きから削除することを確認しました</label></div>` : ''}`;
       applyButton.disabled = !changes.length || Boolean(summary.removed.length);
       result.querySelector('#csv-delete-confirm')?.addEventListener('change', event => { applyButton.disabled = !event.target.checked || !changes.length; });
     } catch (error) {
       if (token !== generation || !fileInput.isConnected || !dialog.open) return;
       result.innerHTML = `<p class="form-error" role="alert">${escape(error.message)}</p>`;
+      phase.textContent = 'ファイルを読み込めませんでした。選択はされていますが、下書きには反映していません。';
     }
   }
 

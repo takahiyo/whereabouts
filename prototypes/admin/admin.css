@@ -4,7 +4,7 @@
 :root { color-scheme: light; --ink: #182c3c; --muted: #566877; --line: #d8e1e7; --accent: #126c62; --tint: #eaf5f1; --surface: #fff; --canvas: #f3f6f8; --radius: 12px; --touch: 44px; }
 * { box-sizing: border-box; }
 body { margin: 0; color: var(--ink); background: var(--canvas); font: 15px/1.6 system-ui, sans-serif; }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button, select { min-height: var(--touch); }
 button { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--surface); color: var(--ink); cursor: pointer; }
 button:hover:not(:disabled) { border-color: var(--accent); background: var(--tint); }
@@ -12,7 +12,21 @@ button:disabled { color: var(--muted); cursor: default; background: #edf1f4; }
 button.primary { background: var(--accent); color: white; border-color: var(--accent); }
 button.primary:hover { background: #0c564e; }
 button.danger { color: #a32424; }
-input, select { width: 100%; min-width: 0; border: 1px solid #95a8b6; border-radius: 8px; padding: 9px 10px; background: white; color: var(--ink); }
+input, select, textarea { width: 100%; min-width: 0; border: 1px solid #95a8b6; border-radius: 8px; padding: 9px 10px; background: white; color: var(--ink); }
+textarea { resize: vertical; }
+.resource-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 380px); gap: 16px; }
+.resource-grid .resource-detail { grid-column: auto; }
+.resource-row { padding: 10px 0; border-top: 1px solid var(--line); }
+.resource-row .member-info { width: 100%; }
+.resource-list .search-row { grid-template-columns: minmax(0, 1fr); }
+.resource-detail dd { white-space: pre-wrap; }
+@media (max-width: 1199px) { .resource-grid { grid-template-columns: 1fr; } }
+@media (max-width: 599px) {
+  .resource-grid { display: block; }
+  .resource-detail { display: none; }
+  .resource-grid[data-detail="true"] .resource-detail { display: block; }
+  .resource-grid[data-detail="true"] .resource-list { display: none; }
+}
 input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
 a { color: #126457; text-underline-offset: 4px; }
 :focus-visible { outline: 3px solid #a6510e; outline-offset: 3px; }
@@ -48,6 +62,8 @@ main { min-width: 0; padding: 28px; }
 .sample-options label { display: block; max-width: 340px; margin: 8px 0; }
 .csv-input { display: grid; gap: 14px; margin: 18px 0; }
 .csv-input label { display: grid; gap: 6px; }
+.file-selection { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; }
+.file-selection[data-selected="true"] { background: var(--tint); border-color: #97c6b9; }
 .csv-input input { max-width: 100%; }
 .csv-deletions { border-top: 1px solid var(--line); padding-top: 14px; }
 .confirm-target { display: flex; align-items: start; gap: 12px; padding: 10px 0; }

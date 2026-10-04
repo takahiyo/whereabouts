@@ -102,9 +102,10 @@
                 <h5>📤 在席確認表リスト インポート</h5>
                 <div class="admin-row">
                   <label for="csvFile" class="btn-pill btn-file-label">📁 ファイルを選択</label>
-                  <input type="file" id="csvFile" class="u-hidden-input" accept=".csv,text/csv" />
-                  <button id="btnImport" class="btn-pill">📤 取り込み</button>
+                  <input type="file" id="csvFile" class="u-hidden-input" accept=".csv,text/csv" aria-describedby="csvFileSelection" />
+                  <button id="btnImport" class="btn-pill" disabled>📤 取り込み</button>
                 </div>
+                <p id="csvFileSelection" class="csv-file-selection" data-selected="false" role="status" aria-live="polite">ファイルが選択されていません。</p>
               </div>
             </div>
 

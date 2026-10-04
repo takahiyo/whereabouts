@@ -7,11 +7,13 @@ import * as model from './model.mjs';
 import { createSample } from './samples.mjs';
 import { openCsvDialog } from './csv-dialog.mjs';
 import { escapeHtml as escape } from './view-utils.mjs';
+import { createWorkspaceView } from './workspace-view.mjs';
 
 const el = Object.fromEntries([...document.querySelectorAll('[id]')].map(node => [node.id, node]));
 let base = createSample('standard'), draft = model.copyRoster(base);
 const view = { section: UI.section, group: UI.all, search: '', selected: new Set(), member: null, form: null, detailVisible: false, order: UI.order.none };
 let dialogOpener = null;
+const resources = createWorkspaceView({ root: el['section-preview'], announce, onChange: renderSummary, openDialog: showDialog, closeDialog });
 
 /** @param {string} message 結果 @param {boolean} error エラーか @returns {void} */
 function announce(message, error = false) { el.status.textContent = message; el.status.dataset.error = String(error); }
@@ -52,7 +54,7 @@ function render() {
   el['section-description'].textContent = section.description;
   el.people.hidden = view.section !== UI.section;
   el['section-preview'].hidden = view.section === UI.section;
-  if (section.items) el['section-preview'].innerHTML = `<p class="hint">この領域は配置案のプレビューです。編集機能は後続段階で接続します。</p><div class="preview-grid">${section.items.map(item => `<article class="preview-card"><h2>${escape(item)}</h2><p>この場所から操作する計画です。</p></article>`).join('')}</div>`;
+  if (section.items && !resources.render(view.section)) el['section-preview'].innerHTML = `<p class="hint">この領域は配置案のプレビューです。編集機能は後続段階で接続します。</p><div class="preview-grid">${section.items.map(item => `<article class="preview-card"><h2>${escape(item)}</h2><p>この場所から操作する計画です。</p></article>`).join('')}</div>`;
   renderGroups(); renderMembers(); renderDetail(); renderSummary();
 }
 
@@ -98,8 +100,19 @@ function renderDetail() {
   el['detail-body'].innerHTML = `<div class="detail-heading"><h2>${escape(member.name)}</h2><button data-back>一覧へ</button></div><span class="pill">${escape(groupName(member.group))}</span><dl>${MEMBER_FIELDS.filter(field => field.key !== 'name').map(field => `<dt>${field.label}</dt><dd>${escape(member[field.key] || '未登録')}</dd>`).join('')}</dl><div class="form-actions"><button data-edit class="primary">編集・所属を変更</button><button data-delete-member class="danger">メンバーを削除</button></div>`;
 }
 
-/** @returns {void} 他領域からも名簿の未保存を認識できる保存バー。 */
+/** @returns {void} 現在の保存単位の差分と未反映入力を表示する。 */
 function renderSummary() {
+  const resource = ['content', 'tools'].includes(view.section);
+  el['save-bar'].hidden = view.section !== UI.section && !resource;
+  if (resource) {
+    const state = resources.summary();
+    el['draft-summary'].textContent = state.changes.length ? `${state.label}の未確定変更 · ${state.changes.length}件${state.dirty ? ' · 未反映の入力あり' : ''}` : state.dirty ? `${state.label}の入力はまだ下書きに反映されていません` : `${state.label}の未確定変更はありません`;
+    el['draft-hint'].textContent = `この${state.label}だけが確定対象です。実際の公開・保存は行いません。`;
+    el.review.disabled = el.discard.disabled = !state.changes.length && !state.dirty;
+    el.commit.disabled = !state.changes.length;
+    return;
+  }
+  el['draft-hint'].textContent = '実際の名簿には接続していません。';
   const changes = model.diffRoster(base, draft);
   el['draft-summary'].textContent = changes.length ? `名簿の未確定変更 · ${changes.length}件${formDirty() ? ' · 未反映の入力あり' : ''}` : formDirty() ? '入力中の内容はまだ下書きに反映されていません' : '名簿の未確定変更はありません';
   el.review.disabled = el.discard.disabled = !changes.length && !formDirty();
@@ -186,6 +199,7 @@ function showGroupOrder() {
 
 /** @returns {void} 最終差分を表示して、架空名簿だけをメモリ内で確定する。 */
 function review() {
+  if (['content', 'tools'].includes(view.section)) { resources.review(); return; }
   if (formDirty()) { announce('入力中の内容を「下書きに反映」するか、取り消してから変更を確認してください。', true); view.detailVisible = true; view.section = UI.section; render(); el['detail-body'].querySelector('input')?.focus(); return; }
   const changes = model.diffRoster(base, draft);
   showDialog('名簿の変更を確認', `<p>変更${changes.length}件。確定はこの画面内だけで行います。再読込みするとサンプルへ戻ります。</p><ul class="change-list">${changes.map(item => `<li>${escape(item)}</li>`).join('')}</ul><div class="dialog-actions">${cancelButton()}<button data-confirm-commit class="primary">試作内で確定</button></div>`);
@@ -268,11 +282,14 @@ el['detail-body'].addEventListener('click', event => {
 });
 el.review.addEventListener('click', review); el.commit.addEventListener('click', review);
 el.discard.addEventListener('click', () => {
+  if (['content', 'tools'].includes(view.section)) { resources.discard(); return; }
   if (!confirm('名簿の下書きと入力中の変更を破棄しますか？')) return;
   draft = model.copyRoster(base); view.form = null; view.member = null; view.group = UI.all; view.selected.clear(); view.order = UI.order.none; render(); announce('変更を破棄しました。');
 });
 el['action-dialog'].addEventListener('close', () => {
-  if (dialogOpener?.isConnected && !dialogOpener.disabled && dialogOpener.getClientRects().length) dialogOpener.focus(); else el['add-member'].focus();
+  if (dialogOpener?.isConnected && !dialogOpener.disabled && dialogOpener.getClientRects().length) dialogOpener.focus();
+  else if (!el.people.hidden) el['add-member'].focus();
+  else (el['section-preview'].querySelector('button') || el.menu).focus();
 });
 el['action-dialog'].addEventListener('click', event => {
   if (event.target.closest('[data-close]')) closeDialog();
@@ -309,6 +326,6 @@ el['action-dialog'].addEventListener('submit', event => {
   }
 });
 window.addEventListener('beforeunload', event => {
-  if (model.diffRoster(base, draft).length || formDirty()) { event.preventDefault(); event.returnValue = ''; }
+  if (model.diffRoster(base, draft).length || formDirty() || resources.hasPending()) { event.preventDefault(); event.returnValue = ''; }
 });
 render();

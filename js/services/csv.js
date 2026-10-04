@@ -14,6 +14,11 @@
         defaultStatus: '在席'
     });
 
+    /** @param {File} file 選択ファイル @returns {string} ファイル名と大きさ（選択表示用） */
+    function describeFile(file) {
+        return `${file.name}（${new Intl.NumberFormat('ja-JP').format(file.size)}バイト）`;
+    }
+
     /**
      * 文字列が計算式として評価されないようにエスケープ処理を行う
      * @param {string} s
@@ -113,6 +118,7 @@
     // グローバルに公開
     global.CsvService = {
         format,
+        describeFile,
         csvProtectFormula,
         toCsvRow,
         parseCSV,

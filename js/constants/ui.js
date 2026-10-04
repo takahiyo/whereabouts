@@ -26,6 +26,12 @@ const ROW_STATUS_CLASSES = Object.freeze([
   'st-off'        // 休み
 ]);
 
+/** 既存管理画面のCSV選択表示。保存/取込処理とは分けて扱う。 */
+const CSV_FILE_UI = Object.freeze({
+  input: 'csvFile', status: 'csvFileSelection', importButton: 'btnImport',
+  empty: 'ファイルが選択されていません。', ready: '「取り込み」を押すと読み込まれます。'
+});
+
 // STATUS_CLASS_MAPPING は削除済（使用されていないため）
 
 // ============================================
