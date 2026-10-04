@@ -1754,9 +1754,9 @@ header .status-filter {
   background-color: transparent;
   border: none;
   box-shadow: none;
-  width: calc(100% + 22px); /* body margin 16px*2 を相殺し、左右5pxずつ余白を確保 */
-  margin-left: -11px;
-  margin-right: -11px;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
   max-width: none !important;
   border-radius: 0; /* 端まで広げる場合は角丸を消す */
 }
@@ -1766,6 +1766,8 @@ header .status-filter {
 }
 
 .panel {
+  box-sizing: border-box;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--bg);
@@ -2333,11 +2335,11 @@ td.time.need-time select:focus~.time-hint {
   }
 }
 
-/* === JSによる強制適用時も同じスタイルを適用（メディアクエリ外でも有効に） === */
+/* [REF] JS: layout.jsのforce-cardsと--member-card-min; HTML: board.jsのpanel/table/tbody/tr;
+   STATE: カード表示; SPLIT: GROUP。グループ境界を保ち、メンバーだけを幅に応じて横並びにする。 */
 #board.force-cards {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   width: 100%;
 }
 #board.force-cards colgroup,
@@ -2349,7 +2351,10 @@ td.time.need-time select:focus~.time-hint {
   min-width: unset !important;
 }
 #board.force-cards tbody {
-  display: block;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--member-card-min)), 1fr));
+  gap: 12px;
+  align-items: start;
 }
 #board.force-cards tbody tr {
   display: flex !important;
@@ -2358,7 +2363,8 @@ td.time.need-time select:focus~.time-hint {
   border: 1px solid var(--line) !important;
   border-radius: 10px !important;
   padding: 10px !important;
-  margin: 10px 0 !important;
+  margin: 0 !important;
+  min-width: 0;
   background: #fff !important;
 }
 #board.force-cards tbody td {
@@ -2367,9 +2373,16 @@ td.time.need-time select:focus~.time-hint {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
-  flex: 1 1 48% !important;
+  flex: 1 1 100% !important;
   min-width: 140px !important;
   background: transparent !important;
+}
+/* 入力欄の固有幅でカードを押し広げず、ラベルの隣の残り幅を使う。 */
+#board.force-cards tbody td > input,
+#board.force-cards tbody td > select,
+#board.force-cards tbody td > .candidate-input {
+  min-width: 0;
+  flex: 1 1 0;
 }
 #board.force-cards tbody td::before {
   content: attr(data-label) !important;
@@ -9084,6 +9097,9 @@ const CSV_FILE_UI = Object.freeze({
 /** パネル最小幅（px） */
 const PANEL_MIN_PX = 760;
 
+/** カード1枚の目安幅。表の拠点設定とは独立した、端末内だけの表示寸法。 */
+const MEMBER_CARD_MIN_PX = 380;
+
 /** パネル間ギャップ（px） */
 const GAP_PX = 20;
 
@@ -12000,7 +12016,7 @@ window.qrcode = qrcode;
  *
  * グリッドレイアウトのカラム数計算とリサイズ監視を管理する。
  *
- * 依存: js/constants/ui.js (PANEL_MIN_PX, GAP_PX, MAX_COLS)
+ * 依存: js/constants/ui.js (PANEL_MIN_PX, MEMBER_CARD_MIN_PX, GAP_PX, MAX_COLS)
  * 参照元: js/board.js
  *
  * @see MODULE_GUIDE.md
@@ -12063,11 +12079,6 @@ function updateCols(){
   // カラム数を先に計算
   let n = Math.floor((w + GAP_PX) / (boardWidth + GAP_PX));
 
-  // ユーザー要望: 800px〜1400pxの間は強制的に1列
-  if (w >= 800 && w <= 1400) {
-    n = 1;
-  }
-
   if (n < 1) n = 1;
   if (n > MAX_COLS) n = MAX_COLS;
 
@@ -12092,6 +12103,8 @@ function updateCols(){
   // CSS変数の更新
   board.style.setProperty('--table-min-width', `${tableMin}px`);
   board.style.setProperty('--board-width', `${boardWidth}px`);
+  // 表が1段になる幅でも、カードはグループ内で利用可能な幅に応じて並べる。
+  board.style.setProperty('--member-card-min', `${MEMBER_CARD_MIN_PX}px`);
 
   // カード表示への強制切り替え判定
   if (isForceCards) {
@@ -12462,7 +12475,7 @@ function getEnabledColumns() {
 }
 
 /**
- * 現在の拠点設定に基づき、カード表示（1列表示）時のカラム順序を返す。
+ * 現在の拠点設定に基づき、カード内のカラム順序を返す。
  * 設定がない場合はボード表示の順序(getEnabledColumns)をデフォルトとする。
  * @returns {string[]}
  */

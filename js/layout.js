@@ -3,7 +3,7 @@
  *
  * グリッドレイアウトのカラム数計算とリサイズ監視を管理する。
  *
- * 依存: js/constants/ui.js (PANEL_MIN_PX, GAP_PX, MAX_COLS)
+ * 依存: js/constants/ui.js (PANEL_MIN_PX, MEMBER_CARD_MIN_PX, GAP_PX, MAX_COLS)
  * 参照元: js/board.js
  *
  * @see MODULE_GUIDE.md
@@ -66,11 +66,6 @@ function updateCols(){
   // カラム数を先に計算
   let n = Math.floor((w + GAP_PX) / (boardWidth + GAP_PX));
 
-  // ユーザー要望: 800px〜1400pxの間は強制的に1列
-  if (w >= 800 && w <= 1400) {
-    n = 1;
-  }
-
   if (n < 1) n = 1;
   if (n > MAX_COLS) n = MAX_COLS;
 
@@ -95,6 +90,8 @@ function updateCols(){
   // CSS変数の更新
   board.style.setProperty('--table-min-width', `${tableMin}px`);
   board.style.setProperty('--board-width', `${boardWidth}px`);
+  // 表が1段になる幅でも、カードはグループ内で利用可能な幅に応じて並べる。
+  board.style.setProperty('--member-card-min', `${MEMBER_CARD_MIN_PX}px`);
 
   // カード表示への強制切り替え判定
   if (isForceCards) {

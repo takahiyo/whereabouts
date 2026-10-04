@@ -258,7 +258,7 @@ function getEnabledColumns() {
 }
 
 /**
- * 現在の拠点設定に基づき、カード表示（1列表示）時のカラム順序を返す。
+ * 現在の拠点設定に基づき、カード内のカラム順序を返す。
  * 設定がない場合はボード表示の順序(getEnabledColumns)をデフォルトとする。
  * @returns {string[]}
  */

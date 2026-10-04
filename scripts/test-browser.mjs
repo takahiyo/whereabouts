@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { runAdminPrototypeChecks } from '../tests/admin-prototype.browser.mjs';
+import { runBoardLayoutChecks } from '../tests/board-layout.browser.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const server = http.createServer((request, response) => {
@@ -110,6 +111,7 @@ try {
     console.log(`Browser checks passed at ${width}px: startup, manual tabs, dialog Tab/Escape/restore, nesting, no write requests.`);
     await page.close();
   }
+  await runBoardLayoutChecks(browser, `http://127.0.0.1:${server.address().port}`);
   await runAdminPrototypeChecks(browser, `http://127.0.0.1:${server.address().port}`);
 } finally {
   if (browser) await browser.close();

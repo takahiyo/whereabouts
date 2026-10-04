@@ -40,6 +40,9 @@ const CSV_FILE_UI = Object.freeze({
 /** パネル最小幅（px） */
 const PANEL_MIN_PX = 760;
 
+/** カード1枚の目安幅。表の拠点設定とは独立した、端末内だけの表示寸法。 */
+const MEMBER_CARD_MIN_PX = 380;
+
 /** パネル間ギャップ（px） */
 const GAP_PX = 20;
 

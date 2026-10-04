@@ -1,0 +1,73 @@
+/** 実在席表の半画面/タブレット/スマホ配置を架空データと通信モックで確認する。 */
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+/** @param {object} browser ブラウザ @param {string} origin 静的サーバー @returns {Promise<void>} */
+export async function runBoardLayoutChecks(browser, origin) {
+  const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+  const errors = [], actions = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (url.origin === origin) {
+      if (url.pathname.endsWith('/firebase-auth.js')) return route.fulfill({ contentType: 'text/javascript', body: 'window.watchAuthState = callback => { callback(null); return () => {}; };' });
+      return route.continue();
+    }
+    const body = route.request().postData();
+    if (body) { const payload = JSON.parse(body); actions.push((payload.data || payload).action); }
+    return route.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ ok: true, offices: [], tools: [] }) });
+  });
+  await page.goto(`${origin}/?office=fixture`);
+  await page.waitForLoadState('networkidle');
+  await page.evaluate(() => {
+    document.getElementById('login').classList.add('u-hidden');
+    const columns = ['name', 'workHours', 'time', 'status', 'note', 'tomorrowPlan'];
+    OFFICE_COLUMN_CONFIG = { board: columns, card: columns, popup: [], columnWidths: {}, layoutConfig: {} };
+    STATUSES = [{ value: '在席' }, { value: '帰宅' }];
+    MENUS = { tomorrowPlanOptions: ['午前外出'], timeStepMinutes: 30 };
+    GROUPS = [8, 3].map((size, group) => ({ name: `確認グループ${group + 1}`, members: Array.from({ length: size }, (_, index) => ({
+      id: `fixture-${group}-${index}`, name: index ? `確認メンバー${index + 1}` : '長い氏名と所属情報を含む表示確認メンバー',
+      workHours: '09:00-17:30', status: '在席', time: '', tomorrowPlan: '午前外出', note: '長い備考の表示確認'
+    })) }));
+    render();
+    // inputイベントや保存を起こさず、リサイズで入力DOMが消えないことを確認する。
+    document.querySelector('#row-fixture-0-0 [name="note"]').value = '未保存の表示確認';
+  });
+  const screenshots = process.env.BOARD_SCREENSHOTS;
+  if (screenshots) await fs.mkdir(screenshots, { recursive: true });
+  for (const width of [320, 360, 390, 600, 768, 820, 960, 1024, 1280, 1400, 1536, 1540, 1920, 2560, 3440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForFunction(() => lastW === getContainerWidth());
+    const result = await page.evaluate(() => {
+      const panel = board.querySelector('.panel'), body = panel.querySelector('tbody');
+      const rows = [...body.querySelectorAll('tr')].map(row => row.getBoundingClientRect());
+      const controlsFit = [...board.querySelectorAll('input, select')].filter(input => input.getClientRects().length).every(input => {
+        const field = input.getBoundingClientRect(), row = input.closest('tr').getBoundingClientRect();
+        return field.width >= 60 && field.right <= row.right + 1;
+      });
+      return { cards: board.classList.contains('force-cards'), columns: new Set(rows.filter(row => Math.abs(row.top - rows[0].top) < 2).map(row => Math.round(row.left))).size,
+        overflow: document.documentElement.scrollWidth > innerWidth, controlsFit, panels: board.querySelectorAll('.panel').length };
+    });
+    assert.equal(result.overflow, false, `Page overflow at ${width}`);
+    assert.equal(result.controlsFit, true, `Unusable field at ${width}`);
+    assert.equal(result.panels, 2);
+    if (width <= 768) assert.equal(result.columns, 1, `Narrow layout at ${width}`);
+    if ([820, 960, 1024].includes(width)) assert.equal(result.columns, 2, `Half-window cards at ${width}`);
+    if ([1280, 1400, 1536, 1540].includes(width)) assert.equal(result.columns, 3, `Wide cards at ${width}`);
+    if (width >= 1920) assert.equal(result.cards, false, `Table layout at ${width}`);
+    assert.equal(await page.locator('#row-fixture-0-0 [name="note"]').inputValue(), '未保存の表示確認');
+    if (screenshots && [390, 820, 960, 1280, 1920].includes(width)) await page.screenshot({ path: path.join(screenshots, `board-${width}.png`), fullPage: true });
+  }
+  // 拠点の既存しきい値を維持し、広い幅でカード設定でも横並びにする。
+  await page.evaluate(() => { OFFICE_COLUMN_CONFIG.layoutConfig = { panelMinWidth: 400, cardBreakpoint: 2000 }; updateCols(); });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.waitForFunction(() => lastW === getContainerWidth());
+  assert.equal(await page.locator('#board').evaluate(node => node.classList.contains('force-cards')), true);
+  await page.evaluate(() => { OFFICE_COLUMN_CONFIG.layoutConfig.cardBreakpoint = 700; updateCols(); });
+  assert.equal(await page.locator('#board').getAttribute('data-cols'), '3', 'Old 800–1400px forced column is removed');
+  assert.deepEqual(errors, []);
+  assert(actions.every(action => ['publicListOffices', 'getTools'].includes(action)), 'No shared writes');
+  console.log('Board layout checks passed at 15 widths: 1/2/3 card columns, table layout, input retention, existing configuration and no write requests.');
+  await page.close();
+}
