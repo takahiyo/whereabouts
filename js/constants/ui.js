@@ -123,3 +123,14 @@ const TITLE_SEPARATOR = "　";
 
 /** ツールリンクに許可するscheme。保存済みデータは変更せず表示時に検証する。 */
 const TOOL_LINK_PROTOCOLS = Object.freeze(['http:', 'https:', 'mailto:', 'tel:']);
+
+/** 閲覧用dialogのfocus対象と閉じる操作。編集dialogは未保存制御を別途設計する。 */
+const READ_ONLY_DIALOGS = Object.freeze([
+  { id: 'qrModal', closeId: 'qrModalClose' },
+  { id: 'toolsModal', closeId: 'toolsModalClose' },
+  { id: 'manualModal', closeId: 'manualClose' }
+]);
+/** Tab移動の対象。実際の可視性・disabled状態はdialog内で追加検証する。 */
+const DIALOG_FOCUSABLE_SELECTOR = 'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]';
+/** マニュアルの既存タブ構造。主ナビ刷新とは独立した操作復旧。 */
+const MANUAL_UI = Object.freeze({ tabButtons: '.manual-tab-btn' });

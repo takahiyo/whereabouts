@@ -99,5 +99,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       toolsModalEl.style.display = 'none';
     });
   }
+
+  /** @param {boolean} show 表示するか @returns {void} 通信せず組込みマニュアルを開閉する */
+  function setManualVisibility(show) {
+    if (manualModal) manualModal.classList.toggle('show', show);
+  }
+  // 既存HTMLに残っていたマニュアル入口・タブを接続する。
+  if (manualBtn) manualBtn.addEventListener('click', () => setManualVisibility(true));
+  if (manualClose) manualClose.addEventListener('click', () => setManualVisibility(false));
+  if (manualModal) {
+    manualModal.addEventListener('click', event => {
+      if (event.target === manualModal) setManualVisibility(false);
+    });
+    const tabs = [...manualModal.querySelectorAll(MANUAL_UI.tabButtons)];
+    const sections = { user: manualUser, admin: manualAdmin };
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+      const selected = tab.dataset.tab;
+      if (!sections[selected]) return;
+      tabs.forEach(button => button.classList.toggle('active', button === tab));
+      Object.entries(sections).forEach(([key, section]) => {
+        if (section) section.classList.toggle('active', key === selected);
+      });
+    }));
+  }
 });
 

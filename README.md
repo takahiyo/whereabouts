@@ -5,9 +5,11 @@
 - [コードレビュー・整理記録（2026-10-04）](docs/CODE_REVIEW_2026-10-04.md)
 - [改善案と開発計画](docs/DEVELOPMENT_PLAN.md)
 - [GUI刷新・端末適応計画](docs/GUI_REDESIGN_PLAN.md)
+- [API・権限・ステータスの現行契約](docs/API_CONTRACT.md)
+- [先行開発の進捗と検証](docs/DEVELOPMENT_PROGRESS.md)
 - [現行アーキテクチャと共有D1仕様](docs/SYSTEM_ARCHITECTURE.md)
 
-`whereabouts/` がアプリのリポジトリルートです。静的ファイルはこの直下にあります。`npm run check` で外部通信なしの構文・参照検証、`npm run context` でLLM向け資料を再生成します。
+`whereabouts/` がアプリのリポジトリルートです。静的ファイルはこの直下にあります。`npm run check` で外部通信なしの構文・参照検証、`npm run context` でLLM向け資料を再生成します。`npm test` は実DBなしの回帰試験、`npm run test:browser` は外部通信を差し替えた閲覧UIのブラウザ試験です（インストール済みブラウザを使用）。
 
 ## 🤖 AI Development Guidelines (AI開発者向けガイドライン)
 

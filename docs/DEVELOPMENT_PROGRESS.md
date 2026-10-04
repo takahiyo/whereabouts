@@ -1,0 +1,34 @@
+# 先行開発の進捗
+
+更新: 2026-10-04。ブランチ: dev。本番・開発でD1を共有する仕様を維持。
+
+## 今回の実装
+
+| 対象ID | 実装・記録 | 残条件 |
+|---|---|---|
+| M05 | config.jsによるホスト9ケースの回帰試験 | ハッシュpreviewの接続先、実運用ホスト、明示設定 |
+| M02 | Worker匿名fixture/読取専用モックで認証境界・読取障害、既存CSV/URL試験 | Firebase署名、名簿保存、競合、Cron、実環境 |
+| M01/A04/F01 | [API・権限・ステータス契約](API_CONTRACT.md)をソースから整理 | 正式schema・上限・権限回帰・業務上の未確定事項 |
+| M07 | DEBUG資料6件の履歴表示、現行仕様へのリンク | マニュアル全本文の照合 |
+| U06 | QR・ツール・マニュアルの初期focus、Tab/Shift+Tab循環、Escape、復帰 | 管理/メンバー/行事など編集dialogとpointerの外側focus制御 |
+| 既存不具合 | マニュアル入口・閉じる・タブのイベント処理を復旧 | 詳細なマニュアル本文の鮮度確認 |
+
+UIの保存・更新payload、Worker、schema.sql、wrangler.toml、Cron、本番workflowは変更しない。dialog補助は既存の閉じるボタンを経由し、未保存のある管理/行事編集を対象にしない。幅別のGUI刷新はP3計画のまま。
+
+## 検証
+
+- npm run check: HTMLの26 script参照、classic script宣言衝突、module/Worker/SW構文を検証。
+- npm test: 22件成功、失敗0。既知未修正のFirebase署名/名簿原子性/baseRevはTODO 3件として表示し、成功件数に含めない。
+- Worker fixtureのrun/batchは例外にし、予期しないDB書込みを禁止。DB読取障害は意図的なエラーログとJSONエラー応答を確認する。
+- npm run test:browser: インストール済みEdge、1280/360px。起動、拠点補完、閲覧dialog3種、タブ、開き直し、QR/toolsの入れ子、focus復帰を確認。
+- ブラウザの外部リクエストはすべて固定応答へ差し替える。認証はスタブ、未ログインfixtureではloginを非表示にして閲覧入口のみ表示する。ログイン済み実運用試験とは区別する。
+- 実Firebase/共有D1/KVへのアクセスと書込みはしない。実機iPad/iPhone Safari、ExcelのCSV評価は未実施。
+
+## 次の実行単位
+
+1. U02/M07: 画面・印刷・マニュアルの用語と操作説明を照合し、現行挙動から外れた説明を修正。
+2. U03/U13: 保存/同期/通信失敗/空状態を明確化。表示の改善と再送・API仕様の変更を分ける。
+3. U06/U07: 編集dialogの閉じ方・未保存確認を調べてfocus制御を広げ、contrastと色以外の表示を検証。
+4. 条件付き先行: 認証署名検証等のローカル設計・試験準備。共有データに作用する実装反映は後段判断。
+
+GUI-01/02の幅別fixtureと操作プロトタイプは上記より低優先。mainへの影響がある作業は[開発計画](DEVELOPMENT_PLAN.md)の後段で扱う。

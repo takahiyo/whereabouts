@@ -28,6 +28,7 @@ const files = [
   "js/utils.js",
   "js/services/qr-generator.js",
   "js/services/csv.js",
+  "js/services/dialog-focus.js",
   "js/layout.js",
   "js/filters.js",
   "js/board.js",
