@@ -10,9 +10,9 @@
  * @see SSOT_GUIDE.md
  */
 
-// 環境判定: 'dev.' で始まるサブドメイン、localhost、または IP 指定の場合は開発環境 (dev worker) を使用
+// 環境判定: 'dev.' で始まるサブドメイン、localhost、または 127.0.0.1 の場合は開発環境 (dev worker) を使用
 const hostname = window.location.hostname;
-const isDev = hostname.startsWith('dev.') || hostname.includes('localhost') || hostname === '127.0.0.1';
+const isDev = hostname.startsWith('dev.') || hostname === 'localhost' || hostname === '127.0.0.1';
 
 var CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
@@ -25,8 +25,8 @@ var CONFIG = {
 
     remotePollMs: 30000,       // 30秒 (D1負荷を考慮したバランス設定)
     nightPollMs: 3600000,      // 夜間時: 1時間 (60分 * 60秒 * 1000)
-    configPollMs: 300000,      // 30秒 -> 5分へ変更
-    eventSyncIntervalMs: 10 * 60 * 1000, // 5分 -> 10分へ変更
+    configPollMs: 300000,      // 設定は5分間隔で確認
+    eventSyncIntervalMs: 10 * 60 * 1000, // 行事は10分間隔で確認
     tokenDefaultTtl: 3600000,
     // 同期自己修復パラメータ（既定値は js/constants/timing.js）。
     // 変更窓口は SSOT_GUIDE.md の『同期自己修復パラメータ一覧』に一本化すること。

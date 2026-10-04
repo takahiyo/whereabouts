@@ -200,7 +200,6 @@ export default {
       }
 
       /* --- Common Auth Logic --- */
-      /* --- Common Auth Logic --- */
       let authContext = null; 
       const providedToken = getParam('token');
       
@@ -1101,18 +1100,6 @@ export default {
             ? payload.data
             : (payload && typeof payload === 'object' ? payload : {});
 
-          // デバッグログ
-          console.log(`[Set Debug] dataParam type: ${typeof dataParam}, payload.data exists: ${!!payload.data}, updates type: ${typeof updates}`);
-          if (updates && typeof updates === 'object') {
-            console.log(`[Set Debug] updates keys: ${Object.keys(updates).join(', ')}, count: ${Object.keys(updates).length}`);
-          }
-
-          const updatesType = Array.isArray(updates) ? 'array' : typeof updates;
-          const updatesCount = Array.isArray(updates)
-            ? updates.length
-            : (updates && typeof updates === 'object' ? Object.keys(updates).length : 0);
-          console.log(`[Set Updates] action=${action}, officeId=${officeId}, updatesType=${updatesType}, updatesCount=${updatesCount}`);
-
           const entries = updates && typeof updates === 'object' && !Array.isArray(updates)
             ? Object.entries(updates)
             : null;
@@ -1217,7 +1204,6 @@ export default {
         }
         // dataパラメータを取得（オブジェクトまたはJSON文字列の両方に対応）
         const dataRaw = getParamRaw('data');
-        console.log(`[setConfigFor] dataRaw type: ${typeof dataRaw}, isString: ${typeof dataRaw === 'string'}`);
         if (!dataRaw) {
           return new Response(JSON.stringify({ ok: false, error: 'no data' }), { headers: corsHeaders });
         }
@@ -1349,7 +1335,7 @@ export default {
       } // end handleAction
     } catch (e) {
       console.error('[Worker Request Fatal Error]', e);
-      // [AFTER] 常に JSON を返し、フロントエンドでの SyntaxError (JSON.parse 失敗) を防ぐ
+      // 常に JSON を返し、フロントエンドでの SyntaxError (JSON.parse 失敗) を防ぐ
       return new Response(JSON.stringify({ 
         ok: false, 
         error: 'fatal_worker_error',

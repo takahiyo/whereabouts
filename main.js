@@ -24,20 +24,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ログイン状態確認
   // js/auth.js で定義された checkLogin を呼び出す
   if (typeof checkLogin === 'function') {
-    console.log('【DEBUG】main.js: checkLogin 開始');
     await checkLogin();
-    console.log('【DEBUG】main.js: checkLogin 完了');
   } else {
     console.error("checkLogin function not found");
   }
 
   // お知らせボタンのイベントハンドラ
-  // （本来は notices.js などに移動すべきだが、main.js に残っていたので維持）
   const noticesBtn = document.getElementById('noticesBtn');
   if (noticesBtn) {
     noticesBtn.addEventListener('click', () => {
-      // [BEFORE] noticesArea.style.display = noticesArea.style.display === 'none' ? 'block' : 'none';
-      // [AFTER] notices.js の toggleNoticesArea を呼び出す（collapsed クラスのトグル）
       if (typeof toggleNoticesArea === 'function') {
         toggleNoticesArea();
       }
@@ -49,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
-  /* === ▼ 追加箇所: イベントボタンの処理 ▼ === */
+  /* イベントモーダル */
   const eventBtn = document.querySelector('header .event-btn');
   const eventModal = document.getElementById('eventModal');
   // モーダル内の閉じるボタン（ID指定またはクラス指定）
@@ -81,7 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  /* === ▼ 追加箇所: ツールボタンの処理 ▼ === */
+  /* ツールモーダル */
   const toolsBtnEl = document.getElementById('toolsBtn');
   const toolsModalEl = document.getElementById('toolsModal');
   const toolsModalCloseEl = document.getElementById('toolsModalClose');
@@ -104,6 +99,5 @@ document.addEventListener('DOMContentLoaded', async () => {
       toolsModalEl.style.display = 'none';
     });
   }
-  /* === ▲ 追加箇所ここまで ▲ === */
 });
 

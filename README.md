@@ -1,5 +1,13 @@
 # 在席確認表 (Whereabouts Board)
 
+## 最新のレビューと開発計画
+
+- [コードレビュー・整理記録（2026-10-04）](docs/CODE_REVIEW_2026-10-04.md)
+- [改善案と開発計画](docs/DEVELOPMENT_PLAN.md)
+- [現行アーキテクチャと共有D1仕様](docs/SYSTEM_ARCHITECTURE.md)
+
+`whereabouts/` がアプリのリポジトリルートです。静的ファイルはこの直下にあります。`npm run check` で外部通信なしの構文・参照検証、`npm run context` でLLM向け資料を再生成します。
+
 ## 🤖 AI Development Guidelines (AI開発者向けガイドライン)
 
 **本プロジェクトは AI Vibe Coding によって開発・運用されます。以下のアーキテクチャおよび制約を厳守してください。**
@@ -30,34 +38,24 @@
 * **理由**: 認証・キャッシュ・書き込み制御をWorkerに集約し、通信経路を単純化するため。
 
 ### 2. 認証 (Auth)
-* **認証基盤**: Workers 側のID/パスワード検証
-* **セッション**: クライアントはWorkerの応答を保存して利用
+* **認証基盤**: 拠点共有パスワードのWorker検証と管理者向けFirebase Authentication
+* **セッション**: クライアントはWorker署名トークンまたはFirebase IDトークンを保存して利用。検証上の既知課題はコードレビューを参照
 
 ---
 
 ## プロジェクト構成
 
 
-```
-
+```text
 .
-├── webapp/                      # フロントエンド (Cloudflare Pagesデプロイ対象)
-│   ├── index.html               # メインHTML（タイトル・CSP設定含む）
-│   ├── js/config.js             # 環境設定（認証モード・Workerエンドポイント）
-│   ├── main.js                  # アプリケーション起動処理
-│   ├── styles.css               # スタイル定義
-│   └── js/
-│       ├── globals.js           # グローバル変数
-│       ├── sync.js              # データ同期（ハイブリッド通信ロジック）
-│       ├── auth.js              # 認証処理
-│       └── ... (その他jsファイル)
-├── CloudflareWorkers_worker.js  # Worker エントリ（wrangler.toml の main）
-├── wrangler.toml                # Workers / D1 / KV 設定
-├── docs/                        # ドキュメント集
-│   ├── USER_MANUAL.md           # ユーザー向け詳細マニュアル
-│   └── ADMIN_MANUAL.md          # 管理者向け詳細マニュアル
-└── README.md                    # 本ドキュメント
-
+├── index.html / main.js          # フロントエンドの入口
+├── styles.css / print-list.css   # 画面・印刷
+├── js/                          # 機能・設定・定数
+├── CloudflareWorkers_worker.js  # Workers API / Cron
+├── schema.sql / wrangler.toml   # DBスキーマ・環境設定
+├── scripts/                     # 検証・資料生成
+├── docs/                        # マニュアル・レビュー・開発計画
+└── archive/                     # 退役資産（現行仕様の参照対象外）
 ```
 
 ---
@@ -74,17 +72,17 @@
 
 #### 環境変数 (Secrets) の設定
 
-必要に応じて Cloudflare ダッシュボード側で Worker の環境変数を設定します。
+Worker署名セッション用の `SESSION_SECRET` を本番・開発それぞれのSecretとして設定します。現行コードの固定フォールバックは既知の問題です。共有D1は仕様のため、開発Workerへの書き込みも共有データに反映されます。
 
 #### KVキャッシュの設定
 
 `action === "get"` のレスポンスをKVにキャッシュするため、KVネームスペースを作成して `wrangler.toml` の `kv_namespaces` にIDを設定します。
 
 ```bash
-npx wrangler kv:namespace create STATUS_CACHE
+npx wrangler kv namespace create STATUS_CACHE
 ```
 
-`wrangler.toml` の `STATUS_CACHE_TTL_SEC` と `STATUS_CACHE_WARM_ON_WRITE` でキャッシュのTTLと書き込み時のウォームアップを制御します。
+`wrangler.toml` の `STATUS_CACHE_TTL_SEC` で設定・在席キャッシュのTTLを制御します（現在604800秒）。ツール・お知らせ・行事はWorker内で別TTLを使用します。
 
 #### デプロイ（Wrangler CLI・本リポジトリの正）
 
@@ -169,7 +167,7 @@ curl -X POST https://whereabouts.taka-hiyo.workers.dev \
 
 Workerのエンドポイントと認証モードを設定します。
 
-**ファイル**: `webapp/js/config.js`
+**ファイル**: `js/config.js`
 
 ```javascript
 const CONFIG = {

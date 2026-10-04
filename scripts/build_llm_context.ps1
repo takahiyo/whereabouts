@@ -11,6 +11,7 @@ $files = @(
   "schema.sql",
   "CloudflareWorkers_worker.js",
   "sw.js",
+  "js/auth-guard.js",
   "js/config.js",
   "js/constants/storage.js",
   "js/constants/timing.js",
@@ -73,7 +74,7 @@ foreach ($rel in $files) {
   [void]$sb.Append("### $rel`n`n")
   [void]$sb.Append('```' + $lang + "`n")
   [void]$sb.Append($body)
-  [void]$sb.Append("`n```n`n")
+  [void]$sb.Append("`n" + '```' + "`n`n")
 }
 
 $outPath = Join-Path $root "LLM_CONTEXT.md"

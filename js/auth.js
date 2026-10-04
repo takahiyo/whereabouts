@@ -31,9 +31,6 @@ let isBooting = true;
 // Constants for session local cache (using global keys from storage.js)
 // window.PERSISTENT_SESSION_KEY and window.D1_SESSION_LOCK_KEY are available globally.
 
-// Updated: 2026-04-17 (V7.1 Global Consistency Fix)
-console.log('【DEBUG】js/auth.js Loaded (Version: v7.1)');
-
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
  */

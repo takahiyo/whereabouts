@@ -14,7 +14,7 @@ let CURRENT_TOOLS = [];
 let CURRENT_TOOLS_WARNINGS = [];
 let toolsPollTimer = null;
 let toolsPollOfficeId = '';
-const TOOLS_POLL_INTERVAL = 300 * 1000; // 1分 -> 5分に変更
+const TOOLS_POLL_INTERVAL = 300 * 1000; // ツールは5分間隔で確認
 
 function coerceToolArray(raw) {
   if (raw == null) return [];
@@ -188,10 +188,37 @@ function filterVisibleTools(list) {
     .filter(Boolean);
 }
 
+/**
+ * 保存済みURLを表示用に検証する。危険なschemeはリンク化しない。
+ * @param {string} raw URL文字列（相対URLも既存仕様として許可）
+ * @returns {string} 許可された絶対URL、または空文字
+ */
+function safeToolUrl(raw) {
+  if (!raw) return '';
+  try {
+    const url = new URL(String(raw).trim(), document.baseURI);
+    return TOOL_LINK_PROTOCOLS.includes(url.protocol) ? url.href : '';
+  } catch (_) { return ''; }
+}
+
+/**
+ * 備考の本文をHTMLエスケープし、HTTP(S) URL部分だけリンクにする。
+ * @param {string} text 備考本文
+ * @returns {string} 安全な表示用HTML
+ */
 function linkifyToolText(text) {
   if (!text) return '';
+  text = String(text);
   const urlRegex = /(https?:\/\/[^\s]+)/gi;
-  return text.replace(urlRegex, url => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`);
+  let result = '', offset = 0;
+  for (const match of text.matchAll(urlRegex)) {
+    result += escapeHtml(text.slice(offset, match.index));
+    const url = safeToolUrl(match[0]);
+    const label = escapeHtml(match[0]);
+    result += url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label;
+    offset = match.index + match[0].length;
+  }
+  return result + escapeHtml(text.slice(offset));
 }
 
 function renderToolItems(list, container, depth) {
@@ -206,11 +233,12 @@ function renderToolItems(list, container, depth) {
 
     const titleRow = document.createElement('div');
     titleRow.className = 'tools-item-title';
-    const hasUrl = !!tool.url;
+    const safeUrl = safeToolUrl(tool.url);
+    const hasUrl = !!safeUrl;
     const titleEl = document.createElement(hasUrl ? 'a' : 'span');
     titleEl.textContent = tool.title || (hasUrl ? tool.url : 'ツール');
     if (hasUrl) {
-      titleEl.href = tool.url;
+      titleEl.href = safeUrl;
       titleEl.target = '_blank';
       titleEl.rel = 'noopener noreferrer';
     }

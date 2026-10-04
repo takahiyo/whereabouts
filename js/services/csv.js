@@ -15,7 +15,7 @@
     function csvProtectFormula(s) {
         if (s == null) return '';
         const v = String(s);
-        return (/^[=\+\-@\t]/.test(v)) ? "'" + v : v;
+        return (/^[\t\r\n]|^\s*[=+\-@]/.test(v)) ? "'" + v : v;
     }
 
     /**
@@ -27,7 +27,7 @@
     function toCsvRow(arr) {
         return arr.map(v => {
             const s = csvProtectFormula(v);
-            return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+            return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
         }).join(',');
     }
 
@@ -37,6 +37,8 @@
      * @returns {Array<Array<string>>}
      */
     function parseCSV(text) {
+        // UTF-8 BOMは先頭のセルに混入させない。
+        text = text.replace(/^\uFEFF/, '');
         const out = []; let i = 0, row = [], field = '', inq = false;
         function pushField() { row.push(field); field = ''; }
         function pushRow() { out.push(row); row = []; }
@@ -50,13 +52,13 @@
                 if (c === ',') { pushField(); }
                 else if (c == '"') { inq = true; }
                 else if (c == '\n') { pushField(); pushRow(); }
-                else if (c == '\r') { }
+                // CR単独も行区切りとして扱い、CRLFは一度だけ改行する。
+                else if (c == '\r') { pushField(); pushRow(); if (text[i] === '\n') i++; }
                 else field += c;
             }
         }
-        const endsWithComma = text.length > 0 && text[text.length - 1] === ',';
-        if (field !== '' || endsWithComma) pushField();
-        if (row.length) pushRow();
+        // 最終行は空の引用フィールドや末尾の空列も保持する。
+        if (text.length && !/[\r\n]$/.test(text)) { pushField(); pushRow(); }
         return out;
     }
 

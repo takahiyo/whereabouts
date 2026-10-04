@@ -117,6 +117,9 @@ const ID_RE = /^[0-9A-Za-z_-]+$/;
 // UI 文言 (SSOT)
 // ============================================
 /** ヘッダータイトルの接尾辞 */
-const TITLE_SUFFIX = "在籍確認表";
+const TITLE_SUFFIX = "在席確認表";
 /** ヘッダータイトルの区切り文字 */
 const TITLE_SEPARATOR = "　";
+
+/** ツールリンクに許可するscheme。保存済みデータは変更せず表示時に検証する。 */
+const TOOL_LINK_PROTOCOLS = Object.freeze(['http:', 'https:', 'mailto:', 'tel:']);

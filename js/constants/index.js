@@ -1,21 +1,9 @@
 /**
- * js/constants/index.js - 定数バレルファイル (SSOT)
+ * js/constants/index.js - 定数ファイルの案内（実行コードなし）
  *
- * 本ファイルはすべての定数モジュールを再エクスポートする。
- * 利用側は `import { ... } from './constants/index.js'` で一括インポート可能。
- *
- * 構成:
- * - storage.js: ストレージ関連キー
- * - dom.js: DOM ID・セレクタ
- * - timing.js: タイミング関連定数
- * - ui.js: UI関連定数（ステータス、カラー等）
- *
- * @see SSOT_GUIDE.md
+ * 定数はES Modulesではなく、index.htmlのclassic scriptから順に読み込む。
+ * このファイルからのimport/exportは提供していない。
+ * storage.js: 保存キー、timing.js: 時間、ui.js: UI、defaults.js: 既定値、
+ * column-definitions.js: 列定義、messages.js: 表示メッセージ。
+ * 読み込み順の正はindex.html。参照元: LLM_CONTEXT生成スクリプト。
  */
-
-// 各定数モジュールを読み込み順に列挙
-// ※ ES Modules未使用のため、HTML側でscriptタグ順に読み込む
-// ※ 将来的にES Modules化する際はここで export * from を使用
-
-// 現在はグローバルスコープで動作するため、このファイルは
-// ドキュメント用のインデックスとして機能する

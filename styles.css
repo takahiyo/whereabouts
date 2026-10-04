@@ -5225,3 +5225,16 @@ td.time.need-time select:focus~.time-hint {
 .u-font-09em { font-size: 0.9em !important; }
 .u-link-blue { color: var(--color-blue-600); text-decoration: underline; cursor: pointer; }
 
+
+/* [REF] HTML/JS生成の入力・リンク・ボタン。画面用のfocusのみ補強し印刷には適用しない。 */
+@media screen {
+  :root {
+    --keyboard-focus-width: 3px;
+    --keyboard-focus-offset: 2px;
+    --keyboard-focus-color: #1d4ed8;
+  }
+  :where(button, a[href], input, select, textarea, [tabindex]):focus-visible {
+    outline: var(--keyboard-focus-width) solid var(--keyboard-focus-color);
+    outline-offset: var(--keyboard-focus-offset);
+  }
+}

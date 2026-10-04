@@ -15,6 +15,7 @@ const files = [
   "schema.sql",
   "CloudflareWorkers_worker.js",
   "sw.js",
+  "js/auth-guard.js",
   "js/config.js",
   "js/constants/storage.js",
   "js/constants/timing.js",

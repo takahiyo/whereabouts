@@ -35,6 +35,7 @@
 - `schema.sql`
 - `CloudflareWorkers_worker.js`
 - `sw.js`
+- `js/auth-guard.js`
 - `js/config.js`
 - `js/constants/storage.js`
 - `js/constants/timing.js`
@@ -77,7 +78,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>在籍確認表</title>
+  <title>在席確認表</title>
 
   <!-- 強めのキャッシュ抑止（HTMLに効く） -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -106,7 +107,7 @@
   <header>
     <div class="title-wrap">
       <button id="titleBtn" class="title-btn" aria-haspopup="true" aria-expanded="false"
-        aria-controls="groupMenu">在籍確認表</button>
+        aria-controls="groupMenu">在席確認表</button>
       <div id="groupMenu" class="grp-menu" role="menu" aria-labelledby="titleBtn">
         <h4 id="groupMenuTitle">グループにジャンプ</h4>
         <ul id="groupMenuList"></ul>
@@ -119,9 +120,9 @@
     <button id="noticesBtn" class="notices-btn" title="お知らせ">お知らせ</button>
     <button id="eventBtn" class="event-btn" title="イベント">📅 イベント</button>
     <button id="toolsBtn" class="tools-btn" title="ツール">🛠️ ツール</button>
-    <button id="logoutBtn" class="logout-btn" title="ログオフ">ログオフ</button>
+    <button id="logoutBtn" class="logout-btn" title="ログアウト">ログアウト</button>
     <button id="manualBtn" class="manual-btn" title="マニュアル">マニュアル</button>
-    <button id="qrBtn" class="qr-btn" title="QRcode">📱 QRcode</button>
+    <button id="qrBtn" class="qr-btn" title="共有QRコード">📱 共有QRコード</button>
   </header>
 
   <!-- 管理モーダル -->
@@ -284,6 +285,9 @@
         <div id="tabGroups" class="tab-panel" data-tab="groups">
           <div class="admin-toolbar">
             <h4>📁 グループ操作</h4>
+            <div class="admin-toolbar-actions">
+              <button id="btnGroupSave" class="btn-pill">💾 変更を保存</button>
+            </div>
           </div>
 
           <div class="admin-box">
@@ -727,7 +731,7 @@
               <li>🎯 <strong>ステータス絞り込み</strong>：「外出中の人だけ」など、条件で絞り込めます</li>
               <li>📢 <strong>お知らせ</strong>：お知らせがある場合に表示。クリックで折りたたみ/展開を切り替えます</li>
               <li>⚙️ <strong>管理</strong>：管理者のみ表示されます</li>
-              <li>🚪 <strong>ログオフ</strong>：ログアウトします</li>
+              <li>🚪 <strong>ログアウト</strong>：ログアウトします</li>
               <li>📖 <strong>マニュアル</strong>：このマニュアルを表示します</li>
             </ul>
           </li>
@@ -6654,6 +6658,19 @@ td.time.need-time select:focus~.time-hint {
 .u-link-blue { color: var(--color-blue-600); text-decoration: underline; cursor: pointer; }
 
 
+/* [REF] HTML/JS生成の入力・リンク・ボタン。画面用のfocusのみ補強し印刷には適用しない。 */
+@media screen {
+  :root {
+    --keyboard-focus-width: 3px;
+    --keyboard-focus-offset: 2px;
+    --keyboard-focus-color: #1d4ed8;
+  }
+  :where(button, a[href], input, select, textarea, [tabindex]):focus-visible {
+    outline: var(--keyboard-focus-width) solid var(--keyboard-focus-color);
+    outline-offset: var(--keyboard-focus-offset);
+  }
+}
+
 ```
 
 ### print-list.css
@@ -7205,7 +7222,6 @@ export default {
         }
       }
 
-      /* --- Common Auth Logic --- */
       /* --- Common Auth Logic --- */
       let authContext = null; 
       const providedToken = getParam('token');
@@ -8107,18 +8123,6 @@ export default {
             ? payload.data
             : (payload && typeof payload === 'object' ? payload : {});
 
-          // デバッグログ
-          console.log(`[Set Debug] dataParam type: ${typeof dataParam}, payload.data exists: ${!!payload.data}, updates type: ${typeof updates}`);
-          if (updates && typeof updates === 'object') {
-            console.log(`[Set Debug] updates keys: ${Object.keys(updates).join(', ')}, count: ${Object.keys(updates).length}`);
-          }
-
-          const updatesType = Array.isArray(updates) ? 'array' : typeof updates;
-          const updatesCount = Array.isArray(updates)
-            ? updates.length
-            : (updates && typeof updates === 'object' ? Object.keys(updates).length : 0);
-          console.log(`[Set Updates] action=${action}, officeId=${officeId}, updatesType=${updatesType}, updatesCount=${updatesCount}`);
-
           const entries = updates && typeof updates === 'object' && !Array.isArray(updates)
             ? Object.entries(updates)
             : null;
@@ -8223,7 +8227,6 @@ export default {
         }
         // dataパラメータを取得（オブジェクトまたはJSON文字列の両方に対応）
         const dataRaw = getParamRaw('data');
-        console.log(`[setConfigFor] dataRaw type: ${typeof dataRaw}, isString: ${typeof dataRaw === 'string'}`);
         if (!dataRaw) {
           return new Response(JSON.stringify({ ok: false, error: 'no data' }), { headers: corsHeaders });
         }
@@ -8267,8 +8270,8 @@ export default {
           });
         });
 
-        // 削除
-        statements.push(env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(officeId));
+        // 削除（Batchから分離し、単独で明示的に実行させてD1のバッチ空回りバグを回避）
+        await env.DB.prepare('DELETE FROM members WHERE office_id = ?').bind(officeId).run();
 
         // 挿入（グループを跨いだ通し番号 global_idx を display_order に使用）
         let global_idx = 0;
@@ -8304,7 +8307,9 @@ export default {
           }
         }
 
-        await env.DB.batch(statements);
+        if (statements.length > 0) {
+          await env.DB.batch(statements);
+        }
 
         // キャッシュクリア
         if (statusCache) {
@@ -8353,7 +8358,7 @@ export default {
       } // end handleAction
     } catch (e) {
       console.error('[Worker Request Fatal Error]', e);
-      // [AFTER] 常に JSON を返し、フロントエンドでの SyntaxError (JSON.parse 失敗) を防ぐ
+      // 常に JSON を返し、フロントエンドでの SyntaxError (JSON.parse 失敗) を防ぐ
       return new Response(JSON.stringify({ 
         ok: false, 
         error: 'fatal_worker_error',
@@ -8625,6 +8630,40 @@ self.addEventListener('fetch', (e) => {
 
 ```
 
+### js/auth-guard.js
+
+```javascript
+/**
+ * js/auth-guard.js - 初期化直後のチラつき防止ガード
+ *
+ * 起動直後に D1 セッションロックを確認し、UI の初期状態を決定する。
+ * Firebase の非同期通知（watchAuthState）より先に実行される必要がある。
+ * index.html の <head> 内で非モジュール（同期）スクリプトとして読み込むこと。
+ */
+(function() {
+  /**
+   * セッショントークン保存キー (js/constants/storage.js の SESSION_KEY と同期)
+   * ※モジュール外のため直接定数は参照できないのでハードコードが必要だが、
+   *   SSOTを維持するためコメントで紐付けを行う。
+   */
+  const SESSION_KEY = "SESSION_TOKEN";
+  const D1_SESSION_LOCK_KEY = 'whereabouts_auth_type';
+
+  const authType = sessionStorage.getItem(D1_SESSION_LOCK_KEY);
+  const sessionToken = localStorage.getItem(SESSION_KEY);
+
+  if (authType === 'd1' && sessionToken) {
+    document.documentElement.classList.add('is-d1-authed');
+    // CSSで #login を非表示にするスタイルを即注入
+    const style = document.createElement('style');
+    style.id = 'flicker-prevention-style';
+    style.textContent = '.is-d1-authed #login { display: none !important; }';
+    document.head.appendChild(style);
+  }
+})();
+
+```
+
 ### js/config.js
 
 ```javascript
@@ -8640,9 +8679,9 @@ self.addEventListener('fetch', (e) => {
  * @see SSOT_GUIDE.md
  */
 
-// 環境判定: 'dev.' で始まるサブドメイン、localhost、または IP 指定の場合は開発環境 (dev worker) を使用
+// 環境判定: 'dev.' で始まるサブドメイン、localhost、または 127.0.0.1 の場合は開発環境 (dev worker) を使用
 const hostname = window.location.hostname;
-const isDev = hostname.startsWith('dev.') || hostname.includes('localhost') || hostname === '127.0.0.1';
+const isDev = hostname.startsWith('dev.') || hostname === 'localhost' || hostname === '127.0.0.1';
 
 var CONFIG = {
     // 認証/同期のモード設定（D1移行後は worker を使用）
@@ -8655,8 +8694,8 @@ var CONFIG = {
 
     remotePollMs: 30000,       // 30秒 (D1負荷を考慮したバランス設定)
     nightPollMs: 3600000,      // 夜間時: 1時間 (60分 * 60秒 * 1000)
-    configPollMs: 300000,      // 30秒 -> 5分へ変更
-    eventSyncIntervalMs: 10 * 60 * 1000, // 5分 -> 10分へ変更
+    configPollMs: 300000,      // 設定は5分間隔で確認
+    eventSyncIntervalMs: 10 * 60 * 1000, // 行事は10分間隔で確認
     tokenDefaultTtl: 3600000,
     // 同期自己修復パラメータ（既定値は js/constants/timing.js）。
     // 変更窓口は SSOT_GUIDE.md の『同期自己修復パラメータ一覧』に一本化すること。
@@ -9101,9 +9140,12 @@ const ID_RE = /^[0-9A-Za-z_-]+$/;
 // UI 文言 (SSOT)
 // ============================================
 /** ヘッダータイトルの接尾辞 */
-const TITLE_SUFFIX = "在籍確認表";
+const TITLE_SUFFIX = "在席確認表";
 /** ヘッダータイトルの区切り文字 */
 const TITLE_SEPARATOR = "　";
+
+/** ツールリンクに許可するscheme。保存済みデータは変更せず表示時に検証する。 */
+const TOOL_LINK_PROTOCOLS = Object.freeze(['http:', 'https:', 'mailto:', 'tel:']);
 
 ```
 
@@ -9386,26 +9428,14 @@ const AUTH_MESSAGES = Object.freeze({
 
 ```javascript
 /**
- * js/constants/index.js - 定数バレルファイル (SSOT)
+ * js/constants/index.js - 定数ファイルの案内（実行コードなし）
  *
- * 本ファイルはすべての定数モジュールを再エクスポートする。
- * 利用側は `import { ... } from './constants/index.js'` で一括インポート可能。
- *
- * 構成:
- * - storage.js: ストレージ関連キー
- * - dom.js: DOM ID・セレクタ
- * - timing.js: タイミング関連定数
- * - ui.js: UI関連定数（ステータス、カラー等）
- *
- * @see SSOT_GUIDE.md
+ * 定数はES Modulesではなく、index.htmlのclassic scriptから順に読み込む。
+ * このファイルからのimport/exportは提供していない。
+ * storage.js: 保存キー、timing.js: 時間、ui.js: UI、defaults.js: 既定値、
+ * column-definitions.js: 列定義、messages.js: 表示メッセージ。
+ * 読み込み順の正はindex.html。参照元: LLM_CONTEXT生成スクリプト。
  */
-
-// 各定数モジュールを読み込み順に列挙
-// ※ ES Modules未使用のため、HTML側でscriptタグ順に読み込む
-// ※ 将来的にES Modules化する際はここで export * from を使用
-
-// 現在はグローバルスコープで動作するため、このファイルは
-// ドキュメント用のインデックスとして機能する
 
 ```
 
@@ -11719,7 +11749,7 @@ window.qrcode = qrcode;
     function csvProtectFormula(s) {
         if (s == null) return '';
         const v = String(s);
-        return (/^[=\+\-@\t]/.test(v)) ? "'" + v : v;
+        return (/^[\t\r\n]|^\s*[=+\-@]/.test(v)) ? "'" + v : v;
     }
 
     /**
@@ -11731,7 +11761,7 @@ window.qrcode = qrcode;
     function toCsvRow(arr) {
         return arr.map(v => {
             const s = csvProtectFormula(v);
-            return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+            return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
         }).join(',');
     }
 
@@ -11741,6 +11771,8 @@ window.qrcode = qrcode;
      * @returns {Array<Array<string>>}
      */
     function parseCSV(text) {
+        // UTF-8 BOMは先頭のセルに混入させない。
+        text = text.replace(/^\uFEFF/, '');
         const out = []; let i = 0, row = [], field = '', inq = false;
         function pushField() { row.push(field); field = ''; }
         function pushRow() { out.push(row); row = []; }
@@ -11754,13 +11786,13 @@ window.qrcode = qrcode;
                 if (c === ',') { pushField(); }
                 else if (c == '"') { inq = true; }
                 else if (c == '\n') { pushField(); pushRow(); }
-                else if (c == '\r') { }
+                // CR単独も行区切りとして扱い、CRLFは一度だけ改行する。
+                else if (c == '\r') { pushField(); pushRow(); if (text[i] === '\n') i++; }
                 else field += c;
             }
         }
-        const endsWithComma = text.length > 0 && text[text.length - 1] === ',';
-        if (field !== '' || endsWithComma) pushField();
-        if (row.length) pushRow();
+        // 最終行は空の引用フィールドや末尾の空列も保持する。
+        if (text.length && !/[\r\n]$/.test(text)) { pushField(); pushRow(); }
         return out;
     }
 
@@ -12577,7 +12609,9 @@ function render() {
     // 修正箇所: ボードの表示をここで確実にする（早期リターンの前に行う）
     board.classList.remove('u-hidden');
 
-    if (!GROUPS || GROUPS.length === 0) {
+    const totalMembersCount = (GROUPS || []).reduce((sum, g) => sum + (Array.isArray(g.members) ? g.members.length : 0), 0);
+
+    if (!GROUPS || GROUPS.length === 0 || totalMembersCount === 0) {
       const isAdmin = (typeof CURRENT_ROLE !== 'undefined' && (CURRENT_ROLE === 'owner' || CURRENT_ROLE === 'officeAdmin' || CURRENT_ROLE === 'superAdmin'));
       const msg = isAdmin 
         ? '表示するメンバーがいません。右上の「管理」ボタン（または管理パネル）からメンバーを登録してください。'
@@ -12592,6 +12626,9 @@ function render() {
       return;
     }
     GROUPS.forEach((g, i) => {
+      // メンバーが0人の場合は枠を描画しない
+      if (!Array.isArray(g.members) || g.members.length === 0) return;
+
       try {
         frag.appendChild(buildPanel(g, i, enabledKeys, cardKeys));
       } catch (e) {
@@ -14199,11 +14236,6 @@ async function refreshPublicOfficeSelect(selectedId){
   if(loginBtn) loginBtn.disabled=false;
   if(loginMsg) loginMsg.textContent='';
 
-  // 開発モード（isDev=true）の場合、あるいは管理用フォールバック
-  if (typeof isDev !== 'undefined' && isDev) {
-    console.log("【DEBUG】開発モード: 手入力ログインが有効です");
-  }
-
   // 自動または引数で渡されたIDがあればセット
   if(selectedId && officeSel) {
     officeSel.value=selectedId;
@@ -14389,9 +14421,6 @@ const btnSimpleLogin = document.getElementById('btnSimpleLogin');
 let isBooting = true;
 // Constants for session local cache (using global keys from storage.js)
 // window.PERSISTENT_SESSION_KEY and window.D1_SESSION_LOCK_KEY are available globally.
-
-// Updated: 2026-04-17 (V7.1 Global Consistency Fix)
-console.log('【DEBUG】js/auth.js Loaded (Version: v7.1)');
 
 /**
  * ハイブリッド認証（Firebase/D1）の管理クラス
@@ -14950,9 +14979,7 @@ window.checkLogin = () => window.AuthManager.init({ remoteEndpoint: window.CONFI
 ```javascript
 /**
  * js/sync.js - データ同期・通信ロジック
- * Updated: 2026-04-17T13:41:00Z
  */
-console.log('【DEBUG】js/sync.js Loaded (Version: v20260417_v7)');
 
 /* ===== メニュー・正規化・通信・同期 ===== */
 /* DEFAULT_BUSINESS_HOURS は constants/defaults.js で定義 */
@@ -15918,6 +15945,7 @@ function applyState(data) {
 const groupOrderList = document.getElementById('groupOrderList');
 const groupOrderEmpty = document.getElementById('groupOrderEmpty');
 const btnColumnSave = document.getElementById('btnColumnSave');
+const btnGroupSave = document.getElementById('btnGroupSave');
 
 /**
  * 管理モーダルを開く
@@ -15927,10 +15955,8 @@ function openAdminModal() {
   adminModal.classList.add('show');
   adminModal.style.display = 'flex';
   
-  // 初期データの読み込み
-  if (!adminMembersLoaded) {
-    loadAdminMembers(true);
-  }
+  // 初期データの読み込み (常に最新を取得)
+  loadAdminMembers(true);
   
   // 必要に応じてお知らせなどの自動読み込み
   if (typeof autoLoadNoticesOnAdminOpen === 'function') {
@@ -16215,6 +16241,8 @@ if (adminModal) {
     btn.addEventListener('click', async () => {
       const targetTab = btn.dataset.tab;
 
+      const currentTab = Array.from(adminTabButtons).find(b => b.classList.contains('active'))?.dataset.tab;
+
       adminTabButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
@@ -16233,8 +16261,6 @@ if (adminModal) {
       if (panel) {
         panel.classList.add('active');
         resetPanelScroll(panel);
-
-        // ★デバッグログ: タブ切り替え直後
       }
 
       if (targetTab === 'notices') {
@@ -16247,11 +16273,14 @@ if (adminModal) {
           await loadAutoClearSettings(office);
         }
       } else if (targetTab === 'groups') {
-        if (!adminMembersLoaded) { await loadAdminMembers(); }
-        else { renderGroupOrderList(); }
+        // グループとメンバー間は相互にデータを引き継ぐが、他タブからの移動時はリロードして未保存を破棄
+        const force = (currentTab !== 'groups' && currentTab !== 'members');
+        await loadAdminMembers(force);
+        renderGroupOrderList();
       } else if (targetTab === 'members') {
-        if (!adminMembersLoaded) { await loadAdminMembers(); }
-        else { renderMemberTable(); }
+        const force = (currentTab !== 'groups' && currentTab !== 'members');
+        await loadAdminMembers(force);
+        renderMemberTable();
       } else if (targetTab === 'events') {
         refreshVacationOfficeOptions();
         const officeId = (vacationOfficeSelect?.value) || adminSelectedOfficeId || CURRENT_OFFICE_ID || '';
@@ -16261,7 +16290,7 @@ if (adminModal) {
         refreshVacationNoticeOptions();
         await loadVacationsList();
       } else if (targetTab === 'tools') {
-        await loadAdminTools();
+        await loadAdminTools(true); // 常に最新を取得
       } else if (targetTab === 'columns') {
         await loadColumnConfig();
       } else if (targetTab === 'offices') {
@@ -16287,6 +16316,7 @@ let adminToolsLoaded = false, adminToolsOfficeId = '';
 let adminColumnAllKeys = [], adminColumnUiState = {}, adminCustomColumnsState = [], adminColumnLcPrefix = 'adminColumnLc_';
 
 if (btnMemberSave) { btnMemberSave.addEventListener('click', () => handleMemberSave()); }
+if (btnGroupSave) { btnGroupSave.addEventListener('click', () => handleMemberSave()); }
 if (btnColumnSave) { btnColumnSave.addEventListener('click', () => saveColumnConfig()); }
 if (btnAddOffice) { btnAddOffice.addEventListener('click', () => addOffice()); }
   if (memberEditForm) {
@@ -16929,7 +16959,9 @@ function buildMemberSavePayload() {
   const groups = [];
   groupOrder.forEach(gName => {
     const mems = grouped.get(gName) || [];
-    // if (!mems.length) return; // 空グループも保持する
+    // ▼変更点: メンバーが0人のグループは含めない (枠だけが残る不具合防止)
+    if (!mems.length) return;
+
     mems.sort((a, b) => (a.order || 0) - (b.order || 0));
 
     // ★修正: render()で正しく表示されるよう、現在のステータス情報(STATE_CACHE優先)を含める
@@ -19039,7 +19071,7 @@ let CURRENT_TOOLS = [];
 let CURRENT_TOOLS_WARNINGS = [];
 let toolsPollTimer = null;
 let toolsPollOfficeId = '';
-const TOOLS_POLL_INTERVAL = 300 * 1000; // 1分 -> 5分に変更
+const TOOLS_POLL_INTERVAL = 300 * 1000; // ツールは5分間隔で確認
 
 function coerceToolArray(raw) {
   if (raw == null) return [];
@@ -19065,6 +19097,20 @@ function coerceToolVisibleFlag(raw) {
   if (raw === false) return false;
   const s = String(raw).trim().toLowerCase();
   return !(s === 'false' || s === '0' || s === 'off' || s === 'no' || s === 'hide');
+}
+
+function normalizeToolUrlValue(raw) {
+  const url = String(raw || '').trim();
+  if (!url) return '';
+  // 既にスキームがある URL（https:, mailto:, tel: 等）はそのまま使う。
+  if (/^[a-z][a-z\d+\-.]*:/i.test(url)) return url;
+  if (url.startsWith('//')) return `https:${url}`;
+  // アプリ内リンクは相対 URL として残す。
+  if (url.startsWith('/') || url.startsWith('#') || url.startsWith('./') || url.startsWith('../')) return url;
+  // 管理画面で「egpass.hatolog.jp」のようにスキームなしで入力された外部URLは、
+  // ブラウザが現在の Pages/GitHub URL 配下の相対パスとして解釈しないよう https:// を補う。
+  if (/^[\w.-]+\.[a-z]{2,}(?:[/?#:].*)?$/i.test(url)) return `https://${url}`;
+  return url;
 }
 
 function ensureUniqueToolId(ctx, preferred) {
@@ -19096,7 +19142,7 @@ function normalizeToolItem(raw, ctx, parentId) {
   const visible = coerceToolVisibleFlag(raw.visible ?? raw.display ?? raw.show ?? true);
   const parentSrc = raw.parentId != null ? String(raw.parentId) : '';
   const titleStr = String(titleSrc || '').trim();
-  const urlStr = String(urlSrc || '').trim();
+  const urlStr = normalizeToolUrlValue(urlSrc);
   const noteStr = String(noteSrc || '').trim();
   const parent = parentSrc.trim() || parentId || '';
   const node = {
@@ -19199,10 +19245,37 @@ function filterVisibleTools(list) {
     .filter(Boolean);
 }
 
+/**
+ * 保存済みURLを表示用に検証する。危険なschemeはリンク化しない。
+ * @param {string} raw URL文字列（相対URLも既存仕様として許可）
+ * @returns {string} 許可された絶対URL、または空文字
+ */
+function safeToolUrl(raw) {
+  if (!raw) return '';
+  try {
+    const url = new URL(String(raw).trim(), document.baseURI);
+    return TOOL_LINK_PROTOCOLS.includes(url.protocol) ? url.href : '';
+  } catch (_) { return ''; }
+}
+
+/**
+ * 備考の本文をHTMLエスケープし、HTTP(S) URL部分だけリンクにする。
+ * @param {string} text 備考本文
+ * @returns {string} 安全な表示用HTML
+ */
 function linkifyToolText(text) {
   if (!text) return '';
+  text = String(text);
   const urlRegex = /(https?:\/\/[^\s]+)/gi;
-  return text.replace(urlRegex, url => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`);
+  let result = '', offset = 0;
+  for (const match of text.matchAll(urlRegex)) {
+    result += escapeHtml(text.slice(offset, match.index));
+    const url = safeToolUrl(match[0]);
+    const label = escapeHtml(match[0]);
+    result += url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>` : label;
+    offset = match.index + match[0].length;
+  }
+  return result + escapeHtml(text.slice(offset));
 }
 
 function renderToolItems(list, container, depth) {
@@ -19217,11 +19290,12 @@ function renderToolItems(list, container, depth) {
 
     const titleRow = document.createElement('div');
     titleRow.className = 'tools-item-title';
-    const hasUrl = !!tool.url;
+    const safeUrl = safeToolUrl(tool.url);
+    const hasUrl = !!safeUrl;
     const titleEl = document.createElement(hasUrl ? 'a' : 'span');
     titleEl.textContent = tool.title || (hasUrl ? tool.url : 'ツール');
     if (hasUrl) {
-      titleEl.href = tool.url;
+      titleEl.href = safeUrl;
       titleEl.target = '_blank';
       titleEl.rel = 'noopener noreferrer';
     }
@@ -19396,6 +19470,7 @@ window.saveTools = saveTools;
 window.normalizeTools = normalizeTools;
 window.normalizeToolsWithMeta = normalizeToolsWithMeta;
 window.coerceToolVisibleFlag = coerceToolVisibleFlag;
+window.normalizeToolUrlValue = normalizeToolUrlValue;
 window.startToolsPolling = startToolsPolling;
 window.stopToolsPolling = stopToolsPolling;
 
@@ -19889,20 +19964,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ログイン状態確認
   // js/auth.js で定義された checkLogin を呼び出す
   if (typeof checkLogin === 'function') {
-    console.log('【DEBUG】main.js: checkLogin 開始');
     await checkLogin();
-    console.log('【DEBUG】main.js: checkLogin 完了');
   } else {
     console.error("checkLogin function not found");
   }
 
   // お知らせボタンのイベントハンドラ
-  // （本来は notices.js などに移動すべきだが、main.js に残っていたので維持）
   const noticesBtn = document.getElementById('noticesBtn');
   if (noticesBtn) {
     noticesBtn.addEventListener('click', () => {
-      // [BEFORE] noticesArea.style.display = noticesArea.style.display === 'none' ? 'block' : 'none';
-      // [AFTER] notices.js の toggleNoticesArea を呼び出す（collapsed クラスのトグル）
       if (typeof toggleNoticesArea === 'function') {
         toggleNoticesArea();
       }
@@ -19914,7 +19984,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
-  /* === ▼ 追加箇所: イベントボタンの処理 ▼ === */
+  /* イベントモーダル */
   const eventBtn = document.querySelector('header .event-btn');
   const eventModal = document.getElementById('eventModal');
   // モーダル内の閉じるボタン（ID指定またはクラス指定）
@@ -19946,7 +20016,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  /* === ▼ 追加箇所: ツールボタンの処理 ▼ === */
+  /* ツールモーダル */
   const toolsBtnEl = document.getElementById('toolsBtn');
   const toolsModalEl = document.getElementById('toolsModal');
   const toolsModalCloseEl = document.getElementById('toolsModalClose');
@@ -19969,7 +20039,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       toolsModalEl.style.display = 'none';
     });
   }
-  /* === ▲ 追加箇所ここまで ▲ === */
 });
 
 
@@ -19979,16 +20048,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 ```json
 {
-  "name": "whereabouts-migration",
+  "name": "whereabouts",
   "version": "1.0.0",
-  "description": "Migration scripts for Whereabouts",
-  "main": "migrate.js",
+  "description": "Whereabouts board on Cloudflare Pages, Workers and D1",
   "scripts": {
-    "migrate": "node migrate.js"
+    "check": "node scripts/check-source.mjs",
+    "context": "node scripts/build_llm_context.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@playwright/test": "^1.58.2"
-  }
+  },
+  "private": true
 }
 
 ```

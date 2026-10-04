@@ -19,11 +19,6 @@ async function refreshPublicOfficeSelect(selectedId){
   if(loginBtn) loginBtn.disabled=false;
   if(loginMsg) loginMsg.textContent='';
 
-  // 開発モード（isDev=true）の場合、あるいは管理用フォールバック
-  if (typeof isDev !== 'undefined' && isDev) {
-    console.log("【DEBUG】開発モード: 手入力ログインが有効です");
-  }
-
   // 自動または引数で渡されたIDがあればセット
   if(selectedId && officeSel) {
     officeSel.value=selectedId;

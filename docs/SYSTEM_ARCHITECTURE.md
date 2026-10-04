@@ -1,164 +1,57 @@
-# システムアーキテクチャ・環境分離仕様書
+# システムアーキテクチャ
 
-## 1. 概要
+最終確認: 2026-10-04。リポジトリの実装・設定に基づく。本番の実リソースは未照合。
 
-本システム「在席ボード（Whereabouts）」は、Cloudflare Workers をバックエンド（BFF: Backend For Frontend）、Cloudflare Workers KV をキャッシュ層、Cloudflare D1 を永続データベースとして構成されています。
+## 構成と仕様
 
-開発の安全性と効率性を高めるため、GitHub のブランチ戦略と連携し、**本番環境（Production）** と **開発環境（Development）** が完全に分離された状態で稼働しています。
+Whereaboutsは、拠点内の在席状況、戻り時間、連絡先、明日の予定を共有するWebアプリ。名簿・列設定、休暇・行事、お知らせ、外部リンク集、CSV入出力、印刷、共有QRを備える。
 
----
-
-## 2. システム構成図
-
-以下の図は、GitHub でのコード管理からデプロイ、そして稼働時のデータフローを示しています。
+- フロント: ルートの `index.html`、`main.js`、`js/`、`styles.css`、`print-list.css`。Cloudflare Pages配信を想定。
+- API: `CloudflareWorkers_worker.js`。D1への読み書きはWorker経由。
+- DB: Cloudflare D1。**本番・開発で同一DBを共有することは仕様**（2026-10-04にユーザー確認）。
+- キャッシュ: Workers KV。本番・開発で別namespace。
+- 認証: 拠点共有パスワードによるWorker署名セッションと、管理者向けFirebase Authenticationの併用。
+- 初期化: `auth-guard.js`はhead内で同期実行。他のclassic scriptはHTML記載順のdefer。Firebase連携のみES module。
+- Service Workerは新規登録しない。`sw.js`は旧配信資産として残存し、既存ブラウザへの影響確認後に退役を判断する。
 
 ```mermaid
-graph TD
-    subgraph GitHub [GitHub Repository]
-        MainBranch[main branch]
-        DevBranch[Dev_D1 branch]
-        Action[GitHub Actions<br/>deploy-dev.yml]
-    end
-
-    subgraph CF [Cloudflare Platform]
-        subgraph Prod [本番環境 Production]
-            ProdWorker[Worker: whereabouts<br/>Main]
-            ProdKV[(KV: STATUS_CACHE<br/>本番用ID)]
-        end
-        
-        subgraph Dev [開発環境 Development]
-            DevWorker[Worker: whereabouts-dev<br/>Dev]
-            DevKV[(KV: STATUS_CACHE<br/>開発用ID)]
-        end
-    end
-
-    subgraph DB [Cloudflare D1]
-        D1[(D1 DB<br/>whereabouts-db)]
-    end
-
-    %% Deployment Flows
-    MainBranch -->|Cloudflare連携 / 手動| ProdWorker
-    DevBranch -->|Push Trigger| Action
-    Action -->|wrangler deploy --env dev| DevWorker
-    
-    %% Data Flows
-    ProdWorker <-->|Read/Write| ProdKV
-    DevWorker <-->|Read/Write| DevKV
-    
-    ProdWorker <-->|SQL/Prepared<br/>Statements| D1
-    DevWorker <-->|SQL/Prepared<br/>Statements| D1
+flowchart LR
+  Browser[ブラウザ / Pages] --> Prod[本番Worker]
+  Browser --> Dev[開発Worker]
+  Browser --> Auth[Firebase Authentication]
+  Prod --> D1[(共有D1)]
+  Dev --> D1
+  Prod --> PKV[(本番KV)]
+  Dev --> DKV[(開発KV)]
 ```
 
----
+## 環境とデプロイ
 
-## 3. 環境分離の定義
+| 項目 | 本番 | 開発 |
+|---|---|---|
+| Worker | whereabouts | whereabouts-dev |
+| GitHub Actions | deploy-main.yml: main | deploy-dev.yml: dev / Dev_D1 |
+| D1 | whereabouts-db（共有） | whereabouts-db（共有） |
+| KV | 本番namespace | 開発namespace |
+| Cron | 毎時 | 毎時 |
+| 設定・在席キャッシュTTL | 604800秒 | 604800秒 |
 
-`wrangler.toml` および GitHub Actions の設定に基づき、各環境のリソースは以下のように定義されています。
+`js/config.js`はホスト名でWorkerを選択する。`dev.`で始まるホスト、`localhost`を含むホスト、`127.0.0.1`は開発Worker。それ以外は本番Worker。ブランチ名による判定ではなく、PagesプレビューURLでは本番側になる場合がある。
 
-| 項目 | 本番環境 (Production) | 開発環境 (Development) |
-|------|----------------------|------------------------|
-| **GitHubブランチ** | `main` | `Dev_D1` |
-| **Cloudflare Worker名** | `whereabouts` | `whereabouts-dev` |
-| **アクセスURL** | `https://whereabouts...` | `https://whereabouts-dev...` |
-| **KV Namespace** | 本番用 (`cc4d...`) | 開発用 (`695b...`) |
-| **デプロイ契機** | Cloudflare Git連携 / 手動 | GitHub Actions (push) |
-| **接続データベース** | `whereabouts-db` | `whereabouts-db` (共有*) |
+KVの分離はD1の変更を隔離しない。開発側の書き込みは共有データを変更し、本番KVに古い値が残る可能性がある。これは共有仕様に対する運用・整合性設計の課題であり、DB分離は今回の計画に含めない。
 
-> **(*) データベースの共有について**  
-> D1 のデータベースインスタンスは共有していますが、KV（キャッシュ）が完全に分離されているため、開発中のデータ構造変更などが本番環境の表示に影響を与えることはありません。
+## 共有D1の運用条件
 
----
+1. 自動検証はローカルのモック／ローカルDBを使い、共有D1に接続しない。
+2. 結合確認が必要なら共有DB内の試験専用拠点を明示し、対象office_idを固定する。
+3. スキーマ変更は本番・開発両Workerに後方互換な追加から進める。バックアップ・復元手順を先に検証する。
+4. 書き込み後に両環境の表示が整合する仕組みを設計する。KV削除だけで即時の強整合性を保証しない。
+5. 同一DBへのCron二重実行を確認し、単一環境に処理を集約するか、冪等な実行記録で制御する。
 
-## 4. コンポーネント連携詳細
+## データと既存の制約
 
-### A. GitHub ➔ Cloudflare (デプロイ連携)
-
-ソースコードの変更を検知し、適切な環境へデプロイします。
-
-#### 🔧 開発環境へのデプロイ
-
-- **設定ファイル**: `.github/workflows/deploy-dev.yml`
-- **トリガー**: `Dev_D1` ブランチへの Push
-- **動作**: `wrangler deploy --env dev` コマンドを実行し、`wrangler.toml` 内の `[env.dev]` ブロックの設定を適用してデプロイします
-- **認証**: GitHub Secrets に登録された `CLOUDFLARE_API_TOKEN` を使用
-
-#### 🚀 本番環境へのデプロイ
-
-- **トリガー**: `main` ブランチへのマージ
-- **動作**: Cloudflare 管理画面の Git 連携、または手動デプロイにより更新されます
-
----
-
-### B. Cloudflare ➔ D1 (データ通信)
-
-Workers から D1 へのアクセスは、**Prepared Statements** を使用して読み書きを行います。
-
-#### 📡 通信方式
-
-- **通常の読み書き**: SQL を `prepare(...).bind(...)` で実行
-- **差分取得**: `updated` タイムスタンプによる条件付き SELECT
-
----
-
-### C. Cloudflare ➔ KV (キャッシュ戦略)
-
-読み取り負荷の軽減と高速化のため、Workers KV を活用しています。
-
-#### 🔒 分離の重要性
-
-`wrangler.toml` にて、本番用と開発用で異なる `id` を指定しています。これにより、開発環境でキャッシュ汚染（互換性のないデータ構造の保存など）が発生しても、本番環境には一切影響しません。
-
-#### 💾 キャッシュ対象
-
-- **getConfig**: メンバーリストや設定情報
-- **get**: 在席状況データ（全件取得時のみ）
-
----
-
-## 5. フロントエンドの接続設定
-
-クライアントサイド（ブラウザ）の JavaScript も、コードベースは共通ですが設定値によって接続先が変わります。
-
-### `js/config.js`
-
-`remoteEndpoint` 変数にて接続先の Worker URL を指定。開発ブランチ (`Dev_D1`) では `-dev` 付きの URL が設定されています。
-
-```javascript
-// js/config.js (Devブランチの例)
-const CONFIG = {
-    remoteEndpoint: "https://whereabouts-dev.taka-hiyo.workers.dev",
-    // ...
-};
-```
-
----
-
-## 6. 開発ワークフロー
-
-### 📝 実装・修正
-`Dev_D1` ブランチにてコードを変更
-
-### ⚙️ 自動デプロイ
-GitHub へ Push すると、Actions が起動し `whereabouts-dev` が更新される
-
-### ✅ 動作確認
-開発環境 URL (`https://whereabouts-dev...`) にアクセスして確認。KV が独立しているため、データ構造の変更などを安全に試行可能
-
-### 🚀 本番反映
-
-1. `Dev_D1` を `main` にマージ
-2. `js/config.js` の接続先が本番 URL になっていることを確認
-3. 本番環境へデプロイ
-
----
-
-## 📌 まとめ
-
-本システムは、**完全に分離された開発環境と本番環境**により、安全かつ効率的な開発サイクルを実現しています。
-
-- ✅ GitHub ブランチ戦略による明確な環境分離
-- ✅ Cloudflare Workers + KV による高速かつスケーラブルなアーキテクチャ
-- ✅ Cloudflare D1 によるデータアクセス
-- ✅ GitHub Actions による自動デプロイで開発効率を向上
-
-この構成により、開発者は本番環境への影響を気にすることなく、新機能の実装や実験的な変更を安心して行うことができます。
+- `schema.sql`: offices / members / tools_config / notices / vacations / office_column_config / event_color_maps / users。
+- Worker末尾のINITIAL_SCHEMAもsignup時の未初期化DB救済で実際に使用される。単純な未使用コードとして削除できない。
+- 在席は通常30秒、夜間1時間、設定5分、行事10分の取得設定。`updated`による差分取得、ローカル復元・競合回復処理が存在する。
+- Workerはクライアントの`baseRev`を条件更新に使用していない。クライアントの競合UIだけでは同時編集を保護できない。
+- 詳細な指摘・検証範囲は [コードレビュー](CODE_REVIEW_2026-10-04.md)、今後の仕様は [開発計画](DEVELOPMENT_PLAN.md) を参照。

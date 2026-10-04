@@ -13,6 +13,16 @@ jobs:
     name: Deploy
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # 検証は標準Nodeとモックだけで行い、共有D1には接続しない。
+      - name: Check source and local regression tests
+        run: |
+          npm run check
+          npm test
       
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3

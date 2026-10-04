@@ -1027,7 +1027,7 @@ function buildMemberSavePayload() {
     const mems = grouped.get(gName) || [];
     // ▼変更点: メンバーが0人のグループは含めない (枠だけが残る不具合防止)
     if (!mems.length) return;
-    
+
     mems.sort((a, b) => (a.order || 0) - (b.order || 0));
 
     // ★修正: render()で正しく表示されるよう、現在のステータス情報(STATE_CACHE優先)を含める
