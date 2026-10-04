@@ -5,6 +5,7 @@
 - [コードレビュー・整理記録（2026-10-04）](docs/CODE_REVIEW_2026-10-04.md)
 - [改善案と開発計画](docs/DEVELOPMENT_PLAN.md)
 - [GUI刷新・端末適応計画](docs/GUI_REDESIGN_PLAN.md)
+- [管理メニュー・登録/所属/並び替えの統合計画](docs/ADMIN_GUI_PLAN.md)
 - [API・権限・ステータスの現行契約](docs/API_CONTRACT.md)
 - [先行開発の進捗と検証](docs/DEVELOPMENT_PROGRESS.md)
 - [現行アーキテクチャと共有D1仕様](docs/SYSTEM_ARCHITECTURE.md)
