@@ -32,7 +32,16 @@ for (const [, before, url, after] of scripts) {
 new vm.Script(classicScripts.join('\n;\n'), { filename: 'combined-classic-scripts.js' });
 checkModule(fs.readFileSync(path.join(root, 'CloudflareWorkers_worker.js'), 'utf8'), 'Worker');
 new vm.Script(fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), { filename: 'sw.js' });
-console.log(`Source checks passed: ${scripts.length} scripts, local assets, Worker and legacy SW.`);
+// 本番のscript順と切り離した試作も構文・ローカルassetを検証する。
+const prototypePath = path.join(root, 'prototypes/admin');
+const prototypeHtml = fs.readFileSync(path.join(prototypePath, 'index.html'), 'utf8');
+for (const [, asset] of prototypeHtml.matchAll(/(?:src|href)="([^"#]+)"/g)) {
+  if (!fs.existsSync(path.resolve(prototypePath, asset))) throw new Error(`Missing prototype asset: ${asset}`);
+}
+for (const filename of fs.readdirSync(prototypePath).filter(filename => filename.endsWith('.mjs'))) {
+  checkModule(fs.readFileSync(path.join(prototypePath, filename), 'utf8'), filename);
+}
+console.log(`Source checks passed: ${scripts.length} scripts, local assets, Worker, legacy SW and isolated admin prototype.`);
 
 /**
  * ES moduleを実行せず構文検証する（外部importやDBへのアクセスを防ぐ）。

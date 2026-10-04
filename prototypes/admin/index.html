@@ -1,0 +1,53 @@
+<!doctype html>
+<!-- 管理GUIの独立試作。既存アプリの初期化・認証・APIは読み込まない。 -->
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>管理GUI試作 · 在席確認表</title>
+  <link rel="stylesheet" href="admin.css">
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#workspace">管理内容へ移動</a>
+  <header class="app-header">
+    <a href="../../index.html">在席表へ戻る</a>
+    <strong>在席確認表 <span>管理</span></strong>
+    <div class="context">対象拠点 <b>サンプル拠点</b> <span>管理者</span></div>
+  </header>
+  <div class="sample-banner">操作できるGUI試作 · 架空データのみ · 確定内容はこの画面内だけに保持されます</div>
+  <div id="app" class="app-shell">
+    <aside class="main-nav">
+      <button id="menu" class="menu-toggle" aria-expanded="false" aria-controls="navigation">管理メニュー</button>
+      <nav id="navigation" aria-label="管理メニュー"></nav>
+      <p class="nav-note">登録・所属・並び順を<br>同じ場所で整理</p>
+    </aside>
+    <main id="workspace" tabindex="-1">
+      <div class="page-heading"><div><p class="eyebrow">管理ワークスペース</p><h1 id="section-title"></h1><p id="section-description"></p></div><span class="pill">GUI試作</span></div>
+      <section id="people" aria-label="メンバー・グループ">
+        <div class="toolbar">
+          <button id="add-member" class="primary">＋ メンバーを追加</button>
+          <button id="add-group">＋ グループを追加</button>
+          <button disabled title="CSVの検証・取込みは後続段階で実装">CSV（準備中）</button>
+        </div>
+        <div class="roster" data-detail="false">
+          <aside class="groups"><h2>グループ</h2><div id="group-list"></div><button id="group-order">グループ順を変更</button></aside>
+          <section class="members"><div class="list-heading"><h2 id="list-title"></h2><span id="result-count" class="pill"></span></div>
+            <div class="search-row"><label for="search">メンバーを検索</label><input id="search" type="search" placeholder="氏名・所属・内線"><button id="clear-search">解除</button></div>
+            <div class="list-actions"><button id="member-order">並び替え</button><button id="move-selected" disabled>選択した人の所属を変更</button></div>
+            <p id="order-hint" class="hint" hidden>グループ内の表示順を変更しています。上下ボタンまたは位置を選んで移動できます。</p>
+            <div id="member-list"></div>
+          </section>
+          <section id="detail" class="detail" aria-label="メンバー詳細"><div id="detail-body"></div></section>
+        </div>
+      </section>
+      <section id="section-preview" hidden aria-label="管理領域の構成案"></section>
+      <footer class="save-bar"><div><strong id="draft-summary"></strong><p id="draft-hint">実際の名簿には接続していません。</p></div><div class="save-actions"><button id="review">変更を確認</button><button id="discard">変更を破棄</button><button id="commit" class="primary">試作内で確定</button></div></footer>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+  </div>
+  <dialog id="action-dialog" aria-labelledby="dialog-title"><div id="dialog-body"></div></dialog>
+</body>
+</html>

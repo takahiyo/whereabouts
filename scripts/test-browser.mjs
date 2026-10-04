@@ -9,6 +9,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import { runAdminPrototypeChecks } from '../tests/admin-prototype.browser.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const server = http.createServer((request, response) => {
@@ -17,7 +18,7 @@ const server = http.createServer((request, response) => {
   if (!filename.startsWith(root) || !fs.existsSync(filename) || !fs.statSync(filename).isFile()) {
     response.writeHead(404); response.end(); return;
   }
-  response.setHeader('Content-Type', filename.endsWith('.js') ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : 'text/html');
+  response.setHeader('Content-Type', /\.(?:mjs|js)$/.test(filename) ? 'text/javascript' : filename.endsWith('.css') ? 'text/css' : 'text/html');
   response.end(fs.readFileSync(filename));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -93,6 +94,7 @@ try {
     console.log(`Browser checks passed at ${width}px: startup, manual tabs, dialog Tab/Escape/restore, nesting, no write requests.`);
     await page.close();
   }
+  await runAdminPrototypeChecks(browser, `http://127.0.0.1:${server.address().port}`);
 } finally {
   if (browser) await browser.close();
   await new Promise(resolve => server.close(resolve));
