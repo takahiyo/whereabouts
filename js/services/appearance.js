@@ -1,6 +1,5 @@
 /** 外観だけを端末に保存する。依存: constants/storage、appearance。通信・認証・共有設定を参照しない。 */
 (() => {
-  let selected = APPEARANCE_UI.defaultPreset;
   const dialog = document.getElementById(APPEARANCE_UI.dialog);
   const presets = new Map(APPEARANCE_PRESETS.map(preset => [preset.id, preset]));
 
@@ -9,9 +8,8 @@
 
   /** @param {string} preset 外観 @param {boolean} persist ユーザー操作時だけ保存 @returns {void} DOMを再構築せず色を切り替える */
   function apply(preset, persist = false) {
-    selected = normalize(preset);
+    const selected = normalize(preset);
     document.documentElement.dataset[APPEARANCE_UI.attribute] = selected;
-    document.querySelectorAll(APPEARANCE_UI.selects).forEach(select => { select.value = selected; });
     dialog.querySelectorAll('input[type="radio"]').forEach(input => { input.checked = input.value === selected; });
     let message = '';
     if (persist) {
@@ -21,12 +19,6 @@
     document.querySelectorAll(APPEARANCE_UI.messages).forEach(element => { element.textContent = message; });
   }
 
-  document.querySelectorAll(APPEARANCE_UI.selects).forEach(select => {
-    APPEARANCE_PRESETS.forEach(preset => {
-      const option = document.createElement('option'); option.value = preset.id; option.textContent = preset.label; select.append(option);
-    });
-    select.addEventListener('change', () => apply(select.value, true));
-  });
   const choices = document.getElementById(APPEARANCE_UI.choices);
   APPEARANCE_PRESETS.forEach(preset => {
     const label = document.createElement('label'); label.className = 'appearance-choice'; label.dataset.preset = preset.id;

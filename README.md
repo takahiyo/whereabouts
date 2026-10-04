@@ -7,7 +7,7 @@
 - [GUI刷新・端末適応計画](docs/GUI_REDESIGN_PLAN.md)
 - [管理メニュー・登録/所属/並び替えの統合計画](docs/ADMIN_GUI_PLAN.md)
 - [操作できる管理GUI試作・起動方法](docs/ADMIN_GUI_PROTOTYPE.md)
-- [共通デザイン・パステル/クラシック/メタリックの外観設定](docs/APPEARANCE.md)
+- [共通デザイン・6種類の外観設定](docs/APPEARANCE.md)
 - [API・権限・ステータスの現行契約](docs/API_CONTRACT.md)
 - [先行開発の進捗と検証](docs/DEVELOPMENT_PROGRESS.md)
 - [現行アーキテクチャと共有D1仕様](docs/SYSTEM_ARCHITECTURE.md)

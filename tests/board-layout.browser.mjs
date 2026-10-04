@@ -3,6 +3,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+/** @param {string} foreground RGB文字色 @param {string} background RGB背景 @returns {number} 読める配色を検証する比率 */
+function contrast(foreground, background) {
+  const luminance = color => color.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => {
+    const channel = value / 255; return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+  const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
 /** @param {object} browser ブラウザ @param {string} origin 静的サーバー @returns {Promise<void>} */
 export async function runBoardLayoutChecks(browser, origin) {
   const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
@@ -71,12 +80,14 @@ export async function runBoardLayoutChecks(browser, origin) {
   assert.equal(await page.locator('#board').getAttribute('data-cols'), '3', 'Old 800–1400px forced column is removed');
 
   await page.evaluate(() => { OFFICE_COLUMN_CONFIG.layoutConfig = {}; updateCols(); });
-  for (const preset of ['classic', 'pastel', 'metallic']) {
+  const menuColors = [];
+  assert.equal(await page.locator('[data-appearance-select]').count(), 0, 'Appearance controls removed from login and settings');
+  assert.equal(await page.locator('#appearanceChoices input[type="radio"]').count(), 6);
+  for (const preset of ['classic', 'pastel', 'metallic', 'forest', 'sakura', 'monochrome']) {
     await page.locator('#appearanceBtn').click();
     await page.locator(`#appearanceChoices input[value="${preset}"]`).check();
     assert.equal(await page.locator('html').getAttribute('data-appearance'), preset);
     assert.equal(await page.evaluate(() => localStorage.getItem(APPEARANCE_STORAGE_KEY)), preset);
-    assert.deepEqual(await page.locator('[data-appearance-select]').evaluateAll(selects => selects.map(select => select.value)), [preset, preset]);
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#appearanceDialog').isVisible(), false);
     assert.equal(await page.evaluate(() => document.activeElement.id), 'appearanceBtn');
@@ -85,6 +96,8 @@ export async function runBoardLayoutChecks(browser, origin) {
       await page.waitForFunction(() => lastW === getContainerWidth());
       const colors = await page.locator('#board tbody tr').evaluateAll(rows => rows.slice(0, 8).map(row => getComputedStyle(row).backgroundColor));
       assert.equal(new Set(colors).size, 8, `Distinct status colors: ${preset}/${width}`);
+      const textColors = await page.locator('#board tbody tr').evaluateAll(rows => rows.slice(0, 8).map(row => getComputedStyle(row).color));
+      colors.forEach((color, index) => assert(contrast(textColors[index], color) >= 4.5, `State text contrast: ${preset}/${width}/${index}`));
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       assert.equal(await page.locator('#row-fixture-0-0 [name="note"]').inputValue(), '未保存の表示確認');
       if (screenshots && [390, 1280].includes(width)) await page.screenshot({ path: path.join(screenshots, `${preset}-board-${width}.png`), fullPage: true });
@@ -97,7 +110,8 @@ export async function runBoardLayoutChecks(browser, origin) {
     await page.evaluate(() => {
       const admin = document.getElementById('adminModal'); admin.classList.add('show'); admin.style.display = 'flex';
     });
-    assert.equal(await page.locator('#tabBasic [data-appearance-select]').inputValue(), preset);
+    menuColors.push(await page.locator('#adminModal .admin-card').evaluate(card => getComputedStyle(card).backgroundColor));
+    assert.equal(await page.locator('#tabBasic [data-appearance-select]').count(), 0);
     if (screenshots) await page.screenshot({ path: path.join(screenshots, `${preset}-admin.png`) });
     await page.evaluate(() => {
       const admin = document.getElementById('adminModal'); admin.classList.remove('show'); admin.style.display = 'none';
@@ -106,21 +120,24 @@ export async function runBoardLayoutChecks(browser, origin) {
     assert.equal(await page.locator('#loginForm').isVisible(), true);
     if (screenshots) await page.screenshot({ path: path.join(screenshots, `${preset}-login.png`) });
     await page.setViewportSize({ width: 390, height: 600 });
-    assert.equal(await page.locator('#loginForm [data-appearance-select]').isVisible(), true);
+    assert.equal(await page.locator('#loginForm [data-appearance-select]').count(), 0);
     assert.equal(await page.evaluate(() => document.getElementById('login').scrollWidth <= innerWidth), true);
     if (screenshots) await page.screenshot({ path: path.join(screenshots, `${preset}-login-390.png`) });
     await page.evaluate(() => document.getElementById('login').classList.add('u-hidden'));
   }
+  assert.equal(new Set(menuColors).size, 6, 'Every pattern has its own menu palette');
   await page.reload();
-  assert.equal(await page.locator('html').getAttribute('data-appearance'), 'metallic');
+  assert.equal(await page.locator('html').getAttribute('data-appearance'), 'monochrome');
   // 未知の保存値と保存制限でも、外観以外へ作用せず利用できる。
   await page.evaluate(() => localStorage.setItem(APPEARANCE_STORAGE_KEY, 'unknown'));
   await page.reload();
   assert.equal(await page.locator('html').getAttribute('data-appearance'), 'pastel');
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new Error('Simulated storage restriction'); }; });
-  await page.locator('#loginForm [data-appearance-select]').selectOption('classic');
+  await page.evaluate(() => document.getElementById('login').classList.add('u-hidden'));
+  await page.locator('#appearanceBtn').click();
+  await page.locator('#appearanceChoices input[value="classic"]').check();
   assert.equal(await page.locator('html').getAttribute('data-appearance'), 'classic');
-  assert.match(await page.locator('#loginForm [data-appearance-message]').textContent(), /保存できない/);
+  assert.match(await page.locator('#appearanceDialog [data-appearance-message]').textContent(), /保存できない/);
   assert.deepEqual(errors, []);
   assert(actions.every(action => ['publicListOffices', 'getTools'].includes(action)), 'No shared writes');
   console.log('Board layout checks passed at 15 widths: 1/2/3 card columns, table layout, input retention, existing configuration and no write requests.');

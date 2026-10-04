@@ -180,12 +180,6 @@
           </div>
           <div class="admin-grid">
             <div class="admin-box admin-box-stacked">
-              <h4>外観の設定</h4>
-              <label class="appearance-select-label">デザイン<select data-appearance-select aria-label="管理画面のデザイン"></select></label>
-              <p class="admin-note">この端末・ブラウザに適用します。拠点共通の設定は変更しません。</p>
-              <p data-appearance-message role="status" aria-live="polite"></p>
-            </div>
-            <div class="admin-box admin-box-stacked">
               <h4>📁 CSV管理</h4>
               <div class="admin-subsection">
                 <h5>📥 在席確認表リスト エクスポート</h5>
@@ -1382,8 +1376,6 @@
       </div>
 
       <div id="loginMsg" class="login-msg" aria-live="polite"></div>
-      <label class="appearance-select-label login-appearance">デザイン<select data-appearance-select aria-label="ログイン画面のデザイン"></select></label>
-      <p data-appearance-message role="status" aria-live="polite"></p>
     </div>
   </div>
 
@@ -6746,6 +6738,8 @@ td.time.need-time select:focus~.time-hint {
   --ui-header-face: linear-gradient(110deg, #ffffff, #eaf6f1);
   --ui-shadow: 0 12px 32px rgb(28 59 49 / 10%); --ui-radius: 14px;
   --ui-danger: #a72836; --ui-danger-soft: #fff1f2;
+  --ui-menu-surface: #f8fcfa; --ui-section-surface: #ffffff;
+  --row-line-width: 4px; --row-radius: 10px; --row-elevation: 0 0 0 transparent;
   --status-here-bg: #e3f4e9; --status-here-line: #23724b;
   --status-out-bg: #fff0d6; --status-out-line: #a35b0b;
   --status-meeting-bg: #e4edff; --status-meeting-line: #365ca9;
@@ -6772,6 +6766,11 @@ td.time.need-time select:focus~.time-hint {
   --status-here-bg: #e7eedf; --status-out-bg: #f7ebd2; --status-meeting-bg: #e3e9f1;
   --status-remote-bg: #ece5ef; --status-trip-bg: #e1eee5; --status-training-bg: #f3edd8;
   --status-health-bg: #e1eced; --status-coadoc-bg: #f0e1e7; --status-home-bg: #e6e6e1; --status-off-bg: #f2e0dd;
+  --ui-menu-surface: #f8f4e9; --ui-section-surface: #fffdf7; --row-line-width: 3px; --row-radius: 5px;
+  --status-here-line: #4f6741; --status-out-line: #89622a; --status-meeting-line: #435e80;
+  --status-remote-line: #715d83; --status-trip-line: #3c6d59; --status-training-line: #7c702d;
+  --status-health-line: #3e6874; --status-coadoc-line: #89546c; --status-home-line: #5d615d; --status-off-line: #8b4843;
+  --group-0: #40583f; --group-1: #425b7a; --group-2: #715b7f; --group-3: #805b30; --group-4: #875468; --group-5: #64632c;
 }
 :root[data-appearance="metallic"] {
   --ui-canvas: #e3e9ef; --ui-surface: #f9fbfd; --ui-soft: #dfe7ef;
@@ -6783,6 +6782,49 @@ td.time.need-time select:focus~.time-hint {
   --status-here-bg: #deeee6; --status-out-bg: #f3e9d9; --status-meeting-bg: #dce7f4;
   --status-remote-bg: #e7e2f1; --status-trip-bg: #dcece9; --status-training-bg: #eeeacf;
   --status-health-bg: #dcedf1; --status-coadoc-bg: #efdfeb; --status-home-bg: #dce3ea; --status-off-bg: #f0dfe3;
+  --ui-menu-surface: #eaf0f5; --ui-section-surface: #f7fafc; --row-line-width: 3px; --row-radius: 7px;
+  --row-elevation: 0 2px 3px rgb(36 58 79 / 12%);
+  --status-here-line: #356756; --status-out-line: #876440; --status-meeting-line: #45678a;
+  --status-remote-line: #685b88; --status-trip-line: #3d6c69; --status-training-line: #727035;
+  --status-health-line: #3d6e80; --status-coadoc-line: #865d7b; --status-home-line: #526479; --status-off-line: #8e5667;
+  --group-0: #356756; --group-1: #45678a; --group-2: #685b88; --group-3: #876440; --group-4: #865d7b; --group-5: #727035;
+}
+/* 新しい3種もメニューの面・状態の面/ライン・グループ色を一組で定義する。 */
+:root[data-appearance="forest"] {
+  --ui-canvas: #e9eee4; --ui-surface: #fbfcf6; --ui-soft: #dee8d5; --ui-ink: #283e2c; --ui-muted: #506451; --ui-line: #b5c4ad;
+  --ui-accent: #355e3b; --ui-accent-hover: #26472c; --ui-menu-surface: #edf2e5; --ui-section-surface: #f8faef;
+  --ui-button-face: linear-gradient(#fafcf4, #e2ebda); --ui-header-face: linear-gradient(110deg, #f8faef, #d4e1c8);
+  --ui-shadow: 0 10px 28px rgb(42 68 33 / 12%); --ui-radius: 12px; --row-radius: 12px;
+  --status-here-bg: #dcebd7; --status-here-line: #416b37; --status-out-bg: #f4e5c7; --status-out-line: #8b632e;
+  --status-meeting-bg: #e0e8ef; --status-meeting-line: #466880; --status-remote-bg: #e8e2ee; --status-remote-line: #746080;
+  --status-trip-bg: #d9ebe2; --status-trip-line: #396e58; --status-training-bg: #edebcf; --status-training-line: #737039;
+  --status-health-bg: #deeceb; --status-health-line: #426f70; --status-coadoc-bg: #eee0e7; --status-coadoc-line: #825b6e;
+  --status-home-bg: #e1e6dc; --status-home-line: #56634e; --status-off-bg: #efdfd6; --status-off-line: #8a5542;
+  --group-0: #416b37; --group-1: #466880; --group-2: #746080; --group-3: #8b632e; --group-4: #825b6e; --group-5: #737039;
+}
+:root[data-appearance="sakura"] {
+  --ui-canvas: #f6edf1; --ui-surface: #fffcfd; --ui-soft: #f4e0e9; --ui-ink: #4c3143; --ui-muted: #795769; --ui-line: #d7b9c9;
+  --ui-accent: #964467; --ui-accent-hover: #78334f; --ui-menu-surface: #fcf2f6; --ui-section-surface: #fffafb;
+  --ui-button-face: linear-gradient(#fffafb, #f5e4ec); --ui-header-face: linear-gradient(110deg, #fffafb, #f2dbe7);
+  --ui-shadow: 0 10px 30px rgb(123 48 81 / 10%); --ui-radius: 18px; --row-radius: 16px; --row-line-width: 3px;
+  --status-here-bg: #e6f0e6; --status-here-line: #4e7854; --status-out-bg: #fbe7d7; --status-out-line: #a56539;
+  --status-meeting-bg: #e8ecfa; --status-meeting-line: #666daa; --status-remote-bg: #f0e5f6; --status-remote-line: #9368a9;
+  --status-trip-bg: #e0f0eb; --status-trip-line: #477e71; --status-training-bg: #f8efdb; --status-training-line: #8e7439;
+  --status-health-bg: #e4f0f6; --status-health-line: #5d8195; --status-coadoc-bg: #f9dfed; --status-coadoc-line: #a95882;
+  --status-home-bg: #eee7ed; --status-home-line: #7a6579; --status-off-bg: #f9e0e2; --status-off-line: #a85965;
+  --group-0: #964467; --group-1: #596da0; --group-2: #82549c; --group-3: #956039; --group-4: #9e4d73; --group-5: #537651;
+}
+:root[data-appearance="monochrome"] {
+  --ui-canvas: #ededed; --ui-surface: #ffffff; --ui-soft: #e5e5e5; --ui-ink: #222222; --ui-muted: #555555; --ui-line: #aaaaaa;
+  --ui-accent: #333333; --ui-accent-hover: #171717; --ui-menu-surface: #f2f2f2; --ui-section-surface: #ffffff;
+  --ui-button-face: #ffffff; --ui-header-face: #f5f5f5; --ui-shadow: 0 0 0 transparent; --ui-radius: 4px; --row-radius: 3px; --row-line-width: 3px;
+  --ui-danger: #333333; --ui-danger-soft: #e5e5e5;
+  --status-here-bg: #fafafa; --status-here-line: #404040; --status-out-bg: #e8e8e8; --status-out-line: #515151;
+  --status-meeting-bg: #e1e1e1; --status-meeting-line: #424242; --status-remote-bg: #f0f0f0; --status-remote-line: #626262;
+  --status-trip-bg: #ededed; --status-trip-line: #484848; --status-training-bg: #e5e5e5; --status-training-line: #5b5b5b;
+  --status-health-bg: #f5f5f5; --status-health-line: #686868; --status-coadoc-bg: #dddddd; --status-coadoc-line: #3b3b3b;
+  --status-home-bg: #d8d8d8; --status-home-line: #565656; --status-off-bg: #d3d3d3; --status-off-line: #303030;
+  --group-0: #303030; --group-1: #484848; --group-2: #5b5b5b; --group-3: #393939; --group-4: #515151; --group-5: #626262;
 }
 body { background: var(--ui-canvas); color: var(--ui-ink); font-family: system-ui, 'Yu Gothic', sans-serif; }
 body > header {
@@ -6811,14 +6853,14 @@ body .grp-menu {
 body .grp-menu button.grp-item { background: var(--ui-button-face); border-left: 5px solid var(--group-accent, var(--ui-accent)); border-radius: 8px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 body .grp-menu button.grp-item:hover { background: var(--ui-soft); }
 body .admin-card, body .manual-card, body .member-edit-card, body .contact-dialog {
-  background: var(--ui-surface); color: var(--ui-ink); border: 1px solid var(--ui-line);
+  background: var(--ui-menu-surface); color: var(--ui-ink); border: 1px solid var(--ui-line);
   border-radius: var(--ui-radius); box-shadow: var(--ui-shadow);
 }
 body .admin-card-header, body .admin-tabs, body .notice-modal-header, body .tools-modal-header {
   background: var(--ui-header-face); border-color: var(--ui-line);
 }
 body .manual-card > div:first-child { background: var(--ui-header-face); border-color: var(--ui-line); }
-body .admin-box, body .tools-item, body .notice-item { background: var(--ui-surface); border-color: var(--ui-line); border-radius: 10px; }
+body .admin-box, body .tools-item, body .notice-item, body .admin-subsection { background: var(--ui-section-surface); border-color: var(--ui-line); border-radius: var(--ui-radius); }
 body .admin-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
 body .tab-btn, body .manual-tab-btn { color: var(--ui-ink); background: var(--ui-button-face); border-color: var(--ui-line); border-radius: 8px; min-height: 44px; }
 body .tab-btn.active, body .manual-tab-btn.active { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
@@ -6855,9 +6897,6 @@ body .login {
   width: 100%; min-height: 44px; background: var(--ui-accent); color: #fff; border-color: var(--ui-accent);
 }
 #loginForm.card #btnSimpleLogin:hover { background: var(--ui-accent-hover); transform: none; }
-.appearance-select-label { display: grid; gap: 8px; font-size: 13px; font-weight: 650; }
-.appearance-select-label select { min-height: 44px; border-radius: 8px; }
-.login-appearance { border-top: 1px solid var(--ui-line); padding-top: 16px; }
 .appearance-dialog {
   box-sizing: border-box; color: var(--ui-ink); background: var(--ui-surface); border: 1px solid var(--ui-line);
   border-radius: var(--ui-radius); box-shadow: var(--ui-shadow); width: min(560px, calc(100% - 24px));
@@ -6882,6 +6921,9 @@ body .login {
 [data-preset="pastel"] .appearance-swatch { background: linear-gradient(135deg, #e4f1ee 60%, #166c5c 60%); }
 [data-preset="classic"] .appearance-swatch { background: linear-gradient(135deg, #eeeae1 60%, #304a6a 60%); }
 [data-preset="metallic"] .appearance-swatch { background: linear-gradient(135deg, #ffffff, #b8c6d3 60%, #365e7c 60%); }
+[data-preset="forest"] .appearance-swatch { background: linear-gradient(135deg, #dee8d5 60%, #355e3b 60%); }
+[data-preset="sakura"] .appearance-swatch { background: linear-gradient(135deg, #f4e0e9 60%, #964467 60%); }
+[data-preset="monochrome"] .appearance-swatch { background: linear-gradient(135deg, #ededed 60%, #333333 60%); }
 [data-appearance-message] { font-size: 13px; line-height: 1.6; color: var(--ui-muted); overflow-wrap: anywhere; }
 [data-appearance-message]:empty { display: none; }
 /* グループは帯と番号、状態はカード/行の背景と左線。双方の色を独立させる。 */
@@ -6911,8 +6953,9 @@ body .login {
 #board tbody tr.st-home { --row-bg: var(--status-home-bg); --row-line: var(--status-home-line); }
 #board tbody tr.st-off { --row-bg: var(--status-off-bg); --row-line: var(--status-off-line); }
 #board tbody tr, #board.force-cards tbody tr {
-  background: var(--row-bg) !important; box-shadow: inset 4px 0 0 var(--row-line); color: var(--ui-ink);
+  background: var(--row-bg) !important; box-shadow: inset var(--row-line-width) 0 0 var(--row-line), var(--row-elevation); color: var(--ui-ink);
 }
+#board.force-cards tbody tr { border-radius: var(--row-radius) !important; }
 #board tbody td { background-color: transparent; }
 #board tbody td.status select { border-color: var(--row-line); font-weight: 650; }
 #board thead th { background: var(--ui-soft); color: var(--ui-ink); }
@@ -9192,12 +9235,15 @@ if (typeof window !== 'undefined') {
 const APPEARANCE_PRESETS = Object.freeze([
   { id: 'pastel', label: 'パステル', description: '柔らかな青緑と、明るいカード' },
   { id: 'classic', label: 'クラシック', description: '落ち着いた紺と、温かいアイボリー' },
-  { id: 'metallic', label: 'メタリック', description: '銀色の面と、端正なスチールブルー' }
+  { id: 'metallic', label: 'メタリック', description: '銀色の面と、端正なスチールブルー' },
+  { id: 'forest', label: 'フォレスト', description: '深い緑と、木や葉を思わせる自然な色' },
+  { id: 'sakura', label: 'サクラ', description: '淡い桜色と、柔らかな丸みのある面' },
+  { id: 'monochrome', label: 'モノクロ', description: '白とグレー、線と文字を活かした簡潔な表示' }
 ]);
 const APPEARANCE_UI = Object.freeze({
   defaultPreset: 'pastel', attribute: 'appearance', groupAccentCount: 6,
   dialog: 'appearanceDialog', open: 'appearanceBtn', close: 'appearanceClose', choices: 'appearanceChoices',
-  selects: '[data-appearance-select]', messages: '[data-appearance-message]',
+  messages: '[data-appearance-message]',
   radioName: 'appearance-preset', saved: 'このブラウザに保存しました。',
   memoryOnly: '外観を変更しました。このブラウザでは保存できないため、再読込みすると元に戻ります。'
 });
@@ -9209,7 +9255,6 @@ const APPEARANCE_UI = Object.freeze({
 ```javascript
 /** 外観だけを端末に保存する。依存: constants/storage、appearance。通信・認証・共有設定を参照しない。 */
 (() => {
-  let selected = APPEARANCE_UI.defaultPreset;
   const dialog = document.getElementById(APPEARANCE_UI.dialog);
   const presets = new Map(APPEARANCE_PRESETS.map(preset => [preset.id, preset]));
 
@@ -9218,9 +9263,8 @@ const APPEARANCE_UI = Object.freeze({
 
   /** @param {string} preset 外観 @param {boolean} persist ユーザー操作時だけ保存 @returns {void} DOMを再構築せず色を切り替える */
   function apply(preset, persist = false) {
-    selected = normalize(preset);
+    const selected = normalize(preset);
     document.documentElement.dataset[APPEARANCE_UI.attribute] = selected;
-    document.querySelectorAll(APPEARANCE_UI.selects).forEach(select => { select.value = selected; });
     dialog.querySelectorAll('input[type="radio"]').forEach(input => { input.checked = input.value === selected; });
     let message = '';
     if (persist) {
@@ -9230,12 +9274,6 @@ const APPEARANCE_UI = Object.freeze({
     document.querySelectorAll(APPEARANCE_UI.messages).forEach(element => { element.textContent = message; });
   }
 
-  document.querySelectorAll(APPEARANCE_UI.selects).forEach(select => {
-    APPEARANCE_PRESETS.forEach(preset => {
-      const option = document.createElement('option'); option.value = preset.id; option.textContent = preset.label; select.append(option);
-    });
-    select.addEventListener('change', () => apply(select.value, true));
-  });
   const choices = document.getElementById(APPEARANCE_UI.choices);
   APPEARANCE_PRESETS.forEach(preset => {
     const label = document.createElement('label'); label.className = 'appearance-choice'; label.dataset.preset = preset.id;
