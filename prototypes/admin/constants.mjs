@@ -10,6 +10,18 @@ export const VALIDATION = Object.freeze({
   extension: /^\d{1,6}$/, mobile: /^\d{10,11}$/, email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 });
 
+export const CSV_LIMITS = Object.freeze({ bytes: 2 * 1024 * 1024, members: 2000, issues: 100 });
+export const CSV_ENCODINGS = Object.freeze([{ value: 'utf-8', label: 'UTF-8（推奨）' }, { value: 'shift_jis', label: 'Shift_JIS（日本語Windows CSV）' }]);
+export const CSV_STATE_FIELDS = Object.freeze([
+  { key: 'workHours', label: '業務時間' }, { key: 'status', label: 'ステータス' },
+  { key: 'time', label: '戻り時間' }, { key: 'tomorrowPlan', label: '明日の予定' }, { key: 'note', label: '備考' }
+]);
+
+export const SAMPLE_SCENARIOS = Object.freeze([
+  { id: 'standard', label: '基本（6名）' }, { id: 'large', label: '多数・長い名前（100名）' },
+  { id: 'empty', label: '登録前（0名）' }
+]);
+
 export const SECTIONS = Object.freeze([
   { id: 'people', label: 'メンバー・グループ', description: '人と所属、表示順をひとつの場所で管理します。' },
   { id: 'content', label: 'お知らせ・予定', description: 'お知らせと予定、関連する情報をまとめて管理します。', items: ['お知らせ一覧・登録', '予定一覧・カレンダー', '関連お知らせの選択・作成', '休暇の対象・期間'] },

@@ -3,7 +3,7 @@
  * 依存: constants.mjs。参照元: app.mjs、tests/admin-prototype.test.mjs。
  * 通信・永続化を持たず、在席/予定など編集対象外の値は保持する。
  */
-import { MEMBER_FIELDS, VALIDATION } from './constants.mjs';
+import { MEMBER_FIELDS, VALIDATION, CSV_STATE_FIELDS } from './constants.mjs';
 
 /** @param {object} seed 架空名簿 @returns {object} 独立した名簿コピー */
 export function copyRoster(seed) { return structuredClone(seed); }
@@ -120,19 +120,21 @@ export function diffRoster(base, draft) {
   }
   for (const group of base.groups) if (!draft.groups.some(item => item.id === group.id)) changes.push(`グループ削除: ${group.name}`);
   const common = base.groups.filter(group => draft.groups.some(item => item.id === group.id)).map(group => group.id);
-  if (common.join() !== draft.groups.filter(group => common.includes(group.id)).map(group => group.id).join()) changes.push('グループの表示順を変更');
+  if (JSON.stringify(common) !== JSON.stringify(draft.groups.filter(group => common.includes(group.id)).map(group => group.id))) changes.push('グループの表示順を変更');
   for (const member of draft.members) {
     const previous = base.members.find(item => item.id === member.id);
     if (!previous) changes.push(`メンバー追加: ${member.name}（${groupName(draft, member.group)}）`);
     else {
       if (previous.group !== member.group) changes.push(`所属変更: ${member.name} / ${groupName(base, previous.group)} → ${groupName(draft, member.group)}`);
       if (MEMBER_FIELDS.some(({ key }) => (previous[key] || '') !== (member[key] || ''))) changes.push(`メンバー編集: ${previous.name}`);
+      const stateChanges = CSV_STATE_FIELDS.filter(({ key }) => (previous[key] || '') !== (member[key] || ''));
+      if (stateChanges.length) changes.push(`在席情報変更: ${member.name} / ${stateChanges.map(({ key, label }) => `${label}: ${previous[key] || '空欄'} → ${member[key] || '空欄'}`).join('、')}`);
     }
   }
   for (const member of base.members) if (!draft.members.some(item => item.id === member.id)) changes.push(`メンバー削除: ${member.name}`);
   for (const group of draft.groups) {
     const ids = base.members.filter(member => member.group === group.id && draft.members.some(item => item.id === member.id && item.group === group.id)).map(member => member.id);
-    if (ids.join() !== draft.members.filter(member => member.group === group.id && ids.includes(member.id)).map(member => member.id).join()) changes.push(`メンバーの表示順を変更: ${group.name}`);
+    if (JSON.stringify(ids) !== JSON.stringify(draft.members.filter(member => member.group === group.id && ids.includes(member.id)).map(member => member.id))) changes.push(`メンバーの表示順を変更: ${group.name}`);
   }
   return changes;
 }

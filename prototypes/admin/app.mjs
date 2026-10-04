@@ -2,16 +2,16 @@
  * app.mjs - 統合名簿GUI試作の描画・操作。依存: constants/model。
  * 参照元: prototypes/admin/index.html。確定もメモリ内だけで、通信/認証/保存APIを持たない。
  */
-import { FIXTURE, SECTIONS, UI, MEMBER_FIELDS } from './constants.mjs';
+import { SECTIONS, UI, MEMBER_FIELDS, SAMPLE_SCENARIOS } from './constants.mjs';
 import * as model from './model.mjs';
+import { createSample } from './samples.mjs';
+import { openCsvDialog } from './csv-dialog.mjs';
+import { escapeHtml as escape } from './view-utils.mjs';
 
 const el = Object.fromEntries([...document.querySelectorAll('[id]')].map(node => [node.id, node]));
-let base = model.copyRoster(FIXTURE), draft = model.copyRoster(FIXTURE);
+let base = createSample('standard'), draft = model.copyRoster(base);
 const view = { section: UI.section, group: UI.all, search: '', selected: new Set(), member: null, form: null, detailVisible: false, order: UI.order.none };
 let dialogOpener = null;
-
-/** @param {unknown} value 表示値 @returns {string} HTMLの文字と属性に安全な表現 */
-function escape(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
 
 /** @param {string} message 結果 @param {boolean} error エラーか @returns {void} */
 function announce(message, error = false) { el.status.textContent = message; el.status.dataset.error = String(error); }
@@ -61,7 +61,7 @@ function renderGroups() {
   const items = [{ id: UI.all, name: '全メンバー' }, ...draft.groups];
   el['group-list'].innerHTML = items.map(group => {
     const count = draft.members.filter(member => !group.id || member.group === group.id).length;
-    return `<button data-group="${escape(group.id)}" aria-current="${group.id === view.group}"><span>${escape(group.name)}</span><small>${count ? `${count}名` : '下書き'}</small></button>`;
+    return `<button data-group="${escape(group.id)}" aria-current="${group.id === view.group}"><span>${escape(group.name)}</span><small>${count || !group.id ? `${count}名` : '下書き'}</small></button>`;
   }).join('');
 }
 
@@ -77,7 +77,8 @@ function renderMembers() {
   el['member-list'].innerHTML = members.length ? members.map(member => {
     const peers = draft.members.filter(item => item.group === member.group);
     const position = peers.findIndex(item => item.id === member.id);
-    const order = view.order === UI.order.members ? `<div class="row-order"><button data-move="${escape(member.id)}" data-offset="-1" ${position === 0 ? 'disabled' : ''} aria-label="${escape(member.name)}を上へ">↑</button><button data-move="${escape(member.id)}" data-offset="1" ${position === peers.length - 1 ? 'disabled' : ''} aria-label="${escape(member.name)}を下へ">↓</button><label>位置 <select data-position="${escape(member.id)}" aria-label="${escape(member.name)}の移動位置">${peers.map((_, i) => `<option value="${i}" ${i === position ? 'selected' : ''}>${i + 1}番目</option>`).join('')}</select></label></div>` : '';
+    // 全行に人数分の選択肢を作ると大規模名簿でDOMが二乗に増えるため、番号指定にする。
+    const order = view.order === UI.order.members ? `<div class="row-order"><button data-move="${escape(member.id)}" data-offset="-1" ${position === 0 ? 'disabled' : ''} aria-label="${escape(member.name)}を上へ">↑</button><button data-move="${escape(member.id)}" data-offset="1" ${position === peers.length - 1 ? 'disabled' : ''} aria-label="${escape(member.name)}を下へ">↓</button><label>位置 <input type="number" min="1" max="${peers.length}" value="${position + 1}" data-position="${escape(member.id)}" aria-label="${escape(member.name)}の移動位置"></label></div>` : '';
     return `<div class="member-row"><label class="check-target"><input type="checkbox" data-select="${escape(member.id)}" aria-label="${escape(member.name)}を選択" ${view.selected.has(member.id) ? 'checked' : ''}></label><button class="member-info" data-member="${escape(member.id)}" aria-current="${view.member === member.id}"><b>${escape(member.name)}</b><small>${escape(groupName(member.group))} · 内線 ${escape(member.ext || '未登録')} · 順序 ${position + 1}/${peers.length}</small></button>${order}</div>`;
   }).join('') : '<p class="empty">該当するメンバーがいません。検索条件を解除するか、メンバーを追加してください。</p>';
   if (view.group) el['member-list'].insertAdjacentHTML('beforeend', '<div class="list-actions"><button data-group-action="rename">グループ名を変更</button><button data-group-action="delete" class="danger">グループを削除</button></div>');
@@ -103,6 +104,8 @@ function renderSummary() {
   el['draft-summary'].textContent = changes.length ? `名簿の未確定変更 · ${changes.length}件${formDirty() ? ' · 未反映の入力あり' : ''}` : formDirty() ? '入力中の内容はまだ下書きに反映されていません' : '名簿の未確定変更はありません';
   el.review.disabled = el.discard.disabled = !changes.length && !formDirty();
   el.commit.disabled = !changes.length;
+  el['resume-edit'].hidden = !view.form;
+  el['resume-edit'].textContent = view.form?.id ? `入力途中: ${view.form.name || 'メンバー編集'}へ戻る` : '入力途中のメンバー追加へ戻る';
 }
 
 /** @param {string} title タイトル @param {string} body 安全なHTML @returns {void} native dialogでfocus/Tabを管理 */
@@ -175,7 +178,7 @@ function showGroupAction(action) {
 
 /** @returns {void} グループ順を上下/位置指定で変更する。 */
 function showGroupOrder() {
-  const rows = draft.groups.map((group, index) => `<div class="group-order-row"><strong>${escape(group.name)}</strong><button data-group-move="${escape(group.id)}" data-offset="-1" ${index === 0 ? 'disabled' : ''} aria-label="${escape(group.name)}を上へ">↑</button><button data-group-move="${escape(group.id)}" data-offset="1" ${index === draft.groups.length - 1 ? 'disabled' : ''} aria-label="${escape(group.name)}を下へ">↓</button><select data-group-position="${escape(group.id)}" aria-label="${escape(group.name)}の位置">${draft.groups.map((_, i) => `<option value="${i}" ${i === index ? 'selected' : ''}>${i + 1}番目</option>`).join('')}</select></div>`).join('');
+  const rows = draft.groups.map((group, index) => `<div class="group-order-row"><strong>${escape(group.name)}</strong><button data-group-move="${escape(group.id)}" data-offset="-1" ${index === 0 ? 'disabled' : ''} aria-label="${escape(group.name)}を上へ">↑</button><button data-group-move="${escape(group.id)}" data-offset="1" ${index === draft.groups.length - 1 ? 'disabled' : ''} aria-label="${escape(group.name)}を下へ">↓</button><label>位置 <input type="number" min="1" max="${draft.groups.length}" value="${index + 1}" data-group-position="${escape(group.id)}" aria-label="${escape(group.name)}の位置"></label></div>`).join('');
   const body = `<p>グループ内のメンバー順や所属は変わりません。</p>${rows}<div class="dialog-actions"><button data-close>完了</button></div>`;
   if (el['action-dialog'].open) el['dialog-body'].innerHTML = `<h2 id="dialog-title">グループ順を変更</h2>${body}`;
   else showDialog('グループ順を変更', body);
@@ -206,6 +209,21 @@ el['group-list'].addEventListener('click', event => {
   view.group = button.dataset.group; view.selected.clear(); view.order = UI.order.none; renderGroups(); renderMembers(); el['group-list'].querySelector(`[data-group="${view.group}"]`).focus();
 });
 el['add-member'].addEventListener('click', () => openEditor());
+el['resume-edit'].addEventListener('click', () => { view.section = UI.section; view.detailVisible = true; render(); el['detail-body'].querySelector('input').focus(); });
+el.csv.addEventListener('click', () => {
+  if (formDirty()) { announce('入力途中の内容を下書きに反映するか、取り消してからCSVを操作してください。', true); el['resume-edit'].focus(); return; }
+  openCsvDialog({ service: window.CsvService, openDialog: showDialog, closeDialog, getDraft: () => draft, announce, apply: candidate => {
+    draft = model.copyRoster(candidate); view.form = null; view.member = null; view.detailVisible = false;
+    view.group = UI.all; view.search = ''; el.search.value = ''; view.selected.clear(); view.order = UI.order.none; render();
+  } });
+});
+el['sample-scenario'].innerHTML = SAMPLE_SCENARIOS.map(item => `<option value="${item.id}">${item.label}</option>`).join('');
+el['load-sample'].addEventListener('click', () => {
+  if ((model.diffRoster(base, draft).length || formDirty()) && !confirm('下書きと入力を破棄して、選択したサンプルに切り替えますか？')) return;
+  base = createSample(el['sample-scenario'].value); draft = model.copyRoster(base);
+  view.form = null; view.member = null; view.detailVisible = false; view.group = UI.all; view.search = ''; el.search.value = ''; view.selected.clear(); view.order = UI.order.none;
+  render(); announce('確認用サンプルを切り替えました。実際の名簿は変更していません。');
+});
 el['add-group'].addEventListener('click', () => showDialog('グループを追加', `<form data-dialog-form="add-group"><label>グループ名<input name="name" required></label><p class="hint">最初のメンバーを追加・移動してから確定してください。</p><div class="dialog-actions">${cancelButton()}<button class="primary">下書きに追加</button></div></form>`));
 el['member-order'].addEventListener('click', toggleMemberOrder);
 el['group-order'].addEventListener('click', showGroupOrder);
@@ -218,14 +236,14 @@ el['member-list'].addEventListener('click', event => {
   } else if (button.dataset.move) {
     const id = button.dataset.move, peers = draft.members.filter(member => member.group === view.group);
     if (change(next => model.reorderMember(next, id, peers.findIndex(member => member.id === id) + Number(button.dataset.offset)))) {
-      (el['member-list'].querySelector(`[data-move="${id}"][data-offset="${button.dataset.offset}"]:not(:disabled)`) || el['member-list'].querySelector(`[data-position="${id}"]`)).focus();
+      (el['member-list'].querySelector(`[data-move="${CSS.escape(id)}"][data-offset="${button.dataset.offset}"]:not(:disabled)`) || el['member-list'].querySelector(`[data-position="${CSS.escape(id)}"]`)).focus();
     }
   } else if (button.dataset.groupAction) showGroupAction(button.dataset.groupAction);
 });
 el['member-list'].addEventListener('change', event => {
   const input = event.target;
   if (input.dataset.select) { if (input.checked) view.selected.add(input.dataset.select); else view.selected.delete(input.dataset.select); el['move-selected'].disabled = !view.selected.size; el['move-selected'].textContent = `選択した${view.selected.size}名の所属を変更`; }
-  if (input.dataset.position) { change(next => model.reorderMember(next, input.dataset.position, Number(input.value))); el['member-list'].querySelector(`[data-position="${input.dataset.position}"]`)?.focus(); }
+  if (input.dataset.position) { change(next => model.reorderMember(next, input.dataset.position, Number(input.value) - 1)); el['member-list'].querySelector(`[data-position="${CSS.escape(input.dataset.position)}"]`)?.focus(); }
 });
 el['detail-body'].addEventListener('input', event => { if (view.form && event.target.name) { view.form[event.target.name] = event.target.value; renderSummary(); } });
 el['detail-body'].addEventListener('submit', event => {
@@ -270,7 +288,7 @@ el['action-dialog'].addEventListener('click', event => {
 });
 el['action-dialog'].addEventListener('change', event => {
   const input = event.target;
-  if (input.dataset.groupPosition && change(next => model.reorderGroup(next, input.dataset.groupPosition, Number(input.value)))) { showGroupOrder(); el['action-dialog'].querySelector(`[data-group-position="${input.dataset.groupPosition}"]`).focus(); }
+  if (input.dataset.groupPosition && change(next => model.reorderGroup(next, input.dataset.groupPosition, Number(input.value) - 1))) { showGroupOrder(); el['action-dialog'].querySelector(`[data-group-position="${input.dataset.groupPosition}"]`).focus(); }
 });
 el['action-dialog'].addEventListener('submit', event => {
   event.preventDefault();

@@ -11756,6 +11756,13 @@ window.qrcode = qrcode;
 (function (global) {
     'use strict';
 
+    // 書出しと新GUIの事前検証で同じ列定義を参照する。既存CSVの形式は変更しない。
+    const format = Object.freeze({
+        title: '在席管理CSV',
+        header: Object.freeze(['グループ番号', 'グループ名', '表示順', 'id', '氏名', '内線', '携帯番号', 'Email', '業務時間', 'ステータス', '戻り時間', '明日の予定', '備考']),
+        defaultStatus: '在席'
+    });
+
     /**
      * 文字列が計算式として評価されないようにエスケープ処理を行う
      * @param {string} s
@@ -11820,12 +11827,12 @@ window.qrcode = qrcode;
      */
     function makeNormalizedCSV(cfg, data, statuses = []) {
         const rows = [];
-        rows.push(toCsvRow(['在席管理CSV']));
-        rows.push(toCsvRow(['グループ番号', 'グループ名', '表示順', 'id', '氏名', '内線', '携帯番号', 'Email', '業務時間', 'ステータス', '戻り時間', '明日の予定', '備考']));
+        rows.push(toCsvRow([format.title]));
+        rows.push(toCsvRow(format.header));
 
         // STATUSESへの依存を解決: 引数で渡されるか、グローバルから取得
         const statusList = (Array.isArray(statuses) && statuses.length > 0) ? statuses : (typeof global.STATUSES !== 'undefined' ? global.STATUSES : []);
-        const defaultStatus = statusList[0]?.value || '在席';
+        const defaultStatus = statusList[0]?.value || format.defaultStatus;
 
         (cfg.groups || []).forEach((g, gi) => {
             (g.members || []).forEach((m, mi) => {
@@ -11854,6 +11861,7 @@ window.qrcode = qrcode;
 
     // グローバルに公開
     global.CsvService = {
+        format,
         csvProtectFormula,
         toCsvRow,
         parseCSV,

@@ -8,6 +8,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>管理GUI試作 · 在席確認表</title>
   <link rel="stylesheet" href="admin.css">
+  <script defer src="../../js/services/csv.js"></script>
   <script type="module" src="app.mjs"></script>
 </head>
 <body>
@@ -30,8 +31,10 @@
         <div class="toolbar">
           <button id="add-member" class="primary">＋ メンバーを追加</button>
           <button id="add-group">＋ グループを追加</button>
-          <button disabled title="CSVの検証・取込みは後続段階で実装">CSV（準備中）</button>
+          <button id="csv">CSV入出力</button>
+          <button id="resume-edit" hidden>入力途中の編集へ戻る</button>
         </div>
+        <details class="sample-options"><summary>サンプルデータを切り替える</summary><label>確認用の名簿<select id="sample-scenario"></select></label><button id="load-sample">サンプルを表示</button><p class="hint">切替時はこの画面内の確定内容もサンプルに戻ります。</p></details>
         <div class="roster" data-detail="false">
           <aside class="groups"><h2>グループ</h2><div id="group-list"></div><button id="group-order">グループ順を変更</button></aside>
           <section class="members"><div class="list-heading"><h2 id="list-title"></h2><span id="result-count" class="pill"></span></div>
