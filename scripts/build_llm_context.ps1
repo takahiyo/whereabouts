@@ -7,6 +7,7 @@ Set-Location $root
 $files = @(
   "index.html",
   "styles.css",
+  "appearance.css",
   "print-list.css",
   "schema.sql",
   "CloudflareWorkers_worker.js",
@@ -14,6 +15,8 @@ $files = @(
   "js/auth-guard.js",
   "js/config.js",
   "js/constants/storage.js",
+  "js/constants/appearance.js",
+  "js/services/appearance.js",
   "js/constants/timing.js",
   "js/constants/ui.js",
   "js/constants/defaults.js",

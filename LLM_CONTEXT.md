@@ -33,6 +33,7 @@
 
 - `index.html`
 - `styles.css`
+- `appearance.css`
 - `print-list.css`
 - `schema.sql`
 - `CloudflareWorkers_worker.js`
@@ -40,6 +41,8 @@
 - `js/auth-guard.js`
 - `js/config.js`
 - `js/constants/storage.js`
+- `js/constants/appearance.js`
+- `js/services/appearance.js`
 - `js/constants/timing.js`
 - `js/constants/ui.js`
 - `js/constants/defaults.js`
@@ -100,6 +103,7 @@
                base-uri 'self';
                form-action 'self'">
   <link rel="stylesheet" href="styles.css?v=20260414_v2">
+  <link rel="stylesheet" href="appearance.css" media="screen">
   <link rel="stylesheet" href="print-list.css" media="print">
   <link rel="icon" href="data:,">
   
@@ -126,7 +130,15 @@
     <button id="logoutBtn" class="logout-btn" title="ログアウト">ログアウト</button>
     <button id="manualBtn" class="manual-btn" title="マニュアル">マニュアル</button>
     <button id="qrBtn" class="qr-btn" title="共有QRコード">📱 共有QRコード</button>
+    <button id="appearanceBtn" class="appearance-btn" type="button" aria-haspopup="dialog">外観</button>
   </header>
+
+  <dialog id="appearanceDialog" class="appearance-dialog" aria-labelledby="appearanceTitle">
+    <div class="appearance-heading"><h2 id="appearanceTitle">外観の設定</h2><button id="appearanceClose" type="button" class="btn-pill">閉じる</button></div>
+    <p class="appearance-help">この端末・ブラウザだけの設定です。見た目を切り替えても、在席情報や拠点の設定は変わりません。</p>
+    <fieldset class="appearance-options"><legend>デザインを選択</legend><div id="appearanceChoices"></div></fieldset>
+    <p data-appearance-message role="status" aria-live="polite"></p>
+  </dialog>
 
   <!-- 管理モーダル -->
   <div id="adminModal" class="admin-modal" aria-modal="true" role="dialog">
@@ -167,6 +179,12 @@
             <h4>⚙️ 基本設定</h4>
           </div>
           <div class="admin-grid">
+            <div class="admin-box admin-box-stacked">
+              <h4>外観の設定</h4>
+              <label class="appearance-select-label">デザイン<select data-appearance-select aria-label="管理画面のデザイン"></select></label>
+              <p class="admin-note">この端末・ブラウザに適用します。拠点共通の設定は変更しません。</p>
+              <p data-appearance-message role="status" aria-live="polite"></p>
+            </div>
             <div class="admin-box admin-box-stacked">
               <h4>📁 CSV管理</h4>
               <div class="admin-subsection">
@@ -1315,12 +1333,15 @@
   <!-- ログイン / サインアップ UI -->
   <div id="login" class="login u-hidden">
     <div id="loginForm" class="card">
+      <span class="app-eyebrow">WHEREABOUTS</span>
       <h2 id="authTitle">在席確認表</h2>
 
       <!-- 統合ログインフォーム (ID または メール) -->
       <div id="loginFormArea">
         <p class="u-font-09em u-mb-8">拠点名 または メールアドレスでログイン</p>
+        <label class="login-field" for="loginOfficeId">拠点名・メールアドレス</label>
         <input type="text" id="loginOfficeId" placeholder="オフィス名 (例: 株式会社ABC 本社) または Email" autocomplete="username" />
+        <label class="login-field" for="loginPassword">パスワード</label>
         <input type="password" id="loginPassword" placeholder="パスワード" autocomplete="current-password" />
         <button id="btnSimpleLogin" type="button" class="u-mt-16 btn-pill">ログイン</button>
         
@@ -1361,6 +1382,8 @@
       </div>
 
       <div id="loginMsg" class="login-msg" aria-live="polite"></div>
+      <label class="appearance-select-label login-appearance">デザイン<select data-appearance-select aria-label="ログイン画面のデザイン"></select></label>
+      <p data-appearance-message role="status" aria-live="polite"></p>
     </div>
   </div>
 
@@ -1402,6 +1425,8 @@
   <script src="js/config.js" defer></script>
   <!-- 定数ファイル (SSOT) - config.jsの後、globals.jsの前に読み込む -->
   <script src="js/constants/storage.js?v=v7" defer></script>
+  <script src="js/constants/appearance.js" defer></script>
+  <script src="js/services/appearance.js" defer></script>
   <script src="js/constants/timing.js" defer></script>
   <script src="js/constants/ui.js" defer></script>
   <script src="js/constants/defaults.js" defer></script>
@@ -6707,6 +6732,204 @@ td.time.need-time select:focus~.time-hint {
 
 ```
 
+### appearance.css
+
+```css
+/* [REF] HTML: login/header/admin/modal、board.jsのgroup-heading/data-group-accentと行状態;
+   JS: services/appearance.jsのhtml[data-appearance]; STATE: 表/カード/各テーマ;
+   SPLIT: LAST。画面専用で旧CSSの順序と印刷・行事の業務色を維持する。 */
+:root {
+  --ui-canvas: #eef5f5; --ui-surface: #ffffff; --ui-soft: #e4f1ee;
+  --ui-ink: #193831; --ui-muted: #4d6862; --ui-line: #bccfc9;
+  --ui-accent: #166c5c; --ui-accent-hover: #105346; --ui-heading-font: system-ui, sans-serif;
+  --ui-button-face: linear-gradient(#ffffff, #f1f8f5);
+  --ui-header-face: linear-gradient(110deg, #ffffff, #eaf6f1);
+  --ui-shadow: 0 12px 32px rgb(28 59 49 / 10%); --ui-radius: 14px;
+  --ui-danger: #a72836; --ui-danger-soft: #fff1f2;
+  --status-here-bg: #e3f4e9; --status-here-line: #23724b;
+  --status-out-bg: #fff0d6; --status-out-line: #a35b0b;
+  --status-meeting-bg: #e4edff; --status-meeting-line: #365ca9;
+  --status-remote-bg: #ede8fc; --status-remote-line: #7154a3;
+  --status-trip-bg: #def3ed; --status-trip-line: #167568;
+  --status-training-bg: #f8f2d5; --status-training-line: #79691a;
+  --status-health-bg: #ddf2f7; --status-health-line: #236d85;
+  --status-coadoc-bg: #f9e4ef; --status-coadoc-line: #995075;
+  --status-home-bg: #e8edf0; --status-home-line: #536375;
+  --status-off-bg: #fbe6e6; --status-off-line: #a13f46;
+  --group-0: #237564; --group-1: #386aab; --group-2: #8751a4;
+  --group-3: #a05e28; --group-4: #a14768; --group-5: #577525;
+  --line: var(--ui-line); --bg: var(--ui-surface); --color-border: var(--ui-line);
+  --color-text-muted: var(--ui-muted); --color-header-bg: var(--ui-surface);
+}
+:root[data-appearance="classic"] {
+  --ui-canvas: #eeeae1; --ui-surface: #fffdf7; --ui-soft: #e8e7dd;
+  --ui-ink: #253249; --ui-muted: #566071; --ui-line: #bcb9ac;
+  --ui-accent: #304a6a; --ui-accent-hover: #243951;
+  --ui-heading-font: Georgia, 'Yu Mincho', serif;
+  --ui-button-face: linear-gradient(#fffdf7, #eeece3);
+  --ui-header-face: linear-gradient(110deg, #fffdf7, #ece8dc);
+  --ui-shadow: 0 12px 32px rgb(54 49 32 / 12%); --ui-radius: 8px;
+  --status-here-bg: #e7eedf; --status-out-bg: #f7ebd2; --status-meeting-bg: #e3e9f1;
+  --status-remote-bg: #ece5ef; --status-trip-bg: #e1eee5; --status-training-bg: #f3edd8;
+  --status-health-bg: #e1eced; --status-coadoc-bg: #f0e1e7; --status-home-bg: #e6e6e1; --status-off-bg: #f2e0dd;
+}
+:root[data-appearance="metallic"] {
+  --ui-canvas: #e3e9ef; --ui-surface: #f9fbfd; --ui-soft: #dfe7ef;
+  --ui-ink: #263849; --ui-muted: #506478; --ui-line: #afbecb;
+  --ui-accent: #365e7c; --ui-accent-hover: #284a64;
+  --ui-button-face: linear-gradient(180deg, #ffffff, #dce4eb);
+  --ui-header-face: linear-gradient(115deg, #fefefe, #d2dce6 65%, #eef2f6);
+  --ui-shadow: 0 12px 32px rgb(28 45 62 / 15%); --ui-radius: 10px;
+  --status-here-bg: #deeee6; --status-out-bg: #f3e9d9; --status-meeting-bg: #dce7f4;
+  --status-remote-bg: #e7e2f1; --status-trip-bg: #dcece9; --status-training-bg: #eeeacf;
+  --status-health-bg: #dcedf1; --status-coadoc-bg: #efdfeb; --status-home-bg: #dce3ea; --status-off-bg: #f0dfe3;
+}
+body { background: var(--ui-canvas); color: var(--ui-ink); font-family: system-ui, 'Yu Gothic', sans-serif; }
+body > header {
+  background: var(--ui-header-face); border: 1px solid var(--ui-line); border-radius: var(--ui-radius);
+  padding: 12px; gap: 8px; box-shadow: var(--ui-shadow); margin-bottom: 20px;
+}
+body > header button[class], .appearance-dialog button, body .admin-card button.btn-pill,
+body .admin-row button, body .admin-subsection button, body .btn-pill,
+body #toolsModalClose, body #manualClose, body #eventClose {
+  border-radius: 8px; border: 1px solid var(--ui-line); background: var(--ui-button-face);
+  color: var(--ui-ink); font: inherit; font-size: 14px; font-weight: 650; padding: 9px 14px; min-height: 44px;
+}
+body > header button:hover, .appearance-dialog button:hover, body .btn-pill:hover {
+  background: var(--ui-soft); border-color: var(--ui-accent); transform: none;
+}
+body > header button.title-btn { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); text-align: left; overflow-wrap: anywhere; max-width: 100%; }
+body > header button.title-btn:hover { background: var(--ui-accent-hover); }
+body > header button.logout-btn { color: var(--ui-danger); background: var(--ui-danger-soft); }
+body > header #nameFilter, body > header #statusFilter {
+  min-height: 44px; border-radius: 8px; background: var(--ui-surface); border-color: var(--ui-line); color: var(--ui-ink);
+}
+body .grp-menu {
+  background: var(--ui-surface); border: 1px solid var(--ui-line); border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow); max-width: min(420px, calc(100vw - 48px));
+}
+body .grp-menu button.grp-item { background: var(--ui-button-face); border-left: 5px solid var(--group-accent, var(--ui-accent)); border-radius: 8px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+body .grp-menu button.grp-item:hover { background: var(--ui-soft); }
+body .admin-card, body .manual-card, body .member-edit-card, body .contact-dialog {
+  background: var(--ui-surface); color: var(--ui-ink); border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius); box-shadow: var(--ui-shadow);
+}
+body .admin-card-header, body .admin-tabs, body .notice-modal-header, body .tools-modal-header {
+  background: var(--ui-header-face); border-color: var(--ui-line);
+}
+body .manual-card > div:first-child { background: var(--ui-header-face); border-color: var(--ui-line); }
+body .admin-box, body .tools-item, body .notice-item { background: var(--ui-surface); border-color: var(--ui-line); border-radius: 10px; }
+body .admin-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+body .tab-btn, body .manual-tab-btn { color: var(--ui-ink); background: var(--ui-button-face); border-color: var(--ui-line); border-radius: 8px; min-height: 44px; }
+body .tab-btn.active, body .manual-tab-btn.active { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
+body .admin-row button.btn-primary, body .admin-subsection button.btn-primary,
+body .admin-row button.btn-success, body .admin-subsection button.btn-success {
+  background: var(--ui-accent); color: #fff; border-color: var(--ui-accent);
+}
+body #btnImport, body #btnRenameOffice, body #btnSetPw { background: var(--ui-soft); color: var(--ui-accent); border-color: var(--ui-line); }
+body .admin-row button.btn-danger, body .admin-subsection button.btn-danger { color: var(--ui-danger); background: var(--ui-danger-soft); }
+body .admin-modal { background: rgb(22 35 45 / 42%); }
+body input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), body select, body textarea {
+  color: var(--ui-ink); background-color: var(--ui-surface); border-color: var(--ui-line);
+}
+body .admin-card input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+  border: 1px solid var(--ui-line); border-radius: 8px; min-height: 40px; padding: 8px; box-sizing: border-box;
+}
+body a { color: var(--ui-accent); }
+body .login {
+  background: radial-gradient(ellipse at 20% 15%, var(--ui-soft), transparent 60%), var(--ui-canvas);
+  backdrop-filter: none; padding: 20px; overflow-y: auto; align-items: safe center;
+}
+#loginForm.card {
+  box-sizing: border-box; background: var(--ui-surface); color: var(--ui-ink); border-color: var(--ui-line);
+  border-radius: var(--ui-radius); box-shadow: var(--ui-shadow); gap: 16px; max-width: 440px;
+}
+#loginForm.card h2, body .admin-card h3 { color: var(--ui-ink); font-family: var(--ui-heading-font); }
+#loginForm.card p { color: var(--ui-muted); }
+.app-eyebrow { color: var(--ui-accent); text-align: center; font-size: 12px; font-weight: 750; letter-spacing: .16em; }
+.login-field { display: block; font-size: 13px; font-weight: 650; margin: 14px 0 6px; }
+#loginForm.card input { min-height: 44px; border: 1px solid var(--ui-line); border-radius: 8px; width: 100%; padding: 10px 12px; font: inherit; box-sizing: border-box; }
+#loginForm.card a { color: var(--ui-accent); }
+#loginMsg:empty { display: none; }
+#loginForm.card #btnSimpleLogin, #loginForm.card #btnAuthSignup, #loginForm.card #btnCreateOffice {
+  width: 100%; min-height: 44px; background: var(--ui-accent); color: #fff; border-color: var(--ui-accent);
+}
+#loginForm.card #btnSimpleLogin:hover { background: var(--ui-accent-hover); transform: none; }
+.appearance-select-label { display: grid; gap: 8px; font-size: 13px; font-weight: 650; }
+.appearance-select-label select { min-height: 44px; border-radius: 8px; }
+.login-appearance { border-top: 1px solid var(--ui-line); padding-top: 16px; }
+.appearance-dialog {
+  box-sizing: border-box; color: var(--ui-ink); background: var(--ui-surface); border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius); box-shadow: var(--ui-shadow); width: min(560px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px); overflow: auto; padding: 24px;
+}
+.appearance-dialog::backdrop { background: rgb(22 35 45 / 42%); }
+.appearance-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.appearance-heading h2 { font: 700 22px var(--ui-heading-font); margin: 0; }
+.appearance-help { color: var(--ui-muted); font-size: 14px; line-height: 1.7; }
+.appearance-options { border: 0; padding: 0; margin: 20px 0; min-width: 0; }
+.appearance-options legend { margin-bottom: 8px; font-weight: 650; }
+#appearanceChoices { display: grid; gap: 10px; }
+.appearance-choice {
+  display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 12px;
+  border: 1px solid var(--ui-line); border-radius: 10px; cursor: pointer; background: var(--ui-surface);
+}
+.appearance-choice:has(:checked) { border: 2px solid var(--ui-accent); padding: 11px; background: var(--ui-soft); }
+.appearance-choice input { flex: 0 0 auto; width: 20px; height: 20px; accent-color: var(--ui-accent); }
+.appearance-choice strong, .appearance-choice small { display: block; }
+.appearance-choice small { color: var(--ui-muted); line-height: 1.6; }
+.appearance-swatch { flex: 0 0 44px; height: 44px; border-radius: 8px; margin-left: auto; border: 1px solid var(--ui-line); }
+[data-preset="pastel"] .appearance-swatch { background: linear-gradient(135deg, #e4f1ee 60%, #166c5c 60%); }
+[data-preset="classic"] .appearance-swatch { background: linear-gradient(135deg, #eeeae1 60%, #304a6a 60%); }
+[data-preset="metallic"] .appearance-swatch { background: linear-gradient(135deg, #ffffff, #b8c6d3 60%, #365e7c 60%); }
+[data-appearance-message] { font-size: 13px; line-height: 1.6; color: var(--ui-muted); overflow-wrap: anywhere; }
+[data-appearance-message]:empty { display: none; }
+/* グループは帯と番号、状態はカード/行の背景と左線。双方の色を独立させる。 */
+[data-group-accent="0"] { --group-accent: var(--group-0); }
+[data-group-accent="1"] { --group-accent: var(--group-1); }
+[data-group-accent="2"] { --group-accent: var(--group-2); }
+[data-group-accent="3"] { --group-accent: var(--group-3); }
+[data-group-accent="4"] { --group-accent: var(--group-4); }
+[data-group-accent="5"] { --group-accent: var(--group-5); }
+#board .panel { background: var(--ui-surface); border-radius: var(--ui-radius); border-color: var(--ui-line); padding: 8px; }
+#board .group-heading {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 0 0 12px;
+  background: var(--ui-soft); border-left: 5px solid var(--group-accent); border-radius: 8px; font: 700 17px var(--ui-heading-font);
+}
+.group-marker { display: inline-grid; place-items: center; min-width: 28px; height: 28px; border-radius: 6px; background: var(--group-accent); color: #fff; font: 700 13px system-ui; }
+.group-name { min-width: 0; overflow-wrap: anywhere; }
+.group-count { margin-left: auto; font: 500 13px system-ui; color: var(--ui-muted); white-space: nowrap; }
+#board tbody tr { --row-bg: var(--ui-surface); --row-line: var(--ui-line); }
+#board tbody tr.st-here { --row-bg: var(--status-here-bg); --row-line: var(--status-here-line); }
+#board tbody tr.st-out { --row-bg: var(--status-out-bg); --row-line: var(--status-out-line); }
+#board tbody tr.st-meeting { --row-bg: var(--status-meeting-bg); --row-line: var(--status-meeting-line); }
+#board tbody tr.st-remote { --row-bg: var(--status-remote-bg); --row-line: var(--status-remote-line); }
+#board tbody tr.st-trip { --row-bg: var(--status-trip-bg); --row-line: var(--status-trip-line); }
+#board tbody tr.st-training { --row-bg: var(--status-training-bg); --row-line: var(--status-training-line); }
+#board tbody tr.st-health { --row-bg: var(--status-health-bg); --row-line: var(--status-health-line); }
+#board tbody tr.st-coadoc { --row-bg: var(--status-coadoc-bg); --row-line: var(--status-coadoc-line); }
+#board tbody tr.st-home { --row-bg: var(--status-home-bg); --row-line: var(--status-home-line); }
+#board tbody tr.st-off { --row-bg: var(--status-off-bg); --row-line: var(--status-off-line); }
+#board tbody tr, #board.force-cards tbody tr {
+  background: var(--row-bg) !important; box-shadow: inset 4px 0 0 var(--row-line); color: var(--ui-ink);
+}
+#board tbody td { background-color: transparent; }
+#board tbody td.status select { border-color: var(--row-line); font-weight: 650; }
+#board thead th { background: var(--ui-soft); color: var(--ui-ink); }
+@media (max-width: 600px) {
+  body > header { padding: 8px; gap: 6px; }
+  body > header button { padding: 9px 10px; }
+  #loginForm.card { padding: 24px; }
+  .appearance-dialog { padding: 18px; }
+  .appearance-swatch { flex-basis: 32px; height: 36px; }
+  #board .panel { padding: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body *, body *::before, body *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+
+```
+
 ### print-list.css
 
 ```css
@@ -8881,6 +9104,9 @@ const STORE_KEY_BASE = "presence-board-v4";
 /** お知らせ折りたたみ状態キー */
 const NOTICE_COLLAPSE_STORAGE_KEY = 'noticeAreaCollapsed';
 
+/** 外観のみの端末設定。ユーザー/拠点データを持たず、ログアウト後も保持する。 */
+const APPEARANCE_STORAGE_KEY = 'whereabouts-appearance';
+
 /**
  * 状態キャッシュキー
  */
@@ -8956,6 +9182,84 @@ if (typeof window !== 'undefined') {
   window.getColumnConfigKey = getColumnConfigKey;
   window.eventSelectionKey = eventSelectionKey;
 }
+
+```
+
+### js/constants/appearance.js
+
+```javascript
+/** 外観選択の定義。依存: なし。参照元: services/appearance、board、外観試験。色の正はappearance.css。 */
+const APPEARANCE_PRESETS = Object.freeze([
+  { id: 'pastel', label: 'パステル', description: '柔らかな青緑と、明るいカード' },
+  { id: 'classic', label: 'クラシック', description: '落ち着いた紺と、温かいアイボリー' },
+  { id: 'metallic', label: 'メタリック', description: '銀色の面と、端正なスチールブルー' }
+]);
+const APPEARANCE_UI = Object.freeze({
+  defaultPreset: 'pastel', attribute: 'appearance', groupAccentCount: 6,
+  dialog: 'appearanceDialog', open: 'appearanceBtn', close: 'appearanceClose', choices: 'appearanceChoices',
+  selects: '[data-appearance-select]', messages: '[data-appearance-message]',
+  radioName: 'appearance-preset', saved: 'このブラウザに保存しました。',
+  memoryOnly: '外観を変更しました。このブラウザでは保存できないため、再読込みすると元に戻ります。'
+});
+
+```
+
+### js/services/appearance.js
+
+```javascript
+/** 外観だけを端末に保存する。依存: constants/storage、appearance。通信・認証・共有設定を参照しない。 */
+(() => {
+  let selected = APPEARANCE_UI.defaultPreset;
+  const dialog = document.getElementById(APPEARANCE_UI.dialog);
+  const presets = new Map(APPEARANCE_PRESETS.map(preset => [preset.id, preset]));
+
+  /** @param {string} preset 候補 @returns {string} 保存値が未知でも有効な外観だけを使う */
+  function normalize(preset) { return presets.has(preset) ? preset : APPEARANCE_UI.defaultPreset; }
+
+  /** @param {string} preset 外観 @param {boolean} persist ユーザー操作時だけ保存 @returns {void} DOMを再構築せず色を切り替える */
+  function apply(preset, persist = false) {
+    selected = normalize(preset);
+    document.documentElement.dataset[APPEARANCE_UI.attribute] = selected;
+    document.querySelectorAll(APPEARANCE_UI.selects).forEach(select => { select.value = selected; });
+    dialog.querySelectorAll('input[type="radio"]').forEach(input => { input.checked = input.value === selected; });
+    let message = '';
+    if (persist) {
+      try { localStorage.setItem(APPEARANCE_STORAGE_KEY, selected); message = APPEARANCE_UI.saved; }
+      catch { message = APPEARANCE_UI.memoryOnly; }
+    }
+    document.querySelectorAll(APPEARANCE_UI.messages).forEach(element => { element.textContent = message; });
+  }
+
+  document.querySelectorAll(APPEARANCE_UI.selects).forEach(select => {
+    APPEARANCE_PRESETS.forEach(preset => {
+      const option = document.createElement('option'); option.value = preset.id; option.textContent = preset.label; select.append(option);
+    });
+    select.addEventListener('change', () => apply(select.value, true));
+  });
+  const choices = document.getElementById(APPEARANCE_UI.choices);
+  APPEARANCE_PRESETS.forEach(preset => {
+    const label = document.createElement('label'); label.className = 'appearance-choice'; label.dataset.preset = preset.id;
+    const radio = document.createElement('input'); radio.type = 'radio'; radio.name = APPEARANCE_UI.radioName; radio.value = preset.id;
+    const text = document.createElement('span'), title = document.createElement('strong'), description = document.createElement('small');
+    title.textContent = preset.label; description.textContent = preset.description; text.append(title, description);
+    const preview = document.createElement('span'); preview.className = 'appearance-swatch'; preview.setAttribute('aria-hidden', 'true');
+    label.append(radio, text, preview); choices.append(label);
+    radio.addEventListener('change', () => { if (radio.checked) apply(radio.value, true); });
+  });
+  document.getElementById(APPEARANCE_UI.open).addEventListener('click', () => dialog.showModal());
+  document.getElementById(APPEARANCE_UI.close).addEventListener('click', () => dialog.close());
+  window.addEventListener('storage', event => {
+    if (event.key === APPEARANCE_STORAGE_KEY || event.key === null) apply(event.newValue);
+  });
+  let stored;
+  try { stored = localStorage.getItem(APPEARANCE_STORAGE_KEY); } catch { /* 保存制限時も既定外観で利用可能。 */ }
+  apply(stored);
+  // 折り返す主メニューの実際の高さを使い、グループ移動先がヘッダーに隠れないようにする。
+  const header = document.querySelector('body > header');
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => document.documentElement.style.setProperty('--header-height', `${Math.ceil(header.getBoundingClientRect().height)}px`)).observe(header);
+  }
+})();
 
 ```
 
@@ -9487,7 +9791,7 @@ const AUTH_MESSAGES = Object.freeze({
  * 定数はES Modulesではなく、index.htmlのclassic scriptから順に読み込む。
  * このファイルからのimport/exportは提供していない。
  * storage.js: 保存キー、timing.js: 時間、ui.js: UI、defaults.js: 既定値、
- * column-definitions.js: 列定義、messages.js: 表示メッセージ。
+ * column-definitions.js: 列定義、messages.js: 表示メッセージ、appearance.js: 外観候補。
  * 読み込み順の正はindex.html。参照元: LLM_CONTEXT生成スクリプト。
  */
 
@@ -12628,7 +12932,14 @@ function ensureRowControls(tr) {
 /* 描画 */
 function buildPanel(g, idx, enabledKeys, cardKeys) {
   const gid = `grp-${idx}`; const sec = el('section', { class: 'panel', id: gid }); sec.dataset.groupIndex = String(idx);
-  const title = fallbackGroupTitle(g, idx); sec.appendChild(el('h3', { class: 'title', text: title }));
+  // グループの帯色・番号はジャンプメニューと共通。業務データへ色設定は保存しない。
+  sec.dataset.groupAccent = String(idx % APPEARANCE_UI.groupAccentCount);
+  const title = fallbackGroupTitle(g, idx);
+  sec.appendChild(el('h3', { class: 'title group-heading' }, [
+    el('span', { class: 'group-marker', 'aria-hidden': 'true', text: String(idx + 1) }),
+    el('span', { class: 'group-name', text: title }),
+    el('span', { class: 'group-count', text: `${g.members.length}名` })
+  ]));
   const table = el('table', { 'aria-label': `在席表（${title}）` });
   
   if (!enabledKeys) enabledKeys = getEnabledColumns();
@@ -12838,6 +13149,11 @@ function buildGroupMenu() {
   menuTitle.textContent = 'グループにジャンプ';
   menuList.appendChild(el('li', {}, [el('button', { class: 'grp-item', 'role': 'menuitem', 'data-target': 'top', text: `全体（合計：${total}名）` })]));
   GROUPS.forEach((g, i) => { const title = fallbackGroupTitle(g, i); const sub = (g && g.members && g.members.length) ? `（${g.members.length}名）` : '（0名）'; menuList.appendChild(el('li', {}, [el('button', { class: 'grp-item', 'role': 'menuitem', 'data-target': `grp-${i}` }, [title, el('span', { class: 'muted', text: ` ${sub}` })])])) });
+  // メニューと在席表で同じ色の目印を使い、色以外にも名称と番号を残す。
+  menuList.querySelectorAll('[data-target]').forEach(button => {
+    const panel = document.getElementById(button.dataset.target);
+    if (panel) button.dataset.groupAccent = panel.dataset.groupAccent;
+  });
   menuList.querySelectorAll('button.grp-item').forEach(btn => btn.addEventListener('click', () => { const id = btn.getAttribute('data-target'); closeMenu(); if (id === 'top') { window.scrollTo({ top: 0, behavior: 'smooth' }); return; } const sec = document.getElementById(id); if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
 }
 function openMenu() { menuEl.classList.add('show'); titleBtn.setAttribute('aria-expanded', 'true'); }

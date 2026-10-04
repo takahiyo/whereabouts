@@ -49,6 +49,9 @@ const STORE_KEY_BASE = "presence-board-v4";
 /** お知らせ折りたたみ状態キー */
 const NOTICE_COLLAPSE_STORAGE_KEY = 'noticeAreaCollapsed';
 
+/** 外観のみの端末設定。ユーザー/拠点データを持たず、ログアウト後も保持する。 */
+const APPEARANCE_STORAGE_KEY = 'whereabouts-appearance';
+
 /**
  * 状態キャッシュキー
  */

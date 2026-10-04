@@ -22,13 +22,16 @@ export async function runBoardLayoutChecks(browser, origin) {
   await page.waitForLoadState('networkidle');
   await page.evaluate(() => {
     document.getElementById('login').classList.add('u-hidden');
+    for (const id of ['adminBtn', 'noticesBtn', 'eventBtn', 'toolsBtn', 'logoutBtn', 'manualBtn', 'qrBtn', 'nameFilter', 'statusFilter']) document.getElementById(id).style.display = 'inline-block';
+    titleBtn.textContent = 'サンプル営業所　在席確認表';
     const columns = ['name', 'workHours', 'time', 'status', 'note', 'tomorrowPlan'];
     OFFICE_COLUMN_CONFIG = { board: columns, card: columns, popup: [], columnWidths: {}, layoutConfig: {} };
-    STATUSES = [{ value: '在席' }, { value: '帰宅' }];
+    STATUSES = DEFAULT_STATUSES.map(status => ({ ...status }));
+    statusClassMap = new Map(STATUSES.map(status => [status.value, status.class]));
     MENUS = { tomorrowPlanOptions: ['午前外出'], timeStepMinutes: 30 };
-    GROUPS = [8, 3].map((size, group) => ({ name: `確認グループ${group + 1}`, members: Array.from({ length: size }, (_, index) => ({
+    GROUPS = [8, 3].map((size, group) => ({ title: `確認グループ${group + 1}`, members: Array.from({ length: size }, (_, index) => ({
       id: `fixture-${group}-${index}`, name: index ? `確認メンバー${index + 1}` : '長い氏名と所属情報を含む表示確認メンバー',
-      workHours: '09:00-17:30', status: '在席', time: '', tomorrowPlan: '午前外出', note: '長い備考の表示確認'
+      workHours: '09:00-17:30', status: STATUSES[index % STATUSES.length].value, time: '', tomorrowPlan: '午前外出', note: '長い備考の表示確認'
     })) }));
     render();
     // inputイベントや保存を起こさず、リサイズで入力DOMが消えないことを確認する。
@@ -66,6 +69,58 @@ export async function runBoardLayoutChecks(browser, origin) {
   assert.equal(await page.locator('#board').evaluate(node => node.classList.contains('force-cards')), true);
   await page.evaluate(() => { OFFICE_COLUMN_CONFIG.layoutConfig.cardBreakpoint = 700; updateCols(); });
   assert.equal(await page.locator('#board').getAttribute('data-cols'), '3', 'Old 800–1400px forced column is removed');
+
+  await page.evaluate(() => { OFFICE_COLUMN_CONFIG.layoutConfig = {}; updateCols(); });
+  for (const preset of ['classic', 'pastel', 'metallic']) {
+    await page.locator('#appearanceBtn').click();
+    await page.locator(`#appearanceChoices input[value="${preset}"]`).check();
+    assert.equal(await page.locator('html').getAttribute('data-appearance'), preset);
+    assert.equal(await page.evaluate(() => localStorage.getItem(APPEARANCE_STORAGE_KEY)), preset);
+    assert.deepEqual(await page.locator('[data-appearance-select]').evaluateAll(selects => selects.map(select => select.value)), [preset, preset]);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#appearanceDialog').isVisible(), false);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'appearanceBtn');
+    for (const width of [390, 820, 1280, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.waitForFunction(() => lastW === getContainerWidth());
+      const colors = await page.locator('#board tbody tr').evaluateAll(rows => rows.slice(0, 8).map(row => getComputedStyle(row).backgroundColor));
+      assert.equal(new Set(colors).size, 8, `Distinct status colors: ${preset}/${width}`);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      assert.equal(await page.locator('#row-fixture-0-0 [name="note"]').inputValue(), '未保存の表示確認');
+      if (screenshots && [390, 1280].includes(width)) await page.screenshot({ path: path.join(screenshots, `${preset}-board-${width}.png`), fullPage: true });
+    }
+    await page.locator('#titleBtn').click();
+    const menuAccent = await page.locator('[data-target="grp-0"]').getAttribute('data-group-accent');
+    assert.equal(menuAccent, await page.locator('#grp-0').getAttribute('data-group-accent'));
+    if (screenshots) await page.screenshot({ path: path.join(screenshots, `${preset}-menu.png`) });
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => {
+      const admin = document.getElementById('adminModal'); admin.classList.add('show'); admin.style.display = 'flex';
+    });
+    assert.equal(await page.locator('#tabBasic [data-appearance-select]').inputValue(), preset);
+    if (screenshots) await page.screenshot({ path: path.join(screenshots, `${preset}-admin.png`) });
+    await page.evaluate(() => {
+      const admin = document.getElementById('adminModal'); admin.classList.remove('show'); admin.style.display = 'none';
+    });
+    await page.evaluate(() => document.getElementById('login').classList.remove('u-hidden'));
+    assert.equal(await page.locator('#loginForm').isVisible(), true);
+    if (screenshots) await page.screenshot({ path: path.join(screenshots, `${preset}-login.png`) });
+    await page.setViewportSize({ width: 390, height: 600 });
+    assert.equal(await page.locator('#loginForm [data-appearance-select]').isVisible(), true);
+    assert.equal(await page.evaluate(() => document.getElementById('login').scrollWidth <= innerWidth), true);
+    if (screenshots) await page.screenshot({ path: path.join(screenshots, `${preset}-login-390.png`) });
+    await page.evaluate(() => document.getElementById('login').classList.add('u-hidden'));
+  }
+  await page.reload();
+  assert.equal(await page.locator('html').getAttribute('data-appearance'), 'metallic');
+  // 未知の保存値と保存制限でも、外観以外へ作用せず利用できる。
+  await page.evaluate(() => localStorage.setItem(APPEARANCE_STORAGE_KEY, 'unknown'));
+  await page.reload();
+  assert.equal(await page.locator('html').getAttribute('data-appearance'), 'pastel');
+  await page.evaluate(() => { Storage.prototype.setItem = () => { throw new Error('Simulated storage restriction'); }; });
+  await page.locator('#loginForm [data-appearance-select]').selectOption('classic');
+  assert.equal(await page.locator('html').getAttribute('data-appearance'), 'classic');
+  assert.match(await page.locator('#loginForm [data-appearance-message]').textContent(), /保存できない/);
   assert.deepEqual(errors, []);
   assert(actions.every(action => ['publicListOffices', 'getTools'].includes(action)), 'No shared writes');
   console.log('Board layout checks passed at 15 widths: 1/2/3 card columns, table layout, input retention, existing configuration and no write requests.');

@@ -411,7 +411,14 @@ function ensureRowControls(tr) {
 /* 描画 */
 function buildPanel(g, idx, enabledKeys, cardKeys) {
   const gid = `grp-${idx}`; const sec = el('section', { class: 'panel', id: gid }); sec.dataset.groupIndex = String(idx);
-  const title = fallbackGroupTitle(g, idx); sec.appendChild(el('h3', { class: 'title', text: title }));
+  // グループの帯色・番号はジャンプメニューと共通。業務データへ色設定は保存しない。
+  sec.dataset.groupAccent = String(idx % APPEARANCE_UI.groupAccentCount);
+  const title = fallbackGroupTitle(g, idx);
+  sec.appendChild(el('h3', { class: 'title group-heading' }, [
+    el('span', { class: 'group-marker', 'aria-hidden': 'true', text: String(idx + 1) }),
+    el('span', { class: 'group-name', text: title }),
+    el('span', { class: 'group-count', text: `${g.members.length}名` })
+  ]));
   const table = el('table', { 'aria-label': `在席表（${title}）` });
   
   if (!enabledKeys) enabledKeys = getEnabledColumns();
@@ -621,6 +628,11 @@ function buildGroupMenu() {
   menuTitle.textContent = 'グループにジャンプ';
   menuList.appendChild(el('li', {}, [el('button', { class: 'grp-item', 'role': 'menuitem', 'data-target': 'top', text: `全体（合計：${total}名）` })]));
   GROUPS.forEach((g, i) => { const title = fallbackGroupTitle(g, i); const sub = (g && g.members && g.members.length) ? `（${g.members.length}名）` : '（0名）'; menuList.appendChild(el('li', {}, [el('button', { class: 'grp-item', 'role': 'menuitem', 'data-target': `grp-${i}` }, [title, el('span', { class: 'muted', text: ` ${sub}` })])])) });
+  // メニューと在席表で同じ色の目印を使い、色以外にも名称と番号を残す。
+  menuList.querySelectorAll('[data-target]').forEach(button => {
+    const panel = document.getElementById(button.dataset.target);
+    if (panel) button.dataset.groupAccent = panel.dataset.groupAccent;
+  });
   menuList.querySelectorAll('button.grp-item').forEach(btn => btn.addEventListener('click', () => { const id = btn.getAttribute('data-target'); closeMenu(); if (id === 'top') { window.scrollTo({ top: 0, behavior: 'smooth' }); return; } const sec = document.getElementById(id); if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
 }
 function openMenu() { menuEl.classList.add('show'); titleBtn.setAttribute('aria-expanded', 'true'); }

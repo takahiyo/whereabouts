@@ -23,6 +23,7 @@
                base-uri 'self';
                form-action 'self'">
   <link rel="stylesheet" href="styles.css?v=20260414_v2">
+  <link rel="stylesheet" href="appearance.css" media="screen">
   <link rel="stylesheet" href="print-list.css" media="print">
   <link rel="icon" href="data:,">
   
@@ -49,7 +50,15 @@
     <button id="logoutBtn" class="logout-btn" title="ログアウト">ログアウト</button>
     <button id="manualBtn" class="manual-btn" title="マニュアル">マニュアル</button>
     <button id="qrBtn" class="qr-btn" title="共有QRコード">📱 共有QRコード</button>
+    <button id="appearanceBtn" class="appearance-btn" type="button" aria-haspopup="dialog">外観</button>
   </header>
+
+  <dialog id="appearanceDialog" class="appearance-dialog" aria-labelledby="appearanceTitle">
+    <div class="appearance-heading"><h2 id="appearanceTitle">外観の設定</h2><button id="appearanceClose" type="button" class="btn-pill">閉じる</button></div>
+    <p class="appearance-help">この端末・ブラウザだけの設定です。見た目を切り替えても、在席情報や拠点の設定は変わりません。</p>
+    <fieldset class="appearance-options"><legend>デザインを選択</legend><div id="appearanceChoices"></div></fieldset>
+    <p data-appearance-message role="status" aria-live="polite"></p>
+  </dialog>
 
   <!-- 管理モーダル -->
   <div id="adminModal" class="admin-modal" aria-modal="true" role="dialog">
@@ -90,6 +99,12 @@
             <h4>⚙️ 基本設定</h4>
           </div>
           <div class="admin-grid">
+            <div class="admin-box admin-box-stacked">
+              <h4>外観の設定</h4>
+              <label class="appearance-select-label">デザイン<select data-appearance-select aria-label="管理画面のデザイン"></select></label>
+              <p class="admin-note">この端末・ブラウザに適用します。拠点共通の設定は変更しません。</p>
+              <p data-appearance-message role="status" aria-live="polite"></p>
+            </div>
             <div class="admin-box admin-box-stacked">
               <h4>📁 CSV管理</h4>
               <div class="admin-subsection">
@@ -1238,12 +1253,15 @@
   <!-- ログイン / サインアップ UI -->
   <div id="login" class="login u-hidden">
     <div id="loginForm" class="card">
+      <span class="app-eyebrow">WHEREABOUTS</span>
       <h2 id="authTitle">在席確認表</h2>
 
       <!-- 統合ログインフォーム (ID または メール) -->
       <div id="loginFormArea">
         <p class="u-font-09em u-mb-8">拠点名 または メールアドレスでログイン</p>
+        <label class="login-field" for="loginOfficeId">拠点名・メールアドレス</label>
         <input type="text" id="loginOfficeId" placeholder="オフィス名 (例: 株式会社ABC 本社) または Email" autocomplete="username" />
+        <label class="login-field" for="loginPassword">パスワード</label>
         <input type="password" id="loginPassword" placeholder="パスワード" autocomplete="current-password" />
         <button id="btnSimpleLogin" type="button" class="u-mt-16 btn-pill">ログイン</button>
         
@@ -1284,6 +1302,8 @@
       </div>
 
       <div id="loginMsg" class="login-msg" aria-live="polite"></div>
+      <label class="appearance-select-label login-appearance">デザイン<select data-appearance-select aria-label="ログイン画面のデザイン"></select></label>
+      <p data-appearance-message role="status" aria-live="polite"></p>
     </div>
   </div>
 
@@ -1325,6 +1345,8 @@
   <script src="js/config.js" defer></script>
   <!-- 定数ファイル (SSOT) - config.jsの後、globals.jsの前に読み込む -->
   <script src="js/constants/storage.js?v=v7" defer></script>
+  <script src="js/constants/appearance.js" defer></script>
+  <script src="js/services/appearance.js" defer></script>
   <script src="js/constants/timing.js" defer></script>
   <script src="js/constants/ui.js" defer></script>
   <script src="js/constants/defaults.js" defer></script>
