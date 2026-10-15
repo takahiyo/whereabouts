@@ -62,6 +62,15 @@ test('Tool notes display HTML as text and escape URL attributes', () => {
   assert.doesNotMatch(html, /<script>|onerror=/);
 });
 
+// 太字の互換性と、タグ・URL境界を利用したHTML注入を検証する。
+test('Tool notes preserve bold formatting and escape unsafe markup', () => {
+  assert.equal(tools.linkifyToolText('通常 <b>重要</b> <B>太字</B>'), '通常 <b>重要</b> <b>太字</b>');
+  assert.equal(tools.linkifyToolText('<b onclick=alert(1)>重要</b>'), '&lt;b onclick=alert(1)&gt;重要</b>');
+  assert.equal(tools.linkifyToolText('<b><img src=x onerror=alert(1)></b>'), '<b>&lt;img src=x onerror=alert(1)&gt;</b>');
+  assert.equal(tools.linkifyToolText('&lt;b&gt;文字&lt;/b&gt;'), '&amp;lt;b&amp;gt;文字&amp;lt;/b&amp;gt;');
+  assert.equal(tools.linkifyToolText('<b>https://example.com/</b>'), '<b><a href="https://example.com/" target="_blank" rel="noopener noreferrer">https://example.com/</a></b>');
+});
+
 test('Bare external tool URLs remain external after normalization and safety validation', () => {
   const url = tools.normalizeToolUrlValue('egpass.hatolog.jp');
   assert.equal(tools.safeToolUrl(url), 'https://egpass.hatolog.jp/');

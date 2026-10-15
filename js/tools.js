@@ -202,14 +202,23 @@ function safeToolUrl(raw) {
 }
 
 /**
- * 備考の本文をHTMLエスケープし、HTTP(S) URL部分だけリンクにする。
+ * 備考は属性なしのbタグだけ許可し、その他をエスケープしてURLをリンクにする。
  * @param {string} text 備考本文
  * @returns {string} 安全な表示用HTML
  */
 function linkifyToolText(text) {
   if (!text) return '';
   text = String(text);
-  const urlRegex = /(https?:\/\/[^\s]+)/gi;
+  // タグを先に分離し、URLが閉じタグを飲み込むことと任意HTMLの実行を防ぐ。
+  return text.split(/(<\/?b>)/gi).map(part => {
+    if (/^<\/?b>$/i.test(part)) return part.toLowerCase();
+    return linkifyToolPlainText(part);
+  }).join('');
+}
+
+/** 備考の通常テキストを安全にリンク化する。@param {string} text 本文 @returns {string} HTML */
+function linkifyToolPlainText(text) {
+  const urlRegex = /(https?:\/\/[^\s<>]+)/gi;
   let result = '', offset = 0;
   for (const match of text.matchAll(urlRegex)) {
     result += escapeHtml(text.slice(offset, match.index));
